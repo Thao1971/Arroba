@@ -186,6 +186,13 @@ export const trackingAPI = {
   getSuggestions: (dealId) => api.get(`/tracking/suggestions/${dealId}`),
 };
 
+// Coaching API
+export const coachingAPI = {
+  exclusivityCheck: (dealId, buyerId) => api.get(`/coaching/exclusivity-check/${dealId}/${buyerId}`),
+  getDealNudges: (dealId) => api.get(`/coaching/nudges/deal/${dealId}`),
+  getSellerNudges: () => api.get('/coaching/nudges'),
+};
+
 // Subscriptions API
 export const subscriptionsAPI = {
   getPlans: () => api.get('/subscriptions/plans'),

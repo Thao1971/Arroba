@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { companiesAPI, dealsAPI } from '../services/api';
+import { companiesAPI, dealsAPI, coachingAPI } from '../services/api';
 import { 
   Plus, 
   Building2, 
@@ -15,7 +15,9 @@ import {
   MessageSquare,
   FileSignature,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 
 const SellerDashboard = () => {
@@ -24,6 +26,7 @@ const SellerDashboard = () => {
   const [companies, setCompanies] = useState([]);
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [nudges, setNudges] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,6 +37,11 @@ const SellerDashboard = () => {
         ]);
         setCompanies(companiesRes.data);
         setDeals(dealsRes.data);
+        // Fetch nudges
+        try {
+          const nudgesRes = await coachingAPI.getSellerNudges();
+          setNudges(nudgesRes.data?.nudges || []);
+        } catch {}
       } catch (error) {
         console.error('Error fetching seller data:', error);
       } finally {
@@ -86,6 +94,44 @@ const SellerDashboard = () => {
             </Link>
           )}
         </div>
+
+        {/* Coaching Nudges */}
+        {nudges.length > 0 && (
+          <div className="mb-8 space-y-2" data-testid="seller-nudges">
+            <h2 className="font-bold text-sm text-slate-500 uppercase tracking-wider mb-3">Senales del sistema</h2>
+            {nudges.slice(0, 5).map((nudge, i) => (
+              <div key={nudge.id + i}
+                onClick={() => nudge.deal_id && navigate(`/seller/deal/${nudge.deal_id}`)}
+                className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors hover:shadow-sm ${
+                  nudge.priority === 'ALTA' ? 'bg-red-50 border-red-200 hover:bg-red-100' :
+                  nudge.priority === 'MEDIA' ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' :
+                  'bg-blue-50 border-blue-200 hover:bg-blue-100'
+                }`} data-testid={`seller-nudge-${nudge.id}-${i}`}>
+                {nudge.priority === 'ALTA'
+                  ? <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  : nudge.priority === 'MEDIA'
+                    ? <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                    : <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-slate-900">{nudge.title}</p>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      nudge.priority === 'ALTA' ? 'bg-red-200 text-red-800' :
+                      nudge.priority === 'MEDIA' ? 'bg-amber-200 text-amber-800' :
+                      'bg-blue-200 text-blue-800'
+                    }`}>{nudge.priority}</span>
+                  </div>
+                  <p className="text-sm text-slate-600 mt-0.5">{nudge.message}</p>
+                  {nudge.deal_title && (
+                    <p className="text-xs text-slate-400 mt-1 truncate">{nudge.deal_title}</p>
+                  )}
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 mt-1 shrink-0" />
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Onboarding Steps */}
         {!hasCompany && (

@@ -28,6 +28,7 @@ from routers.matching import router as matching_router
 from routers.dataroom import router as dataroom_router
 from routers.notifications import router as notifications_router
 from routers.tracking import router as tracking_router
+from routers.coaching import router as coaching_router
 
 # Configure logging
 logging.basicConfig(
@@ -90,6 +91,7 @@ app.include_router(matching_router, prefix="/api")
 app.include_router(dataroom_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(tracking_router, prefix="/api")
+app.include_router(coaching_router, prefix="/api")
 
 
 @app.get("/api")
@@ -106,3 +108,19 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "service": "arroba-api"}
+
+
+@app.get("/api/exports/documentacion")
+async def download_docs():
+    """Download all documentation as ZIP"""
+    from fastapi.responses import FileResponse
+    import os
+    zip_path = "/app/exports/arroba_documentacion.zip"
+    if not os.path.exists(zip_path):
+        from fastapi import HTTPException
+        raise HTTPException(404, "ZIP no encontrado. Ejecuta el seed script primero.")
+    return FileResponse(
+        zip_path,
+        media_type="application/zip",
+        filename="arroba_documentacion.zip"
+    )

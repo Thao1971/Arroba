@@ -3,14 +3,15 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { dealsAPI, companiesAPI, engagementsAPI } from '../services/api';
+import { dealsAPI, companiesAPI, engagementsAPI, coachingAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DataRoomSellerTab from '../components/DataRoomSellerTab';
 import LoiDetailedView from '../components/LoiDetailedView';
 import { 
   ArrowLeft, Eye, Users, FileSignature, FileText, CheckCircle2,
-  AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Star, X, Lock, FolderOpen
+  AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Star, X, Lock, FolderOpen,
+  AlertTriangle, Info
 } from 'lucide-react';
 
 // Status flow visualization
@@ -47,12 +48,18 @@ const ComparatorTab = ({ deal, onRefresh }) => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
   const [sortField, setSortField] = useState('created_at');
+  const [exclWarning, setExclWarning] = useState(null);
+  const [nudges, setNudges] = useState([]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await engagementsAPI.listDealEngagements(deal.deal_id);
-        setEngData(res.data);
+        const [engRes, nudgeRes] = await Promise.all([
+          engagementsAPI.listDealEngagements(deal.deal_id),
+          coachingAPI.getDealNudges(deal.deal_id),
+        ]);
+        setEngData(engRes.data);
+        setNudges(nudgeRes.data?.nudges || []);
       } catch {} finally { setLoading(false); }
     };
     load();
@@ -90,12 +97,34 @@ const ComparatorTab = ({ deal, onRefresh }) => {
   };
 
   const handleExclusivity = async (buyerId) => {
-    if (!window.confirm('¿Otorgar exclusividad a este comprador? Esto bloqueará nuevos intereses y LOIs.')) return;
+    // Coaching check — fetch warning data before confirming
+    setActionLoading(buyerId);
+    try {
+      const checkRes = await coachingAPI.exclusivityCheck(deal.deal_id, buyerId);
+      const data = checkRes.data;
+      if (!data.ready) {
+        // Show detailed warning
+        setExclWarning({ ...data, buyerId });
+        setActionLoading('');
+        return;
+      }
+      // Ready — still confirm
+      setExclWarning({ ...data, buyerId, confirmDirect: true });
+      setActionLoading('');
+    } catch {
+      // Fallback to simple confirm
+      if (!window.confirm('¿Otorgar exclusividad a este comprador?')) { setActionLoading(''); return; }
+      await doExclusivity(buyerId);
+    }
+  };
+
+  const doExclusivity = async (buyerId) => {
     setActionLoading(buyerId);
     try {
       await engagementsAPI.grantExclusivity(deal.deal_id, buyerId);
       const res = await engagementsAPI.listDealEngagements(deal.deal_id);
       setEngData(res.data);
+      setExclWarning(null);
       if (onRefresh) onRefresh();
     } catch (err) { alert(err.response?.data?.detail || 'Error'); }
     finally { setActionLoading(''); }
@@ -118,6 +147,88 @@ const ComparatorTab = ({ deal, onRefresh }) => {
 
   return (
     <div className="space-y-4" data-testid="comparator-tab">
+      {/* Exclusivity Warning Dialog */}
+      {exclWarning && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="exclusivity-warning-dialog">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
+            <div className={`px-6 py-4 ${exclWarning.ready ? 'bg-green-50 border-b border-green-200' : 'bg-amber-50 border-b border-amber-200'}`}>
+              <div className="flex items-center gap-3">
+                {exclWarning.ready
+                  ? <CheckCircle2 className="w-6 h-6 text-green-600" />
+                  : <AlertTriangle className="w-6 h-6 text-amber-600" />
+                }
+                <h3 className="font-bold text-lg">
+                  {exclWarning.ready ? 'Confirmar exclusividad' : 'Exclusividad prematura'}
+                </h3>
+              </div>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-slate-700">{exclWarning.message}</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className={`p-3 rounded-lg border ${exclWarning.criteria?.has_loi ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className="font-medium">{exclWarning.criteria?.has_loi ? 'LOI enviada' : 'Sin LOI'}</p>
+                  {exclWarning.metrics?.valuation_offer && <p className="text-xs text-slate-500">{(exclWarning.metrics.valuation_offer / 1e6).toFixed(1)}M EUR</p>}
+                </div>
+                <div className={`p-3 rounded-lg border ${exclWarning.criteria?.score_ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className="font-medium">Intent Score: {exclWarning.metrics?.intent_score}</p>
+                  <p className="text-xs text-slate-500">{exclWarning.criteria?.score_ok ? 'Suficiente' : 'Por debajo de 55'}</p>
+                </div>
+                <div className={`p-3 rounded-lg border ${exclWarning.criteria?.downloads_ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className="font-medium">{exclWarning.metrics?.dr_downloads} descargas DR</p>
+                  <p className="text-xs text-slate-500">{exclWarning.criteria?.downloads_ok ? 'Ha revisado docs' : 'Sin due diligence'}</p>
+                </div>
+                <div className={`p-3 rounded-lg border ${exclWarning.criteria?.time_ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className="font-medium">{exclWarning.metrics?.total_minutes} min invertidos</p>
+                  <p className="text-xs text-slate-500">{exclWarning.criteria?.time_ok ? 'Tiempo suficiente' : 'Menos de 10 min'}</p>
+                </div>
+              </div>
+              {exclWarning.warnings?.length > 0 && !exclWarning.ready && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="font-medium text-amber-800 text-sm mb-1">Senales de alerta:</p>
+                  <ul className="text-sm text-amber-700 space-y-1">
+                    {exclWarning.warnings.map((w, i) => <li key={i}>- {w}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 bg-slate-50 flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setExclWarning(null)} data-testid="excl-warning-cancel">
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => doExclusivity(exclWarning.buyerId)}
+                className={!exclWarning.ready ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                data-testid="excl-warning-confirm"
+              >
+                {!exclWarning.ready ? 'Otorgar de todas formas' : 'Confirmar exclusividad'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nudges */}
+      {nudges.length > 0 && (
+        <div className="space-y-2" data-testid="deal-nudges">
+          {nudges.map((nudge, i) => (
+            <div key={nudge.id + i} className={`flex items-start gap-3 p-3 rounded-lg border text-sm ${
+              nudge.priority === 'ALTA' ? 'bg-red-50 border-red-200' :
+              nudge.priority === 'MEDIA' ? 'bg-amber-50 border-amber-200' :
+              'bg-blue-50 border-blue-200'
+            }`} data-testid={`nudge-${nudge.id}`}>
+              {nudge.priority === 'ALTA'
+                ? <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                : <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              }
+              <div>
+                <p className="font-medium">{nudge.title}</p>
+                <p className="text-slate-600">{nudge.message}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex gap-3 text-sm">
           <span className="bg-blue-50 px-3 py-1 rounded-full text-blue-700 font-medium">
