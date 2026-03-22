@@ -151,6 +151,22 @@ export const matchingAPI = {
   trackClick: (dealId) => api.post(`/matching/click/${dealId}`),
 };
 
+// Data Room API
+export const dataroomAPI = {
+  getFolders: () => api.get('/dataroom/folders'),
+  uploadDocument: (dealId, formData) => api.post(`/dataroom/deals/${dealId}/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
+  }),
+  listDocuments: (dealId) => api.get(`/dataroom/deals/${dealId}/documents`),
+  deleteDocument: (docId) => api.delete(`/dataroom/documents/${docId}`),
+  downloadDocument: (docId) => api.get(`/dataroom/documents/${docId}/download`, { responseType: 'blob' }),
+  viewDocument: (docId) => api.get(`/dataroom/documents/${docId}/view`, { responseType: 'blob' }),
+  getPermissions: (dealId) => api.get(`/dataroom/deals/${dealId}/permissions`),
+  setPermissions: (dealId, buyerId, allowedFolders) => api.put(`/dataroom/deals/${dealId}/permissions/${buyerId}`, { allowed_folders: allowedFolders }),
+  getAccessLog: (dealId) => api.get(`/dataroom/deals/${dealId}/access-log`),
+};
+
 // Subscriptions API
 export const subscriptionsAPI = {
   getPlans: () => api.get('/subscriptions/plans'),

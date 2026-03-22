@@ -25,6 +25,7 @@ from routers.teaser import router as teaser_router
 from routers.taxonomy import router as taxonomy_router
 from routers.engagements import router as engagements_router
 from routers.matching import router as matching_router
+from routers.dataroom import router as dataroom_router
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +42,12 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing database...")
     await init_db()
     logger.info("Database initialized")
+    # Init object storage
+    try:
+        from services.storage_service import init_storage
+        init_storage()
+    except Exception as e:
+        logger.warning(f"Object storage init deferred: {e}")
     yield
     # Shutdown
     logger.info("Closing database connection...")
@@ -78,6 +85,7 @@ app.include_router(teaser_router, prefix="/api")
 app.include_router(taxonomy_router, prefix="/api")
 app.include_router(engagements_router, prefix="/api")
 app.include_router(matching_router, prefix="/api")
+app.include_router(dataroom_router, prefix="/api")
 
 
 @app.get("/api")

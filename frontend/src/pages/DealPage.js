@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { dealsAPI, engagementsAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import DataRoomBuyerView from '../components/DataRoomBuyerView';
 import {
   ArrowLeft, Shield, FileText, MapPin, Calendar, Users, TrendingUp,
   Check, Loader2, FileSignature, Building2, Bookmark, BookmarkCheck, Mail, ChevronRight,
@@ -366,6 +367,11 @@ const DealPage = () => {
                 <div className="flex items-center gap-2 mb-4"><FileText className="w-5 h-5 text-arroba-coral" /><h3 className="font-bold text-slate-900">Information Memorandum</h3></div>
                 <div className="prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{deal.infomemo.content}</ReactMarkdown></div>
               </div>
+            )}
+
+            {/* POST-NDA: Data Room */}
+            {hasNda && !isOwner && (
+              <DataRoomBuyerView dealId={dealId} />
             )}
 
             {/* PRE-NDA: NDA CTA */}

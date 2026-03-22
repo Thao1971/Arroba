@@ -6,9 +6,10 @@ import { useAuth } from '../context/AuthContext';
 import { dealsAPI, companiesAPI, engagementsAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import DataRoomSellerTab from '../components/DataRoomSellerTab';
 import { 
   ArrowLeft, Eye, Users, FileSignature, FileText, CheckCircle2,
-  AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Star, X, Lock
+  AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Star, X, Lock, FolderOpen
 } from 'lucide-react';
 
 // Status flow visualization
@@ -447,6 +448,7 @@ const DealManagement = () => {
             {[
               { id: 'overview', label: 'Resumen' },
               { id: 'comparator', label: 'Interesados' },
+              { id: 'dataroom', label: 'Data Room' },
               { id: 'infomemo', label: 'Infomemo' },
             ].map(tab => (
               <button
@@ -550,6 +552,10 @@ const DealManagement = () => {
 
             {activeTab === 'comparator' && (
               <ComparatorTab deal={deal} onRefresh={loadDeal} />
+            )}
+
+            {activeTab === 'dataroom' && (
+              <DataRoomSellerTab deal={deal} />
             )}
 
             {activeTab === 'infomemo' && (
