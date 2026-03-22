@@ -18,13 +18,35 @@ SESSION_EXPIRY_DAYS = 7
 
 # Helper to get current user from session
 async def get_current_user(request: Request) -> UserResponse:
-    """Get current user from session token (cookie or header)"""
+    """Get current user from session token (cookie or header) or JWT"""
     session_token = request.cookies.get("session_token")
+    jwt_token = None
+    
     if not session_token:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
-            session_token = auth_header.split(" ")[1]
+            token = auth_header.split(" ")[1]
+            # Check if it's a session token or JWT
+            if token.startswith("sess_"):
+                session_token = token
+            else:
+                jwt_token = token
     
+    # Try JWT authentication first
+    if jwt_token:
+        try:
+            payload = decode_jwt_token(jwt_token)
+            user_id = payload.get("sub")
+            user_doc = await users_collection.find_one(
+                {"user_id": user_id},
+                {"_id": 0}
+            )
+            if user_doc:
+                return UserResponse(**user_doc)
+        except ValueError:
+            pass  # JWT invalid, try session
+    
+    # Fall back to session authentication
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
