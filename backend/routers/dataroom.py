@@ -124,6 +124,22 @@ async def list_documents(
         # Track access
         await _log_access(current_user.user_id, deal_id, None, "DATA_ROOM_ACCESSED")
 
+        # In-app notification for first-time access + email placeholder
+        buyer_info = await db.users.find_one({"user_id": current_user.user_id}, {"_id": 0, "first_name": 1, "last_name": 1})
+        buyer_name = f"{buyer_info.get('first_name', '')} {buyer_info.get('last_name', '')}".strip() if buyer_info else "Comprador"
+        from services.notification_service import notify_dataroom_first_access
+        from services.email_service import send_email
+        await notify_dataroom_first_access(deal["owner_id"], deal_id, current_user.user_id, buyer_name)
+        # Email only on first access (service handles dedup)
+        seller = await db.users.find_one({"user_id": deal["owner_id"]}, {"_id": 0})
+        if seller:
+            await send_email(seller.get("email", ""), "DATA_ROOM_ACCESSED", {
+                "seller_name": seller.get("first_name", ""),
+                "buyer_name": buyer_name,
+                "deal_title": deal.get("title", deal_id),
+                "deal_url": f"/seller/deal/{deal_id}",
+            })
+
     cursor = documents_collection.find(
         {"deal_id": deal_id, "is_deleted": False},
         {"_id": 0}
@@ -218,6 +234,24 @@ async def download_document(
         await _log_access(current_user.user_id, doc["deal_id"], document_id, "DOWNLOAD")
         await track_event("DOCUMENT_DOWNLOADED", deal_id=doc["deal_id"], user_id=current_user.user_id,
                            metadata={"document_id": document_id, "folder": doc["folder"]})
+
+        # In-app notification + email placeholder for seller
+        buyer_info = await db.users.find_one({"user_id": current_user.user_id}, {"_id": 0, "first_name": 1, "last_name": 1})
+        buyer_name = f"{buyer_info.get('first_name', '')} {buyer_info.get('last_name', '')}".strip() if buyer_info else "Comprador"
+        from services.notification_service import notify_document_downloaded
+        from services.email_service import send_email
+        await notify_document_downloaded(deal["owner_id"], doc["deal_id"], current_user.user_id,
+                                          buyer_name, doc["original_filename"], doc["folder"])
+        seller = await db.users.find_one({"user_id": deal["owner_id"]}, {"_id": 0})
+        if seller:
+            await send_email(seller.get("email", ""), "DOCUMENT_DOWNLOADED", {
+                "seller_name": seller.get("first_name", ""),
+                "buyer_name": buyer_name,
+                "document_name": doc["original_filename"],
+                "folder": doc["folder"],
+                "deal_title": deal.get("title", doc["deal_id"]),
+                "deal_url": f"/seller/deal/{doc['deal_id']}",
+            })
 
     # Get file from storage
     data, content_type = get_object(doc["storage_path"])

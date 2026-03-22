@@ -167,6 +167,14 @@ export const dataroomAPI = {
   getAccessLog: (dealId) => api.get(`/dataroom/deals/${dealId}/access-log`),
 };
 
+// Notifications API
+export const notificationsAPI = {
+  list: (unreadOnly = false) => api.get(`/notifications?unread_only=${unreadOnly}`),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (notifId) => api.post(`/notifications/${notifId}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
+};
+
 // Subscriptions API
 export const subscriptionsAPI = {
   getPlans: () => api.get('/subscriptions/plans'),

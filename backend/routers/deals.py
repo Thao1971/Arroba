@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
-from database import deals_collection, companies_collection, ndas_collection, lois_collection
+from database import deals_collection, companies_collection, ndas_collection, lois_collection, users_collection
 from models.deal import (
     DealCreate, DealInDB, DealResponse, DealUpdate, DealPublicResponse,
     Teaser, StatusHistory, AccessRequest, NdaSigned, Shortlist, Exclusivity
@@ -363,7 +363,21 @@ async def sign_nda(
     # Track event
     from services.events_service import track_event
     await track_event("NDA_SIGNED", deal_id=deal_id, user_id=current_user.user_id, ip=real_ip)
-    
+
+    # In-app notification + email placeholder for seller
+    from services.notification_service import notify_nda_signed
+    from services.email_service import send_email
+    buyer_name = f"{current_user.first_name or ''} {current_user.last_name or ''}".strip() or "Comprador"
+    await notify_nda_signed(deal["owner_id"], deal_id, current_user.user_id, buyer_name)
+    seller = await users_collection.find_one({"user_id": deal["owner_id"]}, {"_id": 0})
+    if seller:
+        await send_email(seller.get("email", ""), "NDA_SIGNED", {
+            "seller_name": seller.get("first_name", ""),
+            "buyer_name": buyer_name,
+            "deal_title": deal.get("title", deal_id),
+            "deal_url": f"/seller/deal/{deal_id}",
+        })
+
     return {"message": "NDA signed successfully", "nda_id": nda.nda_id, "has_access": True}
 
 

@@ -109,6 +109,22 @@ async def submit_interest(
     await track_event("INTEREST_SUBMITTED", deal_id=data.deal_id,
                       user_id=current_user.user_id, ip=ip)
 
+    # In-app notification + email placeholder for seller
+    from services.notification_service import notify_interest_submitted
+    from services.email_service import send_email
+    await notify_interest_submitted(deal["owner_id"], data.deal_id, current_user.user_id,
+                                     engagement.buyer_name)
+    seller = await users_collection.find_one({"user_id": deal["owner_id"]}, {"_id": 0})
+    if seller:
+        await send_email(seller.get("email", ""), "INTEREST_SUBMITTED", {
+            "seller_name": seller.get("first_name", ""),
+            "buyer_name": engagement.buyer_name,
+            "deal_title": deal.get("title", deal.get("deal_id")),
+            "operation_type": data.operation_type or "",
+            "valuation_range": f"{data.valuation_range_min or '?'} - {data.valuation_range_max or '?'}€",
+            "deal_url": f"/seller/deal/{data.deal_id}",
+        })
+
     return {"message": "Interés enviado correctamente", "engagement_id": engagement.engagement_id}
 
 
@@ -155,6 +171,24 @@ async def upgrade_to_loi(
 
     await track_event("LOI_SUBMITTED", deal_id=engagement["deal_id"],
                       user_id=current_user.user_id, ip=ip.split(",")[0].strip())
+
+    # In-app notification + email placeholder for seller
+    from services.notification_service import notify_loi_submitted
+    from services.email_service import send_email
+    buyer_info = await users_collection.find_one({"user_id": current_user.user_id}, {"_id": 0})
+    buyer_name = f"{buyer_info.get('first_name', '')} {buyer_info.get('last_name', '')}".strip() if buyer_info else "Comprador"
+    await notify_loi_submitted(deal["owner_id"], engagement["deal_id"], current_user.user_id,
+                                buyer_name, data.valuation_offer)
+    seller = await users_collection.find_one({"user_id": deal["owner_id"]}, {"_id": 0})
+    if seller:
+        await send_email(seller.get("email", ""), "LOI_SUBMITTED", {
+            "seller_name": seller.get("first_name", ""),
+            "buyer_name": buyer_name,
+            "deal_title": deal.get("title", deal.get("deal_id")),
+            "valuation_offer": str(data.valuation_offer or ""),
+            "structure": data.structure or "",
+            "deal_url": f"/seller/deal/{engagement['deal_id']}",
+        })
 
     return {"message": "LOI enviado correctamente", "engagement_id": engagement_id}
 

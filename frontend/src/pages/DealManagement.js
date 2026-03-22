@@ -7,6 +7,7 @@ import { dealsAPI, companiesAPI, engagementsAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DataRoomSellerTab from '../components/DataRoomSellerTab';
+import LoiDetailedView from '../components/LoiDetailedView';
 import { 
   ArrowLeft, Eye, Users, FileSignature, FileText, CheckCircle2,
   AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Star, X, Lock, FolderOpen
@@ -448,6 +449,7 @@ const DealManagement = () => {
             {[
               { id: 'overview', label: 'Resumen' },
               { id: 'comparator', label: 'Interesados' },
+              { id: 'loi-detail', label: 'LOIs' },
               { id: 'dataroom', label: 'Data Room' },
               { id: 'infomemo', label: 'Infomemo' },
             ].map(tab => (
@@ -556,6 +558,10 @@ const DealManagement = () => {
 
             {activeTab === 'dataroom' && (
               <DataRoomSellerTab deal={deal} />
+            )}
+
+            {activeTab === 'loi-detail' && (
+              <LoiDetailedView deal={deal} />
             )}
 
             {activeTab === 'infomemo' && (

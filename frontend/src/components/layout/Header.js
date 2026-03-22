@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { User, ChevronDown } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -217,8 +218,9 @@ const Header = () => {
             ))}
           </nav>
 
-          {/* Right Side - Mi cuenta */}
-          <div className="flex items-center gap-4">
+          {/* Right Side - Notifications + Mi cuenta */}
+          <div className="flex items-center gap-3">
+            <NotificationBell />
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
