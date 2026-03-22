@@ -43,23 +43,38 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 - [x] DEMO_SCENARIOS.md — Escenarios mapeados a datos reales del seed
 - [x] FLOWS.md — Flujos funcionales completos (Buyer, Seller, Advisor, Admin)
 - [x] ARCHITECTURE.md — Documentación técnica del sistema
-- [x] PLAYBOOK_OPERACION.md — Playbook de operación real (Advisor + Seller directo) con 18 fricciones priorizadas
+- [x] PLAYBOOK_OPERACION.md — Playbook de operación real (Advisor + Seller directo) con 18 fricciones
+- [x] MODULOS_SISTEMA.md — Diseño de 5 módulos (Coaching, Signal Clarity, Deal Health, Readiness, Communication)
+
+### Fase 4 — Seller Coaching System v1 (COMPLETADA 22 Mar 2026)
+- [x] Warning de exclusividad prematura (pre-check con 4 criterios: LOI, score, DR downloads, tiempo)
+- [x] Nudges contextuales: NC-01 deal sin tracción, NC-02 interés sin conversión, NC-03 LOI sin DD, NC-04 buyer inactivo, NC-05 exclusividad sin progreso
+- [x] Dashboard seller con nudges cross-deal (priorizados ALTA/MEDIA/BAJA)
+- [x] Comparador de deal con nudges específicos del deal
+- [x] Endpoint de exportación de documentación (/api/exports/documentacion → ZIP)
 
 ---
 
 ## Backlog Priorizado
 
-### P0 (Próximo — del Playbook)
-- [ ] #13 Warning antes de exclusividad prematura (bajo esfuerzo, alto impacto)
-- [ ] #5+#8 Alertas de deal sin tracción + last active del buyer
-- [ ] #4 DR readiness check antes de publicar
+### P0 (Próximo)
 - [ ] Internal Deal Score — Score backend para ranking/matching (NO público)
 - [ ] Soft Signals UI — Badges en marketplace: "Alta actividad", "Proceso avanzado"
 
-### P1
-- [ ] #9 Comparador visual de LOIs (tabla lado a lado)
-- [ ] #18 Nudges contextuales para seller sin advisor
-- [ ] #10 Intent score con decay temporal
+### P1 — Deal Health System
+- [ ] Intent score con decay temporal
+- [ ] Alertas de estado en background (deal estancado, buyer inactivo)
+- [ ] Deal status monitor (verde/amarillo/rojo)
+
+### P1 — Deal Readiness
+- [ ] DR readiness check antes de publicar (checklist pre-publicación)
+
+### P1 — Buyer Signal Clarity
+- [ ] LOI Comparator visual (tabla lado a lado)
+- [ ] Activity dashboard por buyer con last_active
+- [ ] Intent score con desglose visual
+
+### P1 — Otros
 - [ ] Deal state transitions UI completa
 - [ ] PDF export infomemo
 
