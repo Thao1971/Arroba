@@ -1,100 +1,79 @@
-# ARROBA - Product Requirements Document (PRD)
-
-## Version: 1.8.0
-## Last Updated: Marzo 2026
+# PRD.md — Arroba Platform
+## Product Requirements Document
 
 ---
 
-## 1. Problem Statement
+## Problema Original
+Construir "Arroba", una plataforma para comprar y vender agencias digitales. El enfoque ha estado en el flujo E2E del Buyer, optimización de conversión y herramientas de toma de decisiones.
 
-Plataforma de compraventa y fusión de agencias digitales (Arroba).
-- **Discovery**: Marketplace + matching engine
-- **Transaccional**: NDA → Infomemo → Data Room → Interest → LOI → Shortlist → Exclusivity → DD
-- **Señales**: Intención real = matching + engagement + actividad DR + tiempo invertido
-- **Decisión asistida**: Auto-shortlist suggestion engine guía al seller
-
----
-
-## 2. What's Been Implemented
-
-### v1.0-v1.3 — Foundation
-Auth, Design, 60+ endpoints, Stripe, Teaser/Infomemo AI, NDA, Taxonomy, Interest/LOI, Comparator, Shortlist, Exclusivity
-
-### v1.4 — Buyer Profile & Matching
-Onboarding (Estratégico/Financiero subtypes), affinity badges, profile protection
-
-### v1.5 — Data Room
-Upload (Emergent Object Storage), 7 folders + subcategories, per-buyer folder access control, tracking
-
-### v1.6 — Notifications
-In-app notifications (high-signal), NotificationBell, email scaffolding (SendGrid ready)
-
-### v1.7 — Intent Scoring
-TIME_SPENT_ON_DEAL (visibility+activity detection), buyer_intent_score (0-100), Buyer Dashboard "Mis Procesos"
-
-### v1.8 — Auto-Shortlist Suggestion Engine (Current)
-- **Classification engine** (strict criteria):
-  - `RECOMMENDED_SHORTLIST`: LOI + alta intención + ≥1 DR download
-  - `CONSIDER`: Alta sin LOI, o LOI con actividad limitada
-  - `LOW_PRIORITY`: Baja intención
-- **Exclusivity suggestion** (very strict): LOI + alta + ≥2 downloads + ≥20min DR time
-- **System recommendation banner**: "Te recomendamos shortlistar X buyers" + CTA
-- **Exclusivity banner**: "Candidato para exclusividad" + CTA
-- **Badges with reason tooltips**: Click shows factor breakdown + score
-- **Quick filters**: Todos | Con LOI | Recomendados | Alta intención
-- **Inline actions**: Shortlist | Descartar | Exclusividad | Quitar
-- **Suggested actions per buyer**: "Enviar a shortlist" / "Esperar más actividad" / "Descartar"
-- **Shortlist limit**: Max 3, counter shows x/3
-- **Never auto-applies** — always suggests
-- **Events**: SHORTLIST_SUGGESTED, EXCLUSIVITY_SUGGESTED
-- **Recalculates on**: new LOI, new download, time thresholds, shortlist changes
+## Usuarios
+- **Buyers**: PE, VC, Family Office, Estratégicos, Holdings que buscan adquirir agencias digitales
+- **Sellers**: Dueños de agencias digitales que quieren vender
+- **Advisors**: Asesores M&A que gestionan mandatos (scaffold)
+- **Admin**: Gestión de plataforma (scaffold)
 
 ---
 
-## 3. Complete Decision Chain
+## Funcionalidades Implementadas
 
-```
-Buyer Activity → Signals → Intent Score → Classification → Suggestion → Seller Decision
-                                                                          ↓
-                                                              Shortlist → Exclusivity → DD → Close
-```
+### Fase 1 — Core Platform
+- [x] Auth (JWT + Sessions + Google OAuth via Emergent)
+- [x] Buyer Profile & Onboarding
+- [x] Seller Profile & Company Management
+- [x] Deal CRUD (Draft → Published)
+- [x] AI Teaser Generation (GPT-5.2)
+- [x] AI Infomemo Generation (GPT-5.2)
+- [x] Marketplace (listado público de deals)
+- [x] NDA digital flow
+- [x] Taxonomía oficial BUD (CIS)
+
+### Fase 2 — Buyer E2E Flow
+- [x] Interest/LOI unified engagement model
+- [x] LOI Detailed View (comparador para seller)
+- [x] Matching Engine (buyer-deal scoring 0-100)
+- [x] Data Room (upload, download, folders, access control via Emergent Object Storage)
+- [x] Time Tracking (useTimeTracker hook, heartbeat 30s)
+- [x] Intent Scoring (0-100 basado en actividad)
+- [x] Auto-Shortlist Suggestion Engine (RECOMMENDED_SHORTLIST, CONSIDER, LOW_PRIORITY)
+- [x] In-App Notifications (high-signal events)
+- [x] Decoupled Email Scaffolding (SendGrid placeholder)
+
+### Fase 3 — Auditoría y Demo Data (COMPLETADA 22 Mar 2026)
+- [x] Seed Script (`seed_demo.py`) — 10 historias completas con edge cases
+- [x] DEMO_SCENARIOS.md — Escenarios mapeados a datos reales del seed
+- [x] FLOWS.md — Flujos funcionales completos (Buyer, Seller, Advisor, Admin)
+- [x] ARCHITECTURE.md — Documentación técnica del sistema
 
 ---
 
-## 4. Prioritized Backlog
+## Backlog Priorizado
 
-### Done (all 100% tested)
-- [x] Full engagement system
-- [x] Buyer profile + matching
-- [x] Data Room
-- [x] Notifications
-- [x] Intent scoring + time tracking
-- [x] Auto-shortlist suggestion engine
-- [x] Buyer Dashboard "Mis Procesos"
-- [x] Email scaffolding (ready for SendGrid)
+### P0 (Próximo)
+- [ ] Internal Deal Score — Score backend para ranking/matching (NO público)
+- [ ] Soft Signals UI — Badges en marketplace: "Alta actividad", "Proceso avanzado" (sin números)
 
-### P1 — Next
-- [ ] Activate SendGrid (waiting for: SENDGRID_API_KEY + SENDGRID_FROM_EMAIL)
-- [ ] Request meeting flow
-- [ ] Advisor dashboard
+### P1
+- [ ] Deal state transitions UI completa
+- [ ] Admin panel / Advisor dashboard
+- [ ] PDF export infomemo
 
 ### P2
-- [ ] Deal state transitions UI (Evaluation → DD → Close)
-- [ ] Admin panel
-- [ ] PDF export infomemo
-- [ ] Document versioning in Data Room (v2)
+- [ ] Activar SendGrid real (cuando user proporcione keys)
+- [ ] Playbook de uso real (cómo usar Arroba en operación real paso a paso)
+- [ ] Dashboard analytics para seller
 
 ---
 
-## 5. Key API Endpoints
+## Stack Técnico
+- Frontend: React 18 + Tailwind + Shadcn/UI
+- Backend: FastAPI (Python 3.11) + MongoDB (Motor async)
+- Storage: Emergent Object Storage
+- AI: OpenAI GPT-5.2 (Emergent LLM Key)
+- Auth: JWT + Sessions + Emergent Google OAuth
 
-### Suggestions (v1.8)
-- `GET /api/tracking/suggestions/{dealId}` — Full classification + recommendation + exclusivity suggestion
-
-### Tracking (v1.7)
-- `POST /api/tracking/time` — Record time (deal_page/infomemo/data_room)
-- `GET /api/tracking/intent/{dealId}` — All buyers intent scores
-
----
-
-*Documento mantenido por el equipo de desarrollo de Arroba*
+## Integraciones
+- OpenAI GPT-5.2 (Emergent LLM Key) — Activo
+- Emergent Object Storage — Activo
+- Iberinform — Activo (test credentials)
+- Stripe — Scaffold (test key)
+- SendGrid — MOCKEADO (placeholder)
