@@ -5,19 +5,19 @@ import { ArrobaLogo } from './Header';
 const Footer = () => {
   return (
     <footer className="bg-slate-900 text-white" data-testid="main-footer">
-      <div className="container mx-auto px-4 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+      <div className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
-          <div className="space-y-4">
-            <ArrobaLogo color="#FFFFFF" size={24} />
+          <div>
+            <ArrobaLogo color="#FFFFFF" size={24} showTagline={false} />
+            <p className="text-xs text-slate-500 mt-1">Compra y vende agencias</p>
             <p className="text-sm text-slate-400 mt-4">
-              La plataforma líder de compraventa y fusión de agencias digitales en España y Latinoamérica.
+              La plataforma líder de compraventa y fusión de agencias digitales.
             </p>
           </div>
 
           {/* Platform */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider">Plataforma</h4>
             <ul className="space-y-3">
               <li>
                 <Link to="/marketplace" className="text-sm text-slate-400 hover:text-white transition-colors">
@@ -25,13 +25,13 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Planes y Precios
+                <Link to="/how-it-works" className="text-sm text-slate-400 hover:text-white transition-colors">
+                  Cómo Funciona
                 </Link>
               </li>
               <li>
-                <Link to="/how-it-works" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Cómo Funciona
+                <Link to="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
+                  Planes y Precios
                 </Link>
               </li>
             </ul>
@@ -39,7 +39,6 @@ const Footer = () => {
 
           {/* Company */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider">Compañía</h4>
             <ul className="space-y-3">
               <li>
                 <Link to="/about" className="text-sm text-slate-400 hover:text-white transition-colors">
@@ -61,7 +60,6 @@ const Footer = () => {
 
           {/* Legal */}
           <div>
-            <h4 className="font-semibold mb-4 text-sm uppercase tracking-wider">Legal</h4>
             <ul className="space-y-3">
               <li>
                 <Link to="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">
@@ -75,18 +73,18 @@ const Footer = () => {
               </li>
               <li>
                 <Link to="/cookies" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Política de Cookies
+                  Cookies
                 </Link>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-slate-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-sm text-slate-500">
+        <div className="border-t border-slate-800 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center">
+          <p className="text-xs text-slate-500">
             © {new Date().getFullYear()} Arroba. Todos los derechos reservados.
           </p>
-          <p className="text-sm text-slate-500 mt-4 md:mt-0">
+          <p className="text-xs text-slate-500 mt-2 md:mt-0">
             Una compañía de <a href="https://budadvisors.com" target="_blank" rel="noopener noreferrer" className="text-arroba-coral hover:underline">BUD Advisors</a>
           </p>
         </div>

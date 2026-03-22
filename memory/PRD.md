@@ -20,6 +20,12 @@ Construir una plataforma de compraventa y fusión de agencias digitales (Arroba)
 - Advisor: Incluido en v1
 - Infomemo: Generación con IA
 
+### Navigation Structure (Updated Jan 2026)
+- Header: Logo "arroba" + tagline "Compra y vende agencias"
+- Main Nav: Comprar | Vender | Fusionarse (each with mega-dropdown)
+- Right: Mi cuenta
+- Dropdown includes: Inversores, Listado de agencias, Planes, Footer links
+
 ---
 
 ## 2. User Personas
@@ -85,11 +91,13 @@ Construir una plataforma de compraventa y fusión de agencias digitales (Arroba)
 
 #### Frontend (React + Tailwind)
 - ✅ Design System con colores Arroba (coral, blue, yellow, green)
-- ✅ Tipografía IBM Plex Sans
-- ✅ Logo pixelado/dots
-- ✅ Componentes UI base (Button, Input, Select, Card)
-- ✅ Layout (Header, Footer)
-- ✅ Páginas: Home, Marketplace, Login, Register, BuyerDashboard, SellerDashboard, AuthCallback
+- ✅ Tipografía IBM Plex Sans + serif italic para headlines
+- ✅ Logo pixelado/dots con tagline
+- ✅ Componentes UI base (Button, Input, Select, Card, Navigation Menu)
+- ✅ Layout (Header con mega-dropdowns, Footer)
+- ✅ Páginas: Home (nuevo diseño), Marketplace, Login, Register, BuyerDashboard, SellerDashboard, AuthCallback
+- ✅ Navigation: Comprar | Vender | Fusionarse con dropdowns
+- ✅ Hero: Cards de agencia y contacto
 - ✅ Context de autenticación
 
 #### Integraciones
