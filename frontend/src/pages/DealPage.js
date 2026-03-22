@@ -11,6 +11,7 @@ import { dealsAPI, engagementsAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DataRoomBuyerView from '../components/DataRoomBuyerView';
+import useTimeTracker from '../hooks/useTimeTracker';
 import {
   ArrowLeft, Shield, FileText, MapPin, Calendar, Users, TrendingUp,
   Check, Loader2, FileSignature, Building2, Bookmark, BookmarkCheck, Mail, ChevronRight,
@@ -217,6 +218,15 @@ const DealPage = () => {
   const [showLoiForm, setShowLoiForm] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  const hasNda = deal?.has_nda;
+  const isOwner = deal?.is_owner;
+  const isBuyer = isAuthenticated && user?.role === 'buyer';
+
+  // Time tracking — only for authenticated buyers
+  useTimeTracker(dealId, 'deal_page', isBuyer && !isOwner);
+  useTimeTracker(dealId, 'infomemo', isBuyer && hasNda && !isOwner);
+  useTimeTracker(dealId, 'data_room', isBuyer && hasNda && !isOwner);
+
   const fetchDeal = useCallback(async () => {
     try {
       setLoading(true);
@@ -287,8 +297,6 @@ const DealPage = () => {
   }
 
   const teaser = deal?.teaser || {};
-  const hasNda = deal?.has_nda;
-  const isOwner = deal?.is_owner;
   const hasEngagement = engagement?.has_engagement;
   const engStage = engagement?.stage;
   const engType = engagement?.type;

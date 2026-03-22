@@ -142,6 +142,7 @@ export const engagementsAPI = {
   unsaveDeal: (dealId) => api.delete(`/engagements/save/${dealId}`),
   checkSaved: (dealId) => api.get(`/engagements/save/${dealId}/status`),
   listSaved: () => api.get('/engagements/saved'),
+  getMyProcesses: () => api.get('/engagements/my-processes'),
 };
 
 // Matching API
@@ -173,6 +174,15 @@ export const notificationsAPI = {
   unreadCount: () => api.get('/notifications/unread-count'),
   markRead: (notifId) => api.post(`/notifications/${notifId}/read`),
   markAllRead: () => api.post('/notifications/read-all'),
+};
+
+// Time Tracking & Intent API
+export const trackingAPI = {
+  recordTime: (dealId, section, durationSeconds, sessionId) =>
+    api.post('/tracking/time', { deal_id: dealId, section, duration_seconds: durationSeconds, session_id: sessionId }),
+  getBuyerTime: (dealId, buyerId) => api.get(`/tracking/time/${dealId}/${buyerId}`),
+  getDealIntent: (dealId) => api.get(`/tracking/intent/${dealId}`),
+  getBuyerIntent: (dealId, buyerId) => api.get(`/tracking/intent/${dealId}/${buyerId}`),
 };
 
 // Subscriptions API

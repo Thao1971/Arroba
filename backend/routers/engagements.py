@@ -516,3 +516,51 @@ async def check_saved_status(
         {"_id": 0}
     )
     return {"saved": saved is not None}
+
+
+
+@router.get("/my-processes")
+async def get_my_processes(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get all deals where buyer has an active engagement (Mis Procesos)."""
+    cursor = engagements_collection.find(
+        {"buyer_id": current_user.user_id},
+        {"_id": 0}
+    ).sort("updated_at", -1)
+    engagements = await cursor.to_list(50)
+
+    processes = []
+    for eng in engagements:
+        deal = await deals_collection.find_one({"deal_id": eng["deal_id"]}, {"_id": 0})
+        if not deal:
+            continue
+        teaser = deal.get("teaser_full", deal.get("teaser", {}))
+
+        # Determine suggested next step
+        next_step = None
+        if eng["stage"] == "SUBMITTED" and eng["type"] == "INTEREST":
+            next_step = {"action": "Revisar Data Room", "href": f"/marketplace/{eng['deal_id']}"}
+        elif eng["stage"] == "VIEWED" and eng["type"] == "INTEREST":
+            next_step = {"action": "Enviar LOI", "href": f"/marketplace/{eng['deal_id']}"}
+        elif eng["stage"] == "SHORTLISTED":
+            next_step = {"action": "Preparar Due Diligence", "href": f"/marketplace/{eng['deal_id']}"}
+        elif eng["stage"] == "EXCLUSIVITY":
+            next_step = {"action": "Avanzar Due Diligence", "href": f"/marketplace/{eng['deal_id']}"}
+
+        processes.append({
+            "engagement_id": eng["engagement_id"],
+            "deal_id": eng["deal_id"],
+            "type": eng["type"],
+            "stage": eng["stage"],
+            "operation_type": eng.get("operation_type"),
+            "valuation_offer": eng.get("valuation_offer"),
+            "created_at": eng.get("created_at"),
+            "updated_at": eng.get("updated_at"),
+            "deal_title": teaser.get("title") or teaser.get("headline") or "Oportunidad",
+            "deal_sector": teaser.get("sector_display", "Digital"),
+            "deal_location": teaser.get("location") or teaser.get("geography_display", ""),
+            "next_step": next_step,
+        })
+
+    return {"processes": processes, "total": len(processes)}

@@ -27,6 +27,7 @@ from routers.engagements import router as engagements_router
 from routers.matching import router as matching_router
 from routers.dataroom import router as dataroom_router
 from routers.notifications import router as notifications_router
+from routers.tracking import router as tracking_router
 
 # Configure logging
 logging.basicConfig(
@@ -88,6 +89,7 @@ app.include_router(engagements_router, prefix="/api")
 app.include_router(matching_router, prefix="/api")
 app.include_router(dataroom_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
+app.include_router(tracking_router, prefix="/api")
 
 
 @app.get("/api")
