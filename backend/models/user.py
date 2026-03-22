@@ -5,8 +5,8 @@ import uuid
 
 # Role types
 RoleType = Literal["buyer", "seller", "advisor", "admin"]
-BuyerType = Literal["strategic", "financial_pe", "family_office", "search_fund", "independent_sponsor", "vc"]
-OperationType = Literal["acquisition_control", "minority", "merger", "investment"]
+BuyerType = Literal["strategic", "financial_pe", "financial_fo", "financial_vc", "financial_holding", "other"]
+OperationType = Literal["full_sale", "partial_sale", "merger"]
 ControlPreference = Literal["control", "minority", "flexible"]
 Urgency = Literal["low", "medium", "high"]
 
@@ -22,10 +22,12 @@ class BuyerProfile(BaseModel):
     revenue_range_max: Optional[float] = None
     ebitda_range_min: Optional[float] = None
     ebitda_range_max: Optional[float] = None
-    sectors: List[str] = []
+    sectors: List[str] = []  # legacy
+    taxonomy_categories: List[str] = []  # official BUD taxonomy IDs
     geographies: List[str] = []
     urgency: Urgency = "medium"
     control_preference: ControlPreference = "flexible"
+    profile_complete: bool = False
 
 class SellerProfile(BaseModel):
     company_id: Optional[str] = None
@@ -106,6 +108,7 @@ class UpdateBuyerProfile(BaseModel):
     ebitda_range_min: Optional[float] = None
     ebitda_range_max: Optional[float] = None
     sectors: Optional[List[str]] = None
+    taxonomy_categories: Optional[List[str]] = None
     geographies: Optional[List[str]] = None
     urgency: Optional[Urgency] = None
     control_preference: Optional[ControlPreference] = None

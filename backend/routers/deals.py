@@ -687,12 +687,9 @@ async def get_activation_preview(
         {"_id": 0}
     )
 
-    # Basic buyer matching
-    from services.events_service import count_compatible_buyers
-    sectors = company.get("sectors", []) if company else []
-    taxonomy_cats = company.get("taxonomy_categories", []) if company else []
-    all_sectors = sectors + taxonomy_cats
-    compatible_buyers = await count_compatible_buyers(all_sectors)
+    # Real matching data
+    from services.matching_service import get_compatible_buyers_for_deal
+    buyer_stats = await get_compatible_buyers_for_deal(deal_id)
 
     teaser = deal.get("teaser_full") or deal.get("teaser", {})
     infomemo = deal.get("infomemo")
@@ -704,11 +701,20 @@ async def get_activation_preview(
         "infomemo_preview": infomemo.get("content", "")[:500] + "..." if infomemo and infomemo.get("content") else None,
         "has_teaser": bool(teaser and teaser.get("title", teaser.get("headline"))),
         "has_infomemo": bool(infomemo and infomemo.get("content")),
-        "compatible_buyers_count": compatible_buyers,
-        "compatible_buyers_message": (
-            f"Hay {compatible_buyers} buyers potencialmente compatibles con tu agencia"
-            if compatible_buyers > 0
-            else "Tenemos buyers activos buscando este tipo de compañías"
+        "compatible_buyers": buyer_stats,
+        "compatible_buyers_high": buyer_stats["high"],
+        "compatible_buyers_medium": buyer_stats["medium"],
+        "compatible_buyers_message_high": (
+            f"{buyer_stats['high']} buyers altamente compatibles"
+            if buyer_stats["high"] > 0 else None
+        ),
+        "compatible_buyers_message_medium": (
+            f"{buyer_stats['medium']} buyers potencialmente compatibles"
+            if buyer_stats["medium"] > 0 else None
+        ),
+        "compatible_buyers_fallback": (
+            "Tenemos buyers activos buscando este tipo de compañías"
+            if buyer_stats["total"] == 0 else None
         ),
         "readiness_score": deal.get("readiness_score", 0),
         "readiness_checklist": deal.get("readiness_checklist", []),

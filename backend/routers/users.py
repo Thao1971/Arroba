@@ -52,14 +52,19 @@ async def update_buyer_profile(
     if current_user.role != "buyer":
         raise HTTPException(status_code=400, detail="User is not a buyer")
     
-    # Get current profile or create new
     current_profile = current_user.buyer_profile or BuyerProfile()
-    
-    # Update only provided fields
     profile_dict = current_profile.model_dump()
     for key, value in profile_data.model_dump().items():
         if value is not None:
             profile_dict[key] = value
+    
+    # Compute profile_complete
+    profile_dict["profile_complete"] = bool(
+        profile_dict.get("type") and
+        profile_dict.get("operation_types") and
+        (profile_dict.get("taxonomy_categories") or profile_dict.get("sectors")) and
+        profile_dict.get("ticket_min") is not None
+    )
     
     await users_collection.update_one(
         {"user_id": current_user.user_id},
@@ -69,11 +74,14 @@ async def update_buyer_profile(
         }}
     )
     
-    user_doc = await users_collection.find_one(
-        {"user_id": current_user.user_id},
-        {"_id": 0}
-    )
+    # Track event
+    if profile_dict["profile_complete"]:
+        from services.events_service import track_event
+        await track_event("BUYER_PROFILE_COMPLETED", user_id=current_user.user_id)
     
+    user_doc = await users_collection.find_one(
+        {"user_id": current_user.user_id}, {"_id": 0}
+    )
     return UserResponse(**user_doc)
 
 

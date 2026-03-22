@@ -31,6 +31,16 @@ def _check_exclusivity_block(deal: dict):
         )
 
 
+def _require_profile_complete(user_doc: dict):
+    """Check buyer has completed profile before allowing engagement"""
+    bp = user_doc.get("buyer_profile", {})
+    if not bp or not bp.get("profile_complete"):
+        raise HTTPException(
+            status_code=403,
+            detail="Debes completar tu perfil de comprador antes de enviar interés"
+        )
+
+
 # ==========================================
 # BUYER ENDPOINTS
 # ==========================================
@@ -51,6 +61,12 @@ async def submit_interest(
 
     _require_nda(deal, current_user.user_id)
     _check_exclusivity_block(deal)
+
+    # Check profile completeness
+    user_doc = await users_collection.find_one(
+        {"user_id": current_user.user_id}, {"_id": 0}
+    )
+    _require_profile_complete(user_doc)
 
     # Check for existing engagement
     existing = await engagements_collection.find_one(

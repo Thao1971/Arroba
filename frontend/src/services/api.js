@@ -144,6 +144,13 @@ export const engagementsAPI = {
   listSaved: () => api.get('/engagements/saved'),
 };
 
+// Matching API
+export const matchingAPI = {
+  getRecommendedDeals: () => api.get('/matching/deals'),
+  getCompatibleBuyers: (dealId) => api.get(`/matching/buyers/${dealId}`),
+  trackClick: (dealId) => api.post(`/matching/click/${dealId}`),
+};
+
 // Subscriptions API
 export const subscriptionsAPI = {
   getPlans: () => api.get('/subscriptions/plans'),
