@@ -11,6 +11,8 @@ import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import BuyerDashboard from './pages/BuyerDashboard';
 import SellerDashboard from './pages/SellerDashboard';
+import SellerWizard from './pages/SellerWizard';
+import DealManagement from './pages/DealManagement';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -106,7 +108,7 @@ const AppRouter = () => {
         path="/seller/onboarding"
         element={
           <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerDashboard />
+            <SellerWizard />
           </ProtectedRoute>
         }
       />
@@ -114,7 +116,7 @@ const AppRouter = () => {
         path="/seller/company/new"
         element={
           <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerDashboard />
+            <SellerWizard />
           </ProtectedRoute>
         }
       />
@@ -122,7 +124,7 @@ const AppRouter = () => {
         path="/seller/company/:companyId"
         element={
           <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerDashboard />
+            <SellerWizard />
           </ProtectedRoute>
         }
       />
@@ -130,7 +132,7 @@ const AppRouter = () => {
         path="/seller/deal/new"
         element={
           <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerDashboard />
+            <SellerWizard />
           </ProtectedRoute>
         }
       />
@@ -138,7 +140,7 @@ const AppRouter = () => {
         path="/seller/deal/:dealId"
         element={
           <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerDashboard />
+            <DealManagement />
           </ProtectedRoute>
         }
       />

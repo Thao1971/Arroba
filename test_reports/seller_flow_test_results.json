@@ -1,0 +1,584 @@
+{
+  "timestamp": "2026-03-22T17:24:24.942566",
+  "total_tests": 10,
+  "passed_tests": 8,
+  "failed_tests": 2,
+  "success_rate": 80.0,
+  "company_id": "comp_5f5ada4446df",
+  "deal_id": "deal_fc77602c49a2",
+  "test_results": [
+    {
+      "test_name": "Seller Login",
+      "endpoint": "api/auth/login",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzM2NzJiMTFlZTlkOSIsImVtYWlsIjoic2VsbGVyQHRlc3QuY29tIiwicm9sZSI6InNlbGxlciIsImV4cCI6MTc3NDgwNTAyMywiaWF0IjoxNzc0MjAwMjIzfQ.tMwFQhs03fKYDyRV9Pe30cSQxKPl_yFHaE_37XOkVP4",
+        "token_type": "bearer",
+        "user": {
+          "user_id": "user_3672b11ee9d9",
+          "email": "seller@test.com",
+          "first_name": "Test",
+          "last_name": "Seller",
+          "phone": null,
+          "avatar_url": null,
+          "role": "seller",
+          "buyer_profile": null,
+          "seller_profile": {
+            "company_id": null
+          },
+          "advisor_profile": null,
+          "deal_manager": null,
+          "subscription_id": null,
+          "email_verified": false,
+          "is_active": true,
+          "created_at": "2026-03-22T17:23:08.087148Z",
+          "updated_at": "2026-03-22T17:23:08.087151Z"
+        }
+      },
+      "error": null
+    },
+    {
+      "test_name": "Create Company",
+      "endpoint": "api/companies",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "company_id": "comp_5f5ada4446df",
+        "owner_id": "user_3672b11ee9d9",
+        "owner_type": "seller",
+        "legal_name": "Test Digital Agency SL",
+        "trade_name": "Test Agency",
+        "cif": "B12345678",
+        "acronym": "TDA-18-683",
+        "country": "Espa\u00f1a",
+        "region": "Madrid",
+        "city": "Madrid",
+        "company_type": "digital_agency",
+        "sectors": [
+          "seo",
+          "sem",
+          "social"
+        ],
+        "specializations": [
+          "performance",
+          "ecommerce"
+        ],
+        "founded_year": 2018,
+        "employees_count": 25,
+        "financials": [],
+        "valuation_inputs": null,
+        "valuation": null,
+        "description": "Agencia digital especializada en performance marketing y ecommerce",
+        "highlights": [
+          "Cartera de 50+ clientes recurrentes",
+          "Crecimiento del 30% anual",
+          "Equipo especializado en ecommerce"
+        ],
+        "website": "https://testagency.com",
+        "linkedin": "https://linkedin.com/company/testagency",
+        "documents": [],
+        "created_at": "2026-03-22T17:23:43.878059Z",
+        "updated_at": "2026-03-22T17:23:43.878061Z"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Update Company Financials",
+      "endpoint": "api/companies/comp_5f5ada4446df/financials",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "company_id": "comp_5f5ada4446df",
+        "owner_id": "user_3672b11ee9d9",
+        "owner_type": "seller",
+        "legal_name": "Test Digital Agency SL",
+        "trade_name": "Test Agency",
+        "cif": "B12345678",
+        "acronym": "TDA-18-683",
+        "country": "Espa\u00f1a",
+        "region": "Madrid",
+        "city": "Madrid",
+        "company_type": "digital_agency",
+        "sectors": [
+          "seo",
+          "sem",
+          "social"
+        ],
+        "specializations": [
+          "performance",
+          "ecommerce"
+        ],
+        "founded_year": 2018,
+        "employees_count": 25,
+        "financials": [
+          {
+            "year": 2023,
+            "revenue": 1500000.0,
+            "ebitda": 300000.0,
+            "ebitda_margin": 20.0,
+            "net_income": null,
+            "recurring_revenue_pct": 70.0,
+            "client_concentration_top5": 40.0,
+            "growth_rate": 25.0
+          },
+          {
+            "year": 2022,
+            "revenue": 1200000.0,
+            "ebitda": 240000.0,
+            "ebitda_margin": 20.0,
+            "net_income": null,
+            "recurring_revenue_pct": 65.0,
+            "client_concentration_top5": 45.0,
+            "growth_rate": 20.0
+          }
+        ],
+        "valuation_inputs": {
+          "founder_dependency": "medium",
+          "recurring_revenue_type": "retainer",
+          "main_clients": 15,
+          "client_retention_rate": 85.0,
+          "tech_assets": true,
+          "proprietary_ip": false
+        },
+        "valuation": null,
+        "description": "Agencia digital especializada en performance marketing y ecommerce",
+        "highlights": [
+          "Cartera de 50+ clientes recurrentes",
+          "Crecimiento del 30% anual",
+          "Equipo especializado en ecommerce"
+        ],
+        "website": "https://testagency.com",
+        "linkedin": "https://linkedin.com/company/testagency",
+        "documents": [],
+        "created_at": "2026-03-22T17:23:43.878059Z",
+        "updated_at": "2026-03-22T17:23:43.998388Z"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Calculate Company Valuation",
+      "endpoint": "api/companies/comp_5f5ada4446df/calculate-valuation",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "company_id": "comp_5f5ada4446df",
+        "owner_id": "user_3672b11ee9d9",
+        "owner_type": "seller",
+        "legal_name": "Test Digital Agency SL",
+        "trade_name": "Test Agency",
+        "cif": "B12345678",
+        "acronym": "TDA-18-683",
+        "country": "Espa\u00f1a",
+        "region": "Madrid",
+        "city": "Madrid",
+        "company_type": "digital_agency",
+        "sectors": [
+          "seo",
+          "sem",
+          "social"
+        ],
+        "specializations": [
+          "performance",
+          "ecommerce"
+        ],
+        "founded_year": 2018,
+        "employees_count": 25,
+        "financials": [
+          {
+            "year": 2023,
+            "revenue": 1500000.0,
+            "ebitda": 300000.0,
+            "ebitda_margin": 20.0,
+            "net_income": null,
+            "recurring_revenue_pct": 70.0,
+            "client_concentration_top5": 40.0,
+            "growth_rate": 25.0
+          },
+          {
+            "year": 2022,
+            "revenue": 1200000.0,
+            "ebitda": 240000.0,
+            "ebitda_margin": 20.0,
+            "net_income": null,
+            "recurring_revenue_pct": 65.0,
+            "client_concentration_top5": 45.0,
+            "growth_rate": 20.0
+          }
+        ],
+        "valuation_inputs": {
+          "founder_dependency": "medium",
+          "recurring_revenue_type": "retainer",
+          "main_clients": 15,
+          "client_retention_rate": 85.0,
+          "tech_assets": true,
+          "proprietary_ip": false
+        },
+        "valuation": {
+          "calculated_at": "2026-03-22T17:23:44.097369Z",
+          "ebitda_normalized": 300000.0,
+          "multiple_min": 4.46,
+          "multiple_max": 6.04,
+          "valuation_min": 1338000.0,
+          "valuation_max": 1812000.0,
+          "drivers": [
+            "M\u00faltiplo base para digital_agency: 4.5x",
+            "+0.25x por recurrencia moderada (70.0%)",
+            "+0.3x por alto crecimiento (25.0%)",
+            "+0.2x por activos tecnol\u00f3gicos propios"
+          ]
+        },
+        "description": "Agencia digital especializada en performance marketing y ecommerce",
+        "highlights": [
+          "Cartera de 50+ clientes recurrentes",
+          "Crecimiento del 30% anual",
+          "Equipo especializado en ecommerce"
+        ],
+        "website": "https://testagency.com",
+        "linkedin": "https://linkedin.com/company/testagency",
+        "documents": [],
+        "created_at": "2026-03-22T17:23:43.878059Z",
+        "updated_at": "2026-03-22T17:23:44.097375Z"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Create Deal",
+      "endpoint": "api/deals",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "deal_id": "deal_fc77602c49a2",
+        "company_id": "comp_5f5ada4446df",
+        "owner_id": "user_3672b11ee9d9",
+        "status": "draft",
+        "operation_types_allowed": [
+          "full_sale"
+        ],
+        "asking_price": 4500000.0,
+        "price_negotiable": true,
+        "price_vs_valuation_flag": false,
+        "teaser": {
+          "headline": "Test Agency",
+          "description": "Agencia digital especializada en performance marketing y ecommerce",
+          "highlights": [
+            "Cartera de 50+ clientes recurrentes",
+            "Crecimiento del 30% anual",
+            "Equipo especializado en ecommerce"
+          ],
+          "revenue_display": "1.5M \u20ac",
+          "ebitda_display": "300k \u20ac",
+          "sector_display": "seo, sem, social",
+          "geography_display": "Madrid, Espa\u00f1a",
+          "year_founded": 2018
+        },
+        "infomemo": null,
+        "metrics": {
+          "views": 0,
+          "teaser_views": 0,
+          "access_requests_count": 0,
+          "ndas_signed_count": 0,
+          "lois_received_count": 0
+        },
+        "readiness_score": 100.0,
+        "readiness_checklist": [
+          {
+            "item": "Datos b\u00e1sicos de la compa\u00f1\u00eda",
+            "completed": true
+          },
+          {
+            "item": "Datos financieros",
+            "completed": true
+          },
+          {
+            "item": "Descripci\u00f3n del negocio",
+            "completed": true
+          },
+          {
+            "item": "Valoraci\u00f3n calculada",
+            "completed": true
+          },
+          {
+            "item": "Precio de venta definido",
+            "completed": true
+          }
+        ],
+        "deal_manager": null,
+        "created_at": "2026-03-22T17:23:44.231472Z",
+        "updated_at": "2026-03-22T17:23:44.231473Z",
+        "activated_at": null,
+        "published_at": null
+      },
+      "error": null
+    },
+    {
+      "test_name": "Generate Infomemo",
+      "endpoint": "api/infomemo/generate/comp_5f5ada4446df",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": null,
+      "success": false,
+      "response_data": null,
+      "error": "HTTPSConnectionPool(host='system-design-doc.preview.emergentagent.com', port=443): Read timed out. (read timeout=15)"
+    },
+    {
+      "test_name": "Activate Deal",
+      "endpoint": "api/deals/deal_fc77602c49a2/activate",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": null,
+      "success": false,
+      "response_data": null,
+      "error": "HTTPSConnectionPool(host='system-design-doc.preview.emergentagent.com', port=443): Read timed out. (read timeout=15)"
+    },
+    {
+      "test_name": "Get Deal Details",
+      "endpoint": "api/deals/deal_fc77602c49a2",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "deal_id": "deal_fc77602c49a2",
+        "company_id": "comp_5f5ada4446df",
+        "owner_id": "user_3672b11ee9d9",
+        "status": "draft",
+        "operation_types_allowed": [
+          "full_sale"
+        ],
+        "asking_price": 4500000.0,
+        "price_negotiable": true,
+        "price_vs_valuation_flag": false,
+        "teaser": {
+          "headline": "Test Agency",
+          "description": "Agencia digital especializada en performance marketing y ecommerce",
+          "highlights": [
+            "Cartera de 50+ clientes recurrentes",
+            "Crecimiento del 30% anual",
+            "Equipo especializado en ecommerce"
+          ],
+          "revenue_display": "1.5M \u20ac",
+          "ebitda_display": "300k \u20ac",
+          "sector_display": "seo, sem, social",
+          "geography_display": "Madrid, Espa\u00f1a",
+          "year_founded": 2018
+        },
+        "infomemo": null,
+        "metrics": {
+          "views": 0,
+          "teaser_views": 0,
+          "access_requests_count": 0,
+          "ndas_signed_count": 0,
+          "lois_received_count": 0
+        },
+        "readiness_score": 100.0,
+        "readiness_checklist": [
+          {
+            "item": "Datos b\u00e1sicos de la compa\u00f1\u00eda",
+            "completed": true
+          },
+          {
+            "item": "Datos financieros",
+            "completed": true
+          },
+          {
+            "item": "Descripci\u00f3n del negocio",
+            "completed": true
+          },
+          {
+            "item": "Valoraci\u00f3n calculada",
+            "completed": true
+          },
+          {
+            "item": "Precio de venta definido",
+            "completed": true
+          }
+        ],
+        "deal_manager": null,
+        "created_at": "2026-03-22T17:23:44.231472Z",
+        "updated_at": "2026-03-22T17:23:44.231473Z",
+        "activated_at": null,
+        "published_at": null
+      },
+      "error": null
+    },
+    {
+      "test_name": "List My Companies",
+      "endpoint": "api/companies",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [
+        {
+          "company_id": "comp_5f5ada4446df",
+          "owner_id": "user_3672b11ee9d9",
+          "owner_type": "seller",
+          "legal_name": "Test Digital Agency SL",
+          "trade_name": "Test Agency",
+          "cif": "B12345678",
+          "acronym": "TDA-18-683",
+          "country": "Espa\u00f1a",
+          "region": "Madrid",
+          "city": "Madrid",
+          "company_type": "digital_agency",
+          "sectors": [
+            "seo",
+            "sem",
+            "social"
+          ],
+          "specializations": [
+            "performance",
+            "ecommerce"
+          ],
+          "founded_year": 2018,
+          "employees_count": 25,
+          "financials": [
+            {
+              "year": 2023,
+              "revenue": 1500000.0,
+              "ebitda": 300000.0,
+              "ebitda_margin": 20.0,
+              "net_income": null,
+              "recurring_revenue_pct": 70.0,
+              "client_concentration_top5": 40.0,
+              "growth_rate": 25.0
+            },
+            {
+              "year": 2022,
+              "revenue": 1200000.0,
+              "ebitda": 240000.0,
+              "ebitda_margin": 20.0,
+              "net_income": null,
+              "recurring_revenue_pct": 65.0,
+              "client_concentration_top5": 45.0,
+              "growth_rate": 20.0
+            }
+          ],
+          "valuation_inputs": {
+            "founder_dependency": "medium",
+            "recurring_revenue_type": "retainer",
+            "main_clients": 15,
+            "client_retention_rate": 85.0,
+            "tech_assets": true,
+            "proprietary_ip": false
+          },
+          "valuation": {
+            "calculated_at": "2026-03-22T17:23:44.097369Z",
+            "ebitda_normalized": 300000.0,
+            "multiple_min": 4.46,
+            "multiple_max": 6.04,
+            "valuation_min": 1338000.0,
+            "valuation_max": 1812000.0,
+            "drivers": [
+              "M\u00faltiplo base para digital_agency: 4.5x",
+              "+0.25x por recurrencia moderada (70.0%)",
+              "+0.3x por alto crecimiento (25.0%)",
+              "+0.2x por activos tecnol\u00f3gicos propios"
+            ]
+          },
+          "description": "Agencia digital especializada en performance marketing y ecommerce",
+          "highlights": [
+            "Cartera de 50+ clientes recurrentes",
+            "Crecimiento del 30% anual",
+            "Equipo especializado en ecommerce"
+          ],
+          "website": "https://testagency.com",
+          "linkedin": "https://linkedin.com/company/testagency",
+          "documents": [],
+          "created_at": "2026-03-22T17:23:43.878059Z",
+          "updated_at": "2026-03-22T17:23:44.097375Z"
+        }
+      ],
+      "error": null
+    },
+    {
+      "test_name": "List My Deals",
+      "endpoint": "api/deals",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [
+        {
+          "deal_id": "deal_fc77602c49a2",
+          "company_id": "comp_5f5ada4446df",
+          "owner_id": "user_3672b11ee9d9",
+          "status": "published",
+          "operation_types_allowed": [
+            "full_sale"
+          ],
+          "asking_price": 4500000.0,
+          "price_negotiable": true,
+          "price_vs_valuation_flag": false,
+          "teaser": {
+            "headline": "Test Agency",
+            "description": "Agencia digital especializada en performance marketing y ecommerce",
+            "highlights": [
+              "Cartera de 50+ clientes recurrentes",
+              "Crecimiento del 30% anual",
+              "Equipo especializado en ecommerce"
+            ],
+            "revenue_display": "1.5M \u20ac",
+            "ebitda_display": "300k \u20ac",
+            "sector_display": "seo, sem, social",
+            "geography_display": "Madrid, Espa\u00f1a",
+            "year_founded": 2018
+          },
+          "infomemo": {
+            "generated_at": "2026-03-22T17:24:24.634442Z",
+            "content": "## 1. Resumen Ejecutivo (m\u00e1x. 200 palabras)\n\n**Test Digital Agency SL (Test Agency)** es una agencia digital fundada en **2018** y ubicada en **Madrid**, especializada en **performance marketing** para **ecommerce**, con capacidades consolidadas en **SEO, SEM y Social Ads**. La compa\u00f1\u00eda cuenta con **25 empleados** y una base de **50+ clientes recurrentes**, con un modelo de ingresos predominantemente **retainer** que aporta estabilidad: **70% de ingresos recurrentes**. En el \u00faltimo ejercicio report\u00f3 **1,5M\u20ac de facturaci\u00f3n** y **300k\u20ac de EBITDA** (**20% de margen**), con **crecimiento interanual del 25%**.\n\nLa operaci\u00f3n planteada es un **100% full sale**. El vendedor solicita **4,5M\u20ac (negociable)**. En base a comparables y al perfil del negocio (margen, recurrencia, concentraci\u00f3n de clientes y dependencia del fundador), se estima un **rango razonable de valoraci\u00f3n de 1,34M\u20ac\u20131,81M\u20ac** (equivalente a **4,5x\u20136,0x EBITDA**). La brecha frente al precio solicitado sugiere la necesidad de estructurar la transacci\u00f3n (p.ej., earn-out) o justificar un m\u00faltiplo superior mediante evidencia de escalabilidad, activos tecnol\u00f3gicos y/o crecimiento superior sostenido.\n\n---\n\n## 2. Descripci\u00f3n del Negocio\n\n- **Nombre legal:** Test Digital Agency SL  \n- **Nombre comercial:** Test Agency  \n- **Actividad:** Agencia digital (digital agency)  \n- **A\u00f1o de fundaci\u00f3n:** 2018  \n- **Ubicaci\u00f3n:** Madrid, Madrid, Espa\u00f1a  \n- **Empleados:** 25  \n- **Servicios principales:**  \n  - **SEO** (captaci\u00f3n org\u00e1nica, optimizaci\u00f3n t\u00e9cnica y contenidos orientados a conversi\u00f3n)  \n  - **SEM** (gesti\u00f3n de campa\u00f1as de pago, optimizaci\u00f3n a ROAS/CPA)  \n  - **Social Ads** (adquisici\u00f3n y performance en plataformas sociales)  \n- **Foco sectorial/vertical:** **ecommerce**  \n- **Especializaci\u00f3n:** **performance marketing** orientado a resultados (crecimiento rentable)  \n- **Activos tecnol\u00f3gicos:** **S\u00ed** (herramientas/activos internos; detalle a confirmar en DD)  \n- **Propiedad intelectual registrada:** **No**\n\n**Modelo de negocio:** prestaci\u00f3n de servicios de marketing digital, principalmente bajo **contratos retainer** (gesti\u00f3n continua), con potencial combinaci\u00f3n de proyectos puntuales (no cuantificado).\n\n---\n\n## 3. Propuesta de Valor y Diferenciaci\u00f3n\n\n**Propuesta de valor (seg\u00fan informaci\u00f3n disponible):**\n- **Especializaci\u00f3n clara en ecommerce y performance**, lo que facilita posicionamiento y repetibilidad de casos de uso.\n- **Modelo de ingresos recurrentes (retainers)** con **70%** de recurrencia, que tiende a estabilizar caja y planificaci\u00f3n de capacidad.\n- **Crecimiento hist\u00f3rico relevante** (25%\u201330% anual seg\u00fan datos aportados), se\u00f1al de tracci\u00f3n comercial y/o expansi\u00f3n en cuentas.\n- **Equipo especializado en ecommerce**, potencialmente con know-how operativo (feeds, medici\u00f3n, CRO, optimizaci\u00f3n de cat\u00e1logo, etc.; a validar).\n\n**Elementos diferenciales a profundizar (recomendado en DD):**\n- Naturaleza y defensabilidad de los **activos tecnol\u00f3gicos** (propiedad, dependencia de licencias, impacto en productividad).\n- Metodolog\u00eda de optimizaci\u00f3n (framework de performance, reporting, atribuci\u00f3n) y su estandarizaci\u00f3n interna.\n- Evidencia cuantitativa de resultados (ROAS/CPA/LTV:CAC) en clientes representativos.\n\n---\n\n## 4. An\u00e1lisis Financiero\n\n### 4.1. Resumen financiero (\u00faltimo a\u00f1o)\n\n| M\u00e9trica | Valor |\n|---|---:|\n| Facturaci\u00f3n | **1.500.000 \u20ac** |\n| EBITDA | **300.000 \u20ac** |\n| Margen EBITDA | **20,0%** |\n| Crecimiento interanual | **25,0%** |\n| % Ingresos recurrentes | **70%** |\n| Concentraci\u00f3n Top 5 clientes | **40%** |\n\n### 4.2. Comentarios de lectura\n- **Rentabilidad:** un **20% de margen EBITDA** es consistente con agencias de performance bien gestionadas, especialmente si existe disciplina en capacidad/coste de personal.\n- **Crecimiento:** **25% YoY** es positivo; conviene validar si proviene de:\n  - crecimiento org\u00e1nico (mismo mix de servicios),  \n  - upsell/cross-sell en cartera,  \n  - adquisici\u00f3n de nuevos logos, o  \n  - incrementos de precios.\n- **Calidad del ingreso:** **70% recurrente** es un punto fuerte; la **concentraci\u00f3n del 40% en Top 5** introduce riesgo moderado de churn o presi\u00f3n en pricing.\n\n---\n\n## 5. Base de Clientes y Recurrencia\n\n- **Clientes recurrentes:** **50+**\n- **Modelo contractual predominante:** **retainer**\n- **Recurrencia:** **70%** del ingreso\n- **Concentraci\u00f3n:** **Top 5 = 40%** del ingreso\n\n**Implicaciones para el comprador:**\n- La base de 50+ clientes sugiere **diversificaci\u00f3n**; sin embargo, el peso del Top 5 implica que la retenci\u00f3n de esas cuentas es material para mantener EBITDA.\n- Recomendable revisar:\n  - duraci\u00f3n media de contratos, cl\u00e1usulas de salida, renovaciones, y niveles de \u201croll-off\u201d hist\u00f3rico,\n  - dependencia de resultados (p.ej., performance-based fees) vs. fees fijos,\n  - distribuci\u00f3n por verticales de ecommerce y exposici\u00f3n a ciclos de consumo.\n\n---\n\n## 6. Equipo y Estructura Organizativa\n\n- **Plantilla:** **25 empleados**\n- **Dependencia del fundador:** **media**\n\n**Lectura y consideraciones:**\n- Dependencia **media** sugiere que parte de la captaci\u00f3n, direcci\u00f3n de cuentas clave o liderazgo t\u00e9cnico podr\u00eda estar concentrado en el fundador, pero existe cierta estructura operativa.\n- Para un comprador estrat\u00e9gico o financiero, ser\u00e1 clave confirmar:\n  - organigrama y roles cr\u00edticos (direcci\u00f3n de performance, head de ecommerce, lead de paid media/SEO/social),\n  - estabilidad del equipo (rotaci\u00f3n), seniority y coste medio,\n  - \u201cbench strength\u201d para retener y escalar sin el fundador.\n\n**Recomendaci\u00f3n de transici\u00f3n (habitual en full sale):**\n- Acuerdo de permanencia/transici\u00f3n del fundador (6\u201318 meses) para continuidad comercial y traspaso de relaciones clave, idealmente vinculado a hitos.\n\n---\n\n## 7. Posicionamiento Competitivo\n\n**Mercado:** agencias de marketing digital en Espa\u00f1a con foco en performance y ecommerce.  \n**Competencia:** amplia (agencias generalistas y boutiques especializadas), con diferenciaci\u00f3n basada en:\n- especializaci\u00f3n vertical (ecommerce),\n- resultados demostrables,\n- capacidad anal\u00edtica/medici\u00f3n,\n- acceso a talento y eficiencia operativa.\n\n**Posicionamiento de Test Agency (seg\u00fan datos aportados):**\n- **Especialista** (performance + ecommerce) vs. generalista.\n- **Estructura de tama\u00f1o medio** (25 empleados) con capacidad de atender cuentas recurrentes y crecer.\n- **Crecimiento y margen** que apuntan a operaci\u00f3n saludable.\n\n**Aspectos a validar para robustecer el posicionamiento:**\n- tasas de retenci\u00f3n neta (NRR), referencias/casos de \u00e9xito, certificaciones (Google, Meta), partnerships y pipeline.\n\n---\n\n## 8. Oportunidades de Crecimiento\n\n1. **Expansi\u00f3n de servicios en cuentas existentes (upsell/cross-sell)**\n   - CRO, anal\u00edtica avanzada/atribuci\u00f3n, creatividad performance, marketing automation, lifecycle/CRM.\n2. **Escalado comercial replicable**\n   - estandarizaci\u00f3n de propuesta ecommerce y paquetes retainer por tier.\n3. **Aumento de recurrencia y duraci\u00f3n contractual**\n   - migraci\u00f3n de proyectos a retainer, extensi\u00f3n de plazos, y bundles de servicio.\n4. **Desarrollo/monetizaci\u00f3n de activos tecnol\u00f3gicos**\n   - si los activos internos reducen coste de entrega o mejoran resultados, podr\u00edan convertirse en ventaja de margen o incluso productoizable (SaaS interno/light).\n5. **Crecimiento geogr\u00e1fico**\n   - captaci\u00f3n en otras regiones de Espa\u00f1a o mercados hispanohablantes, apoyado en delivery centralizado.\n6. **Integraci\u00f3n con comprador estrat\u00e9gico**\n   - sinergias en:\n     - captaci\u00f3n (acceso a cartera),\n     - compras de medios/condiciones,\n     - herramientas, backoffice, y especialidades complementarias (branding, dev, data).\n\n---\n\n## 9. Factores de Riesgo\n\n- **Concentraci\u00f3n de clientes (Top 5 = 40%)**\n  - p\u00e9rdida o renegociaci\u00f3n agresiva de 1\u20132 cuentas impactar\u00eda materialmente el EBITDA.\n- **Dependencia del fundador (media)**\n  - riesgo en continuidad comercial, retenci\u00f3n de cuentas clave y cultura de ejecuci\u00f3n post-transacci\u00f3n.\n- **Competencia intensa y presi\u00f3n en precios**\n  - el performance marketing tiende a commoditizarse si no hay diferenciaci\u00f3n por vertical, datos y creatividad.\n- **Riesgo de talento/rotaci\u00f3n**\n  - el activo principal es el equipo; rotaci\u00f3n puede afectar delivery y retenci\u00f3n.\n- **Dependencia de plataformas**\n  - cambios en algoritmos, pol\u00edticas de tracking/privacidad y condiciones de Google/Meta pueden afectar resultados y satisfacci\u00f3n del cliente.\n- **Activos tecnol\u00f3gicos sin IP registrada**\n  - aunque existan herramientas internas, sin protecci\u00f3n formal su defensabilidad puede ser limitada; adem\u00e1s, conviene verificar propiedad y licencias.\n\n---\n\n## 10. T\u00e9rminos de la Transacci\u00f3n y Valoraci\u00f3n\n\n### 10.1. T\u00e9rminos del deal\n- **Tipo de operaci\u00f3n:** **full_sale** (venta del 100%)\n- **Precio solicitado:** **4.500.000 \u20ac (negociable)**\n\n### 10.2. Valoraci\u00f3n (enfoque por m\u00faltiplo de EBITDA)\n**Datos base:**\n- **EBITDA \u00faltimo a\u00f1o:** 300.000 \u20ac\n\n**Rango orientativo de m\u00faltiplos aportado:** 4,5x \u2013 6,0x EBITDA  \n**Rango de valoraci\u00f3n resultante (aportado):** 1.338.000 \u20ac \u2013 1.812.000 \u20ac\n\nPara referencia, el c\u00e1lculo directo sobre EBITDA ser\u00eda:\n\n| M\u00faltiplo EBITDA | Valor Empresa (EV) estimado |\n|---:|---:|\n| 4,5x | 1.350.000 \u20ac |\n| 6,0x | 1.800.000 \u20ac |\n\n*(Las ligeras diferencias vs. el rango aportado pueden deberse a ajustes/normalizaciones no detalladas.)*\n\n### 10.3. Lectura del gap vs. precio solicitado\n- **Precio solicitado (4,5M\u20ac)** implica aproximadamente **15,0x EBITDA** (4,5M\u20ac / 0,3M\u20ac), significativamente por encima del rango t\u00edpico indicado (4,5x\u20136,0x) para una agencia con **concentraci\u00f3n del 40%** y **dependencia media del fundador**, incluso con buen margen y recurrencia.\n- Para acercar valoraciones, se recomienda:\n  - **Normalizaci\u00f3n de EBITDA** (ajustes por salarios del fundador, gastos no recurrentes, etc.) si aplica y es demostrable.\n  - **Estructura con earn-out** ligado a:\n    - retenci\u00f3n del Top 5,\n    - crecimiento de ingresos recurrentes,\n    - umbrales de EBITDA/ingreso neto.\n  - **Cl\u00e1usulas de retenci\u00f3n** (escrow/holdback) para mitigar riesgo de churn post-cierre.\n  - Evidenciar que los **activos tecnol\u00f3gicos** aportan ventaja sostenible (reducci\u00f3n de coste, escalabilidad, diferenciaci\u00f3n medible).\n\n### 10.4. Recomendaci\u00f3n de valoraci\u00f3n (fundamentada)\nCon la informaci\u00f3n disponible, una valoraci\u00f3n razonable se sit\u00faa en el entorno de **4,5x\u20136,0x EBITDA (EV ~1,35M\u20ac\u20131,80M\u20ac)**, sujeta a:\n- calidad/estabilidad de la recurrencia (cohortes, churn, duraci\u00f3n contractual),\n- evidencia de crecimiento sostenible y escalabilidad,\n- profundidad del equipo y reducci\u00f3n de dependencia del fundador,\n- naturaleza y propiedad real de los activos tecnol\u00f3gicos.\n\n**Posible estructura para cerrar brecha:** combinar un **pago inicial** dentro del rango y un **earn-out** que pueda llevar el valor total hacia el objetivo del vendedor, condicionado a desempe\u00f1o verificable (12\u201324 meses).\n\n--- \n\n**Anexos sugeridos para un proceso formal (no incluidos por falta de datos):**\n- P&L mensual \u00faltimos 24\u201336 meses, balance y cash conversion.\n- Detalle de clientes (ingreso, margen, duraci\u00f3n, servicios, condiciones).\n- Organigrama con costes y antig\u00fcedad, rotaci\u00f3n.\n- Descripci\u00f3n t\u00e9cnica de activos tecnol\u00f3gicos y evidencias de impacto.",
+            "version": 1,
+            "file_id": null
+          },
+          "metrics": {
+            "views": 0,
+            "teaser_views": 0,
+            "access_requests_count": 0,
+            "ndas_signed_count": 0,
+            "lois_received_count": 0
+          },
+          "readiness_score": 100.0,
+          "readiness_checklist": [
+            {
+              "item": "Datos b\u00e1sicos de la compa\u00f1\u00eda",
+              "completed": true
+            },
+            {
+              "item": "Datos financieros",
+              "completed": true
+            },
+            {
+              "item": "Descripci\u00f3n del negocio",
+              "completed": true
+            },
+            {
+              "item": "Valoraci\u00f3n calculada",
+              "completed": true
+            },
+            {
+              "item": "Precio de venta definido",
+              "completed": true
+            }
+          ],
+          "deal_manager": null,
+          "created_at": "2026-03-22T17:23:44.231472Z",
+          "updated_at": "2026-03-22T17:24:24.656055Z",
+          "activated_at": "2026-03-22T17:24:24.639334Z",
+          "published_at": "2026-03-22T17:24:24.639334Z"
+        }
+      ],
+      "error": null
+    }
+  ]
+}

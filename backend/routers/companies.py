@@ -33,11 +33,14 @@ async def create_company(
     # Generate acronym
     acronym = generate_acronym(company_data.legal_name, company_data.founded_year)
     
+    # Get company data and set the acronym
+    company_dict = company_data.model_dump()
+    company_dict["acronym"] = acronym
+    
     company = CompanyInDB(
-        **company_data.model_dump(),
+        **company_dict,
         owner_id=current_user.user_id,
-        owner_type=current_user.role,
-        acronym=acronym
+        owner_type=current_user.role
     )
     
     company_dict = company.model_dump()
