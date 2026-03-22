@@ -43,23 +43,33 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 - [x] DEMO_SCENARIOS.md — Escenarios mapeados a datos reales del seed
 - [x] FLOWS.md — Flujos funcionales completos (Buyer, Seller, Advisor, Admin)
 - [x] ARCHITECTURE.md — Documentación técnica del sistema
+- [x] PLAYBOOK_OPERACION.md — Playbook de operación real (Advisor + Seller directo) con 18 fricciones priorizadas
 
 ---
 
 ## Backlog Priorizado
 
-### P0 (Próximo)
+### P0 (Próximo — del Playbook)
+- [ ] #13 Warning antes de exclusividad prematura (bajo esfuerzo, alto impacto)
+- [ ] #5+#8 Alertas de deal sin tracción + last active del buyer
+- [ ] #4 DR readiness check antes de publicar
 - [ ] Internal Deal Score — Score backend para ranking/matching (NO público)
-- [ ] Soft Signals UI — Badges en marketplace: "Alta actividad", "Proceso avanzado" (sin números)
+- [ ] Soft Signals UI — Badges en marketplace: "Alta actividad", "Proceso avanzado"
 
 ### P1
+- [ ] #9 Comparador visual de LOIs (tabla lado a lado)
+- [ ] #18 Nudges contextuales para seller sin advisor
+- [ ] #10 Intent score con decay temporal
 - [ ] Deal state transitions UI completa
-- [ ] Admin panel / Advisor dashboard
 - [ ] PDF export infomemo
 
 ### P2
-- [ ] Activar SendGrid real (cuando user proporcione keys)
-- [ ] Playbook de uso real (cómo usar Arroba en operación real paso a paso)
+- [ ] #7 Contacto buyer desde Arroba (messaging o email pre-rellenado)
+- [ ] #3 Fases de acceso en Data Room (NDA/LOI/DD)
+- [ ] #1 Advisor como operador (gestionar deals del seller)
+- [ ] #15 Q&A integrado en DD
+- [ ] Admin panel / Advisor dashboard
+- [ ] Activar SendGrid real
 - [ ] Dashboard analytics para seller
 
 ---
