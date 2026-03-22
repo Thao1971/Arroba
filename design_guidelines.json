@@ -1,0 +1,99 @@
+{
+  "theme": "light",
+  "typography": {
+    "primary": "IBM Plex Sans",
+    "secondary": "IBM Plex Mono",
+    "headings": "font-sans tracking-tight text-slate-900 font-bold",
+    "body": "font-sans text-slate-700 leading-relaxed",
+    "labels": "font-mono text-[10px] uppercase tracking-widest text-slate-500",
+    "buttons": "font-sans uppercase tracking-wider font-semibold"
+  },
+  "colors": {
+    "primary": "#FF5757",
+    "alternative": "#38B6FF",
+    "secondary": "#DBB900",
+    "complementary": "#82C359",
+    "background": "#F9FAFB",
+    "surface": "#FFFFFF",
+    "text": "#111827",
+    "border": "#E5E7EB"
+  },
+  "visual_enhancers": {
+    "aesthetic": "Swiss Brutalist meets Investment Banking with Retro Digital pixel-art motifs.",
+    "borders": "Strict 1px solid borders (border-slate-200) to enforce data grids, tables, and rigid layout structures.",
+    "shadows": "Minimalist flat shadows or hard offset shadows (e.g., 2px 2px 0px rgba(0,0,0,0.1)). Avoid soft, diffuse dropshadows.",
+    "radius": "rounded-none or rounded-sm to maintain banking rigidity and align with the pixel aesthetic.",
+    "accents": "Use pixelated dot patterns (via CSS radial-gradient or SVG) as subtle background textures for hero sections or empty states."
+  },
+  "components": {
+    "buttons": {
+      "style": "Medium size (px-6 py-2.5), uppercase text, sharp edges (rounded-none or rounded-sm)",
+      "primary": "bg-[#FF5757] hover:bg-[#e64e4e] text-white transition-colors",
+      "secondary": "bg-[#38B6FF] hover:bg-[#2fa3e6] text-white transition-colors",
+      "outline": "border border-slate-300 hover:border-slate-800 text-slate-900 bg-transparent transition-colors"
+    },
+    "cards": {
+      "style": "bg-white border border-slate-200 p-6 rounded-sm",
+      "teaser": "Bento grid layout. Bold typographic hierarchy for EBITDA/Revenue. Prominent sector tags using the brand colors."
+    },
+    "tables": {
+      "style": "Strict tabular layout, 1px border-b on rows, font-mono for numeric data, sticky headers."
+    },
+    "badges": {
+      "style": "px-2 py-1 text-xs font-mono uppercase bg-slate-100 text-slate-600 rounded-sm"
+    }
+  },
+  "grids_and_layouts": {
+    "marketplace": "Grid columns (1 on mobile, 2/3 on desktop) with generous gap-6. Dedicated Filter sidebar on left.",
+    "dashboard": "High Density Grid (Mode B). grid-cols-1 md:grid-cols-4. Strict layout for Deal Engine pipelines and CRM widgets.",
+    "data_room": "Hierarchical folder structure, dense list view with strict columns (Name, Date, Access Level, Actions)."
+  },
+  "motion": {
+    "transitions": "Fast, precise, non-bouncy. transition-colors duration-200 ease-in-out.",
+    "hover": "Slight border color darkening or subtle background tint. No massive scaling or floating.",
+    "loaders": "Pixel-art style loaders or strict progress bars."
+  },
+  "accessibility": {
+    "contrast": "Ensure all text on Coral/Blue/Green backgrounds is pure white. Use text-slate-900 on Yellow backgrounds.",
+    "testing": "All interactive elements MUST include data-testid attributes (e.g., data-testid='deal-card-cta')."
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1666698809123-44e998e93f23?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "category": "hero",
+        "description": "Digital agency office - use for seller landing pages or empty dashboard states."
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1758518730384-be3d205838e8?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "category": "deal_closed",
+        "description": "Business meeting handshake - use for LOI success, NDA signatures, or Deal Closed states."
+      },
+      {
+        "url": "https://images.pexels.com/photos/97080/pexels-photo-97080.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "data_room",
+        "description": "Abstract data graph - use for Data Room / Valuation System backgrounds."
+      }
+    ]
+  },
+  "3d_libraries": {
+    "recommendation": "Use Recharts for the Valuation System and EBITDA charts (2D is better for pure data clarity in M&A). Avoid heavy 3D libraries to keep the Investment Banking aesthetic crisp."
+  },
+  "instructions_to_main_agent": [
+    "Use raw HTML/Tailwind for the public Marketplace Discovery to allow bento grid freedom.",
+    "Use Shadcn UI (heavily customized for crisp edges and specific brand colors) for Dashboards, Data Room, and Deal Engine.",
+    "NEVER use Inter, Roboto, or Open Sans. Enforce IBM Plex Sans for body/headings and IBM Plex Mono for data/labels.",
+    "Ensure the Deal Engine visually represents the pipeline (draft -> published -> NDA -> evaluation -> intent -> shortlist -> exclusivity -> DD -> closed) using a horizontal stepper or dense kanban board layout.",
+    "Buttons MUST be uppercase.",
+    "Use Sonner for toast notifications.",
+    "Apply 'data-testid' to all key elements for testing."
+  ],
+  "universal_guidelines": [
+    "Prioritize using pre-existing components from src/components/ui.",
+    "Do NOT center align the app container (.App { text-align: center; } is banned).",
+    "Never use AI assistant emoji characters for icons. Use Phosphor Icons or Lucide React.",
+    "Use named exports for components and default exports for pages.",
+    "Apply 2-3x more spacing for marketing pages, but use dense layouts for dashboards.",
+    "Do not use transparent backgrounds in headers or dropdowns that overlay text."
+  ]
+}
