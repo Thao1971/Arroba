@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from database import deals_collection, companies_collection, infomemos_collection
 from models.user import UserResponse
@@ -7,6 +8,10 @@ from routers.auth import get_current_user
 from services.infomemo_service import generate_infomemo
 
 router = APIRouter(prefix="/infomemo", tags=["Infomemo"])
+
+
+class InfomemoUpdateRequest(BaseModel):
+    content: str
 
 
 @router.post("/generate/{company_id}")
@@ -104,7 +109,7 @@ async def get_deal_infomemo(
 @router.put("/{deal_id}")
 async def update_infomemo(
     deal_id: str,
-    content: str,
+    body: InfomemoUpdateRequest,
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Update/edit infomemo content"""
@@ -124,7 +129,7 @@ async def update_infomemo(
     
     updated_infomemo = {
         "generated_at": current_infomemo.get("generated_at", datetime.now(timezone.utc).isoformat()),
-        "content": content,
+        "content": body.content,
         "version": new_version,
         "file_id": current_infomemo.get("file_id"),
         "edited_at": datetime.now(timezone.utc).isoformat(),

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
 from database import deals_collection, companies_collection, ndas_collection, lois_collection
@@ -574,7 +574,3 @@ async def drop_deal(
     )
     
     return {"message": "Deal dropped"}
-
-
-# Import timedelta at top level
-from datetime import timedelta

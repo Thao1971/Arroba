@@ -20,6 +20,11 @@ STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
 # OpenAI / Emergent LLM
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
+# Iberinform
+IBERINFORM_CLIENT_ID = os.environ.get('IBERINFORM_CLIENT_ID')
+IBERINFORM_CLIENT_SECRET = os.environ.get('IBERINFORM_CLIENT_SECRET')
+IBERINFORM_BASE_URL = os.environ.get('IBERINFORM_BASE_URL', 'https://apipre.iberinform.es')
+
 # Subscription Plans
 SUBSCRIPTION_PLANS = {
     "buyer_monthly": {

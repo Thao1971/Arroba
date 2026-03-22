@@ -99,7 +99,19 @@ export const dealsAPI = {
 export const infomemoAPI = {
   generate: (companyId) => api.post(`/infomemo/generate/${companyId}`),
   get: (dealId) => api.get(`/infomemo/${dealId}`),
-  update: (dealId, content) => api.put(`/infomemo/${dealId}`, null, { params: { content } }),
+  update: (dealId, content) => api.put(`/infomemo/${dealId}`, { content }),
+};
+
+// CIF Lookup API
+export const cifAPI = {
+  lookup: (cif) => api.get(`/cif/${cif}/lookup`),
+};
+
+// Teaser API
+export const teaserAPI = {
+  generate: (companyId) => api.post(`/teaser/generate/${companyId}`),
+  get: (dealId) => api.get(`/teaser/${dealId}`),
+  update: (dealId, data) => api.put(`/teaser/${dealId}`, data),
 };
 
 // Subscriptions API

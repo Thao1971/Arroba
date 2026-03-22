@@ -149,11 +149,15 @@ class DealResponse(BaseModel):
     price_negotiable: bool
     price_vs_valuation_flag: bool
     teaser: Teaser
+    teaser_full: Optional[dict] = None
     infomemo: Optional[Infomemo] = None
     metrics: DealMetrics
     readiness_score: float
     readiness_checklist: List[ReadinessItem]
     deal_manager: Optional[DealManager] = None
+    access_requests: List[AccessRequest] = []
+    ndas_signed: List[NdaSigned] = []
+    lois: List[LoiReference] = []
     created_at: datetime
     updated_at: datetime
     activated_at: Optional[datetime] = None

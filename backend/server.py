@@ -20,6 +20,8 @@ from routers.companies import router as companies_router
 from routers.deals import router as deals_router
 from routers.infomemo import router as infomemo_router
 from routers.subscriptions import router as subscriptions_router
+from routers.cif_lookup import router as cif_lookup_router
+from routers.teaser import router as teaser_router
 
 # Configure logging
 logging.basicConfig(
@@ -68,6 +70,8 @@ app.include_router(companies_router, prefix="/api")
 app.include_router(deals_router, prefix="/api")
 app.include_router(infomemo_router, prefix="/api")
 app.include_router(subscriptions_router, prefix="/api")
+app.include_router(cif_lookup_router, prefix="/api")
+app.include_router(teaser_router, prefix="/api")
 
 
 @app.get("/api")

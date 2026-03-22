@@ -4,21 +4,11 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { dealsAPI, companiesAPI } from '../services/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
-  ArrowLeft,
-  Eye,
-  Users,
-  FileSignature,
-  FileText,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Shield,
-  TrendingUp,
-  Loader2,
-  ChevronRight,
-  Download,
-  Send
+  ArrowLeft, Eye, Users, FileSignature, FileText, CheckCircle2,
+  AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Download
 } from 'lucide-react';
 
 // Status flow visualization
@@ -443,10 +433,6 @@ const DealManagement = () => {
                   <h3 className="font-semibold">Information Memorandum</h3>
                   {deal.infomemo && (
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <Download className="w-4 h-4 mr-2" />
-                        Descargar PDF
-                      </Button>
                       <Link to={`/seller/company/${company?.company_id}?step=4`}>
                         <Button variant="outline" size="sm">
                           Editar
@@ -457,18 +443,8 @@ const DealManagement = () => {
                 </div>
                 
                 {deal.infomemo?.content ? (
-                  <div className="prose prose-sm max-w-none bg-slate-50 rounded-lg p-6">
-                    <div 
-                      className="whitespace-pre-wrap font-mono text-xs"
-                      dangerouslySetInnerHTML={{ 
-                        __html: deal.infomemo.content
-                          .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
-                          .replace(/^## (.*$)/gm, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
-                          .replace(/^### (.*$)/gm, '<h3 class="font-bold mt-3 mb-1">$1</h3>')
-                          .replace(/^\* (.*$)/gm, '<li class="ml-4">$1</li>')
-                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      }}
-                    />
+                  <div className="prose prose-sm max-w-none bg-slate-50 rounded-lg p-6" data-testid="infomemo-rendered">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{deal.infomemo.content}</ReactMarkdown>
                   </div>
                 ) : (
                   <div className="text-center py-8">
@@ -479,6 +455,22 @@ const DealManagement = () => {
                         Generar Infomemo
                       </Button>
                     </Link>
+                  </div>
+                )}
+
+                {/* Teaser Preview in Deal Management */}
+                {deal.teaser_full && (
+                  <div className="mt-6 border-t pt-6">
+                    <h3 className="font-semibold mb-4">Teaser (Público)</h3>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="font-bold">{deal.teaser_full.title}</h4>
+                      <p className="text-sm text-slate-600 mt-1">{deal.teaser_full.short_description}</p>
+                      <div className="grid grid-cols-3 gap-2 mt-3 text-xs">
+                        <div><span className="text-slate-400">Facturación:</span> <strong>{deal.teaser_full.revenue_range}</strong></div>
+                        <div><span className="text-slate-400">EBITDA:</span> <strong>{deal.teaser_full.ebitda_range}</strong></div>
+                        <div><span className="text-slate-400">Ubicación:</span> <strong>{deal.teaser_full.location}</strong></div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

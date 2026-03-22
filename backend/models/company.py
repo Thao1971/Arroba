@@ -6,9 +6,15 @@ import uuid
 CompanyType = Literal["digital_agency", "creative_agency", "media_agency", "tech_studio", "consultancy"]
 FounderDependency = Literal["low", "medium", "high"]
 RecurringRevenueType = Literal["retainer", "project", "mixed"]
+DataSource = Literal["CIS", "IBERINFORM", "MANUAL", "MIXED"]
 
 def generate_company_id():
     return f"comp_{uuid.uuid4().hex[:12]}"
+
+class FinancialField(BaseModel):
+    value: Optional[float] = None
+    source: DataSource = "MANUAL"
+    last_updated: Optional[str] = None
 
 class Financial(BaseModel):
     year: int
@@ -19,6 +25,8 @@ class Financial(BaseModel):
     recurring_revenue_pct: Optional[float] = None
     client_concentration_top5: Optional[float] = None
     growth_rate: Optional[float] = None
+    data_source: DataSource = "MANUAL"
+    source_details: Optional[dict] = None
 
 class ValuationInputs(BaseModel):
     founder_dependency: FounderDependency = "medium"
