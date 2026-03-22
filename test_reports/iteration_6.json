@@ -1,0 +1,134 @@
+{
+  "summary": "Completed comprehensive testing of Buyer Onboarding & Matching Engine features - Iteration 6. All 14 backend API tests passed (100%). Frontend UI tests verified: buyer registration redirects to onboarding, onboarding form with strategic/financial types, profile_complete logic, affinity badges (Alta/Media/Baja afinidad) in Spanish, 'Ordenar por relevancia' sort only for complete profiles, and profile-incomplete-block on DealPage.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "passed_tests": {
+    "backend": [
+      "POST /api/auth/register - New buyer registration returns access_token and user with buyer_profile",
+      "GET /api/taxonomy/categories - Returns taxonomy categories list",
+      "GET /api/auth/me - New buyer has profile_complete=false",
+      "PUT /api/users/me/buyer-profile - Partial update keeps profile_complete=false",
+      "PUT /api/users/me/buyer-profile - Complete update (type, operation_types, taxonomy_categories, ticket_min, revenue_range_min, ebitda_range_min) sets profile_complete=true",
+      "PUT /api/users/me/buyer-profile - Financial subtypes (financial_pe, financial_fo, financial_vc, financial_holding) work correctly",
+      "GET /api/matching/deals - Requires authentication (401)",
+      "GET /api/matching/deals - Returns profile_complete=false for incomplete profile",
+      "GET /api/matching/deals - Returns deals with affinity field (high/medium/low) for complete profile",
+      "GET /api/matching/deals - Returns affinity_label in Spanish (Alta afinidad, Afinidad media, Baja afinidad)",
+      "POST /api/engagements/interest - Blocked for incomplete profile (403)",
+      "GET /api/deals/{deal_id}/activation-preview - Returns compatible_buyers stats (high, medium, low, total)",
+      "GET /api/marketplace/deals - Public endpoint works",
+      "GET /api/marketplace/stats - Returns marketplace statistics"
+    ],
+    "frontend": [
+      "Register page loads with role selection (Comprador, Vendedor, Advisor)",
+      "Buyer registration redirects to /buyer/onboarding when profile incomplete",
+      "BuyerOnboarding page shows progress indicator (Tipo, Operación, Sectores, Financieros)",
+      "BuyerOnboarding - Strategic/Financial buyer type selection works",
+      "BuyerOnboarding - Financial subtypes (PE, VC, Family Office, Holding) shown when Financial selected",
+      "BuyerOnboarding - Operation types (Compra total, Compra parcial, Fusión) selection works",
+      "BuyerOnboarding - Taxonomy categories loaded from API and selectable",
+      "BuyerOnboarding - Financial criteria inputs (ticket_min, revenue_min, ebitda_min) work",
+      "BuyerOnboarding - Geography selection works",
+      "BuyerOnboarding - Save profile redirects to /buyer/dashboard",
+      "BuyerDashboard - Shows 'Deals Recomendados' section with affinity badges",
+      "BuyerDashboard - Affinity badges show 'ALTA AFINIDAD' (green) and 'AFINIDAD MEDIA' (yellow)",
+      "BuyerDashboard - NO numeric scores shown (only qualitative labels)",
+      "Marketplace - Anonymous users do NOT see 'Ordenar por relevancia' option",
+      "Marketplace - Anonymous users do NOT see affinity badges",
+      "Marketplace - Logged-in buyers with complete profile see 'Ordenar por relevancia' option",
+      "Marketplace - Logged-in buyers with complete profile see affinity badges on deal cards",
+      "Marketplace - Affinity badges in Spanish: 'Alta afinidad', 'Afinidad media'",
+      "DealPage - Buyer with incomplete profile sees 'Perfil incompleto' block after NDA",
+      "DealPage - 'Perfil incompleto' block shows 'Completar perfil' button",
+      "DealPage - Interest CTA hidden for incomplete profile buyers"
+    ]
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_buyer_onboarding_matching.py",
+    "/app/test_reports/pytest/pytest_results_buyer_onboarding.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [],
+  
+  "updated_files": [
+    "/app/backend/tests/test_buyer_onboarding_matching.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% (all UI components and interactions working)"
+  },
+  
+  "test_credentials": {
+    "note": "Multiple test buyers created during testing with pattern test_*@arroba.com",
+    "existing_seller": "seller_test@arroba.com / Test1234!"
+  },
+  
+  "seed_data_creation": "Created multiple test buyer accounts during testing. All test accounts have email pattern test_*@arroba.com",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "All buyer onboarding and matching engine features are working correctly. Key verified features: 1) New buyer registration redirects to /buyer/onboarding, 2) Buyer profile form captures type (strategic/financial with subtypes), operation_types, taxonomy_categories, financial criteria, geography, 3) profile_complete=true only when all required fields filled, 4) Matching API returns affinity labels (high/medium/low) with Spanish display labels (Alta afinidad, Afinidad media, Baja afinidad), 5) NO numeric scores exposed to frontend, 6) 'Ordenar por relevancia' sort only visible for logged-in buyers with complete profile, 7) DealPage shows 'Perfil incompleto' block for buyers without complete profile after NDA signed.",
+  
+  "features_verified": {
+    "buyer_registration_redirect": {
+      "behavior": "New buyer registration redirects to /buyer/onboarding",
+      "status": "WORKING"
+    },
+    "buyer_onboarding_form": {
+      "fields": ["type (strategic/financial)", "financial subtypes (PE, VC, FO, Holding)", "operation_types", "taxonomy_categories", "ticket_min/max", "revenue_range_min/max", "ebitda_range_min/max", "geographies"],
+      "status": "WORKING"
+    },
+    "profile_complete_logic": {
+      "required_fields": ["type", "operation_types", "taxonomy_categories", "ticket_min", "revenue_range_min", "ebitda_range_min"],
+      "status": "WORKING"
+    },
+    "matching_api": {
+      "endpoint": "GET /api/matching/deals",
+      "returns": "deals with affinity (high/medium/low) and affinity_label (Spanish)",
+      "status": "WORKING"
+    },
+    "affinity_labels": {
+      "values": ["Alta afinidad", "Afinidad media", "Baja afinidad"],
+      "no_numeric_scores": true,
+      "status": "WORKING"
+    },
+    "marketplace_sort_by_relevance": {
+      "behavior": "Only visible for logged-in buyers with profile_complete=true",
+      "status": "WORKING"
+    },
+    "marketplace_affinity_badges": {
+      "behavior": "Only shown for logged-in buyers with complete profile",
+      "status": "WORKING"
+    },
+    "deal_page_profile_block": {
+      "behavior": "Shows 'Perfil incompleto' block instead of Interest form for incomplete profile buyers",
+      "status": "WORKING"
+    },
+    "activation_preview": {
+      "endpoint": "GET /api/deals/{deal_id}/activation-preview",
+      "returns": "compatible_buyers stats (high, medium, low, total)",
+      "status": "WORKING"
+    }
+  },
+  
+  "mocked_apis": {
+    "email_alerts": "Email sending (match_alerts_service.py) is scaffolding only - no actual SendGrid integration",
+    "iberinform": "Uses test credentials"
+  }
+}

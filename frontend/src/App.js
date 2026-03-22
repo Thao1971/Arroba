@@ -14,9 +14,10 @@ import SellerDashboard from './pages/SellerDashboard';
 import SellerWizard from './pages/SellerWizard';
 import DealManagement from './pages/DealManagement';
 import DealPage from './pages/DealPage';
+import BuyerOnboarding from './pages/BuyerOnboarding';
 
 // Protected Route Component
-const ProtectedRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
   const { user, loading, isAuthenticated } = useAuth();
   const location = useLocation();
 
@@ -38,11 +39,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
-    // Redirect to appropriate dashboard based on role
     if (user?.role === 'seller') return <Navigate to="/seller/dashboard" replace />;
     if (user?.role === 'advisor') return <Navigate to="/advisor/dashboard" replace />;
     if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
     return <Navigate to="/buyer/dashboard" replace />;
+  }
+
+  // Redirect incomplete buyers to onboarding (except on onboarding page itself)
+  if (!skipOnboardingCheck && user?.role === 'buyer' && !user?.buyer_profile?.profile_complete) {
+    return <Navigate to="/buyer/onboarding" replace />;
   }
 
   return children;
@@ -71,6 +76,14 @@ const AppRouter = () => {
       <Route path="/about" element={<Home />} />
 
       {/* Buyer Routes */}
+      <Route
+        path="/buyer/onboarding"
+        element={
+          <ProtectedRoute allowedRoles={['buyer', 'admin']} skipOnboardingCheck>
+            <BuyerOnboarding />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/buyer/dashboard"
         element={

@@ -175,6 +175,12 @@ async def update_deal(
     )
     
     updated = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+    
+    # If deal is published, recalculate matching
+    if updated.get("status") in ("published", "nda", "evaluation"):
+        from services.match_alerts_service import check_and_trigger_matches_for_deal
+        await check_and_trigger_matches_for_deal(deal_id)
+    
     return DealResponse(**updated)
 
 
@@ -221,6 +227,11 @@ async def activate_deal(
     )
     
     updated = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+    
+    # Trigger match alerts for all compatible buyers
+    from services.match_alerts_service import check_and_trigger_matches_for_deal
+    await check_and_trigger_matches_for_deal(deal_id)
+    
     return DealResponse(**updated)
 
 

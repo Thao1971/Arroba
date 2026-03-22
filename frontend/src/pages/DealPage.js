@@ -417,7 +417,17 @@ const DealPage = () => {
                 {/* Send Interest (if no engagement yet) */}
                 {!hasEngagement && (
                   <>
-                    {!showInterestForm ? (
+                    {/* Block if profile incomplete */}
+                    {user?.role === 'buyer' && !user?.buyer_profile?.profile_complete ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center" data-testid="profile-incomplete-block">
+                        <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+                        <h3 className="font-bold mb-2">Perfil incompleto</h3>
+                        <p className="text-sm text-slate-500 mb-4">Completa tu perfil de comprador antes de enviar interés o LOI</p>
+                        <Button onClick={() => navigate('/buyer/onboarding')} className="bg-arroba-coral hover:bg-arroba-coral/90 text-white" data-testid="go-complete-profile-btn">
+                          Completar perfil
+                        </Button>
+                      </div>
+                    ) : !showInterestForm ? (
                       <div className="bg-white border border-slate-200 rounded-lg p-6 text-center" data-testid="interest-cta">
                         <Send className="w-10 h-10 text-arroba-coral mx-auto mb-3" />
                         <h3 className="font-bold mb-2">¿Te interesa esta oportunidad?</h3>

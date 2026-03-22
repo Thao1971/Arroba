@@ -63,7 +63,9 @@ async def update_buyer_profile(
         profile_dict.get("type") and
         profile_dict.get("operation_types") and
         (profile_dict.get("taxonomy_categories") or profile_dict.get("sectors")) and
-        profile_dict.get("ticket_min") is not None
+        profile_dict.get("ticket_min") is not None and
+        profile_dict.get("revenue_range_min") is not None and
+        profile_dict.get("ebitda_range_min") is not None
     )
     
     await users_collection.update_one(
@@ -78,6 +80,9 @@ async def update_buyer_profile(
     if profile_dict["profile_complete"]:
         from services.events_service import track_event
         await track_event("BUYER_PROFILE_COMPLETED", user_id=current_user.user_id)
+        # Trigger match alerts for this buyer
+        from services.match_alerts_service import check_and_trigger_matches_for_buyer
+        await check_and_trigger_matches_for_buyer(current_user.user_id)
     
     user_doc = await users_collection.find_one(
         {"user_id": current_user.user_id}, {"_id": 0}

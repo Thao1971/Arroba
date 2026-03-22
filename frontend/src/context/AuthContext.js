@@ -82,6 +82,16 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const response = await authAPI.getMe();
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      return null;
+    }
+  }, []);
+
   const value = {
     user,
     loading,
@@ -91,6 +101,7 @@ export const AuthProvider = ({ children }) => {
     processGoogleSession,
     logout,
     updateUser,
+    refreshUser,
     checkAuth,
     isAuthenticated: !!user,
   };
