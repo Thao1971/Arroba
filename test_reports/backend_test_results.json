@@ -1,0 +1,217 @@
+{
+  "timestamp": "2026-03-22T16:56:17.591993",
+  "total_tests": 8,
+  "passed_tests": 7,
+  "failed_tests": 1,
+  "success_rate": 87.5,
+  "test_results": [
+    {
+      "test_name": "Health Check",
+      "endpoint": "api/health",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "status": "healthy",
+        "service": "arroba-api"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Marketplace Sectors",
+      "endpoint": "api/marketplace/sectors",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [
+        {
+          "id": "seo",
+          "name": "SEO",
+          "description": "Posicionamiento en buscadores"
+        },
+        {
+          "id": "sem",
+          "name": "SEM / PPC",
+          "description": "Publicidad en buscadores"
+        },
+        {
+          "id": "social",
+          "name": "Social Media",
+          "description": "Gesti\u00f3n de redes sociales"
+        },
+        {
+          "id": "content",
+          "name": "Content Marketing",
+          "description": "Marketing de contenidos"
+        },
+        {
+          "id": "programmatic",
+          "name": "Program\u00e1tica",
+          "description": "Compra program\u00e1tica"
+        },
+        {
+          "id": "creative",
+          "name": "Creatividad",
+          "description": "Dise\u00f1o y creatividad"
+        },
+        {
+          "id": "development",
+          "name": "Desarrollo Web/App",
+          "description": "Desarrollo digital"
+        },
+        {
+          "id": "data",
+          "name": "Data & Analytics",
+          "description": "An\u00e1lisis de datos"
+        },
+        {
+          "id": "ecommerce",
+          "name": "E-commerce",
+          "description": "Comercio electr\u00f3nico"
+        },
+        {
+          "id": "performance",
+          "name": "Performance",
+          "description": "Marketing de resultados"
+        },
+        {
+          "id": "branding",
+          "name": "Branding",
+          "description": "Marca e identidad"
+        },
+        {
+          "id": "video",
+          "name": "Video & Audio",
+          "description": "Producci\u00f3n audiovisual"
+        },
+        {
+          "id": "influencer",
+          "name": "Influencer Marketing",
+          "description": "Marketing con influencers"
+        },
+        {
+          "id": "pr",
+          "name": "PR & Comunicaci\u00f3n",
+          "description": "Relaciones p\u00fablicas"
+        },
+        {
+          "id": "automation",
+          "name": "Marketing Automation",
+          "description": "Automatizaci\u00f3n"
+        },
+        {
+          "id": "fullservice",
+          "name": "Full Service",
+          "description": "Agencia 360\u00b0"
+        }
+      ],
+      "error": null
+    },
+    {
+      "test_name": "Marketplace Stats",
+      "endpoint": "api/marketplace/stats",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "published_deals": 0,
+        "closed_deals": 0,
+        "active_processes": 0,
+        "total_value_transacted": "50M+ \u20ac",
+        "average_deal_time": "4-6 meses"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Marketplace Deals",
+      "endpoint": "api/marketplace/deals",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [],
+      "error": null
+    },
+    {
+      "test_name": "Featured Deals",
+      "endpoint": "api/marketplace/featured",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": [],
+      "error": null
+    },
+    {
+      "test_name": "User Registration",
+      "endpoint": "api/auth/register",
+      "method": "POST",
+      "expected_status": 200,
+      "actual_status": 200,
+      "success": true,
+      "response_data": {
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyX2E4YTExNjRjMzRhMyIsImVtYWlsIjoidGVzdF91c2VyXzIwMjYwMzIyXzE2NTYxNkB0ZXN0LmNvbSIsInJvbGUiOiJidXllciIsImV4cCI6MTc3NDgwMzM3NywiaWF0IjoxNzc0MTk4NTc3fQ.85CHEzxzzm-o4sOrJlE8VUOaVIbBDv6bLk2FbvB047Y",
+        "token_type": "bearer",
+        "user": {
+          "user_id": "user_a8a1164c34a3",
+          "email": "test_user_20260322_165616@test.com",
+          "first_name": "Test",
+          "last_name": "User",
+          "phone": null,
+          "avatar_url": null,
+          "role": "buyer",
+          "buyer_profile": {
+            "type": null,
+            "operation_types": [],
+            "ticket_min": null,
+            "ticket_max": null,
+            "revenue_range_min": null,
+            "revenue_range_max": null,
+            "ebitda_range_min": null,
+            "ebitda_range_max": null,
+            "sectors": [],
+            "geographies": [],
+            "urgency": "medium",
+            "control_preference": "flexible"
+          },
+          "seller_profile": null,
+          "advisor_profile": null,
+          "deal_manager": null,
+          "subscription_id": null,
+          "email_verified": false,
+          "is_active": true,
+          "created_at": "2026-03-22T16:56:17.265487Z",
+          "updated_at": "2026-03-22T16:56:17.265491Z"
+        }
+      },
+      "error": null
+    },
+    {
+      "test_name": "User Login (Invalid)",
+      "endpoint": "api/auth/login",
+      "method": "POST",
+      "expected_status": 401,
+      "actual_status": 401,
+      "success": true,
+      "response_data": {
+        "detail": "Invalid credentials"
+      },
+      "error": null
+    },
+    {
+      "test_name": "Get Current User",
+      "endpoint": "api/auth/me",
+      "method": "GET",
+      "expected_status": 200,
+      "actual_status": 401,
+      "success": false,
+      "response_data": null,
+      "error": {
+        "detail": "Invalid session"
+      }
+    }
+  ]
+}

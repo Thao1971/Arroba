@@ -1,0 +1,114 @@
+import axios from 'axios';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+const api = axios.create({
+  baseURL: `${API_URL}/api`,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor to add auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor to handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('access_token');
+      // Only redirect to login for protected routes, not for public pages
+      // Don't redirect if we're on public pages or already on auth pages
+      const publicPaths = ['/', '/marketplace', '/pricing', '/about', '/login', '/register', '/auth/callback'];
+      const currentPath = window.location.pathname;
+      const isPublicPath = publicPaths.some(path => 
+        currentPath === path || currentPath.startsWith('/marketplace/')
+      );
+      
+      if (!isPublicPath) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authAPI = {
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
+  processGoogleSession: (sessionId) => api.post('/auth/session', { session_id: sessionId }),
+  getMe: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+};
+
+// Users API
+export const usersAPI = {
+  getProfile: () => api.get('/users/me'),
+  updateProfile: (data) => api.put('/users/me', data),
+  updateBuyerProfile: (data) => api.put('/users/me/buyer-profile', data),
+  changeRole: (role) => api.put(`/users/me/role?role=${role}`),
+};
+
+// Marketplace API
+export const marketplaceAPI = {
+  listDeals: (params) => api.get('/marketplace/deals', { params }),
+  getDealTeaser: (dealId) => api.get(`/marketplace/deals/${dealId}/teaser`),
+  getSectors: () => api.get('/marketplace/sectors'),
+  getStats: () => api.get('/marketplace/stats'),
+  getFeaturedDeals: () => api.get('/marketplace/featured'),
+};
+
+// Companies API
+export const companiesAPI = {
+  create: (data) => api.post('/companies', data),
+  list: () => api.get('/companies'),
+  get: (companyId) => api.get(`/companies/${companyId}`),
+  update: (companyId, data) => api.put(`/companies/${companyId}`, data),
+  updateFinancials: (companyId, data) => api.post(`/companies/${companyId}/financials`, data),
+  calculateValuation: (companyId) => api.post(`/companies/${companyId}/calculate-valuation`),
+  getValuation: (companyId) => api.get(`/companies/${companyId}/valuation`),
+};
+
+// Deals API
+export const dealsAPI = {
+  create: (data) => api.post('/deals', data),
+  list: (status) => api.get('/deals', { params: { status } }),
+  get: (dealId) => api.get(`/deals/${dealId}`),
+  update: (dealId, data) => api.put(`/deals/${dealId}`, data),
+  activate: (dealId) => api.post(`/deals/${dealId}/activate`),
+  requestAccess: (dealId) => api.post(`/deals/${dealId}/request-access`),
+  approveAccess: (dealId, buyerId) => api.post(`/deals/${dealId}/approve-access/${buyerId}`),
+  signNDA: (dealId) => api.post(`/deals/${dealId}/sign-nda`),
+  getInfomemo: (dealId) => api.get(`/deals/${dealId}/infomemo`),
+  createShortlist: (dealId, buyerIds) => api.post(`/deals/${dealId}/shortlist`, buyerIds),
+  grantExclusivity: (dealId, buyerId, days) => api.post(`/deals/${dealId}/grant-exclusivity/${buyerId}?days=${days}`),
+  close: (dealId, data) => api.post(`/deals/${dealId}/close`, null, { params: data }),
+  drop: (dealId, reason) => api.post(`/deals/${dealId}/drop`, null, { params: { reason } }),
+};
+
+// Infomemo API
+export const infomemoAPI = {
+  generate: (companyId) => api.post(`/infomemo/generate/${companyId}`),
+  get: (dealId) => api.get(`/infomemo/${dealId}`),
+  update: (dealId, content) => api.put(`/infomemo/${dealId}`, null, { params: { content } }),
+};
+
+// Subscriptions API
+export const subscriptionsAPI = {
+  getPlans: () => api.get('/subscriptions/plans'),
+  createCheckout: (planType) => api.post(`/subscriptions/create-checkout?plan_type=${planType}`),
+  getCheckoutStatus: (sessionId) => api.get(`/subscriptions/checkout/status/${sessionId}`),
+  getStatus: () => api.get('/subscriptions/status'),
+  cancel: () => api.post('/subscriptions/cancel'),
+};
+
+export default api;
