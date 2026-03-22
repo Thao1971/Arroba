@@ -68,3 +68,15 @@ async def get_buyer_intent(
     """Get intent score for a specific buyer on a deal."""
     intent = await compute_intent_score(buyer_id, deal_id)
     return {"deal_id": deal_id, "buyer_id": buyer_id, **intent}
+
+
+
+@router.get("/suggestions/{deal_id}")
+async def get_deal_suggestions(
+    deal_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get auto-shortlist suggestions for a deal (seller view)."""
+    from services.suggestion_service import compute_suggestions
+    suggestions = await compute_suggestions(deal_id)
+    return {"deal_id": deal_id, **suggestions}

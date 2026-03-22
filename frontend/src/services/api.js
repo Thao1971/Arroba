@@ -183,6 +183,7 @@ export const trackingAPI = {
   getBuyerTime: (dealId, buyerId) => api.get(`/tracking/time/${dealId}/${buyerId}`),
   getDealIntent: (dealId) => api.get(`/tracking/intent/${dealId}`),
   getBuyerIntent: (dealId, buyerId) => api.get(`/tracking/intent/${dealId}/${buyerId}`),
+  getSuggestions: (dealId) => api.get(`/tracking/suggestions/${dealId}`),
 };
 
 // Subscriptions API
