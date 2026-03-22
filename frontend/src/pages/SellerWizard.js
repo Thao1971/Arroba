@@ -138,7 +138,16 @@ const SellerWizard = () => {
           data_source: f.data_source || 'MANUAL'
         })));
       }
-      if (company.valuation_inputs) setValuationInputs(company.valuation_inputs);
+      if (company.valuation_inputs) {
+        setValuationInputs({
+          founder_dependency: company.valuation_inputs.founder_dependency || 'medium',
+          recurring_revenue_type: company.valuation_inputs.recurring_revenue_type || 'mixed',
+          main_clients: company.valuation_inputs.main_clients ?? '',
+          client_retention_rate: company.valuation_inputs.client_retention_rate ?? '',
+          tech_assets: company.valuation_inputs.tech_assets || false,
+          proprietary_ip: company.valuation_inputs.proprietary_ip || false
+        });
+      }
       if (company.valuation) setValuation(company.valuation);
     } catch (err) {
       setError('Error al cargar la compañía');
