@@ -128,6 +128,22 @@ export const eventsAPI = {
   trackTimeSpent: (dealId, seconds) => api.post(`/deals/${dealId}/track-time`, { seconds }),
 };
 
+// Engagements API
+export const engagementsAPI = {
+  submitInterest: (data) => api.post('/engagements/interest', data),
+  upgradeToLoi: (engagementId, data) => api.post(`/engagements/${engagementId}/upgrade-to-loi`, data),
+  getMyStatus: (dealId) => api.get(`/engagements/my-status/${dealId}`),
+  listDealEngagements: (dealId) => api.get(`/engagements/deal/${dealId}`),
+  shortlistBuyer: (dealId, buyerId) => api.post(`/engagements/deal/${dealId}/shortlist/${buyerId}`),
+  removeFromShortlist: (dealId, buyerId) => api.delete(`/engagements/deal/${dealId}/shortlist/${buyerId}`),
+  rejectBuyer: (dealId, buyerId) => api.post(`/engagements/deal/${dealId}/reject/${buyerId}`),
+  grantExclusivity: (dealId, buyerId) => api.post(`/engagements/deal/${dealId}/exclusivity/${buyerId}`),
+  saveDeal: (dealId) => api.post(`/engagements/save/${dealId}`),
+  unsaveDeal: (dealId) => api.delete(`/engagements/save/${dealId}`),
+  checkSaved: (dealId) => api.get(`/engagements/save/${dealId}/status`),
+  listSaved: () => api.get('/engagements/saved'),
+};
+
 // Subscriptions API
 export const subscriptionsAPI = {
   getPlans: () => api.get('/subscriptions/plans'),

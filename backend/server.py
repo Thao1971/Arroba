@@ -23,6 +23,7 @@ from routers.subscriptions import router as subscriptions_router
 from routers.cif_lookup import router as cif_lookup_router
 from routers.teaser import router as teaser_router
 from routers.taxonomy import router as taxonomy_router
+from routers.engagements import router as engagements_router
 
 # Configure logging
 logging.basicConfig(
@@ -74,6 +75,7 @@ app.include_router(subscriptions_router, prefix="/api")
 app.include_router(cif_lookup_router, prefix="/api")
 app.include_router(teaser_router, prefix="/api")
 app.include_router(taxonomy_router, prefix="/api")
+app.include_router(engagements_router, prefix="/api")
 
 
 @app.get("/api")

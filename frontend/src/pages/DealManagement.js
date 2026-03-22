@@ -3,12 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { dealsAPI, companiesAPI } from '../services/api';
+import { dealsAPI, companiesAPI, engagementsAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { 
   ArrowLeft, Eye, Users, FileSignature, FileText, CheckCircle2,
-  AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Download
+  AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Star, X, Lock
 } from 'lucide-react';
 
 // Status flow visualization
@@ -25,6 +25,233 @@ const statusFlow = [
 ];
 
 const getStatusIndex = (status) => statusFlow.findIndex(s => s.id === status);
+
+const stageColors = {
+  SUBMITTED: 'bg-blue-100 text-blue-700',
+  VIEWED: 'bg-yellow-100 text-yellow-700',
+  SHORTLISTED: 'bg-green-100 text-green-700',
+  REJECTED: 'bg-red-100 text-red-700',
+  EXCLUSIVITY: 'bg-indigo-100 text-indigo-700',
+};
+const stageLabels = {
+  SUBMITTED: 'Enviado', VIEWED: 'Visto', SHORTLISTED: 'Shortlist',
+  REJECTED: 'Rechazado', EXCLUSIVITY: 'Exclusividad',
+};
+const opLabels = { full_sale: 'Compra total', partial_sale: 'Parcial', merger: 'Fusión' };
+const structLabels = { cash: 'Cash', earn_out: 'Earn-out', mixed: 'Mixto' };
+
+const ComparatorTab = ({ deal, onRefresh }) => {
+  const [engData, setEngData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState('');
+  const [sortField, setSortField] = useState('created_at');
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await engagementsAPI.listDealEngagements(deal.deal_id);
+        setEngData(res.data);
+      } catch {} finally { setLoading(false); }
+    };
+    load();
+  }, [deal.deal_id]);
+
+  const handleShortlist = async (buyerId) => {
+    setActionLoading(buyerId);
+    try {
+      await engagementsAPI.shortlistBuyer(deal.deal_id, buyerId);
+      const res = await engagementsAPI.listDealEngagements(deal.deal_id);
+      setEngData(res.data);
+    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
+    finally { setActionLoading(''); }
+  };
+
+  const handleRemoveShortlist = async (buyerId) => {
+    setActionLoading(buyerId);
+    try {
+      await engagementsAPI.removeFromShortlist(deal.deal_id, buyerId);
+      const res = await engagementsAPI.listDealEngagements(deal.deal_id);
+      setEngData(res.data);
+    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
+    finally { setActionLoading(''); }
+  };
+
+  const handleReject = async (buyerId) => {
+    if (!window.confirm('¿Rechazar este comprador?')) return;
+    setActionLoading(buyerId);
+    try {
+      await engagementsAPI.rejectBuyer(deal.deal_id, buyerId);
+      const res = await engagementsAPI.listDealEngagements(deal.deal_id);
+      setEngData(res.data);
+    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
+    finally { setActionLoading(''); }
+  };
+
+  const handleExclusivity = async (buyerId) => {
+    if (!window.confirm('¿Otorgar exclusividad a este comprador? Esto bloqueará nuevos intereses y LOIs.')) return;
+    setActionLoading(buyerId);
+    try {
+      await engagementsAPI.grantExclusivity(deal.deal_id, buyerId);
+      const res = await engagementsAPI.listDealEngagements(deal.deal_id);
+      setEngData(res.data);
+      if (onRefresh) onRefresh();
+    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
+    finally { setActionLoading(''); }
+  };
+
+  if (loading) return <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>;
+
+  const engagements = engData?.engagements || [];
+  const shortlistedIds = engData?.shortlisted_buyer_ids || [];
+  const exclusiveBuyer = engData?.exclusive_buyer_id;
+
+  const sorted = [...engagements].sort((a, b) => {
+    if (sortField === 'valuation') {
+      const aVal = a.valuation_offer || a.valuation_range_max || 0;
+      const bVal = b.valuation_offer || b.valuation_range_max || 0;
+      return bVal - aVal;
+    }
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  return (
+    <div className="space-y-4" data-testid="comparator-tab">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-3 text-sm">
+          <span className="bg-blue-50 px-3 py-1 rounded-full text-blue-700 font-medium">
+            {engData?.total_interests || 0} Intereses
+          </span>
+          <span className="bg-arroba-coral/10 px-3 py-1 rounded-full text-arroba-coral font-medium">
+            {engData?.total_lois || 0} LOIs
+          </span>
+          <span className="bg-green-50 px-3 py-1 rounded-full text-green-700 font-medium">
+            {shortlistedIds.length}/3 Shortlist
+          </span>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setSortField('created_at')}
+            className={sortField === 'created_at' ? 'bg-slate-100' : ''}>Fecha</Button>
+          <Button variant="outline" size="sm" onClick={() => setSortField('valuation')}
+            className={sortField === 'valuation' ? 'bg-slate-100' : ''}>Valoración</Button>
+        </div>
+      </div>
+
+      {exclusiveBuyer && (
+        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center gap-2 text-indigo-700 text-sm">
+          <Lock className="w-4 h-4" /> Deal en exclusividad — No se admiten nuevos intereses
+        </div>
+      )}
+
+      {engagements.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
+          <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500">Aún no hay intereses ni LOIs</p>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="comparator-table">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Buyer</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Estado</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Rango / Oferta</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Operación</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Fecha</th>
+                  <th className="text-left px-4 py-3 font-semibold text-slate-600">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map(eng => {
+                  const isShortlisted = shortlistedIds.includes(eng.buyer_id);
+                  const isExclusive = exclusiveBuyer === eng.buyer_id;
+                  return (
+                    <tr key={eng.engagement_id} className={`border-b last:border-0 hover:bg-slate-50 ${isExclusive ? 'bg-indigo-50/50' : isShortlisted ? 'bg-green-50/50' : ''}`}
+                      data-testid={`comparator-row-${eng.engagement_id}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {isShortlisted && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+                          <div>
+                            <p className="font-medium">{eng.buyer_name || 'Comprador'}</p>
+                            <p className="text-xs text-slate-400 capitalize">{eng.buyer_type || 'other'}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${stageColors[eng.stage] || 'bg-slate-100'}`}>
+                            {stageLabels[eng.stage] || eng.stage}
+                          </span>
+                          <span className="text-xs text-slate-400">{eng.type}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {eng.type === 'LOI' && eng.valuation_offer ? (
+                          <div>
+                            <p className="font-bold text-arroba-coral">{(eng.valuation_offer / 1e6).toFixed(1)}M €</p>
+                            <p className="text-xs text-slate-400">{structLabels[eng.structure] || eng.structure} · {eng.acquisition_percentage}%</p>
+                            {eng.is_binding && <span className="text-xs font-bold text-red-600">Vinculante</span>}
+                          </div>
+                        ) : (
+                          <div>
+                            {eng.valuation_range_min ? (
+                              <p className="font-medium">{(eng.valuation_range_min / 1e6).toFixed(1)}M - {(eng.valuation_range_max / 1e6).toFixed(1)}M €</p>
+                            ) : (
+                              <p className="text-slate-400">Sin rango</p>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{opLabels[eng.operation_type] || eng.operation_type}</td>
+                      <td className="px-4 py-3 text-slate-400 text-xs">{new Date(eng.created_at).toLocaleDateString('es-ES')}</td>
+                      <td className="px-4 py-3">
+                        {eng.stage !== 'REJECTED' && eng.stage !== 'EXCLUSIVITY' && (
+                          <div className="flex gap-1">
+                            {!isShortlisted ? (
+                              <Button variant="outline" size="sm" onClick={() => handleShortlist(eng.buyer_id)}
+                                disabled={actionLoading === eng.buyer_id || shortlistedIds.length >= 3}
+                                data-testid={`shortlist-btn-${eng.engagement_id}`}>
+                                {actionLoading === eng.buyer_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
+                              </Button>
+                            ) : (
+                              <>
+                                <Button variant="outline" size="sm" onClick={() => handleRemoveShortlist(eng.buyer_id)}
+                                  disabled={actionLoading === eng.buyer_id} className="text-yellow-600"
+                                  data-testid={`unshortlist-btn-${eng.engagement_id}`}>
+                                  <Star className="w-3 h-3 fill-yellow-500" />
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => handleExclusivity(eng.buyer_id)}
+                                  disabled={actionLoading === eng.buyer_id} className="text-indigo-600"
+                                  data-testid={`exclusivity-btn-${eng.engagement_id}`}>
+                                  <Lock className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                            <Button variant="outline" size="sm" onClick={() => handleReject(eng.buyer_id)}
+                              disabled={actionLoading === eng.buyer_id} className="text-red-500"
+                              data-testid={`reject-btn-${eng.engagement_id}`}>
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        )}
+                        {eng.stage === 'EXCLUSIVITY' && (
+                          <span className="text-xs text-indigo-600 font-bold flex items-center gap-1"><Lock className="w-3 h-3" /> Exclusivo</span>
+                        )}
+                        {eng.stage === 'REJECTED' && (
+                          <span className="text-xs text-red-500">Rechazado</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DealManagement = () => {
   const { dealId } = useParams();
@@ -219,9 +446,7 @@ const DealManagement = () => {
           <div className="flex gap-6">
             {[
               { id: 'overview', label: 'Resumen' },
-              { id: 'buyers', label: `Compradores (${deal.metrics?.access_requests_count || 0})` },
-              { id: 'ndas', label: `NDAs (${deal.metrics?.ndas_signed_count || 0})` },
-              { id: 'lois', label: `LOIs (${deal.metrics?.lois_received_count || 0})` },
+              { id: 'comparator', label: 'Interesados' },
               { id: 'infomemo', label: 'Infomemo' },
             ].map(tab => (
               <button
@@ -323,108 +548,8 @@ const DealManagement = () => {
               </div>
             )}
 
-            {activeTab === 'buyers' && (
-              <div className="bg-white border border-slate-200 rounded-lg p-6" data-testid="tab-content-buyers">
-                <h3 className="font-semibold mb-4">Solicitudes de acceso</h3>
-                {deal.access_requests?.length > 0 ? (
-                  <div className="space-y-4">
-                    {deal.access_requests.map((request, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                        <div>
-                          <p className="font-medium">Comprador #{idx + 1}</p>
-                          <p className="text-sm text-slate-500">
-                            Solicitado: {new Date(request.requested_at).toLocaleDateString('es-ES')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            request.status === 'approved' ? 'bg-green-100 text-green-700' :
-                            request.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                            'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {request.status === 'approved' ? 'Aprobado' :
-                             request.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                          </span>
-                          {request.status === 'pending' && (
-                            <Button
-                              size="sm"
-                              onClick={() => approveAccess(request.buyer_id)}
-                              disabled={actionLoading}
-                              className="bg-arroba-green hover:bg-arroba-green/90 text-white"
-                            >
-                              Aprobar
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p>Aún no hay solicitudes de acceso</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'ndas' && (
-              <div className="bg-white border border-slate-200 rounded-lg p-6" data-testid="tab-content-ndas">
-                <h3 className="font-semibold mb-4">NDAs firmados</h3>
-                {deal.ndas_signed?.length > 0 ? (
-                  <div className="space-y-4">
-                    {deal.ndas_signed.map((nda, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Shield className="w-5 h-5 text-arroba-green" />
-                          <div>
-                            <p className="font-medium">Comprador verificado</p>
-                            <p className="text-sm text-slate-500">
-                              Firmado: {new Date(nda.signed_at).toLocaleDateString('es-ES')}
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Ver perfil
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    <FileSignature className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p>Aún no hay NDAs firmados</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'lois' && (
-              <div className="bg-white border border-slate-200 rounded-lg p-6" data-testid="tab-content-lois">
-                <h3 className="font-semibold mb-4">Letters of Intent recibidas</h3>
-                {deal.lois?.length > 0 ? (
-                  <div className="space-y-4">
-                    {deal.lois.map((loi, idx) => (
-                      <div key={idx} className="p-4 bg-slate-50 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">LOI #{idx + 1}</span>
-                          <span className="text-arroba-coral font-bold">
-                            Oferta pendiente
-                          </span>
-                        </div>
-                        <Button variant="outline" size="sm">
-                          Ver detalle
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-slate-500">
-                    <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                    <p>Aún no hay LOIs recibidas</p>
-                  </div>
-                )}
-              </div>
+            {activeTab === 'comparator' && (
+              <ComparatorTab deal={deal} onRefresh={loadDeal} />
             )}
 
             {activeTab === 'infomemo' && (

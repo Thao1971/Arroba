@@ -20,6 +20,8 @@ payment_transactions_collection = db.payment_transactions
 infomemos_collection = db.infomemos
 cis_collection = db.cis_financial_cache
 teasers_collection = db.teasers
+engagements_collection = db.engagements
+saved_deals_collection = db.saved_deals
 
 async def init_db():
     """Initialize database indexes"""
@@ -52,6 +54,14 @@ async def init_db():
     # CIS financial cache
     await cis_collection.create_index("cif", unique=True)
     await cis_collection.create_index("last_updated")
+
+    # Engagements
+    await engagements_collection.create_index([("deal_id", 1), ("buyer_id", 1)])
+    await engagements_collection.create_index("deal_id")
+    await engagements_collection.create_index("buyer_id")
+
+    # Saved deals
+    await saved_deals_collection.create_index([("user_id", 1), ("deal_id", 1)], unique=True)
 
     # Payment transactions
     await payment_transactions_collection.create_index("session_id", unique=True)
