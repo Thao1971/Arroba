@@ -49,6 +49,7 @@ const ComparatorTab = ({ deal, onRefresh }) => {
   const [actionLoading, setActionLoading] = useState('');
   const [sortField, setSortField] = useState('created_at');
   const [exclWarning, setExclWarning] = useState(null);
+  const [exclConfirmText, setExclConfirmText] = useState('');
   const [nudges, setNudges] = useState([]);
 
   useEffect(() => {
@@ -149,81 +150,122 @@ const ComparatorTab = ({ deal, onRefresh }) => {
     <div className="space-y-4" data-testid="comparator-tab">
       {/* Exclusivity Warning Dialog */}
       {exclWarning && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="exclusivity-warning-dialog">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" data-testid="exclusivity-warning-dialog">
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
-            <div className={`px-6 py-4 ${exclWarning.ready ? 'bg-green-50 border-b border-green-200' : 'bg-amber-50 border-b border-amber-200'}`}>
+            <div className={`px-6 py-4 ${exclWarning.ready ? 'bg-green-50 border-b border-green-200' : 'bg-red-50 border-b border-red-200'}`}>
               <div className="flex items-center gap-3">
                 {exclWarning.ready
                   ? <CheckCircle2 className="w-6 h-6 text-green-600" />
-                  : <AlertTriangle className="w-6 h-6 text-amber-600" />
+                  : <AlertTriangle className="w-6 h-6 text-red-600" />
                 }
                 <h3 className="font-bold text-lg">
-                  {exclWarning.ready ? 'Confirmar exclusividad' : 'Exclusividad prematura'}
+                  {exclWarning.ready ? 'Confirmar exclusividad' : 'Exclusividad prematura — riesgo alto'}
                 </h3>
               </div>
             </div>
             <div className="px-6 py-4 space-y-4">
-              <p className="text-slate-700">{exclWarning.message}</p>
+              <p className="text-slate-700 font-medium">{exclWarning.message}</p>
+
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className={`p-3 rounded-lg border ${exclWarning.criteria?.has_loi ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                   <p className="font-medium">{exclWarning.criteria?.has_loi ? 'LOI enviada' : 'Sin LOI'}</p>
                   {exclWarning.metrics?.valuation_offer && <p className="text-xs text-slate-500">{(exclWarning.metrics.valuation_offer / 1e6).toFixed(1)}M EUR</p>}
                 </div>
                 <div className={`p-3 rounded-lg border ${exclWarning.criteria?.score_ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                  <p className="font-medium">Intent Score: {exclWarning.metrics?.intent_score}</p>
-                  <p className="text-xs text-slate-500">{exclWarning.criteria?.score_ok ? 'Suficiente' : 'Por debajo de 55'}</p>
+                  <p className="font-medium">Intent: {exclWarning.metrics?.intent_score}/100</p>
+                  <p className="text-xs text-slate-500">{exclWarning.criteria?.score_ok ? 'Intencion alta' : 'Intencion insuficiente'}</p>
                 </div>
                 <div className={`p-3 rounded-lg border ${exclWarning.criteria?.downloads_ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                   <p className="font-medium">{exclWarning.metrics?.dr_downloads} descargas DR</p>
-                  <p className="text-xs text-slate-500">{exclWarning.criteria?.downloads_ok ? 'Ha revisado docs' : 'Sin due diligence'}</p>
+                  <p className="text-xs text-slate-500">{exclWarning.criteria?.downloads_ok ? 'Ha revisado docs' : 'No ha hecho DD'}</p>
                 </div>
                 <div className={`p-3 rounded-lg border ${exclWarning.criteria?.time_ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                   <p className="font-medium">{exclWarning.metrics?.total_minutes} min invertidos</p>
-                  <p className="text-xs text-slate-500">{exclWarning.criteria?.time_ok ? 'Tiempo suficiente' : 'Menos de 10 min'}</p>
+                  <p className="text-xs text-slate-500">{exclWarning.criteria?.time_ok ? 'Dedicacion suficiente' : 'Menos de 10 min'}</p>
                 </div>
               </div>
-              {exclWarning.warnings?.length > 0 && !exclWarning.ready && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <p className="font-medium text-amber-800 text-sm mb-1">Senales de alerta:</p>
-                  <ul className="text-sm text-amber-700 space-y-1">
-                    {exclWarning.warnings.map((w, i) => <li key={i}>- {w}</li>)}
-                  </ul>
+
+              {/* Recommendation */}
+              {exclWarning.recommendation && (
+                <div className={`rounded-lg p-4 border ${exclWarning.ready ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className={`text-sm font-medium ${exclWarning.ready ? 'text-green-800' : 'text-red-800'}`}>{exclWarning.recommendation}</p>
+                </div>
+              )}
+
+              {/* Friction: type CONFIRMO to proceed when not ready */}
+              {exclWarning.requires_confirmation && (
+                <div className="bg-slate-100 rounded-lg p-4 border border-slate-300">
+                  <p className="text-sm font-bold text-slate-800 mb-2">Para continuar, escribe CONFIRMO:</p>
+                  <input
+                    type="text"
+                    value={exclConfirmText}
+                    onChange={(e) => setExclConfirmText(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-300 focus:border-red-400"
+                    placeholder="Escribe CONFIRMO"
+                    data-testid="excl-confirm-input"
+                  />
                 </div>
               )}
             </div>
             <div className="px-6 py-4 bg-slate-50 flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setExclWarning(null)} data-testid="excl-warning-cancel">
+              <Button variant="outline" onClick={() => { setExclWarning(null); setExclConfirmText(''); }} data-testid="excl-warning-cancel">
                 Cancelar
               </Button>
               <Button
                 onClick={() => doExclusivity(exclWarning.buyerId)}
-                className={!exclWarning.ready ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                disabled={exclWarning.requires_confirmation && exclConfirmText !== 'CONFIRMO'}
+                className={!exclWarning.ready ? 'bg-red-600 hover:bg-red-700 disabled:bg-slate-300 disabled:text-slate-500' : ''}
                 data-testid="excl-warning-confirm"
               >
-                {!exclWarning.ready ? 'Otorgar de todas formas' : 'Confirmar exclusividad'}
+                {!exclWarning.ready ? 'Otorgar bajo mi responsabilidad' : 'Confirmar exclusividad'}
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Nudges */}
+      {/* Prescriptive Nudges */}
       {nudges.length > 0 && (
-        <div className="space-y-2" data-testid="deal-nudges">
+        <div className="space-y-3" data-testid="deal-nudges">
           {nudges.map((nudge, i) => (
-            <div key={nudge.id + i} className={`flex items-start gap-3 p-3 rounded-lg border text-sm ${
+            <div key={nudge.id + i} className={`rounded-lg border overflow-hidden ${
               nudge.priority === 'ALTA' ? 'bg-red-50 border-red-200' :
               nudge.priority === 'MEDIA' ? 'bg-amber-50 border-amber-200' :
               'bg-blue-50 border-blue-200'
             }`} data-testid={`nudge-${nudge.id}`}>
-              {nudge.priority === 'ALTA'
-                ? <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
-                : <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-              }
-              <div>
-                <p className="font-medium">{nudge.title}</p>
-                <p className="text-slate-600">{nudge.message}</p>
+              <div className="flex items-start gap-3 p-4">
+                {nudge.priority === 'ALTA'
+                  ? <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+                  : nudge.priority === 'MEDIA'
+                    ? <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                    : <Info className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-bold text-slate-900">{nudge.title}</p>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      nudge.priority === 'ALTA' ? 'bg-red-200 text-red-800' :
+                      nudge.priority === 'MEDIA' ? 'bg-amber-200 text-amber-800' :
+                      'bg-blue-200 text-blue-800'
+                    }`}>{nudge.priority}</span>
+                  </div>
+                  <p className="text-sm text-slate-700">{nudge.message}</p>
+                  {nudge.prescription && (
+                    <p className="text-sm text-slate-900 font-medium mt-2 bg-white/60 rounded p-2 border border-slate-200">{nudge.prescription}</p>
+                  )}
+                </div>
               </div>
+              {nudge.actions?.length > 0 && (
+                <div className="px-4 pb-3 flex gap-2">
+                  {nudge.actions.map((a, j) => (
+                    <span key={j} className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                      nudge.priority === 'ALTA' ? 'bg-red-200 text-red-900' :
+                      nudge.priority === 'MEDIA' ? 'bg-amber-200 text-amber-900' :
+                      'bg-blue-200 text-blue-900'
+                    }`}>{a}</span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

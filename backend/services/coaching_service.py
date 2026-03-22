@@ -74,6 +74,7 @@ async def check_exclusivity_readiness(deal_id: str, buyer_id: str) -> dict:
         "ready": is_ready,
         "buyer_id": buyer_id,
         "buyer_name": buyer_name,
+        "requires_confirmation": not is_ready,
         "metrics": {
             "intent_score": score,
             "has_loi": has_loi,
@@ -90,10 +91,15 @@ async def check_exclusivity_readiness(deal_id: str, buyer_id: str) -> dict:
             "criteria_total": 4,
         },
         "warnings": warnings,
-        "message": (
-            f"{buyer_name} cumple {criteria_met}/4 criterios recomendados para exclusividad."
+        "recommendation": (
+            f"Todo en orden. {buyer_name} ha demostrado interes serio con LOI, actividad en Data Room y tiempo invertido."
             if is_ready else
-            f"{buyer_name} solo cumple {criteria_met}/4 criterios. Considera esperar mas actividad."
+            f"Recomendacion: Espera a que {buyer_name} complete su due diligence antes de otorgar exclusividad. Sin revision de documentos, la exclusividad puede colapsar durante la DD."
+        ),
+        "message": (
+            f"{buyer_name} cumple {criteria_met}/4 criterios recomendados."
+            if is_ready else
+            f"{buyer_name} solo cumple {criteria_met}/4 criterios. Riesgo: exclusividad prematura."
         ),
     }
 
@@ -114,7 +120,7 @@ async def get_deal_nudges(deal_id: str) -> list:
     if status == "draft":
         return []
 
-    # NC-01: Deal sin traccion (>7 dias, 0 NDAs)
+    # NC-01: Deal sin traccion (>7 dias, 0 NDAs) — PRESCRIPTIVE
     published_at = deal.get("published_at")
     if published_at and status == "published":
         if isinstance(published_at, str):
@@ -123,15 +129,28 @@ async def get_deal_nudges(deal_id: str) -> list:
             pub_dt = published_at
         days_published = (now - pub_dt).days
         ndas_count = len(deal.get("ndas_signed", []))
+        views = deal.get("metrics", {}).get("teaser_views", 0)
 
         if days_published >= 7 and ndas_count == 0:
+            # Prescriptive: analyze WHY based on data
+            asking = deal.get("asking_price", 0)
+            teaser = deal.get("teaser", {})
+
+            if views < 20:
+                diagnosis = f"Solo {views} vistas al teaser — el deal no esta llegando a buyers."
+                prescription = "Revisa que los sectores y la geografia del teaser coincidan con tu publico objetivo. Si el titulo es generico, hazlo mas especifico."
+            elif views >= 20 and ndas_count == 0:
+                diagnosis = f"{views} personas vieron el teaser pero nadie pidio acceso."
+                prescription = f"El teaser no convence. Revisa: 1) Que el precio ({asking/1e6:.1f}M) sea competitivo para tu sector. 2) Que los highlights sean concretos (numeros, no adjetivos). 3) Que el EBITDA sea visible."
+
             nudges.append({
                 "id": "NC-01",
                 "type": "warning",
                 "priority": "ALTA",
-                "title": "Deal sin traccion",
-                "message": f"Tu deal lleva {days_published} dias publicado sin NDAs. Considera revisar el teaser o ajustar el precio.",
-                "action": "Revisar teaser",
+                "title": f"Sin traccion — {days_published} dias publicado",
+                "message": diagnosis,
+                "prescription": prescription,
+                "actions": ["Editar teaser", "Revisar precio"],
             })
 
     # NC-02: Muchos intereses, 0 LOIs
@@ -143,13 +162,39 @@ async def get_deal_nudges(deal_id: str) -> list:
     )
 
     if interests_count >= 3 and lois_count == 0:
+        # Analyze which buyers are most active to give specific advice
+        asking = deal.get("asking_price", 0)
+
+        # Find the most active buyer to reference
+        interest_engs = await engagements_collection.find(
+            {"deal_id": deal_id, "type": "INTEREST"}, {"_id": 0}
+        ).to_list(20)
+
+        best_buyer_name = None
+        best_time = 0
+        for eng in interest_engs:
+            bid = eng["buyer_id"]
+            cursor = time_tracking_collection.find({"deal_id": deal_id, "buyer_id": bid}, {"_id": 0})
+            recs = await cursor.to_list(100)
+            total = sum(r.get("session_seconds", 0) for r in recs)
+            if total > best_time:
+                best_time = total
+                best_buyer_name = eng.get("buyer_name") or bid
+
+        prescription_parts = [f"{interests_count} buyers evaluaron tu deal pero ninguno dio el paso a LOI."]
+        if asking > 0:
+            prescription_parts.append(f"Accion 1: Valida si {asking/1e6:.1f}M es competitivo para tu sector — compara con deals similares en el marketplace.")
+        prescription_parts.append("Accion 2: Revisa el infomemo. Si no detalla financieros claros (revenue, EBITDA, crecimiento), los buyers no van a ofertar.")
+        if best_buyer_name and best_time > 0:
+            prescription_parts.append(f"Accion 3: {best_buyer_name} fue quien mas tiempo invirtio ({best_time // 60} min). Es tu mejor candidato a LOI — considera contactarle directamente.")
+
         nudges.append({
             "id": "NC-02",
             "type": "warning",
             "priority": "ALTA",
-            "title": "Interes sin conversion",
-            "message": f"{interests_count} intereses recibidos pero ninguna LOI. Posibles causas: precio alto, infomemo poco convincente, o falta de urgencia.",
-            "action": "Revisar pricing",
+            "title": f"{interests_count} intereses, 0 LOIs",
+            "message": " ".join(prescription_parts),
+            "actions": ["Revisar precio", "Mejorar infomemo"],
         })
 
     # NC-03: Buyer con LOI pero 0 descargas DR
@@ -165,21 +210,26 @@ async def get_deal_nudges(deal_id: str) -> list:
         )
         if dr_count == 0:
             bname = eng.get("buyer_name") or bid
+            offer = eng.get("valuation_offer")
+            offer_str = f" de {offer/1e6:.1f}M" if offer else ""
             nudges.append({
                 "id": "NC-03",
                 "type": "info",
                 "priority": "MEDIA",
-                "title": f"LOI sin due diligence",
-                "message": f"{bname} envio LOI pero no ha descargado documentos del Data Room. Considera pedirle que revise la documentacion antes de avanzar.",
-                "action": "Contactar buyer",
+                "title": f"LOI{offer_str} sin due diligence",
+                "message": f"{bname} envio LOI pero tiene 0 descargas en Data Room. Una LOI sin DD es una senal de riesgo: el buyer puede retirarse cuando vea los detalles. Accion: Contacta a {bname} y pidele que revise los documentos financieros y legales antes de avanzar.",
+                "actions": ["Contactar buyer"],
                 "buyer_id": bid,
             })
 
-    # NC-04: Buyer fantasma (NDA + 0 actividad en >7 dias)
+    # NC-04: GROUPED — Inactive buyers (NDA + 0 activity in >7 days)
     ndas = deal.get("ndas_signed", [])
+    inactive_buyers = []
+    best_inactive = None
+    best_inactive_time = 0
+
     for nda in ndas:
         bid = nda["buyer_id"]
-        # Check last activity
         last_event = await events_collection.find_one(
             {"deal_id": deal_id, "user_id": bid},
             {"_id": 0},
@@ -196,7 +246,6 @@ async def get_deal_nudges(deal_id: str) -> list:
             sort=[("updated_at", -1)]
         )
 
-        # Find most recent activity
         latest = None
         for source in [last_event, last_dr, last_time]:
             if source:
@@ -208,7 +257,6 @@ async def get_deal_nudges(deal_id: str) -> list:
                         latest = ts
 
         if latest and (now - latest).days >= 7:
-            # Check not already rejected
             eng = await engagements_collection.find_one(
                 {"deal_id": deal_id, "buyer_id": bid}, {"_id": 0}
             )
@@ -216,14 +264,42 @@ async def get_deal_nudges(deal_id: str) -> list:
                 buyer = await users_collection.find_one({"user_id": bid}, {"_id": 0})
                 bname = f"{buyer.get('first_name', '')} {buyer.get('last_name', '')}".strip() if buyer else bid
                 days_inactive = (now - latest).days
-                nudges.append({
-                    "id": "NC-04",
-                    "type": "info",
-                    "priority": "BAJA",
-                    "title": "Buyer inactivo",
-                    "message": f"{bname} firmo NDA pero no ha tenido actividad en {days_inactive} dias.",
-                    "buyer_id": bid,
+
+                # Get total time for ranking
+                cursor = time_tracking_collection.find({"deal_id": deal_id, "buyer_id": bid}, {"_id": 0})
+                recs = await cursor.to_list(100)
+                total_secs = sum(r.get("session_seconds", 0) for r in recs)
+
+                inactive_buyers.append({
+                    "name": bname, "buyer_id": bid,
+                    "days": days_inactive, "total_minutes": total_secs // 60,
                 })
+                if total_secs > best_inactive_time:
+                    best_inactive_time = total_secs
+                    best_inactive = bname
+
+    if inactive_buyers:
+        count = len(inactive_buyers)
+        if count == 1:
+            b = inactive_buyers[0]
+            msg = f"{b['name']} firmo NDA hace {b['days']} dias y no ha vuelto ({b['total_minutes']} min de actividad total). Accion: Contactale — si no responde en 48h, descartalo."
+        else:
+            names = ", ".join(b["name"] for b in sorted(inactive_buyers, key=lambda x: -x["total_minutes"])[:3])
+            msg = f"{count} buyers inactivos: {names}."
+            if best_inactive:
+                msg += f" El mas prometedor era {best_inactive} ({best_inactive_time // 60} min de actividad). Prioriza contactarle."
+            else:
+                msg += " Ninguno tuvo actividad significativa — considera descartarlos para limpiar tu pipeline."
+
+        nudges.append({
+            "id": "NC-04",
+            "type": "info",
+            "priority": "BAJA",
+            "title": f"{count} buyer{'s' if count > 1 else ''} inactivo{'s' if count > 1 else ''}",
+            "message": msg,
+            "actions": ["Contactar" if best_inactive else "Descartar"],
+            "inactive_buyers": [{"name": b["name"], "buyer_id": b["buyer_id"], "days": b["days"], "minutes": b["total_minutes"]} for b in inactive_buyers],
+        })
 
     # NC-05: Exclusividad activa sin progreso (>14 dias sin nuevas descargas)
     exclusivity = deal.get("exclusivity")
@@ -252,9 +328,9 @@ async def get_deal_nudges(deal_id: str) -> list:
                         "id": "NC-05",
                         "type": "warning",
                         "priority": "ALTA",
-                        "title": "Exclusividad sin progreso",
-                        "message": f"La exclusividad con {bname} lleva {days_exclusive} dias activa sin nuevas descargas en Data Room.",
-                        "action": "Contactar buyer",
+                        "title": f"Exclusividad sin progreso — {days_exclusive} dias",
+                        "message": f"{bname} tiene exclusividad desde hace {days_exclusive} dias pero no ha descargado documentos nuevos. Esto puede significar que perdio interes o esta bloqueado. Accion: Contacta a {bname} hoy y preguntale directamente si necesita algo o si sigue interesado. Si no responde en 72h, revoca la exclusividad.",
+                        "actions": ["Contactar buyer", "Revocar exclusividad"],
                         "buyer_id": excl_buyer,
                     })
 

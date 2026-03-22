@@ -102,11 +102,12 @@ const SellerDashboard = () => {
             {nudges.slice(0, 5).map((nudge, i) => (
               <div key={nudge.id + i}
                 onClick={() => nudge.deal_id && navigate(`/seller/deal/${nudge.deal_id}`)}
-                className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors hover:shadow-sm ${
+                className={`rounded-lg border cursor-pointer transition-colors hover:shadow-sm overflow-hidden ${
                   nudge.priority === 'ALTA' ? 'bg-red-50 border-red-200 hover:bg-red-100' :
                   nudge.priority === 'MEDIA' ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' :
                   'bg-blue-50 border-blue-200 hover:bg-blue-100'
                 }`} data-testid={`seller-nudge-${nudge.id}-${i}`}>
+                <div className="flex items-start gap-3 p-4">
                 {nudge.priority === 'ALTA'
                   ? <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
                   : nudge.priority === 'MEDIA'
@@ -115,19 +116,34 @@ const SellerDashboard = () => {
                 }
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-slate-900">{nudge.title}</p>
+                    <p className="font-bold text-slate-900">{nudge.title}</p>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                       nudge.priority === 'ALTA' ? 'bg-red-200 text-red-800' :
                       nudge.priority === 'MEDIA' ? 'bg-amber-200 text-amber-800' :
                       'bg-blue-200 text-blue-800'
                     }`}>{nudge.priority}</span>
                   </div>
-                  <p className="text-sm text-slate-600 mt-0.5">{nudge.message}</p>
+                  <p className="text-sm text-slate-700 mt-0.5">{nudge.message}</p>
+                  {nudge.prescription && (
+                    <p className="text-sm text-slate-900 font-medium mt-2 bg-white/60 rounded p-2 border border-slate-200">{nudge.prescription}</p>
+                  )}
                   {nudge.deal_title && (
                     <p className="text-xs text-slate-400 mt-1 truncate">{nudge.deal_title}</p>
                   )}
                 </div>
                 <ArrowRight className="w-4 h-4 text-slate-400 mt-1 shrink-0" />
+              </div>
+              {nudge.actions?.length > 0 && (
+                <div className="px-4 pb-3 flex gap-2">
+                  {nudge.actions.map((a, j) => (
+                    <span key={j} className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                      nudge.priority === 'ALTA' ? 'bg-red-200 text-red-900' :
+                      nudge.priority === 'MEDIA' ? 'bg-amber-200 text-amber-900' :
+                      'bg-blue-200 text-blue-900'
+                    }`}>{a}</span>
+                  ))}
+                </div>
+              )}
               </div>
             ))}
           </div>

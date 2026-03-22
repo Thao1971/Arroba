@@ -46,12 +46,13 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 - [x] PLAYBOOK_OPERACION.md — Playbook de operación real (Advisor + Seller directo) con 18 fricciones
 - [x] MODULOS_SISTEMA.md — Diseño de 5 módulos (Coaching, Signal Clarity, Deal Health, Readiness, Communication)
 
-### Fase 4 — Seller Coaching System v1 (COMPLETADA 22 Mar 2026)
-- [x] Warning de exclusividad prematura (pre-check con 4 criterios: LOI, score, DR downloads, tiempo)
-- [x] Nudges contextuales: NC-01 deal sin tracción, NC-02 interés sin conversión, NC-03 LOI sin DD, NC-04 buyer inactivo, NC-05 exclusividad sin progreso
-- [x] Dashboard seller con nudges cross-deal (priorizados ALTA/MEDIA/BAJA)
-- [x] Comparador de deal con nudges específicos del deal
-- [x] Endpoint de exportación de documentación (/api/exports/documentacion → ZIP)
+### Fase 4 — Seller Coaching System v1 → v2 (COMPLETADA 22 Mar 2026)
+- [x] Warning de exclusividad prematura con fricción real (CONFIRMO obligatorio si buyer no cumple criterios)
+- [x] Nudges PRESCRIPTIVOS con acciones específicas: NC-01 análisis de vistas vs NDAs, NC-02 con buyer más activo identificado, NC-03 LOI sin DD con acción directa
+- [x] Buyers inactivos agrupados en 1 nudge (no N tarjetas), con "más prometedor" identificado
+- [x] Action pills en cada nudge ("Revisar precio", "Contactar", "Mejorar infomemo")
+- [x] Dashboard seller con nudges cross-deal + Comparador con nudges por deal
+- [x] Exportación documentación: ZIP descargable via /api/exports/documentacion
 
 ---
 
