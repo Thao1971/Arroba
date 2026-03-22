@@ -169,6 +169,7 @@ class DealPublicResponse(BaseModel):
     
     deal_id: str
     teaser: Teaser
+    teaser_full: Optional[dict] = None
     operation_types_allowed: List[OperationTypeAllowed]
     status: DealStatus
     created_at: datetime

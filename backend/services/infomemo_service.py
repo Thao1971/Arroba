@@ -4,6 +4,26 @@ import os
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 from config import EMERGENT_LLM_KEY
 
+
+def _safe_format(value):
+    """Safely format a numeric value for display"""
+    if value is None:
+        return "N/D"
+    try:
+        return f"{float(value):,.0f}"
+    except (ValueError, TypeError):
+        return "N/D"
+
+
+def _safe_pct(value):
+    """Safely format a percentage value"""
+    if value is None:
+        return "N/D"
+    try:
+        return f"{float(value):.1f}"
+    except (ValueError, TypeError):
+        return "N/D"
+
 async def generate_infomemo(company: dict, deal: dict) -> dict:
     """
     Generate professional infomemo using AI (GPT-5.2)
@@ -33,24 +53,24 @@ DATOS DE LA COMPAÑÍA:
 - Highlights: {', '.join(company.get('highlights', []))}
 
 DATOS FINANCIEROS (Último año):
-- Facturación: {latest_financials.get('revenue', 0):,.0f}€
-- EBITDA: {latest_financials.get('ebitda', 0):,.0f}€
-- Margen EBITDA: {latest_financials.get('ebitda_margin', 0):.1f}%
-- Crecimiento: {latest_financials.get('growth_rate', 0):.1f}%
-- % Ingresos Recurrentes: {latest_financials.get('recurring_revenue_pct', 0):.0f}%
-- Concentración Top 5 Clientes: {latest_financials.get('client_concentration_top5', 0):.0f}%
+- Facturación: {_safe_format(latest_financials.get('revenue', 0))}€
+- EBITDA: {_safe_format(latest_financials.get('ebitda', 0))}€
+- Margen EBITDA: {_safe_pct(latest_financials.get('ebitda_margin', 0))}%
+- Crecimiento: {_safe_pct(latest_financials.get('growth_rate', 0))}%
+- % Ingresos Recurrentes: {_safe_pct(latest_financials.get('recurring_revenue_pct', 0))}%
+- Concentración Top 5 Clientes: {_safe_pct(latest_financials.get('client_concentration_top5', 0))}%
 
 DATOS DE VALORACIÓN:
 - Dependencia del Fundador: {valuation_inputs.get('founder_dependency', 'medium')}
 - Tipo de Recurrencia: {valuation_inputs.get('recurring_revenue_type', 'mixed')}
 - Activos Tecnológicos: {'Sí' if valuation_inputs.get('tech_assets') else 'No'}
 - Propiedad Intelectual: {'Sí' if valuation_inputs.get('proprietary_ip') else 'No'}
-- Rango de Valoración: {valuation.get('valuation_min', 0):,.0f}€ - {valuation.get('valuation_max', 0):,.0f}€
-- Múltiplo: {valuation.get('multiple_min', 0):.1f}x - {valuation.get('multiple_max', 0):.1f}x
+- Rango de Valoración: {_safe_format(valuation.get('valuation_min', 0))}€ - {_safe_format(valuation.get('valuation_max', 0))}€
+- Múltiplo: {_safe_pct(valuation.get('multiple_min', 0))}x - {_safe_pct(valuation.get('multiple_max', 0))}x
 
 DATOS DEL DEAL:
 - Tipos de Operación Permitidos: {', '.join(deal.get('operation_types_allowed', []))}
-- Precio Solicitado: {deal.get('asking_price', 'Negociable'):,.0f}€ {'(Negociable)' if deal.get('price_negotiable') else ''}
+- Precio Solicitado: {_safe_format(deal.get('asking_price'))}€ {'(Negociable)' if deal.get('price_negotiable') else ''}
 """
 
     system_message = """Eres un experto en M&A y banca de inversión especializado en agencias digitales. 

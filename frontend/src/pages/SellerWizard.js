@@ -98,16 +98,23 @@ const SellerWizard = () => {
   const [generatingTeaser, setGeneratingTeaser] = useState(false);
   const [valuation, setValuation] = useState(null);
 
+  const [taxonomyCategories, setTaxonomyCategories] = useState([]);
+
   const steps = ['Datos básicos', 'Financieros', 'Valoración', 'Deal', 'Teaser & Infomemo'];
-  
-  const sectors = [
-    { id: 'seo', name: 'SEO' }, { id: 'sem', name: 'SEM / PPC' },
-    { id: 'social', name: 'Social Media' }, { id: 'content', name: 'Content Marketing' },
-    { id: 'programmatic', name: 'Programática' }, { id: 'creative', name: 'Creatividad' },
-    { id: 'development', name: 'Desarrollo Web/App' }, { id: 'data', name: 'Data & Analytics' },
-    { id: 'ecommerce', name: 'E-commerce' }, { id: 'performance', name: 'Performance' },
-    { id: 'branding', name: 'Branding' }, { id: 'fullservice', name: 'Full Service' }
-  ];
+
+  useEffect(() => {
+    // Load taxonomy
+    const loadTaxonomy = async () => {
+      try {
+        const { taxonomyAPI } = await import('../services/api');
+        const response = await taxonomyAPI.getCategories();
+        setTaxonomyCategories(response.data);
+      } catch (err) {
+        console.error('Error loading taxonomy:', err);
+      }
+    };
+    loadTaxonomy();
+  }, []);
 
   useEffect(() => {
     if (companyId) loadCompany();
@@ -510,19 +517,30 @@ const SellerWizard = () => {
             </div>
 
             <div className="mt-6">
-              <Label className="text-xs uppercase tracking-wider text-slate-500">Sectores / Servicios</Label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {sectors.map(sector => (
-                  <button key={sector.id} type="button" onClick={() => handleSectorToggle(sector.id)}
-                    className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                      companyData.sectors.includes(sector.id)
-                        ? 'bg-arroba-coral text-white border-arroba-coral'
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                    }`} data-testid={`sector-${sector.id}`}>
-                    {sector.name}
-                  </button>
+              <Label className="text-xs uppercase tracking-wider text-slate-500">Categoría principal (máx. 3)</Label>
+              <div className="mt-2 space-y-3">
+                {taxonomyCategories.map(cat => (
+                  <div key={cat.id}>
+                    <button type="button" onClick={() => {
+                      if (companyData.sectors.includes(cat.id)) {
+                        handleCompanyChange('sectors', companyData.sectors.filter(s => s !== cat.id));
+                      } else if (companyData.sectors.length < 3) {
+                        handleCompanyChange('sectors', [...companyData.sectors, cat.id]);
+                      }
+                    }}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        companyData.sectors.includes(cat.id)
+                          ? 'bg-arroba-coral text-white border-arroba-coral'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                      }`} data-testid={`category-${cat.id}`}>
+                      {cat.name}
+                    </button>
+                  </div>
                 ))}
               </div>
+              {companyData.sectors.length >= 3 && (
+                <p className="text-xs text-slate-400 mt-1">Máximo 3 categorías seleccionadas</p>
+              )}
             </div>
 
             <div className="mt-6">

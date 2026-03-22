@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
@@ -296,67 +296,64 @@ async def approve_access(
 @router.post("/{deal_id}/sign-nda")
 async def sign_nda(
     deal_id: str,
+    request: Request,
     current_user: UserResponse = Depends(get_current_user)
 ):
-    """Buyer signs NDA for a deal"""
-    if current_user.role != "buyer":
-        raise HTTPException(status_code=403, detail="Only buyers can sign NDAs")
+    """Buyer signs NDA — no friction, no manual approval required.
+    Legal tracking: saves ip, user_id, deal_id, timestamp."""
+    if current_user.role not in ["buyer", "seller", "advisor"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
     
     deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
     
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
     
-    # Check if access was approved
-    access_request = next(
-        (req for req in deal.get("access_requests", []) 
-         if req["buyer_id"] == current_user.user_id and req["status"] == "approved"),
-        None
-    )
-    
-    if not access_request:
-        raise HTTPException(status_code=400, detail="Access not approved yet")
+    if deal["status"] == "draft":
+        raise HTTPException(status_code=400, detail="Deal not published yet")
     
     # Check if already signed
     existing_nda = any(nda["buyer_id"] == current_user.user_id for nda in deal.get("ndas_signed", []))
     if existing_nda:
-        raise HTTPException(status_code=400, detail="NDA already signed")
+        return {"message": "NDA already signed", "has_access": True}
     
     now = datetime.now(timezone.utc).isoformat()
+    client_ip = request.client.host if request.client else "unknown"
+    forwarded = request.headers.get("x-forwarded-for", "")
+    real_ip = forwarded.split(",")[0].strip() if forwarded else client_ip
     
-    # Add NDA to deal
+    # Add NDA to deal — immediate access, no approval step
+    nda_record = {
+        "buyer_id": current_user.user_id,
+        "signed_at": now,
+        "ip": real_ip,
+        "document_id": None
+    }
+    
     await deals_collection.update_one(
         {"deal_id": deal_id},
         {
-            "$push": {
-                "ndas_signed": {
-                    "buyer_id": current_user.user_id,
-                    "signed_at": now,
-                    "document_id": None
-                }
-            },
+            "$push": {"ndas_signed": nda_record},
             "$inc": {"metrics.ndas_signed_count": 1},
-            "$set": {
-                "status": "nda" if deal["status"] == "published" else deal["status"],
-                "updated_at": now
-            }
+            "$set": {"updated_at": now}
         }
     )
     
-    # Create NDA record
+    # Create NDA record in separate collection for legal tracking
     from models.transactions import NdaInDB
-    nda = NdaInDB(
-        deal_id=deal_id,
-        buyer_id=current_user.user_id
-    )
-    
+    nda = NdaInDB(deal_id=deal_id, buyer_id=current_user.user_id)
     nda_dict = nda.model_dump()
     nda_dict["signed_at"] = nda_dict["signed_at"].isoformat()
     nda_dict["created_at"] = nda_dict["created_at"].isoformat()
-    
+    nda_dict["ip"] = real_ip
+    nda_dict["user_agent"] = request.headers.get("user-agent", "")
     await ndas_collection.insert_one(nda_dict)
     
-    return {"message": "NDA signed successfully", "nda_id": nda.nda_id}
+    # Track event
+    from services.events_service import track_event
+    await track_event("NDA_SIGNED", deal_id=deal_id, user_id=current_user.user_id, ip=real_ip)
+    
+    return {"message": "NDA signed successfully", "nda_id": nda.nda_id, "has_access": True}
 
 
 @router.get("/{deal_id}/infomemo")
@@ -574,3 +571,176 @@ async def drop_deal(
     )
     
     return {"message": "Deal dropped"}
+
+
+@router.get("/{deal_id}/page")
+async def get_deal_page(
+    deal_id: str,
+    request: Request
+):
+    """Get deal page data for buyers. Returns teaser (public) or full info (post-NDA).
+    Tracks DEAL_VIEWED event."""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    if deal["status"] == "draft":
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    # Track view event
+    from services.events_service import track_event
+    client_ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "")
+    await track_event("DEAL_VIEWED", deal_id=deal_id, ip=client_ip.split(",")[0].strip())
+    await deals_collection.update_one({"deal_id": deal_id}, {"$inc": {"metrics.teaser_views": 1}})
+
+    # Check if user is authenticated and has NDA
+    has_nda = False
+    is_owner = False
+    user_id = None
+    try:
+        from routers.auth import get_current_user
+        user = await get_current_user(request)
+        user_id = user.user_id
+        is_owner = deal["owner_id"] == user_id
+        has_nda = any(nda["buyer_id"] == user_id for nda in deal.get("ndas_signed", []))
+    except Exception:
+        pass  # unauthenticated
+
+    # Base response (pre-NDA = teaser only)
+    teaser = deal.get("teaser_full") or deal.get("teaser", {})
+    response = {
+        "deal_id": deal_id,
+        "status": deal["status"],
+        "operation_types_allowed": deal.get("operation_types_allowed", []),
+        "asking_price": deal.get("asking_price") if has_nda or is_owner else None,
+        "price_negotiable": deal.get("price_negotiable", True),
+        "teaser": teaser,
+        "has_nda": has_nda,
+        "is_owner": is_owner,
+        "is_authenticated": user_id is not None,
+        "created_at": deal.get("created_at"),
+    }
+
+    # Add price range even pre-NDA (from teaser)
+    if not has_nda and not is_owner:
+        response["price_range"] = teaser.get("revenue_range")
+
+    # Post-NDA: add full infomemo + company identity
+    if has_nda or is_owner:
+        response["infomemo"] = deal.get("infomemo")
+
+        company = await companies_collection.find_one(
+            {"company_id": deal["company_id"]},
+            {"_id": 0}
+        )
+        if company:
+            response["company"] = {
+                "legal_name": company.get("legal_name"),
+                "trade_name": company.get("trade_name"),
+                "city": company.get("city"),
+                "country": company.get("country"),
+                "website": company.get("website"),
+                "sectors": company.get("sectors"),
+                "founded_year": company.get("founded_year"),
+                "employees_count": company.get("employees_count"),
+            }
+
+        # Activity log for post-NDA
+        nda_record = next((n for n in deal.get("ndas_signed", []) if n["buyer_id"] == user_id), None)
+        response["activity_log"] = []
+        if nda_record:
+            response["activity_log"].append({
+                "type": "NDA_SIGNED",
+                "date": nda_record.get("signed_at"),
+                "label": "NDA firmado"
+            })
+        response["activity_log"].append({
+            "type": "INFO_MEMO_VIEWED",
+            "date": datetime.now(timezone.utc).isoformat(),
+            "label": "Infomemo consultado"
+        })
+
+        # Track infomemo view
+        if has_nda:
+            await track_event("INFO_MEMO_VIEWED", deal_id=deal_id, user_id=user_id)
+
+    return response
+
+
+@router.get("/{deal_id}/activation-preview")
+async def get_activation_preview(
+    deal_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get activation preview for seller before publishing"""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    if deal["owner_id"] != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    company = await companies_collection.find_one(
+        {"company_id": deal["company_id"]},
+        {"_id": 0}
+    )
+
+    # Basic buyer matching
+    from services.events_service import count_compatible_buyers
+    sectors = company.get("sectors", []) if company else []
+    taxonomy_cats = company.get("taxonomy_categories", []) if company else []
+    all_sectors = sectors + taxonomy_cats
+    compatible_buyers = await count_compatible_buyers(all_sectors)
+
+    teaser = deal.get("teaser_full") or deal.get("teaser", {})
+    infomemo = deal.get("infomemo")
+
+    return {
+        "deal_id": deal_id,
+        "status": deal["status"],
+        "teaser": teaser,
+        "infomemo_preview": infomemo.get("content", "")[:500] + "..." if infomemo and infomemo.get("content") else None,
+        "has_teaser": bool(teaser and teaser.get("title", teaser.get("headline"))),
+        "has_infomemo": bool(infomemo and infomemo.get("content")),
+        "compatible_buyers_count": compatible_buyers,
+        "compatible_buyers_message": (
+            f"Hay {compatible_buyers} buyers potencialmente compatibles con tu agencia"
+            if compatible_buyers > 0
+            else "Tenemos buyers activos buscando este tipo de compañías"
+        ),
+        "readiness_score": deal.get("readiness_score", 0),
+        "readiness_checklist": deal.get("readiness_checklist", []),
+    }
+
+
+@router.get("/{deal_id}/funnel")
+async def get_deal_funnel(
+    deal_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get funnel metrics for a deal"""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    if deal["owner_id"] != current_user.user_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from services.events_service import get_deal_funnel
+    funnel = await get_deal_funnel(deal_id)
+
+    return {
+        "deal_id": deal_id,
+        "funnel": {
+            "views": funnel.get("DEAL_VIEWED", 0),
+            "teaser_clicks": funnel.get("TEASER_CLICKED", 0),
+            "access_requests": funnel.get("ACCESS_REQUESTED", 0),
+            "ndas_signed": funnel.get("NDA_SIGNED", 0),
+            "infomemo_views": funnel.get("INFO_MEMO_VIEWED", 0),
+            "time_spent": funnel.get("TIME_SPENT_ON_DEAL", 0),
+        },
+        "metrics": deal.get("metrics", {})
+    }

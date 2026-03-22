@@ -5,7 +5,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { marketplaceAPI } from '../services/api';
-import { Search, Filter, MapPin, Calendar, TrendingUp, Building2 } from 'lucide-react';
+import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Tag } from 'lucide-react';
+
+const opTypeLabels = {
+  full_sale: { text: 'Venta Total', color: 'bg-arroba-coral/10 text-arroba-coral' },
+  partial_sale: { text: 'Venta Parcial', color: 'bg-arroba-blue/10 text-arroba-blue' },
+  merger: { text: 'Fusión', color: 'bg-purple-100 text-purple-700' },
+};
 
 const Marketplace = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -242,7 +248,9 @@ const Marketplace = () => {
             ) : (
               <div className="grid md:grid-cols-2 gap-6" data-testid="deals-grid">
                 {deals.map((deal) => {
-                  const statusInfo = getStatusBadge(deal.status);
+                  const teaser = deal.teaser_full || deal.teaser || {};
+                  const opTypes = deal.operation_types_allowed || [];
+                  const highlights = (teaser.highlights || []).slice(0, 2);
                   return (
                     <Link 
                       key={deal.deal_id} 
@@ -251,62 +259,76 @@ const Marketplace = () => {
                       data-testid={`deal-card-${deal.deal_id}`}
                     >
                       {/* Header */}
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-2">
-                          <span className="badge-coral">{deal.teaser?.sector_display || 'Digital'}</span>
-                          <span className={`badge-arroba ${statusInfo.class}`}>{statusInfo.label}</span>
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="badge-coral text-xs">{teaser.sector_display || 'Digital'}</span>
+                        <div className="flex gap-1">
+                          {opTypes.slice(0, 2).map(t => {
+                            const l = opTypeLabels[t] || { text: t, color: 'bg-slate-100 text-slate-600' };
+                            return (
+                              <span key={t} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${l.color}`}>
+                                {l.text}
+                              </span>
+                            );
+                          })}
                         </div>
-                        <span className="text-xs text-slate-400 font-mono uppercase">
-                          {deal.operation_types_allowed?.[0] === 'full_sale' ? 'Venta' : 
-                           deal.operation_types_allowed?.[0] === 'merger' ? 'Fusión' : 'Parcial'}
-                        </span>
                       </div>
 
                       {/* Title */}
-                      <h3 className="text-lg font-bold mb-2 group-hover:text-arroba-coral transition-colors">
-                        {deal.teaser?.headline || 'Agencia Digital'}
+                      <h3 className="text-lg font-bold mb-1 group-hover:text-arroba-coral transition-colors">
+                        {teaser.title || teaser.headline || 'Oportunidad de Inversión'}
                       </h3>
 
                       {/* Description */}
-                      <p className="text-sm text-slate-500 mb-4 line-clamp-2">
-                        {deal.teaser?.description || 'Oportunidad de inversión en el sector digital'}
+                      <p className="text-sm text-slate-500 mb-3 line-clamp-2">
+                        {teaser.short_description || teaser.description || 'Oportunidad en el sector digital'}
                       </p>
 
-                      {/* Location & Year */}
-                      <div className="flex items-center gap-4 text-xs text-slate-400 mb-4">
-                        {deal.teaser?.geography_display && (
+                      {/* Highlights (max 2) */}
+                      {highlights.length > 0 && (
+                        <div className="mb-3 space-y-1">
+                          {highlights.map((h, i) => (
+                            <p key={i} className="text-xs text-slate-500 flex items-center gap-1">
+                              <span className="w-1 h-1 bg-arroba-green rounded-full flex-shrink-0" /> {h}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Location */}
+                      <div className="flex items-center gap-4 text-xs text-slate-400 mb-3">
+                        {(teaser.location || teaser.geography_display) && (
                           <span className="flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
-                            {deal.teaser.geography_display}
+                            {teaser.location || teaser.geography_display}
                           </span>
                         )}
-                        {deal.teaser?.year_founded && (
+                        {teaser.year_founded && (
                           <span className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            Fundada en {deal.teaser.year_founded}
+                            {teaser.year_founded}
                           </span>
                         )}
                       </div>
 
                       {/* Financials */}
-                      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
                         <div>
                           <p className="label-arroba">Facturación</p>
-                          <p className="font-bold text-slate-900 flex items-center gap-1">
-                            {deal.teaser?.revenue_display || 'N/D'}
+                          <p className="font-bold text-slate-900">
+                            {teaser.revenue_range || teaser.revenue_display || 'N/D'}
                           </p>
                         </div>
                         <div>
                           <p className="label-arroba">EBITDA</p>
                           <p className="font-bold text-slate-900 flex items-center gap-1">
                             <TrendingUp className="w-3 h-3 text-arroba-green" />
-                            {deal.teaser?.ebitda_display || 'N/D'}
+                            {teaser.ebitda_range || teaser.ebitda_display || 'N/D'}
                           </p>
                         </div>
                       </div>
 
                       {/* CTA */}
-                      <div className="mt-4 pt-4 border-t border-slate-100">
+                      <div className="mt-3 pt-3 border-t border-slate-100">
                         <span className="text-sm font-medium text-arroba-coral group-hover:underline">
                           Ver oportunidad →
                         </span>

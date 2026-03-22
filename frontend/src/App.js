@@ -13,6 +13,7 @@ import BuyerDashboard from './pages/BuyerDashboard';
 import SellerDashboard from './pages/SellerDashboard';
 import SellerWizard from './pages/SellerWizard';
 import DealManagement from './pages/DealManagement';
+import DealPage from './pages/DealPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -62,7 +63,7 @@ const AppRouter = () => {
       {/* Public Routes */}
       <Route path="/" element={<Home />} />
       <Route path="/marketplace" element={<Marketplace />} />
-      <Route path="/marketplace/:dealId" element={<Marketplace />} />
+      <Route path="/marketplace/:dealId" element={<DealPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/auth/callback" element={<AuthCallback />} />

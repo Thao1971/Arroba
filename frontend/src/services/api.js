@@ -87,12 +87,15 @@ export const dealsAPI = {
   activate: (dealId) => api.post(`/deals/${dealId}/activate`),
   requestAccess: (dealId) => api.post(`/deals/${dealId}/request-access`),
   approveAccess: (dealId, buyerId) => api.post(`/deals/${dealId}/approve-access/${buyerId}`),
-  signNDA: (dealId) => api.post(`/deals/${dealId}/sign-nda`),
+  signNda: (dealId) => api.post(`/deals/${dealId}/sign-nda`),
   getInfomemo: (dealId) => api.get(`/deals/${dealId}/infomemo`),
   createShortlist: (dealId, buyerIds) => api.post(`/deals/${dealId}/shortlist`, buyerIds),
   grantExclusivity: (dealId, buyerId, days) => api.post(`/deals/${dealId}/grant-exclusivity/${buyerId}?days=${days}`),
   close: (dealId, data) => api.post(`/deals/${dealId}/close`, null, { params: data }),
   drop: (dealId, reason) => api.post(`/deals/${dealId}/drop`, null, { params: { reason } }),
+  getDealPage: (dealId) => api.get(`/deals/${dealId}/page`),
+  getActivationPreview: (dealId) => api.get(`/deals/${dealId}/activation-preview`),
+  getFunnel: (dealId) => api.get(`/deals/${dealId}/funnel`),
 };
 
 // Infomemo API
@@ -112,6 +115,17 @@ export const teaserAPI = {
   generate: (companyId) => api.post(`/teaser/generate/${companyId}`),
   get: (dealId) => api.get(`/teaser/${dealId}`),
   update: (dealId, data) => api.put(`/teaser/${dealId}`, data),
+};
+
+// Taxonomy API
+export const taxonomyAPI = {
+  getCategories: () => api.get('/taxonomy/categories'),
+  getSubcategories: () => api.get('/taxonomy/subcategories'),
+};
+
+// Events API
+export const eventsAPI = {
+  trackTimeSpent: (dealId, seconds) => api.post(`/deals/${dealId}/track-time`, { seconds }),
 };
 
 // Subscriptions API

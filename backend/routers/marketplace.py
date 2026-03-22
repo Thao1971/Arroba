@@ -44,8 +44,10 @@ async def list_marketplace_deals(
     
     deals = await cursor.to_list(limit)
     
-    # Filter by revenue/EBITDA if company data is needed
-    # For now, we use the teaser display values
+    # Track event for each view
+    from services.events_service import track_event
+    for d in deals:
+        d.pop("infomemo", None)  # Never expose infomemo in marketplace listing
     
     return [DealPublicResponse(**deal) for deal in deals]
 
@@ -79,26 +81,9 @@ async def get_deal_teaser(deal_id: str):
 
 @router.get("/sectors")
 async def list_sectors():
-    """Get list of available sectors"""
-    sectors = [
-        {"id": "seo", "name": "SEO", "description": "Posicionamiento en buscadores"},
-        {"id": "sem", "name": "SEM / PPC", "description": "Publicidad en buscadores"},
-        {"id": "social", "name": "Social Media", "description": "Gestión de redes sociales"},
-        {"id": "content", "name": "Content Marketing", "description": "Marketing de contenidos"},
-        {"id": "programmatic", "name": "Programática", "description": "Compra programática"},
-        {"id": "creative", "name": "Creatividad", "description": "Diseño y creatividad"},
-        {"id": "development", "name": "Desarrollo Web/App", "description": "Desarrollo digital"},
-        {"id": "data", "name": "Data & Analytics", "description": "Análisis de datos"},
-        {"id": "ecommerce", "name": "E-commerce", "description": "Comercio electrónico"},
-        {"id": "performance", "name": "Performance", "description": "Marketing de resultados"},
-        {"id": "branding", "name": "Branding", "description": "Marca e identidad"},
-        {"id": "video", "name": "Video & Audio", "description": "Producción audiovisual"},
-        {"id": "influencer", "name": "Influencer Marketing", "description": "Marketing con influencers"},
-        {"id": "pr", "name": "PR & Comunicación", "description": "Relaciones públicas"},
-        {"id": "automation", "name": "Marketing Automation", "description": "Automatización"},
-        {"id": "fullservice", "name": "Full Service", "description": "Agencia 360°"}
-    ]
-    return sectors
+    """Get sectors from official BUD Advisors taxonomy"""
+    from services.taxonomy import TAXONOMY
+    return [{"id": cat["id"], "name": cat["name"], "subcategories": cat["subcategories"]} for cat in TAXONOMY]
 
 
 @router.get("/stats")
