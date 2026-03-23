@@ -20,6 +20,25 @@ const affinityConfig = {
   low: { label: 'Baja afinidad', class: 'bg-slate-100 text-slate-500', icon: null },
 };
 
+const signalConfig = {
+  loi: { dot: 'bg-red-500', text: 'text-red-700', bg: 'bg-red-50' },
+  competition: { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' },
+  process: { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50' },
+  dr_activity: { dot: 'bg-blue-500', text: 'text-blue-700', bg: 'bg-blue-50' },
+  freshness: { dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
+};
+
+const SignalBadge = ({ signal }) => {
+  const cfg = signalConfig[signal.type] || signalConfig.freshness;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${cfg.bg} ${cfg.text}`}
+      data-testid={`signal-${signal.type}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {signal.text}
+    </span>
+  );
+};
+
 const Marketplace = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
@@ -27,7 +46,7 @@ const Marketplace = () => {
   const [sectors, setSectors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  const [sortBy, setSortBy] = useState('recent');
+  const [sortBy, setSortBy] = useState('actividad');
   const [matchData, setMatchData] = useState({}); // deal_id -> {affinity, affinity_label}
 
   const buyerProfileComplete = user?.buyer_profile?.profile_complete;
@@ -80,6 +99,13 @@ const Marketplace = () => {
 
   // Sort deals
   const sortedDeals = React.useMemo(() => {
+    if (sortBy === 'recent') {
+      return [...deals].sort((a, b) => {
+        const dateA = new Date(a.published_at || a.created_at || 0);
+        const dateB = new Date(b.published_at || b.created_at || 0);
+        return dateB - dateA;
+      });
+    }
     if (sortBy === 'relevance' && buyerProfileComplete) {
       return [...deals].sort((a, b) => {
         const scoreA = matchData[a.deal_id] ? { high: 3, medium: 2, low: 1 }[matchData[a.deal_id].affinity] || 0 : 0;
@@ -87,6 +113,7 @@ const Marketplace = () => {
         return scoreB - scoreA;
       });
     }
+    // Default: "actividad" — backend already sorts by score
     return deals;
   }, [deals, sortBy, matchData, buyerProfileComplete]);
 
@@ -204,9 +231,10 @@ const Marketplace = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="recent">Más recientes</SelectItem>
+                    <SelectItem value="actividad">Mayor actividad</SelectItem>
+                    <SelectItem value="recent">Mas recientes</SelectItem>
                     {isAuthenticated && buyerProfileComplete && (
-                      <SelectItem value="relevance">Ordenar por relevancia</SelectItem>
+                      <SelectItem value="relevance">Por relevancia</SelectItem>
                     )}
                   </SelectContent>
                 </Select>
@@ -241,9 +269,10 @@ const Marketplace = () => {
                   const opTypes = deal.operation_types_allowed || [];
                   const highlights = (teaser.highlights || []).slice(0, 2);
                   const dealMatch = matchData[deal.deal_id];
+                  const signals = deal.signals || [];
 
                   return (
-                    <Link key={deal.deal_id} to={`/marketplace/${deal.deal_id}`}
+                    <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`}
                       className="card-arroba hover:border-slate-300 transition-all hover:shadow-sm group"
                       data-testid={`deal-card-${deal.deal_id}`}>
                       {/* Header */}
@@ -278,6 +307,15 @@ const Marketplace = () => {
                       <p className="text-sm text-slate-500 mb-3 line-clamp-2">
                         {teaser.short_description || teaser.description || 'Oportunidad en el sector digital'}
                       </p>
+
+                      {/* Soft Signals */}
+                      {signals.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3" data-testid={`signals-${deal.deal_id}`}>
+                          {signals.map((s, i) => (
+                            <SignalBadge key={i} signal={s} />
+                          ))}
+                        </div>
+                      )}
 
                       {/* Highlights (max 2) */}
                       {highlights.length > 0 && (

@@ -251,7 +251,7 @@ const DealPage = () => {
   useEffect(() => { fetchDeal(); }, [fetchDeal]);
 
   const handleSignNda = async () => {
-    if (!isAuthenticated) { navigate(`/login?redirect=/marketplace/${dealId}`); return; }
+    if (!isAuthenticated) { navigate(`/login?redirect=/explorar/${dealId}`); return; }
     setSigningNda(true);
     try {
       await dealsAPI.signNda(dealId);
@@ -282,7 +282,7 @@ const DealPage = () => {
   };
 
   const handleToggleSave = async () => {
-    if (!isAuthenticated) { navigate(`/login?redirect=/marketplace/${dealId}`); return; }
+    if (!isAuthenticated) { navigate(`/login?redirect=/explorar/${dealId}`); return; }
     try {
       if (isSaved) { await engagementsAPI.unsaveDeal(dealId); setIsSaved(false); }
       else { await engagementsAPI.saveDeal(dealId); setIsSaved(true); }
@@ -293,7 +293,7 @@ const DealPage = () => {
     return <Layout><div className="container mx-auto px-4 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-arroba-coral mx-auto" /></div></Layout>;
   }
   if (error && !deal) {
-    return <Layout><div className="container mx-auto px-4 py-12 text-center"><AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" /><p className="text-slate-600">{error}</p><Link to="/marketplace"><Button variant="outline" className="mt-4">Volver al Marketplace</Button></Link></div></Layout>;
+    return <Layout><div className="container mx-auto px-4 py-12 text-center"><AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" /><p className="text-slate-600">{error}</p><Link to="/explorar"><Button variant="outline" className="mt-4">Volver al Marketplace</Button></Link></div></Layout>;
   }
 
   const teaser = deal?.teaser || {};
@@ -307,7 +307,7 @@ const DealPage = () => {
       {showNdaModal && <NdaModal onAccept={handleSignNda} onClose={() => setShowNdaModal(false)} loading={signingNda} />}
 
       <div className="container mx-auto px-4 py-8 max-w-5xl" data-testid="deal-page">
-        <Link to="/marketplace" className="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-6" data-testid="back-to-marketplace">
+        <Link to="/explorar" className="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-6" data-testid="back-to-marketplace">
           <ArrowLeft className="w-4 h-4 mr-1" /> Volver al Marketplace
         </Link>
 
@@ -334,10 +334,30 @@ const DealPage = () => {
               {teaser.year_founded && <span className="flex items-center gap-1"><Calendar className="w-4 h-4" /> Fundada en {teaser.year_founded}</span>}
               {teaser.sector_display && <span className="flex items-center gap-1"><Building2 className="w-4 h-4" /> {teaser.sector_display}</span>}
             </div>
+            {/* Market signals */}
+            {deal?.signals && deal.signals.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3" data-testid="deal-signals">
+                {deal.signals.map((s, i) => {
+                  const cfg = {
+                    loi: { dot: 'bg-red-500', badge: 'bg-red-50 text-red-700 border-red-200' },
+                    competition: { dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+                    process: { dot: 'bg-amber-500', badge: 'bg-amber-50 text-amber-700 border-amber-200' },
+                    dr_activity: { dot: 'bg-blue-500', badge: 'bg-blue-50 text-blue-700 border-blue-200' },
+                    freshness: { dot: 'bg-emerald-500', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                  }[s.type] || { dot: 'bg-slate-400', badge: 'bg-slate-50 text-slate-600 border-slate-200' };
+                  return (
+                    <span key={i} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${cfg.badge}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                      {s.text}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div className="flex gap-2 flex-shrink-0">
             {!hasNda && !isOwner && (
-              <Button onClick={() => { if (!isAuthenticated) navigate(`/login?redirect=/marketplace/${dealId}`); else setShowNdaModal(true); }}
+              <Button onClick={() => { if (!isAuthenticated) navigate(`/login?redirect=/explorar/${dealId}`); else setShowNdaModal(true); }}
                 className="bg-arroba-coral hover:bg-arroba-coral/90 text-white" data-testid="request-access-btn">
                 <Shield className="w-4 h-4 mr-2" /> Solicitar Acceso
               </Button>
@@ -388,7 +408,7 @@ const DealPage = () => {
                 <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-slate-900 mb-2">Documento completo disponible tras NDA</h3>
                 <p className="text-sm text-slate-500 mb-4">Firma el acuerdo de confidencialidad para acceder al infomemo y poder enviar tu interés.</p>
-                <Button onClick={() => { if (!isAuthenticated) navigate(`/login?redirect=/marketplace/${dealId}`); else setShowNdaModal(true); }}
+                <Button onClick={() => { if (!isAuthenticated) navigate(`/login?redirect=/explorar/${dealId}`); else setShowNdaModal(true); }}
                   className="bg-arroba-coral hover:bg-arroba-coral/90 text-white" data-testid="request-access-cta-btn">
                   <Shield className="w-4 h-4 mr-2" /> Solicitar Acceso
                 </Button>
@@ -528,7 +548,7 @@ const DealPage = () => {
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center" data-testid="login-cta">
                 <Shield className="w-8 h-8 text-slate-300 mx-auto mb-3" />
                 <p className="text-sm text-slate-600 mb-3">Regístrate para solicitar acceso</p>
-                <Link to={`/register?role=buyer&redirect=/marketplace/${dealId}`}><Button className="w-full bg-arroba-coral hover:bg-arroba-coral/90 text-white">Crear cuenta</Button></Link>
+                <Link to={`/register?role=buyer&redirect=/explorar/${dealId}`}><Button className="w-full bg-arroba-coral hover:bg-arroba-coral/90 text-white">Crear cuenta</Button></Link>
               </div>
             )}
           </div>

@@ -214,7 +214,7 @@ const Home = () => {
               {featuredDeals.slice(0, 6).map((deal) => (
                 <Link 
                   key={deal.deal_id} 
-                  to={`/marketplace/${deal.deal_id}`}
+                  to={`/explorar/${deal.deal_id}`}
                   className="bg-white rounded-xl p-6 hover:shadow-lg transition-shadow"
                   data-testid={`deal-card-${deal.deal_id}`}
                 >
@@ -231,9 +231,37 @@ const Home = () => {
                     {deal.teaser?.headline || 'Agencia Digital'}
                   </h3>
                   
-                  <p className="text-sm text-slate-500 mb-4 line-clamp-2">
+                  <p className="text-sm text-slate-500 mb-3 line-clamp-2">
                     {deal.teaser?.description || 'Oportunidad de inversión en agencia digital'}
                   </p>
+
+                  {/* Soft Signals */}
+                  {deal.signals && deal.signals.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {deal.signals.map((s, i) => {
+                        const colors = {
+                          loi: 'bg-red-50 text-red-700',
+                          competition: 'bg-amber-50 text-amber-700',
+                          process: 'bg-amber-50 text-amber-700',
+                          dr_activity: 'bg-blue-50 text-blue-700',
+                          freshness: 'bg-emerald-50 text-emerald-700',
+                        };
+                        const dots = {
+                          loi: 'bg-red-500',
+                          competition: 'bg-amber-500',
+                          process: 'bg-amber-500',
+                          dr_activity: 'bg-blue-500',
+                          freshness: 'bg-emerald-500',
+                        };
+                        return (
+                          <span key={i} className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium ${colors[s.type] || colors.freshness}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${dots[s.type] || dots.freshness}`} />
+                            {s.text}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                     <div>

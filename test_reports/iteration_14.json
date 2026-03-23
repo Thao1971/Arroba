@@ -1,0 +1,133 @@
+{
+  "summary": "Completed comprehensive testing of Soft Signals system for Arroba M&A platform. All 16 backend API tests passed (100%). Frontend UI tests verified signals display correctly on Marketplace, Home featured section, and Deal detail pages. Fixed one minor issue: Marketplace.js deal card links now use /explorar instead of /marketplace.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "GET /api/marketplace/deals returns deals with 'signals' array",
+      "Each deal has max 2 signals",
+      "Internal score NOT exposed in marketplace deals response",
+      "Deals sorted by activity (LOI deals near top)",
+      "Signal structure has type, text, color fields",
+      "Signal text in Spanish (LOIs recibidas, Varios buyers evaluando, etc.)",
+      "GET /api/marketplace/featured returns top 6 deals with signals",
+      "Featured deals do not expose internal score",
+      "GET /api/deals/{deal_id}/page includes 'signals' array",
+      "Deal page does not expose internal score",
+      "GET /api/marketplace/stats returns consistent counts",
+      "Signal hierarchy: LOI signals appear first (highest priority)",
+      "Signal colors match types (loi=red, competition=amber, dr_activity=blue, freshness=green)",
+      "Deals without activity have empty signals array (clean cards)",
+      "Authenticated buyer sees signals on deal page",
+      "Authenticated seller sees signals on marketplace"
+    ],
+    "frontend": [
+      "Marketplace page loads with signals on deal cards",
+      "Sort dropdown defaults to 'Mayor actividad'",
+      "Sort dropdown has 'Mas recientes' option",
+      "Signal badges visible: LOI (red), Competition (amber), DR Activity (blue), Freshness (green)",
+      "Home featured section shows 6 deals with signals",
+      "Featured deal cards link to /explorar (not /marketplace)",
+      "'Ver todas' link goes to /explorar",
+      "Deal detail page shows signals in header area",
+      "Back to marketplace link goes to /explorar",
+      "No /marketplace links in DealPage.js or Home.js"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_soft_signals.py",
+    "/app/test_reports/pytest/pytest_results_soft_signals.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_soft_signals.py",
+    "/app/frontend/src/pages/Marketplace.js"
+  ],
+
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "100% (all UI flows working)"
+  },
+
+  "test_credentials": {
+    "seller": "diego.martin@rankingdigital.es / demo2026",
+    "buyer": "carlos.ruiz@capitaliberica.es / demo2026",
+    "public_marketplace": "/explorar (no auth needed)",
+    "home": "/ (no auth needed)"
+  },
+
+  "seed_data_validation": {
+    "deals_with_signals": [
+      "deal_hot_seo_01: 2 LOIs recibidas, Varios buyers evaluando",
+      "deal_shortlist_full_07: 3 LOIs recibidas, Varios buyers evaluando",
+      "deal_excl_prematura_08: 1 LOI recibida, Varias partes interesadas",
+      "deal_interest_creative_02: Varios buyers evaluando, Revision activa de documentacion",
+      "deal_alta_act_06: Varias partes interesadas, Revision activa de documentacion",
+      "deal_loi_sin_act_05: 1 LOI recibida",
+      "deal_dr_vacio_09: Revision activa de documentacion, Interes reciente"
+    ],
+    "deals_without_signals": [
+      "deal_ghost_consult_03: 0 signals (clean card)",
+      "deal_dead_tech_04: 0 signals (clean card)"
+    ]
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Soft Signals system fully tested and working. Key features verified: 1) Signals computed based on LOIs, NDA holders, process stage, DR activity, and freshness, 2) Max 2 signals per deal with hierarchy (loi > competition > process > dr_activity > freshness), 3) Internal score used for sorting but never exposed in API, 4) Signal colors: red=LOI, amber=competition/process, blue=DR activity, green=freshness, 5) Spanish text: 'X LOIs recibidas', 'Varios buyers evaluando', 'Varias partes interesadas', 'En fase avanzada', 'Revision activa de documentacion', 'Nuevo esta semana', 'Interes reciente', 6) Deals without activity show no signals (clean cards).",
+
+  "features_verified": {
+    "soft_signals_backend": {
+      "marketplace_deals_endpoint": "Returns signals array, max 2 per deal, sorted by score",
+      "featured_endpoint": "Returns top 6 deals with signals",
+      "deal_page_endpoint": "Includes signals array",
+      "internal_score": "NOT exposed in any API response",
+      "signal_hierarchy": "loi > competition > process > dr_activity > freshness",
+      "status": "WORKING"
+    },
+    "soft_signals_frontend": {
+      "marketplace_page": "Signal badges visible on deal cards",
+      "home_featured": "Signals shown on featured deal cards",
+      "deal_detail_page": "Signals in header area",
+      "signal_colors": "Red (LOI), Amber (competition), Blue (DR), Green (freshness)",
+      "status": "WORKING"
+    },
+    "sorting": {
+      "default": "Mayor actividad (by internal score)",
+      "alternative": "Mas recientes",
+      "status": "WORKING"
+    },
+    "navigation": {
+      "marketplace_links": "All replaced with /explorar",
+      "deal_card_links": "Fixed to use /explorar/{deal_id}",
+      "status": "WORKING"
+    }
+  },
+
+  "mocked_apis": {
+    "sendgrid_email": "MOCKED - SendGrid API key not configured"
+  },
+
+  "fix_applied": {
+    "file": "/app/frontend/src/pages/Marketplace.js",
+    "issue": "Deal card links used /marketplace/{deal_id}",
+    "fix": "Changed to /explorar/{deal_id} for consistency"
+  }
+}

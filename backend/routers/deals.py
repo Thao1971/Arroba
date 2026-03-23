@@ -690,6 +690,12 @@ async def get_deal_page(
         if has_nda:
             await track_event("INFO_MEMO_VIEWED", deal_id=deal_id, user_id=user_id)
 
+    # Add soft signals (market pressure)
+    from services.deal_score_service import compute_signals_batch
+    score_data = await compute_signals_batch([deal])
+    sd = score_data.get(deal_id, {"signals": []})
+    response["signals"] = sd["signals"]
+
     return response
 
 
