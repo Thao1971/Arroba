@@ -15,16 +15,16 @@ import SellerWizard from './pages/SellerWizard';
 import DealManagement from './pages/DealManagement';
 import DealPage from './pages/DealPage';
 import BuyerOnboarding from './pages/BuyerOnboarding';
+import SavedDeals from './pages/SavedDeals';
+import SellerInteresados from './pages/SellerInteresados';
+import AdvisorMandatos from './pages/AdvisorMandatos';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
   const { user, loading, isAuthenticated } = useAuth();
   const location = useLocation();
 
-  // If user data was passed from AuthCallback, use it immediately
-  if (location.state?.user) {
-    return children;
-  }
+  if (location.state?.user) return children;
 
   if (loading) {
     return (
@@ -39,13 +39,12 @@ const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
-    if (user?.role === 'seller') return <Navigate to="/seller/dashboard" replace />;
-    if (user?.role === 'advisor') return <Navigate to="/advisor/dashboard" replace />;
+    if (user?.role === 'seller') return <Navigate to="/seller/deals" replace />;
+    if (user?.role === 'advisor') return <Navigate to="/advisor/mandatos" replace />;
     if (user?.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
-    return <Navigate to="/buyer/dashboard" replace />;
+    return <Navigate to="/buyer/procesos" replace />;
   }
 
-  // Redirect incomplete buyers to onboarding (except on onboarding page itself)
   if (!skipOnboardingCheck && user?.role === 'buyer' && !user?.buyer_profile?.profile_complete) {
     return <Navigate to="/buyer/onboarding" replace />;
   }
@@ -53,12 +52,10 @@ const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
   return children;
 };
 
-// App Router with session_id detection
+// App Router
 const AppRouter = () => {
   const location = useLocation();
 
-  // CRITICAL: Check URL fragment for session_id during render (NOT in useEffect)
-  // This prevents race conditions with ProtectedRoute
   if (location.hash?.includes('session_id=')) {
     return <AuthCallback />;
   }
@@ -67,137 +64,43 @@ const AppRouter = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<Home />} />
-      <Route path="/marketplace" element={<Marketplace />} />
+      <Route path="/explorar" element={<Marketplace />} />
+      <Route path="/marketplace" element={<Navigate to="/explorar" replace />} />
       <Route path="/marketplace/:dealId" element={<DealPage />} />
+      <Route path="/explorar/:dealId" element={<DealPage />} />
+      <Route path="/vender" element={<Register role="seller" />} />
+      <Route path="/como-funciona" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route path="/pricing" element={<Home />} />
-      <Route path="/about" element={<Home />} />
 
       {/* Buyer Routes */}
-      <Route
-        path="/buyer/onboarding"
-        element={
-          <ProtectedRoute allowedRoles={['buyer', 'admin']} skipOnboardingCheck>
-            <BuyerOnboarding />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/buyer/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={['buyer', 'admin']}>
-            <BuyerDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/buyer/profile"
-        element={
-          <ProtectedRoute allowedRoles={['buyer', 'admin']}>
-            <BuyerDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/buyer/processes"
-        element={
-          <ProtectedRoute allowedRoles={['buyer', 'admin']}>
-            <BuyerDashboard />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/buyer/onboarding" element={<ProtectedRoute allowedRoles={['buyer', 'admin']} skipOnboardingCheck><BuyerOnboarding /></ProtectedRoute>} />
+      <Route path="/buyer/procesos" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><BuyerDashboard /></ProtectedRoute>} />
+      <Route path="/buyer/guardados" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><SavedDeals /></ProtectedRoute>} />
+      <Route path="/buyer/dashboard" element={<Navigate to="/buyer/procesos" replace />} />
+      <Route path="/buyer/profile" element={<Navigate to="/buyer/procesos" replace />} />
+      <Route path="/buyer/processes" element={<Navigate to="/buyer/procesos" replace />} />
 
       {/* Seller Routes */}
-      <Route
-        path="/seller/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/seller/onboarding"
-        element={
-          <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerWizard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/seller/company/new"
-        element={
-          <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerWizard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/seller/company/:companyId"
-        element={
-          <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerWizard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/seller/deal/new"
-        element={
-          <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <SellerWizard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/seller/deal/:dealId"
-        element={
-          <ProtectedRoute allowedRoles={['seller', 'admin']}>
-            <DealManagement />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/seller/deals" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerDashboard /></ProtectedRoute>} />
+      <Route path="/seller/interesados" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerInteresados /></ProtectedRoute>} />
+      <Route path="/seller/dashboard" element={<Navigate to="/seller/deals" replace />} />
+      <Route path="/seller/onboarding" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
+      <Route path="/seller/company/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
+      <Route path="/seller/company/:companyId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
+      <Route path="/seller/deal/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
+      <Route path="/seller/deal/:dealId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><DealManagement /></ProtectedRoute>} />
 
       {/* Advisor Routes */}
-      <Route
-        path="/advisor/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={['advisor', 'admin']}>
-            <SellerDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/advisor/onboarding"
-        element={
-          <ProtectedRoute allowedRoles={['advisor', 'admin']}>
-            <SellerDashboard />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/advisor/mandatos" element={<ProtectedRoute allowedRoles={['advisor', 'admin']}><AdvisorMandatos /></ProtectedRoute>} />
+      <Route path="/advisor/interesados" element={<ProtectedRoute allowedRoles={['advisor', 'admin']}><SellerInteresados /></ProtectedRoute>} />
+      <Route path="/advisor/dashboard" element={<Navigate to="/advisor/mandatos" replace />} />
 
       {/* Admin Routes */}
-      <Route
-        path="/admin/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <BuyerDashboard />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><BuyerDashboard /></ProtectedRoute>} />
 
-      {/* Companies Route (for sellers/advisors) */}
-      <Route
-        path="/companies"
-        element={
-          <ProtectedRoute allowedRoles={['seller', 'advisor', 'admin']}>
-            <SellerDashboard />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Catch all - redirect to home */}
+      {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
