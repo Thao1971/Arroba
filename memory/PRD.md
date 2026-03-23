@@ -4,7 +4,7 @@
 ---
 
 ## Problema Original
-Construir "Arroba", una plataforma para comprar y vender agencias digitales. El enfoque ha estado en el flujo E2E del Buyer, optimizacion de conversion y herramientas de toma de decisiones.
+Construir "Arroba", una plataforma para comprar y vender agencias digitales. El enfoque ha estado en el flujo E2E del Buyer, optimizacion de conversion y herramientas de toma de decisiones. Reciente enfoque: crear percepcion de mercado que active comportamiento en buyers.
 
 ## Usuarios
 - **Buyers**: PE, VC, Family Office, Estrategicos, Holdings que buscan adquirir agencias digitales
@@ -38,71 +38,67 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 - [x] In-App Notifications (high-signal events)
 - [x] Decoupled Email Scaffolding (SendGrid placeholder)
 
-### Fase 3 — Auditoria y Demo Data (COMPLETADA 22 Mar 2026)
+### Fase 3 — Auditoria y Demo Data
 - [x] Seed Script (`seed_demo.py`) — 10 historias completas con edge cases
-- [x] DEMO_SCENARIOS.md — Escenarios mapeados a datos reales del seed
-- [x] FLOWS.md — Flujos funcionales completos (Buyer, Seller, Advisor, Admin)
-- [x] ARCHITECTURE.md — Documentacion tecnica del sistema
-- [x] PLAYBOOK_OPERACION.md — Playbook de operacion real (Advisor + Seller directo) con 18 fricciones
-- [x] MODULOS_SISTEMA.md — Diseno de 5 modulos (Coaching, Signal Clarity, Deal Health, Readiness, Communication)
+- [x] DEMO_SCENARIOS.md, FLOWS.md, ARCHITECTURE.md
+- [x] PLAYBOOK_OPERACION.md — Playbook de operacion real
+- [x] MODULOS_SISTEMA.md — Diseno de 5 modulos
 
-### Fase 4 — Seller Coaching System v2 (COMPLETADA 22 Mar 2026)
-- [x] Warning de exclusividad prematura con friccion real (CONFIRMO obligatorio si buyer no cumple criterios)
-- [x] Nudges PRESCRIPTIVOS con acciones especificas: NC-01 analisis de vistas vs NDAs, NC-02 con buyer mas activo identificado, NC-03 LOI sin DD con accion directa
-- [x] Buyers inactivos agrupados en 1 nudge (no N tarjetas), con "mas prometedor" identificado
-- [x] Action pills en cada nudge ("Revisar precio", "Contactar", "Mejorar infomemo")
-- [x] Dashboard seller con nudges cross-deal + Comparador con nudges por deal
-- [x] Exportacion documentacion: ZIP descargable via /api/exports/documentacion
+### Fase 4 — Seller Coaching System v2
+- [x] Warning de exclusividad prematura con friccion real
+- [x] Nudges PRESCRIPTIVOS con acciones especificas
+- [x] Buyers inactivos agrupados con "mas prometedor" identificado
+- [x] Action pills en cada nudge
+- [x] Dashboard seller con nudges cross-deal + Comparador
 
-### Fase 5 — Navegacion Role-Based + UX Validation (COMPLETADA 23 Mar 2026)
-- [x] Header dinamico por rol: Publico (Explorar/Vender/Como funciona), Buyer (Explorar/Mis procesos/Guardados), Seller (Mis deals/Interesados/Explorar), Advisor (Mandatos/Interesados/Explorar)
-- [x] Dropdown usuario: nombre, rol, Mi panel, Configuracion, Cerrar sesion
-- [x] Home.js: enlaces actualizados (/explorar en vez de /marketplace), texto duplicado corregido
-- [x] SellerInteresados.js: Centro de decision cross-deal con:
-  - Summary cards (Total buyers, LOIs recibidas, Alta intencion, Requieren accion)
-  - Nudges prescriptivos con action pills
-  - Tabla con columna "Que hacer" prescriptiva por buyer
-  - Dots de urgencia (rojo/ambar/gris)
-  - Barras de intencion (verde/ambar/gris)
-  - Ultima actividad relativa
-  - Leyenda de urgencia en footer
-- [x] Endpoint optimizado GET /api/engagements/seller/interesados (una sola llamada)
-- [x] SavedDeals.js: Vista de deals guardados con datos enriquecidos
-- [x] Endpoint GET /api/engagements/saved devuelve datos completos (no solo IDs)
-- [x] AdvisorMandatos.js: Placeholder "Proximamente" con features preview
-- [x] Rutas publicas actualizadas en api.js interceptor (/explorar, /como-funciona, /vender)
-- [x] Testing: 100% pass rate (16/16 backend, all frontend flows)
+### Fase 5 — Navegacion Role-Based + UX Validation
+- [x] Header dinamico por rol
+- [x] SellerInteresados.js: Centro de decision cross-deal prescriptivo
+- [x] Endpoint optimizado GET /api/engagements/seller/interesados
+- [x] SavedDeals.js + AdvisorMandatos.js
+- [x] Todos los enlaces /marketplace actualizados a /explorar
+
+### Fase 6 — Percepcion de Mercado + Soft Signals (COMPLETADA 23 Mar 2026)
+- [x] Internal Deal Score (0-100, backend invisible) — LOIs(35pts), NDA holders(25pts), stages(10pts), freshness(15pts), actividad(15pts)
+- [x] Soft Signals (max 2 por deal) con jerarquia estricta:
+  1. LOI: "X LOIs recibidas" (rojo)
+  2. Competition: "Varios buyers evaluando" / "Varias partes interesadas" (ambar)
+  3. Process: "En fase avanzada" / "En negociacion" (ambar)
+  4. DR Activity: "Revision activa de documentacion" (azul)
+  5. Freshness: "Nuevo esta semana" / "LOI recibida esta semana" / "Interes reciente" (verde)
+- [x] Signals en 3 superficies: Marketplace cards, Home featured, Deal detail page
+- [x] Marketplace sorted by internal score (Mayor actividad por defecto)
+- [x] Deals sin actividad = cards limpias (sin signals)
+- [x] Reglas: lenguaje de accion ("evaluando", no "5 views"), sin precision falsa, NDA como umbral minimo para "evaluando"
+- [x] Testing: 100% pass rate (16/16 backend, all frontend)
 
 ---
 
 ## Backlog Priorizado
 
-### P0 (Proximo)
-- [ ] Internal Deal Score — Score backend para ranking/matching (NO publico)
-- [ ] Soft Signals UI — Badges en marketplace: "Alta actividad", "Proceso avanzado"
-
 ### P1 — Deal Health System
 - [ ] Intent score con decay temporal
 - [ ] Alertas de estado en background (deal estancado, buyer inactivo)
 - [ ] Deal status monitor (verde/amarillo/rojo)
-
-### P1 — Deal Readiness
-- [ ] DR readiness check antes de publicar (checklist pre-publicacion)
+- [ ] Freshness como factor de urgencia (no solo ordenacion)
 
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual (tabla lado a lado)
 - [ ] Activity dashboard por buyer con last_active
 - [ ] Intent score con desglose visual
 
+### P1 — Deal Readiness
+- [ ] DR readiness check antes de publicar (checklist pre-publicacion)
+
 ### P1 — Otros
 - [ ] Deal state transitions UI completa
 - [ ] PDF export infomemo
 
 ### P2
-- [ ] #7 Contacto buyer desde Arroba (messaging o email pre-rellenado)
-- [ ] #3 Fases de acceso en Data Room (NDA/LOI/DD)
-- [ ] #1 Advisor como operador (gestionar deals del seller)
-- [ ] #15 Q&A integrado en DD
+- [ ] Contacto buyer desde Arroba (messaging o email pre-rellenado)
+- [ ] Fases de acceso en Data Room (NDA/LOI/DD)
+- [ ] Advisor como operador (gestionar deals del seller)
+- [ ] Q&A integrado en DD
 - [ ] Admin panel / Advisor dashboard
 - [ ] Activar SendGrid real
 - [ ] Dashboard analytics para seller
