@@ -27,10 +27,10 @@ api.interceptors.response.use(
       localStorage.removeItem('access_token');
       // Only redirect to login for protected routes, not for public pages
       // Don't redirect if we're on public pages or already on auth pages
-      const publicPaths = ['/', '/marketplace', '/pricing', '/about', '/login', '/register', '/auth/callback'];
+      const publicPaths = ['/', '/marketplace', '/explorar', '/pricing', '/about', '/login', '/register', '/auth/callback', '/como-funciona', '/vender'];
       const currentPath = window.location.pathname;
       const isPublicPath = publicPaths.some(path => 
-        currentPath === path || currentPath.startsWith('/marketplace/')
+        currentPath === path || currentPath.startsWith('/marketplace/') || currentPath.startsWith('/explorar/')
       );
       
       if (!isPublicPath) {
@@ -191,6 +191,7 @@ export const coachingAPI = {
   exclusivityCheck: (dealId, buyerId) => api.get(`/coaching/exclusivity-check/${dealId}/${buyerId}`),
   getDealNudges: (dealId) => api.get(`/coaching/nudges/deal/${dealId}`),
   getSellerNudges: () => api.get('/coaching/nudges'),
+  getSellerInteresados: () => api.get('/engagements/seller/interesados'),
 };
 
 // Subscriptions API

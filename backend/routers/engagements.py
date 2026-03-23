@@ -497,12 +497,33 @@ async def unsave_deal(
 async def list_saved_deals(
     current_user: UserResponse = Depends(get_current_user)
 ):
-    """List buyer's saved deals"""
+    """List buyer's saved deals with full deal info"""
     cursor = saved_deals_collection.find(
         {"user_id": current_user.user_id}, {"_id": 0}
     ).sort("saved_at", -1)
     saved = await cursor.to_list(50)
-    return {"saved_deals": [s["deal_id"] for s in saved]}
+
+    deals = []
+    for s in saved:
+        deal = await deals_collection.find_one(
+            {"deal_id": s["deal_id"]}, {"_id": 0}
+        )
+        if deal:
+            teaser = deal.get("teaser", {})
+            deals.append({
+                "deal_id": deal["deal_id"],
+                "status": deal.get("status", ""),
+                "saved_at": s.get("saved_at"),
+                "teaser": {
+                    "headline": teaser.get("headline"),
+                    "sector_display": teaser.get("sector_display"),
+                    "geography_display": teaser.get("geography_display"),
+                    "revenue_display": teaser.get("revenue_display"),
+                    "ebitda_display": teaser.get("ebitda_display"),
+                }
+            })
+
+    return {"deals": deals, "total": len(deals)}
 
 
 @router.get("/save/{deal_id}/status")
@@ -516,6 +537,209 @@ async def check_saved_status(
         {"_id": 0}
     )
     return {"saved": saved is not None}
+
+
+
+@router.get("/seller/interesados")
+async def get_seller_interesados(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Optimized endpoint for Seller Interesados view.
+    Returns ALL buyers across ALL seller deals with:
+    - Enriched engagement data
+    - Intent scores
+    - Last activity timestamp
+    - Suggested prescriptive action
+    """
+    from services.intent_service import compute_intent_score
+    from services.coaching_service import get_seller_nudges
+
+    seller_id = current_user.user_id
+
+    # Get all seller deals (not draft, not closed/dropped)
+    cursor = deals_collection.find(
+        {"owner_id": seller_id, "status": {"$nin": ["draft", "closed", "dropped"]}},
+        {"_id": 0}
+    )
+    deals = await cursor.to_list(20)
+
+    if not deals:
+        nudges = await get_seller_nudges(seller_id)
+        return {"buyers": [], "deals_count": 0, "nudges": nudges, "summary": {
+            "total": 0, "lois": 0, "interests": 0, "high_intent": 0, "needs_action": 0
+        }}
+
+    deal_map = {}
+    for d in deals:
+        deal_map[d["deal_id"]] = d
+
+    # Get ALL engagements for these deals in one query
+    deal_ids = [d["deal_id"] for d in deals]
+    eng_cursor = engagements_collection.find(
+        {"deal_id": {"$in": deal_ids}},
+        {"_id": 0}
+    ).sort("updated_at", -1)
+    engagements = await eng_cursor.to_list(200)
+
+    # Process each buyer
+    enriched_buyers = []
+    loi_count = 0
+    interest_count = 0
+    high_intent_count = 0
+    needs_action_count = 0
+
+    for eng in engagements:
+        deal = deal_map.get(eng["deal_id"], {})
+        teaser = deal.get("teaser", {})
+
+        # Intent score
+        intent = await compute_intent_score(eng["buyer_id"], eng["deal_id"])
+        intent_score = intent.get("score", 0)
+        intent_level = intent.get("level", "baja")
+
+        # Last activity
+        last_activity = eng.get("updated_at") or eng.get("created_at")
+
+        # Derive suggested action based on stage + type + intent
+        action = _derive_action(eng, intent_score, deal)
+
+        buyer_entry = {
+            "engagement_id": eng.get("engagement_id"),
+            "deal_id": eng["deal_id"],
+            "deal_title": teaser.get("headline") or deal.get("title") or eng["deal_id"],
+            "buyer_id": eng["buyer_id"],
+            "buyer_name": eng.get("buyer_name") or eng["buyer_id"],
+            "buyer_type": eng.get("buyer_type", ""),
+            "type": eng["type"],
+            "stage": eng["stage"],
+            "intent_score": intent_score,
+            "intent_level": intent_level,
+            "valuation_offer": eng.get("valuation_offer"),
+            "structure": eng.get("structure"),
+            "last_activity": last_activity,
+            "created_at": eng.get("created_at"),
+            "action": action,
+        }
+
+        enriched_buyers.append(buyer_entry)
+
+        if eng["type"] == "LOI":
+            loi_count += 1
+        else:
+            interest_count += 1
+        if intent_score >= 55:
+            high_intent_count += 1
+        if action.get("urgency") in ("alta", "media"):
+            needs_action_count += 1
+
+    # Sort: urgent actions first, then by intent score
+    urgency_order = {"alta": 0, "media": 1, "baja": 2}
+    enriched_buyers.sort(key=lambda b: (
+        urgency_order.get(b["action"].get("urgency", "baja"), 3),
+        -(b["intent_score"]),
+    ))
+
+    # Get nudges
+    nudges = await get_seller_nudges(seller_id)
+
+    return {
+        "buyers": enriched_buyers,
+        "deals_count": len(deals),
+        "nudges": nudges,
+        "summary": {
+            "total": len(enriched_buyers),
+            "lois": loi_count,
+            "interests": interest_count,
+            "high_intent": high_intent_count,
+            "needs_action": needs_action_count,
+        }
+    }
+
+
+def _derive_action(eng: dict, intent_score: int, deal: dict) -> dict:
+    """
+    Prescriptive action per buyer based on stage + type + intent.
+    Returns: {text, urgency, cta}
+    """
+    stage = eng.get("stage", "SUBMITTED")
+    eng_type = eng.get("type", "INTEREST")
+    buyer_name = (eng.get("buyer_name") or "Buyer").split()[0]
+    offer = eng.get("valuation_offer")
+
+    if stage == "REJECTED":
+        return {"text": "Descartado", "urgency": "baja", "cta": None}
+
+    if stage == "EXCLUSIVITY":
+        return {
+            "text": f"En exclusividad — avanzar DD con {buyer_name}",
+            "urgency": "alta",
+            "cta": "Gestionar deal",
+        }
+
+    if eng_type == "LOI" and stage == "SHORTLISTED":
+        offer_str = f" ({offer/1e6:.1f}M)" if offer else ""
+        return {
+            "text": f"LOI en shortlist{offer_str} — decidir exclusividad",
+            "urgency": "alta",
+            "cta": "Revisar LOI",
+        }
+
+    if eng_type == "LOI" and stage in ("SUBMITTED", "VIEWED"):
+        offer_str = f" de {offer/1e6:.1f}M" if offer else ""
+        return {
+            "text": f"LOI recibida{offer_str} — evaluar y shortlistar",
+            "urgency": "alta",
+            "cta": "Evaluar LOI",
+        }
+
+    # INTEREST type
+    if stage == "SHORTLISTED":
+        if intent_score >= 55:
+            return {
+                "text": f"{buyer_name} en shortlist, alta intencion — esperar LOI",
+                "urgency": "media",
+                "cta": "Ver actividad",
+            }
+        return {
+            "text": f"En shortlist pero intencion baja ({intent_score}) — contactar",
+            "urgency": "media",
+            "cta": "Contactar",
+        }
+
+    if stage == "SUBMITTED":
+        return {
+            "text": f"Nuevo interes — revisar perfil de {buyer_name}",
+            "urgency": "media",
+            "cta": "Revisar",
+        }
+
+    if intent_score >= 55:
+        return {
+            "text": f"Alta intencion ({intent_score}) — considerar shortlist",
+            "urgency": "media",
+            "cta": "Shortlistar",
+        }
+
+    if intent_score >= 25:
+        return {
+            "text": f"Intencion media ({intent_score}) — monitorizar actividad",
+            "urgency": "baja",
+            "cta": None,
+        }
+
+    if stage == "VIEWED":
+        return {
+            "text": f"Visto, baja intencion — esperar senales",
+            "urgency": "baja",
+            "cta": None,
+        }
+
+    return {
+        "text": f"Baja intencion ({intent_score}) — sin accion requerida",
+        "urgency": "baja",
+        "cta": None,
+    }
 
 
 

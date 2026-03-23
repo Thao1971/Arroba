@@ -1,104 +1,197 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
-import { dealsAPI, coachingAPI } from '../services/api';
-import { Loader2, Users, ArrowRight, AlertTriangle, TrendingUp, FileText, Clock } from 'lucide-react';
+import { coachingAPI } from '../services/api';
+import {
+  Loader2, Users, ArrowRight, AlertTriangle, TrendingUp,
+  FileText, Clock, ChevronRight, Zap, Eye
+} from 'lucide-react';
+
+const timeAgo = (dateStr) => {
+  if (!dateStr) return '';
+  const now = new Date();
+  const d = new Date(dateStr);
+  const diffMs = now - d;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `hace ${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `hace ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `hace ${days}d`;
+  const weeks = Math.floor(days / 7);
+  return `hace ${weeks}sem`;
+};
+
+const urgencyDot = (urgency) => {
+  if (urgency === 'alta') return 'bg-red-500';
+  if (urgency === 'media') return 'bg-amber-400';
+  return 'bg-slate-300';
+};
+
+const intentBar = (score) => {
+  const width = Math.max(score, 4);
+  let color = 'bg-slate-300';
+  if (score >= 55) color = 'bg-green-500';
+  else if (score >= 25) color = 'bg-amber-400';
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} />
+      </div>
+      <span className={`text-xs font-bold tabular-nums ${
+        score >= 55 ? 'text-green-600' : score >= 25 ? 'text-amber-600' : 'text-slate-400'
+      }`}>{score}</span>
+    </div>
+  );
+};
+
+const stageLabel = (stage) => ({
+  SUBMITTED: 'Nuevo',
+  VIEWED: 'Visto',
+  SHORTLISTED: 'Shortlist',
+  EXCLUSIVITY: 'Exclusividad',
+  REJECTED: 'Descartado',
+}[stage] || stage);
+
+const stageStyle = (stage) => ({
+  SUBMITTED: 'bg-blue-50 text-blue-700 border-blue-200',
+  VIEWED: 'bg-slate-50 text-slate-600 border-slate-200',
+  SHORTLISTED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  EXCLUSIVITY: 'bg-purple-50 text-purple-700 border-purple-200',
+  REJECTED: 'bg-red-50 text-red-500 border-red-200',
+}[stage] || 'bg-slate-50 text-slate-600 border-slate-200');
+
+const NudgeCard = ({ nudge, index }) => {
+  const borderColor = nudge.priority === 'ALTA' ? 'border-l-red-500' :
+    nudge.priority === 'MEDIA' ? 'border-l-amber-400' : 'border-l-slate-300';
+  return (
+    <Link
+      to={nudge.deal_id ? `/seller/deal/${nudge.deal_id}` : '#'}
+      className={`block p-3 bg-white border border-slate-200 border-l-4 ${borderColor} rounded-lg hover:shadow-sm transition-all`}
+      data-testid={`nudge-${index}`}
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+          nudge.priority === 'ALTA' ? 'text-red-500' : 'text-amber-500'
+        }`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-900 leading-tight">{nudge.title}</p>
+          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{nudge.message}</p>
+          {nudge.actions && nudge.actions.length > 0 && (
+            <div className="flex gap-1.5 mt-2">
+              {nudge.actions.map((a, i) => (
+                <span key={i} className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 text-slate-700 rounded-full">
+                  {a}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+      </div>
+    </Link>
+  );
+};
+
+const BuyerRow = ({ buyer, index }) => {
+  const action = buyer.action || {};
+  return (
+    <Link
+      to={`/seller/deal/${buyer.deal_id}`}
+      className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-slate-100 hover:bg-slate-50/70 transition-colors group"
+      data-testid={`buyer-row-${index}`}
+    >
+      {/* Urgency dot + Buyer */}
+      <div className="col-span-2 flex items-center gap-2.5 min-w-0">
+        <div className={`w-2 h-2 rounded-full shrink-0 ${urgencyDot(action.urgency)}`}
+          title={`Urgencia: ${action.urgency}`} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900 truncate">{buyer.buyer_name}</p>
+          <p className="text-[11px] text-slate-400 capitalize truncate">{buyer.buyer_type}</p>
+        </div>
+      </div>
+
+      {/* Deal */}
+      <div className="col-span-2 min-w-0">
+        <p className="text-xs text-slate-600 truncate">{buyer.deal_title}</p>
+      </div>
+
+      {/* Type + Stage */}
+      <div className="col-span-2 flex items-center gap-1.5">
+        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-semibold ${
+          buyer.type === 'LOI' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
+        }`}>
+          {buyer.type === 'LOI' ? <FileText className="w-2.5 h-2.5" /> : <TrendingUp className="w-2.5 h-2.5" />}
+          {buyer.type}
+        </span>
+        <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium border ${stageStyle(buyer.stage)}`}>
+          {stageLabel(buyer.stage)}
+        </span>
+      </div>
+
+      {/* Intent */}
+      <div className="col-span-1">
+        {intentBar(buyer.intent_score)}
+      </div>
+
+      {/* LOI amount */}
+      <div className="col-span-1 text-right">
+        {buyer.valuation_offer ? (
+          <span className="text-sm font-bold text-slate-900">{(buyer.valuation_offer / 1e6).toFixed(1)}M</span>
+        ) : (
+          <span className="text-xs text-slate-300">-</span>
+        )}
+      </div>
+
+      {/* Suggested Action */}
+      <div className="col-span-3 min-w-0">
+        <p className={`text-xs leading-snug ${
+          action.urgency === 'alta' ? 'text-red-600 font-semibold' :
+          action.urgency === 'media' ? 'text-amber-700 font-medium' :
+          'text-slate-500'
+        }`}>{action.text}</p>
+      </div>
+
+      {/* Time + Arrow */}
+      <div className="col-span-1 flex items-center justify-end gap-2">
+        <span className="text-[11px] text-slate-400 whitespace-nowrap">{timeAgo(buyer.last_activity)}</span>
+        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-arroba-coral transition-colors shrink-0" />
+      </div>
+    </Link>
+  );
+};
+
+const SummaryCard = ({ label, value, icon: Icon, accent }) => (
+  <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg" data-testid={`summary-${label}`}>
+    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
+      <Icon className="w-4 h-4" />
+    </div>
+    <div>
+      <p className="text-lg font-bold text-slate-900 leading-none">{value}</p>
+      <p className="text-[11px] text-slate-500 mt-0.5">{label}</p>
+    </div>
+  </div>
+);
 
 const SellerInteresados = () => {
   const [loading, setLoading] = useState(true);
-  const [deals, setDeals] = useState([]);
-  const [allBuyers, setAllBuyers] = useState([]);
-  const [nudges, setNudges] = useState([]);
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [dealsRes, nudgesRes] = await Promise.all([
-          dealsAPI.list(),
-          coachingAPI.getSellerNudges(),
-        ]);
-        const myDeals = dealsRes.data || [];
-        setDeals(myDeals);
-        setNudges(nudgesRes.data?.nudges || []);
-
-        // Fetch engagements for each deal
-        const buyers = [];
-        for (const deal of myDeals) {
-          if (deal.status === 'draft') continue;
-          try {
-            const engRes = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/engagements/deal/${deal.deal_id}`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            const engData = await engRes.json();
-            const engs = engData.engagements || engData || [];
-            if (Array.isArray(engs)) {
-              for (const eng of engs) {
-                // Get intent score
-                let intentScore = 0;
-                try {
-                  const intentRes = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/tracking/intent/${deal.deal_id}/${eng.buyer_id}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  });
-                  const intentData = await intentRes.json();
-                  intentScore = intentData.score || 0;
-                } catch {}
-
-                buyers.push({
-                  ...eng,
-                  deal_id: deal.deal_id,
-                  deal_title: deal.teaser?.headline || deal.deal_id,
-                  deal_status: deal.status,
-                  intent_score: intentScore,
-                });
-              }
-            }
-          } catch {}
-        }
-
-        // Sort: LOI first, then by intent score descending
-        buyers.sort((a, b) => {
-          if (a.type === 'LOI' && b.type !== 'LOI') return -1;
-          if (b.type === 'LOI' && a.type !== 'LOI') return 1;
-          return (b.intent_score || 0) - (a.intent_score || 0);
-        });
-
-        setAllBuyers(buyers);
+        const res = await coachingAPI.getSellerInteresados();
+        setData(res.data);
       } catch (e) {
-        console.error('Error:', e);
+        console.error('Error loading interesados:', e);
+        setError('Error cargando datos');
       } finally {
         setLoading(false);
       }
     };
     load();
   }, []);
-
-  const stageLabel = (stage) => {
-    const labels = {
-      SUBMITTED: 'Enviado',
-      VIEWED: 'Visto',
-      SHORTLISTED: 'Shortlist',
-      EXCLUSIVITY: 'Exclusividad',
-      REJECTED: 'Descartado',
-    };
-    return labels[stage] || stage;
-  };
-
-  const stageColor = (stage) => {
-    const colors = {
-      SUBMITTED: 'bg-blue-100 text-blue-700',
-      VIEWED: 'bg-slate-100 text-slate-600',
-      SHORTLISTED: 'bg-green-100 text-green-700',
-      EXCLUSIVITY: 'bg-purple-100 text-purple-700',
-      REJECTED: 'bg-red-100 text-red-600',
-    };
-    return colors[stage] || 'bg-slate-100 text-slate-600';
-  };
-
-  const intentColor = (score) => {
-    if (score >= 55) return 'text-green-600';
-    if (score >= 25) return 'text-amber-600';
-    return 'text-slate-400';
-  };
 
   if (loading) {
     return (
@@ -110,37 +203,50 @@ const SellerInteresados = () => {
     );
   }
 
+  if (error) {
+    return (
+      <Layout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <p className="text-slate-500">{error}</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  const { buyers = [], nudges = [], summary = {}, deals_count = 0 } = data || {};
+
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 max-w-5xl" data-testid="seller-interesados-page">
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Interesados</h1>
-        <p className="text-sm text-slate-500 mb-6">
-          Todos los buyers de todos tus deals en un solo lugar
-        </p>
+      <div className="container mx-auto px-4 py-6 max-w-6xl" data-testid="seller-interesados-page">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-slate-900">Interesados</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Centro de decision — todos los buyers de {deals_count} deal{deals_count !== 1 ? 's' : ''} activo{deals_count !== 1 ? 's' : ''}
+          </p>
+        </div>
 
-        {/* Nudges (top 3 most important) */}
+        {/* Summary cards */}
+        {buyers.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5" data-testid="summary-cards">
+            <SummaryCard label="Total buyers" value={summary.total} icon={Users} accent="bg-slate-100 text-slate-600" />
+            <SummaryCard label="LOIs recibidas" value={summary.lois} icon={FileText} accent="bg-green-100 text-green-600" />
+            <SummaryCard label="Alta intencion" value={summary.high_intent} icon={TrendingUp} accent="bg-blue-100 text-blue-600" />
+            <SummaryCard label="Requieren accion" value={summary.needs_action} icon={Zap} accent="bg-red-100 text-red-600" />
+          </div>
+        )}
+
+        {/* Nudges */}
         {nudges.length > 0 && (
-          <div className="space-y-2 mb-6" data-testid="interesados-nudges">
+          <div className="space-y-2 mb-5" data-testid="interesados-nudges">
             {nudges.slice(0, 3).map((n, i) => (
-              <Link key={n.id + i} to={n.deal_id ? `/seller/deal/${n.deal_id}` : '#'}
-                className={`flex items-start gap-3 p-3 rounded-lg border transition-colors hover:shadow-sm ${
-                  n.priority === 'ALTA' ? 'bg-red-50 border-red-200' :
-                  n.priority === 'MEDIA' ? 'bg-amber-50 border-amber-200' :
-                  'bg-blue-50 border-blue-200'
-                }`} data-testid={`interesados-nudge-${i}`}>
-                <AlertTriangle className={`w-4 h-4 mt-0.5 shrink-0 ${
-                  n.priority === 'ALTA' ? 'text-red-600' : 'text-amber-600'
-                }`} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm">{n.title}</p>
-                  <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.message}</p>
-                </div>
-              </Link>
+              <NudgeCard key={n.id + i} nudge={n} index={i} />
             ))}
           </div>
         )}
 
-        {allBuyers.length === 0 ? (
+        {/* Buyers table */}
+        {buyers.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-slate-300 rounded-xl" data-testid="interesados-empty">
             <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500 font-medium">Aun no tienes interesados</p>
@@ -148,66 +254,32 @@ const SellerInteresados = () => {
           </div>
         ) : (
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden" data-testid="interesados-table">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="text-left font-semibold text-slate-600 px-4 py-3">Deal</th>
-                    <th className="text-left font-semibold text-slate-600 px-4 py-3">Buyer</th>
-                    <th className="text-center font-semibold text-slate-600 px-4 py-3">Tipo</th>
-                    <th className="text-center font-semibold text-slate-600 px-4 py-3">Estado</th>
-                    <th className="text-center font-semibold text-slate-600 px-4 py-3">Intencion</th>
-                    <th className="text-right font-semibold text-slate-600 px-4 py-3">LOI</th>
-                    <th className="text-center font-semibold text-slate-600 px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allBuyers.map((b, i) => (
-                    <tr key={b.engagement_id || i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors" data-testid={`interesado-row-${i}`}>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-slate-900 truncate max-w-[200px]">{b.deal_title}</p>
-                        <p className="text-xs text-slate-400">{b.deal_id}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-slate-900">{b.buyer_name || b.buyer_id}</p>
-                        <p className="text-xs text-slate-400 capitalize">{b.buyer_type || ''}</p>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          b.type === 'LOI' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {b.type === 'LOI' ? <FileText className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-                          {b.type}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${stageColor(b.stage)}`}>
-                          {stageLabel(b.stage)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`font-bold ${intentColor(b.intent_score)}`}>{b.intent_score}</span>
-                        <span className="text-slate-400 text-xs">/100</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {b.valuation_offer ? (
-                          <span className="font-semibold text-slate-900">{(b.valuation_offer / 1e6).toFixed(1)}M</span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <Link to={`/seller/deal/${b.deal_id}`} className="text-arroba-coral hover:text-arroba-coral/80">
-                          <ArrowRight className="w-4 h-4" />
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Table header */}
+            <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="col-span-2 pl-4">Buyer</div>
+              <div className="col-span-2">Deal</div>
+              <div className="col-span-2">Tipo / Estado</div>
+              <div className="col-span-1">Intencion</div>
+              <div className="col-span-1 text-right">LOI</div>
+              <div className="col-span-3">Que hacer</div>
+              <div className="col-span-1 text-right">Actividad</div>
             </div>
-            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500">
-              {allBuyers.length} interesados en {deals.filter(d => d.status !== 'draft').length} deals activos
+
+            {/* Rows */}
+            {buyers.map((b, i) => (
+              <BuyerRow key={b.engagement_id || i} buyer={b} index={i} />
+            ))}
+
+            {/* Footer */}
+            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500">
+                {buyers.length} interesado{buyers.length !== 1 ? 's' : ''} en {deals_count} deal{deals_count !== 1 ? 's' : ''}
+              </span>
+              <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Accion urgente</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400"></span> Seguimiento</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span> Monitorizar</span>
+              </div>
             </div>
           </div>
         )}

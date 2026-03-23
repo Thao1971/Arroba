@@ -36,7 +36,7 @@ const SampleDealCard = () => (
       </div>
     </div>
     <p className="text-center text-2xl font-bold text-slate-900 mb-4">€ 40.000</p>
-    <Link to="/marketplace">
+    <Link to="/explorar">
       <Button className="w-full bg-arroba-coral hover:bg-arroba-coral/90 text-white rounded-full text-sm">
         Comprar
       </Button>
@@ -141,7 +141,7 @@ const Home = () => {
                 </div>
                 <div className="flex items-center gap-2 text-arroba-coral">
                   <Check className="w-4 h-4" />
-                  <span className="text-sm">+120 compradores verificados</span>
+                  <span className="text-sm">Acompanamiento en todo el proceso</span>
                 </div>
               </div>
 
@@ -204,7 +204,7 @@ const Home = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold text-slate-900">Agencias destacadas</h2>
-            <Link to="/marketplace" className="text-arroba-coral hover:underline flex items-center gap-1">
+            <Link to="/explorar" className="text-arroba-coral hover:underline flex items-center gap-1">
               Ver todas <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -345,7 +345,7 @@ const Home = () => {
                 Crear cuenta gratis
               </Button>
             </Link>
-            <Link to="/marketplace">
+            <Link to="/explorar">
               <Button className="border-2 border-white text-white hover:bg-white hover:text-arroba-coral font-semibold px-8 py-3 rounded-lg bg-transparent" data-testid="cta-explore">
                 Ver agencias
               </Button>
