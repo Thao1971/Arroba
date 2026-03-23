@@ -4,13 +4,13 @@
 ---
 
 ## Problema Original
-Construir "Arroba", una plataforma para comprar y vender agencias digitales. El enfoque ha estado en el flujo E2E del Buyer, optimización de conversión y herramientas de toma de decisiones.
+Construir "Arroba", una plataforma para comprar y vender agencias digitales. El enfoque ha estado en el flujo E2E del Buyer, optimizacion de conversion y herramientas de toma de decisiones.
 
 ## Usuarios
-- **Buyers**: PE, VC, Family Office, Estratégicos, Holdings que buscan adquirir agencias digitales
-- **Sellers**: Dueños de agencias digitales que quieren vender
+- **Buyers**: PE, VC, Family Office, Estrategicos, Holdings que buscan adquirir agencias digitales
+- **Sellers**: Duenos de agencias digitales que quieren vender
 - **Advisors**: Asesores M&A que gestionan mandatos (scaffold)
-- **Admin**: Gestión de plataforma (scaffold)
+- **Admin**: Gestion de plataforma (scaffold)
 
 ---
 
@@ -20,12 +20,12 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 - [x] Auth (JWT + Sessions + Google OAuth via Emergent)
 - [x] Buyer Profile & Onboarding
 - [x] Seller Profile & Company Management
-- [x] Deal CRUD (Draft → Published)
+- [x] Deal CRUD (Draft -> Published)
 - [x] AI Teaser Generation (GPT-5.2)
 - [x] AI Infomemo Generation (GPT-5.2)
-- [x] Marketplace (listado público de deals)
+- [x] Marketplace (listado publico de deals)
 - [x] NDA digital flow
-- [x] Taxonomía oficial BUD (CIS)
+- [x] Taxonomia oficial BUD (CIS)
 
 ### Fase 2 — Buyer E2E Flow
 - [x] Interest/LOI unified engagement model
@@ -38,28 +38,47 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 - [x] In-App Notifications (high-signal events)
 - [x] Decoupled Email Scaffolding (SendGrid placeholder)
 
-### Fase 3 — Auditoría y Demo Data (COMPLETADA 22 Mar 2026)
+### Fase 3 — Auditoria y Demo Data (COMPLETADA 22 Mar 2026)
 - [x] Seed Script (`seed_demo.py`) — 10 historias completas con edge cases
 - [x] DEMO_SCENARIOS.md — Escenarios mapeados a datos reales del seed
 - [x] FLOWS.md — Flujos funcionales completos (Buyer, Seller, Advisor, Admin)
-- [x] ARCHITECTURE.md — Documentación técnica del sistema
-- [x] PLAYBOOK_OPERACION.md — Playbook de operación real (Advisor + Seller directo) con 18 fricciones
-- [x] MODULOS_SISTEMA.md — Diseño de 5 módulos (Coaching, Signal Clarity, Deal Health, Readiness, Communication)
+- [x] ARCHITECTURE.md — Documentacion tecnica del sistema
+- [x] PLAYBOOK_OPERACION.md — Playbook de operacion real (Advisor + Seller directo) con 18 fricciones
+- [x] MODULOS_SISTEMA.md — Diseno de 5 modulos (Coaching, Signal Clarity, Deal Health, Readiness, Communication)
 
-### Fase 4 — Seller Coaching System v1 → v2 (COMPLETADA 22 Mar 2026)
-- [x] Warning de exclusividad prematura con fricción real (CONFIRMO obligatorio si buyer no cumple criterios)
-- [x] Nudges PRESCRIPTIVOS con acciones específicas: NC-01 análisis de vistas vs NDAs, NC-02 con buyer más activo identificado, NC-03 LOI sin DD con acción directa
-- [x] Buyers inactivos agrupados en 1 nudge (no N tarjetas), con "más prometedor" identificado
+### Fase 4 — Seller Coaching System v2 (COMPLETADA 22 Mar 2026)
+- [x] Warning de exclusividad prematura con friccion real (CONFIRMO obligatorio si buyer no cumple criterios)
+- [x] Nudges PRESCRIPTIVOS con acciones especificas: NC-01 analisis de vistas vs NDAs, NC-02 con buyer mas activo identificado, NC-03 LOI sin DD con accion directa
+- [x] Buyers inactivos agrupados en 1 nudge (no N tarjetas), con "mas prometedor" identificado
 - [x] Action pills en cada nudge ("Revisar precio", "Contactar", "Mejorar infomemo")
 - [x] Dashboard seller con nudges cross-deal + Comparador con nudges por deal
-- [x] Exportación documentación: ZIP descargable via /api/exports/documentacion
+- [x] Exportacion documentacion: ZIP descargable via /api/exports/documentacion
+
+### Fase 5 — Navegacion Role-Based + UX Validation (COMPLETADA 23 Mar 2026)
+- [x] Header dinamico por rol: Publico (Explorar/Vender/Como funciona), Buyer (Explorar/Mis procesos/Guardados), Seller (Mis deals/Interesados/Explorar), Advisor (Mandatos/Interesados/Explorar)
+- [x] Dropdown usuario: nombre, rol, Mi panel, Configuracion, Cerrar sesion
+- [x] Home.js: enlaces actualizados (/explorar en vez de /marketplace), texto duplicado corregido
+- [x] SellerInteresados.js: Centro de decision cross-deal con:
+  - Summary cards (Total buyers, LOIs recibidas, Alta intencion, Requieren accion)
+  - Nudges prescriptivos con action pills
+  - Tabla con columna "Que hacer" prescriptiva por buyer
+  - Dots de urgencia (rojo/ambar/gris)
+  - Barras de intencion (verde/ambar/gris)
+  - Ultima actividad relativa
+  - Leyenda de urgencia en footer
+- [x] Endpoint optimizado GET /api/engagements/seller/interesados (una sola llamada)
+- [x] SavedDeals.js: Vista de deals guardados con datos enriquecidos
+- [x] Endpoint GET /api/engagements/saved devuelve datos completos (no solo IDs)
+- [x] AdvisorMandatos.js: Placeholder "Proximamente" con features preview
+- [x] Rutas publicas actualizadas en api.js interceptor (/explorar, /como-funciona, /vender)
+- [x] Testing: 100% pass rate (16/16 backend, all frontend flows)
 
 ---
 
 ## Backlog Priorizado
 
-### P0 (Próximo)
-- [ ] Internal Deal Score — Score backend para ranking/matching (NO público)
+### P0 (Proximo)
+- [ ] Internal Deal Score — Score backend para ranking/matching (NO publico)
 - [ ] Soft Signals UI — Badges en marketplace: "Alta actividad", "Proceso avanzado"
 
 ### P1 — Deal Health System
@@ -68,7 +87,7 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 - [ ] Deal status monitor (verde/amarillo/rojo)
 
 ### P1 — Deal Readiness
-- [ ] DR readiness check antes de publicar (checklist pre-publicación)
+- [ ] DR readiness check antes de publicar (checklist pre-publicacion)
 
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual (tabla lado a lado)
@@ -90,7 +109,7 @@ Construir "Arroba", una plataforma para comprar y vender agencias digitales. El 
 
 ---
 
-## Stack Técnico
+## Stack Tecnico
 - Frontend: React 18 + Tailwind + Shadcn/UI
 - Backend: FastAPI (Python 3.11) + MongoDB (Motor async)
 - Storage: Emergent Object Storage
