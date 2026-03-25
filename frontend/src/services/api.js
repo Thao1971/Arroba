@@ -199,6 +199,7 @@ export const coachingAPI = {
 export const conversationsAPI = {
   getForDeal: (dealId) => api.get(`/conversations/deal/${dealId}`),
   getMy: () => api.get('/conversations/my'),
+  getPending: () => api.get('/conversations/pending/seller'),
   getOne: (conversationId) => api.get(`/conversations/${conversationId}`),
   createQuestion: (conversationId, content) => api.post(`/conversations/${conversationId}/questions`, { content }),
   createAnswer: (conversationId, questionId, content) => api.post(`/conversations/${conversationId}/answers?question_id=${questionId}`, { content }),

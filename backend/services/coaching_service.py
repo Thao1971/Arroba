@@ -134,7 +134,6 @@ async def get_deal_nudges(deal_id: str) -> list:
         if days_published >= 7 and ndas_count == 0:
             # Prescriptive: analyze WHY based on data
             asking = deal.get("asking_price", 0)
-            teaser = deal.get("teaser", {})
 
             if views < 20:
                 diagnosis = f"Solo {views} vistas al teaser — el deal no esta llegando a buyers."
@@ -303,6 +302,70 @@ async def get_deal_nudges(deal_id: str) -> list:
 
     # NC-05: Exclusividad activa sin progreso (>14 dias sin nuevas descargas)
     exclusivity = deal.get("exclusivity")
+
+    # NC-QA: Preguntas pendientes sin responder (Response Acceleration Layer)
+    qa_convs = await db.conversations.find(
+        {"deal_id": deal_id, "status": "OPEN"}, {"_id": 0, "conversation_id": 1, "buyer_id": 1}
+    ).to_list(50)
+
+    if qa_convs:
+        conv_ids = [c["conversation_id"] for c in qa_convs]
+        pending_questions = await db.qa_items.find(
+            {"conversation_id": {"$in": conv_ids}, "type": "QUESTION", "status": "PENDING"},
+            {"_id": 0, "qa_item_id": 1, "created_at": 1, "conversation_id": 1, "author_user_id": 1}
+        ).to_list(200)
+
+        if pending_questions:
+            conv_buyer_map = {c["conversation_id"]: c["buyer_id"] for c in qa_convs}
+            stale_12h = []
+            stale_24h = []
+
+            for pq in pending_questions:
+                created = pq["created_at"]
+                if isinstance(created, str):
+                    created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                else:
+                    created_dt = created
+                hours_pending = (now - created_dt).total_seconds() / 3600
+
+                bid = conv_buyer_map.get(pq["conversation_id"], "")
+                buyer_doc = await users_collection.find_one({"user_id": bid}, {"_id": 0, "first_name": 1, "last_name": 1})
+                bname = f"{buyer_doc['first_name']} {buyer_doc['last_name']}" if buyer_doc else bid
+
+                if hours_pending >= 24:
+                    stale_24h.append({"name": bname, "hours": round(hours_pending, 1), "conv_id": pq["conversation_id"]})
+                elif hours_pending >= 12:
+                    stale_12h.append({"name": bname, "hours": round(hours_pending, 1), "conv_id": pq["conversation_id"]})
+
+            # First nudge at 12h
+            if stale_12h and not stale_24h:
+                names = ", ".join(set(q["name"] for q in stale_12h))
+                nudges.append({
+                    "id": "NC-QA-12",
+                    "type": "warning",
+                    "priority": "MEDIA",
+                    "title": f"{len(stale_12h)} pregunta{'s' if len(stale_12h) > 1 else ''} sin responder",
+                    "message": f"Hay preguntas sin responder que pueden frenar el avance del deal. Buyers esperando: {names}.",
+                    "prescription": "Responder rapido mantiene el interes del buyer y acelera el proceso hacia LOI.",
+                    "actions": ["Responder ahora"],
+                    "metadata": {"conv_id": stale_12h[0]["conv_id"]} if stale_12h else {},
+                })
+
+            # Second nudge at 24h (more urgent, no further nudges after this)
+            if stale_24h:
+                names = ", ".join(set(q["name"] for q in stale_24h))
+                total_stale = len(stale_24h) + len(stale_12h)
+                nudges.append({
+                    "id": "NC-QA-24",
+                    "type": "warning",
+                    "priority": "ALTA",
+                    "title": f"{total_stale} pregunta{'s' if total_stale > 1 else ''} pendiente{'s' if total_stale > 1 else ''} · urgente",
+                    "message": f"Hay preguntas sin responder desde hace mas de 24h. Esto puede hacer que el buyer pierda interes. Buyers esperando: {names}.",
+                    "prescription": "Responder hoy es critico. Un buyer sin respuesta interpreta silencio como desinteres del seller.",
+                    "actions": ["Responder ahora"],
+                    "metadata": {"conv_id": stale_24h[0]["conv_id"]} if stale_24h else {},
+                })
+
     if exclusivity and status == "exclusivity":
         excl_buyer = exclusivity.get("buyer_id")
         granted_at = exclusivity.get("granted_at")

@@ -271,8 +271,43 @@ async def list_deal_engagements(
     )
     conv_list = await conv_cursor.to_list(100)
     conv_by_buyer = {c["buyer_id"]: c["conversation_id"] for c in conv_list}
+    conv_ids_here = [c["conversation_id"] for c in conv_list]
+
+    # Get pending Q&A counts per conversation
+    pending_map = {}
+    if conv_ids_here:
+        now_dt = datetime.now(timezone.utc)
+        pending_cursor = _db.qa_items.find(
+            {"conversation_id": {"$in": conv_ids_here}, "type": "QUESTION", "status": "PENDING"},
+            {"_id": 0, "conversation_id": 1, "created_at": 1}
+        )
+        p_items = await pending_cursor.to_list(200)
+        for pi in p_items:
+            cid = pi["conversation_id"]
+            created = pi["created_at"]
+            if isinstance(created, str):
+                created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            else:
+                created_dt = created
+            hours = (now_dt - created_dt).total_seconds() / 3600
+            if cid not in pending_map:
+                pending_map[cid] = {"count": 0, "oldest_hours": 0}
+            pending_map[cid]["count"] += 1
+            if hours > pending_map[cid]["oldest_hours"]:
+                pending_map[cid]["oldest_hours"] = hours
+
     for eng in engagements:
         eng["conversation_id"] = conv_by_buyer.get(eng["buyer_id"])
+        cid = eng["conversation_id"]
+        if cid and cid in pending_map:
+            p = pending_map[cid]
+            eng["pending_questions"] = p["count"]
+            eng["oldest_pending_hours"] = round(p["oldest_hours"], 1)
+            eng["pending_urgency"] = "alta" if p["oldest_hours"] >= 24 else ("media" if p["oldest_hours"] >= 12 else "baja")
+        else:
+            eng["pending_questions"] = 0
+            eng["oldest_pending_hours"] = 0
+            eng["pending_urgency"] = None
 
     return {
         "engagements": engagements,
@@ -669,8 +704,33 @@ async def get_seller_interesados(
     )
     conv_list = await conv_cursor.to_list(500)
     conv_map = {}
+    conv_id_list = []
     for c in conv_list:
         conv_map[(c["deal_id"], c["buyer_id"])] = c["conversation_id"]
+        conv_id_list.append(c["conversation_id"])
+
+    # Get pending Q&A counts per conversation (Response Acceleration)
+    pending_map = {}  # conversation_id -> {count, oldest_hours}
+    if conv_id_list:
+        now_dt = datetime.now(timezone.utc)
+        pending_cursor = _db.qa_items.find(
+            {"conversation_id": {"$in": conv_id_list}, "type": "QUESTION", "status": "PENDING"},
+            {"_id": 0, "conversation_id": 1, "created_at": 1}
+        )
+        pending_items = await pending_cursor.to_list(500)
+        for pi in pending_items:
+            cid = pi["conversation_id"]
+            created = pi["created_at"]
+            if isinstance(created, str):
+                created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+            else:
+                created_dt = created
+            hours = (now_dt - created_dt).total_seconds() / 3600
+            if cid not in pending_map:
+                pending_map[cid] = {"count": 0, "oldest_hours": 0}
+            pending_map[cid]["count"] += 1
+            if hours > pending_map[cid]["oldest_hours"]:
+                pending_map[cid]["oldest_hours"] = hours
 
     # Process each buyer
     enriched_buyers = []
@@ -712,6 +772,18 @@ async def get_seller_interesados(
             "action": action,
             "conversation_id": conv_map.get((eng["deal_id"], eng["buyer_id"])),
         }
+
+        # Pending Q&A stats (Response Acceleration)
+        cid = buyer_entry["conversation_id"]
+        if cid and cid in pending_map:
+            p = pending_map[cid]
+            buyer_entry["pending_questions"] = p["count"]
+            buyer_entry["oldest_pending_hours"] = round(p["oldest_hours"], 1)
+            buyer_entry["pending_urgency"] = "alta" if p["oldest_hours"] >= 24 else ("media" if p["oldest_hours"] >= 12 else "baja")
+        else:
+            buyer_entry["pending_questions"] = 0
+            buyer_entry["oldest_pending_hours"] = 0
+            buyer_entry["pending_urgency"] = None
 
         enriched_buyers.append(buyer_entry)
 

@@ -63,6 +63,20 @@ const QuestionCard = ({ question, isSeller, onAnswer, onClose }) => {
           <div className="flex items-center gap-3 mb-2">
             <StatusBadge status={question.status} />
             <span className="text-[11px]" style={{ color: 'var(--outline)' }}>{timeAgo(question.created_at)}</span>
+            {question.status === 'PENDING' && (() => {
+              const hours = (Date.now() - new Date(question.created_at).getTime()) / 3600000;
+              if (hours < 1) return null;
+              const isUrgent = hours >= 24;
+              const isWarning = hours >= 12;
+              return (
+                <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 ${
+                  isUrgent ? 'bg-red-100 text-red-700' : isWarning ? 'bg-amber-100 text-amber-700' : 'text-slate-500'
+                }`} data-testid="pending-duration">
+                  <Clock size={10} />
+                  Hace {hours < 24 ? `${Math.round(hours)}h` : `${Math.round(hours / 24)}d`} sin respuesta
+                </span>
+              );
+            })()}
           </div>
           <p className="text-sm font-semibold" style={{ color: 'var(--on-surface)', lineHeight: 1.6 }}>
             {question.content}
@@ -323,7 +337,7 @@ const ConversationPage = () => {
           </div>
         )}
 
-        {/* Questions list */}
+        {/* Questions list — sorted: PENDING (oldest first) → ANSWERED → CLOSED */}
         <div data-testid="questions-list">
           {questions.length === 0 ? (
             <div className="text-center py-16" style={{ background: 'var(--surface-1)' }}>
@@ -336,7 +350,15 @@ const ConversationPage = () => {
               </p>
             </div>
           ) : (
-            questions.map((q) => (
+            [...questions].sort((a, b) => {
+              const statusOrder = { PENDING: 0, ANSWERED: 1, CLOSED: 2 };
+              const sA = statusOrder[a.status] ?? 1;
+              const sB = statusOrder[b.status] ?? 1;
+              if (sA !== sB) return sA - sB;
+              // Within same status: PENDING oldest first, rest newest first
+              if (a.status === 'PENDING') return new Date(a.created_at) - new Date(b.created_at);
+              return new Date(b.created_at) - new Date(a.created_at);
+            }).map((q) => (
               <QuestionCard
                 key={q.qa_item_id}
                 question={q}

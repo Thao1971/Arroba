@@ -153,6 +153,16 @@ const BuyerRow = ({ buyer, index }) => {
           action.urgency === 'media' ? 'text-amber-700 font-medium' :
           'text-slate-500'
         }`}>{action.text}</p>
+        {buyer.pending_questions > 0 && (
+          <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold ${
+            buyer.pending_urgency === 'alta' ? 'bg-red-100 text-red-700' :
+            buyer.pending_urgency === 'media' ? 'bg-amber-100 text-amber-700' :
+            'bg-slate-100 text-slate-600'
+          }`} data-testid={`pending-badge-${index}`}>
+            <Clock size={9} />
+            {buyer.pending_questions} pendiente{buyer.pending_questions !== 1 ? 's' : ''}{buyer.pending_urgency === 'alta' ? ' · urgente' : ''}
+          </span>
+        )}
         {buyer.conversation_id && (
           <Link
             to={`/qa/${buyer.conversation_id}`}

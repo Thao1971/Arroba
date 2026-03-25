@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { companiesAPI, dealsAPI, coachingAPI } from '../services/api';
+import { companiesAPI, dealsAPI, coachingAPI, conversationsAPI } from '../services/api';
 import { 
   Plus, 
   Building2, 
@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   AlertCircle,
   AlertTriangle,
-  Info
+  Info,
+  Clock
 } from 'lucide-react';
 
 const SellerDashboard = () => {
@@ -27,6 +28,7 @@ const SellerDashboard = () => {
   const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nudges, setNudges] = useState([]);
+  const [pendingData, setPendingData] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,10 +39,14 @@ const SellerDashboard = () => {
         ]);
         setCompanies(companiesRes.data);
         setDeals(dealsRes.data);
-        // Fetch nudges
+        // Fetch nudges + pending Q&A in parallel
         try {
-          const nudgesRes = await coachingAPI.getSellerNudges();
+          const [nudgesRes, pendingRes] = await Promise.all([
+            coachingAPI.getSellerNudges(),
+            conversationsAPI.getPending()
+          ]);
           setNudges(nudgesRes.data?.nudges || []);
+          setPendingData(pendingRes.data);
         } catch {}
       } catch (error) {
         console.error('Error fetching seller data:', error);
@@ -94,6 +100,67 @@ const SellerDashboard = () => {
             </Link>
           )}
         </div>
+
+        {/* Response Acceleration — Acciones pendientes Q&A */}
+        {pendingData && pendingData.total_pending > 0 && (
+          <div className="mb-8" data-testid="pending-actions-block">
+            <div className="p-5" style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 2px 12px rgba(25,28,30,0.06)' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 flex items-center justify-center" style={{ background: 'rgba(182,33,42,0.08)' }}>
+                    <MessageSquare className="w-6 h-6 text-arroba-coral" />
+                  </div>
+                  <div>
+                    <p className="label-arroba text-arroba-coral mb-0.5">ACCIONES PENDIENTES</p>
+                    <p className="text-lg font-bold text-slate-900">
+                      {pendingData.total_pending} pregunta{pendingData.total_pending !== 1 ? 's' : ''} pendiente{pendingData.total_pending !== 1 ? 's' : ''} de {pendingData.buyers_waiting} buyer{pendingData.buyers_waiting !== 1 ? 's' : ''}
+                    </p>
+                    {pendingData.most_urgent && (
+                      <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        Mas urgente: {pendingData.most_urgent.buyer_name} · hace {pendingData.most_urgent.pending_hours < 1 ? 'menos de 1h' : `${Math.round(pendingData.most_urgent.pending_hours)}h`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {pendingData.most_urgent && (
+                  <Link to={`/qa/${pendingData.most_urgent.conversation_id}`}>
+                    <Button className="btn-primary" data-testid="respond-now-btn">
+                      RESPONDER AHORA
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                )}
+              </div>
+              {/* Individual pending items preview (max 3) */}
+              {pendingData.pending_questions.length > 1 && (
+                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                  {pendingData.pending_questions.slice(0, 3).map((q, i) => (
+                    <Link key={q.qa_item_id} to={`/qa/${q.conversation_id}`}
+                      className="flex items-center justify-between py-1.5 px-2 hover:bg-slate-50 transition-colors group"
+                      data-testid={`pending-item-${i}`}>
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${
+                          q.urgency === 'alta' ? 'bg-red-500' : q.urgency === 'media' ? 'bg-amber-500' : 'bg-slate-300'
+                        }`} />
+                        <span className="text-sm text-slate-700 truncate">{q.content}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        <span className="text-[11px] text-slate-400">{q.buyer_name}</span>
+                        <span className={`text-[11px] font-semibold ${
+                          q.urgency === 'alta' ? 'text-red-600' : q.urgency === 'media' ? 'text-amber-600' : 'text-slate-400'
+                        }`}>
+                          {q.pending_hours < 1 ? '<1h' : `${Math.round(q.pending_hours)}h`}
+                        </span>
+                        <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-arroba-coral transition-colors" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Coaching Nudges */}
         {nudges.length > 0 && (

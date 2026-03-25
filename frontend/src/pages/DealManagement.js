@@ -410,9 +410,10 @@ const ComparatorTab = ({ deal, onRefresh }) => {
                             {eng.conversation_id && (
                               <Link to={`/qa/${eng.conversation_id}`}
                                 className="inline-flex items-center gap-0.5 px-2 py-1 text-[11px] font-semibold hover:opacity-80"
-                                style={{ background: 'rgba(0,100,147,0.08)', color: '#004b74' }}
+                                style={{ background: eng.pending_questions > 0 ? (eng.pending_urgency === 'alta' ? 'rgba(220,38,38,0.08)' : 'rgba(217,119,6,0.08)') : 'rgba(0,100,147,0.08)', color: eng.pending_questions > 0 ? (eng.pending_urgency === 'alta' ? '#dc2626' : '#d97706') : '#004b74' }}
                                 data-testid={`qa-link-${eng.engagement_id}`}>
-                                <MessageSquare size={10} /> Q&A
+                                <MessageSquare size={10} />
+                                {eng.pending_questions > 0 ? `${eng.pending_questions} pendiente${eng.pending_questions !== 1 ? 's' : ''}` : 'Q&A'}
                               </Link>
                             )}
                             {/* Reject */}
@@ -525,6 +526,7 @@ const DealManagement = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [totalPendingQA, setTotalPendingQA] = useState(0);
 
   useEffect(() => {
     loadDeal();
@@ -539,6 +541,13 @@ const DealManagement = () => {
       // Load company data
       const companyResponse = await companiesAPI.get(dealResponse.data.company_id);
       setCompany(companyResponse.data);
+      
+      // Load pending Q&A count for badge
+      try {
+        const engRes = await engagementsAPI.listDealEngagements(dealId);
+        const pending = (engRes.data?.engagements || []).reduce((acc, e) => acc + (e.pending_questions || 0), 0);
+        setTotalPendingQA(pending);
+      } catch {}
     } catch (err) {
       setError('Error al cargar el deal');
     } finally {
@@ -709,14 +718,14 @@ const DealManagement = () => {
               { id: 'overview', label: 'Resumen' },
               { id: 'comparator', label: 'Interesados' },
               { id: 'loi-detail', label: 'LOIs' },
-              { id: 'qa', label: 'Q&A' },
+              { id: 'qa', label: 'Q&A', badge: totalPendingQA },
               { id: 'dataroom', label: 'Data Room' },
               { id: 'infomemo', label: 'Infomemo' },
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
                   activeTab === tab.id
                     ? 'border-arroba-coral text-arroba-coral'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -724,6 +733,11 @@ const DealManagement = () => {
                 data-testid={`tab-${tab.id}`}
               >
                 {tab.label}
+                {tab.badge > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white" data-testid="qa-tab-badge">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>

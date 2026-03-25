@@ -129,6 +129,130 @@ async def get_my_conversations(
     return {"conversations": convs, "total": len(convs)}
 
 
+
+@router.get("/pending/seller")
+async def get_pending_questions_for_seller(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Response Acceleration Layer — Get all pending questions for seller.
+    Priority: oldest first → highest intent_score → most advanced deal stage.
+    Includes pending_duration and urgency classification.
+    """
+    from services.intent_service import compute_intent_score
+
+    # Get all conversations where user is seller
+    conv_cursor = conversations_collection.find(
+        {"seller_id": current_user.user_id, "status": "OPEN"}, {"_id": 0}
+    )
+    convs = await conv_cursor.to_list(100)
+
+    if not convs:
+        return {"pending_questions": [], "total_pending": 0, "buyers_waiting": 0}
+
+    conv_map = {c["conversation_id"]: c for c in convs}
+    conv_ids = list(conv_map.keys())
+
+    # Get all PENDING questions across these conversations
+    qa_cursor = qa_items_collection.find(
+        {"conversation_id": {"$in": conv_ids}, "type": "QUESTION", "status": "PENDING"},
+        {"_id": 0}
+    ).sort("created_at", 1)
+    pending_items = await qa_cursor.to_list(200)
+
+    if not pending_items:
+        return {"pending_questions": [], "total_pending": 0, "buyers_waiting": 0}
+
+    now = datetime.now(timezone.utc)
+    stage_priority = {
+        "EXCLUSIVITY": 0, "SHORTLISTED": 1, "ACCEPTED": 2, "VIEWED": 3, "SUBMITTED": 4
+    }
+
+    enriched = []
+    buyers_seen = set()
+    user_cache = {}
+    deal_cache = {}
+    intent_cache = {}
+
+    for item in pending_items:
+        conv = conv_map.get(item["conversation_id"], {})
+        buyer_id = conv.get("buyer_id", "")
+        deal_id = conv.get("deal_id", "")
+        buyers_seen.add(buyer_id)
+
+        # Pending duration
+        created = datetime.fromisoformat(item["created_at"].replace("Z", "+00:00")) if isinstance(item["created_at"], str) else item["created_at"]
+        pending_seconds = (now - created).total_seconds()
+        pending_hours = pending_seconds / 3600
+
+        # Urgency: >24h = alta, >12h = media, else baja
+        if pending_hours >= 24:
+            urgency = "alta"
+        elif pending_hours >= 12:
+            urgency = "media"
+        else:
+            urgency = "baja"
+
+        # Buyer name
+        if buyer_id not in user_cache:
+            u = await db.users.find_one({"user_id": buyer_id}, {"_id": 0, "first_name": 1, "last_name": 1})
+            user_cache[buyer_id] = f"{u['first_name']} {u['last_name']}" if u else buyer_id
+        # Author name
+        author_id = item.get("author_user_id", "")
+        if author_id not in user_cache:
+            u = await db.users.find_one({"user_id": author_id}, {"_id": 0, "first_name": 1, "last_name": 1})
+            user_cache[author_id] = f"{u['first_name']} {u['last_name']}" if u else author_id
+
+        # Deal info + stage
+        if deal_id not in deal_cache:
+            deal = await db.deals.find_one({"deal_id": deal_id}, {"_id": 0, "teaser": 1, "status": 1})
+            eng = await db.engagements.find_one({"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0, "stage": 1})
+            deal_cache[deal_id + buyer_id] = {
+                "title": deal.get("teaser", {}).get("headline", deal_id) if deal else deal_id,
+                "deal_status": deal.get("status", "") if deal else "",
+                "stage": eng.get("stage", "SUBMITTED") if eng else "SUBMITTED",
+            }
+        deal_info = deal_cache.get(deal_id + buyer_id, deal_cache.get(deal_id, {}))
+
+        # Intent score
+        cache_key = f"{buyer_id}_{deal_id}"
+        if cache_key not in intent_cache:
+            intent = await compute_intent_score(buyer_id, deal_id)
+            intent_cache[cache_key] = intent.get("score", 0)
+        intent_score = intent_cache[cache_key]
+
+        enriched.append({
+            "qa_item_id": item["qa_item_id"],
+            "conversation_id": item["conversation_id"],
+            "content": item["content"],
+            "created_at": item["created_at"],
+            "pending_hours": round(pending_hours, 1),
+            "urgency": urgency,
+            "buyer_id": buyer_id,
+            "buyer_name": user_cache.get(buyer_id, buyer_id),
+            "author_name": user_cache.get(author_id, author_id),
+            "deal_id": deal_id,
+            "deal_title": deal_info.get("title", deal_id),
+            "deal_stage": deal_info.get("stage", "SUBMITTED"),
+            "intent_score": intent_score,
+        })
+
+    # Sort: oldest first → highest intent → most advanced stage
+    enriched.sort(key=lambda q: (
+        -q["pending_hours"],
+        -q["intent_score"],
+        stage_priority.get(q["deal_stage"], 5),
+    ))
+
+    return {
+        "pending_questions": enriched,
+        "total_pending": len(enriched),
+        "buyers_waiting": len(buyers_seen),
+        "most_urgent": enriched[0] if enriched else None,
+    }
+
+
+
 @router.get("/{conversation_id}")
 async def get_conversation(
     conversation_id: str,
@@ -226,18 +350,24 @@ async def create_question(
          "$inc": {"stats.questions": 1, "stats.pending": 1}}
     )
 
-    # Event + Notification for seller
+    # Event + Notification for seller (Response Acceleration copy)
     from routers.tracking import track_event
     await track_event("QUESTION_SUBMITTED", deal_id=conv["deal_id"],
                       user_id=current_user.user_id,
                       metadata={"conversation_id": conversation_id, "qa_item_id": qa_id})
 
+    # Get buyer name for notification
+    buyer_doc = await db.users.find_one(
+        {"user_id": current_user.user_id}, {"_id": 0, "first_name": 1, "last_name": 1}
+    )
+    buyer_display = f"{buyer_doc['first_name']} {buyer_doc['last_name']}" if buyer_doc else "Un comprador"
+
     await db.notifications.insert_one({
         "notification_id": f"notif_{uuid.uuid4().hex[:12]}",
         "user_id": conv["seller_id"],
         "type": "NEW_QUESTION",
-        "title": "Nueva pregunta recibida",
-        "message": f"Tienes una nueva pregunta en el Q&A del deal",
+        "title": f"{buyer_display} esta esperando tu respuesta",
+        "message": "Tienes una pregunta pendiente en el Q&A. Responder rapido mantiene el momentum del deal.",
         "deal_id": conv["deal_id"],
         "metadata": {"conversation_id": conversation_id, "qa_item_id": qa_id},
         "read": False,
@@ -320,7 +450,7 @@ async def create_answer(
         "user_id": conv["buyer_id"],
         "type": "NEW_ANSWER",
         "title": "Respuesta recibida",
-        "message": f"Han respondido a tu pregunta en el Q&A",
+        "message": "Han respondido a tu pregunta en el Q&A",
         "deal_id": conv["deal_id"],
         "metadata": {"conversation_id": conversation_id, "qa_item_id": qa_id},
         "read": False,
