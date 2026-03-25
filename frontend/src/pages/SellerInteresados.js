@@ -4,7 +4,7 @@ import Layout from '../components/layout/Layout';
 import { coachingAPI } from '../services/api';
 import {
   Loader2, Users, ArrowRight, AlertTriangle, TrendingUp,
-  FileText, Clock, ChevronRight, Zap, Eye
+  FileText, Clock, ChevronRight, Zap, Eye, MessageSquare
 } from 'lucide-react';
 
 const timeAgo = (dateStr) => {
@@ -48,6 +48,7 @@ const intentBar = (score) => {
 const stageLabel = (stage) => ({
   SUBMITTED: 'Nuevo',
   VIEWED: 'Visto',
+  ACCEPTED: 'Aceptado',
   SHORTLISTED: 'Shortlist',
   EXCLUSIVITY: 'Exclusividad',
   REJECTED: 'Descartado',
@@ -56,6 +57,7 @@ const stageLabel = (stage) => ({
 const stageStyle = (stage) => ({
   SUBMITTED: 'bg-blue-50 text-blue-700 border-blue-200',
   VIEWED: 'bg-slate-50 text-slate-600 border-slate-200',
+  ACCEPTED: 'bg-teal-50 text-teal-700 border-teal-200',
   SHORTLISTED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   EXCLUSIVITY: 'bg-purple-50 text-purple-700 border-purple-200',
   REJECTED: 'bg-red-50 text-red-500 border-red-200',
@@ -96,8 +98,7 @@ const NudgeCard = ({ nudge, index }) => {
 const BuyerRow = ({ buyer, index }) => {
   const action = buyer.action || {};
   return (
-    <Link
-      to={`/seller/deal/${buyer.deal_id}`}
+    <div
       className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-slate-100 hover:bg-slate-50/70 transition-colors group"
       data-testid={`buyer-row-${index}`}
     >
@@ -113,7 +114,9 @@ const BuyerRow = ({ buyer, index }) => {
 
       {/* Deal */}
       <div className="col-span-2 min-w-0">
-        <p className="text-xs text-slate-600 truncate">{buyer.deal_title}</p>
+        <Link to={`/seller/deal/${buyer.deal_id}`} className="text-xs text-slate-600 truncate hover:text-arroba-coral transition-colors">
+          {buyer.deal_title}
+        </Link>
       </div>
 
       {/* Type + Stage */}
@@ -143,21 +146,34 @@ const BuyerRow = ({ buyer, index }) => {
         )}
       </div>
 
-      {/* Suggested Action */}
-      <div className="col-span-3 min-w-0">
-        <p className={`text-xs leading-snug ${
+      {/* Suggested Action + Q&A link */}
+      <div className="col-span-3 min-w-0 flex items-center gap-2">
+        <p className={`text-xs leading-snug flex-1 ${
           action.urgency === 'alta' ? 'text-red-600 font-semibold' :
           action.urgency === 'media' ? 'text-amber-700 font-medium' :
           'text-slate-500'
         }`}>{action.text}</p>
+        {buyer.conversation_id && (
+          <Link
+            to={`/qa/${buyer.conversation_id}`}
+            className="shrink-0 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity"
+            style={{ background: 'rgba(0,100,147,0.08)', color: '#004b74' }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid={`qa-link-${index}`}
+          >
+            <MessageSquare size={10} /> Q&A
+          </Link>
+        )}
       </div>
 
       {/* Time + Arrow */}
       <div className="col-span-1 flex items-center justify-end gap-2">
         <span className="text-[11px] text-slate-400 whitespace-nowrap">{timeAgo(buyer.last_activity)}</span>
-        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-arroba-coral transition-colors shrink-0" />
+        <Link to={`/seller/deal/${buyer.deal_id}`}>
+          <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-arroba-coral transition-colors shrink-0" />
+        </Link>
       </div>
-    </Link>
+    </div>
   );
 };
 

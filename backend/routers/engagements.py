@@ -264,6 +264,16 @@ async def list_deal_engagements(
     exclusivity = deal.get("exclusivity", {})
     exclusive_buyer = exclusivity.get("buyer_id") if exclusivity else None
 
+    # Get conversation mappings for this deal
+    from database import db as _db
+    conv_cursor = _db.conversations.find(
+        {"deal_id": deal_id}, {"_id": 0, "conversation_id": 1, "buyer_id": 1}
+    )
+    conv_list = await conv_cursor.to_list(100)
+    conv_by_buyer = {c["buyer_id"]: c["conversation_id"] for c in conv_list}
+    for eng in engagements:
+        eng["conversation_id"] = conv_by_buyer.get(eng["buyer_id"])
+
     return {
         "engagements": engagements,
         "shortlisted_buyer_ids": shortlisted_ids,
@@ -271,6 +281,76 @@ async def list_deal_engagements(
         "total_interests": sum(1 for e in engagements if e["type"] == "INTEREST"),
         "total_lois": sum(1 for e in engagements if e["type"] == "LOI"),
     }
+
+
+
+@router.post("/deal/{deal_id}/accept/{buyer_id}")
+async def accept_interest(
+    deal_id: str,
+    buyer_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Seller accepts a buyer's interest — triggers Q&A conversation creation."""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if deal["owner_id"] != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    engagement = await engagements_collection.find_one(
+        {"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0}
+    )
+    if not engagement:
+        raise HTTPException(status_code=404, detail="Engagement not found")
+
+    if engagement.get("stage") in ("ACCEPTED", "SHORTLISTED", "EXCLUSIVITY"):
+        raise HTTPException(status_code=400, detail="Interest ya aceptado")
+
+    if engagement.get("stage") == "REJECTED":
+        raise HTTPException(status_code=400, detail="Buyer rechazado, no se puede aceptar")
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    await engagements_collection.update_one(
+        {"deal_id": deal_id, "buyer_id": buyer_id},
+        {"$set": {"stage": "ACCEPTED", "accepted_at": now, "updated_at": now}}
+    )
+
+    await track_event("INTEREST_ACCEPTED", deal_id=deal_id,
+                      user_id=current_user.user_id,
+                      metadata={"buyer_id": buyer_id})
+
+    # Auto-create Q&A conversation
+    from routers.conversations import create_conversation_for_engagement
+    eng_id = engagement.get("engagement_id", "")
+    conversation_id = await create_conversation_for_engagement(
+        deal_id=deal_id,
+        buyer_id=buyer_id,
+        seller_id=current_user.user_id,
+        engagement_id=eng_id
+    )
+
+    # Notify buyer
+    import uuid as _uuid
+    from database import db as _db
+    await _db.notifications.insert_one({
+        "notification_id": f"notif_{_uuid.uuid4().hex[:12]}",
+        "user_id": buyer_id,
+        "type": "INTEREST_ACCEPTED",
+        "title": "Tu interes ha sido aceptado",
+        "message": "El seller ha aceptado tu interes. Ya puedes hacer preguntas en el Q&A.",
+        "deal_id": deal_id,
+        "metadata": {"conversation_id": conversation_id},
+        "read": False,
+        "created_at": now,
+    })
+
+    return {
+        "message": "Interest aceptado — Q&A creado",
+        "conversation_id": conversation_id,
+        "stage": "ACCEPTED"
+    }
+
 
 
 @router.post("/deal/{deal_id}/shortlist/{buyer_id}")
@@ -322,19 +402,6 @@ async def add_to_shortlist(
     await track_event("BUYER_SHORTLISTED", deal_id=deal_id,
                       user_id=current_user.user_id,
                       metadata={"buyer_id": buyer_id})
-
-    # Auto-create Q&A conversation when seller accepts buyer
-    from routers.conversations import create_conversation_for_engagement
-    engagement = await engagements_collection.find_one(
-        {"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0, "engagement_id": 1}
-    )
-    eng_id = engagement.get("engagement_id", "") if engagement else ""
-    await create_conversation_for_engagement(
-        deal_id=deal_id,
-        buyer_id=buyer_id,
-        seller_id=current_user.user_id,
-        engagement_id=eng_id
-    )
 
     return {"message": "Buyer añadido a shortlist", "shortlist": current_buyers}
 
@@ -595,6 +662,16 @@ async def get_seller_interesados(
     ).sort("updated_at", -1)
     engagements = await eng_cursor.to_list(200)
 
+    # Get conversations for these deals to map to buyers
+    from database import db as _db
+    conv_cursor = _db.conversations.find(
+        {"deal_id": {"$in": deal_ids}}, {"_id": 0, "conversation_id": 1, "deal_id": 1, "buyer_id": 1}
+    )
+    conv_list = await conv_cursor.to_list(500)
+    conv_map = {}
+    for c in conv_list:
+        conv_map[(c["deal_id"], c["buyer_id"])] = c["conversation_id"]
+
     # Process each buyer
     enriched_buyers = []
     loi_count = 0
@@ -633,6 +710,7 @@ async def get_seller_interesados(
             "last_activity": last_activity,
             "created_at": eng.get("created_at"),
             "action": action,
+            "conversation_id": conv_map.get((eng["deal_id"], eng["buyer_id"])),
         }
 
         enriched_buyers.append(buyer_entry)
@@ -690,6 +768,26 @@ def _derive_action(eng: dict, intent_score: int, deal: dict) -> dict:
             "cta": "Gestionar deal",
         }
 
+    if stage == "ACCEPTED":
+        if eng_type == "LOI":
+            offer_str = f" ({offer/1e6:.1f}M)" if offer else ""
+            return {
+                "text": f"LOI aceptada{offer_str} — abrir Q&A o shortlistar",
+                "urgency": "alta",
+                "cta": "Abrir Q&A",
+            }
+        if intent_score >= 55:
+            return {
+                "text": "Aceptado, alta intencion — Q&A abierto, esperar LOI",
+                "urgency": "media",
+                "cta": "Abrir Q&A",
+            }
+        return {
+            "text": "Aceptado — Q&A disponible, pendiente de avance",
+            "urgency": "baja",
+            "cta": "Abrir Q&A",
+        }
+
     if eng_type == "LOI" and stage == "SHORTLISTED":
         offer_str = f" ({offer/1e6:.1f}M)" if offer else ""
         return {
@@ -743,7 +841,7 @@ def _derive_action(eng: dict, intent_score: int, deal: dict) -> dict:
 
     if stage == "VIEWED":
         return {
-            "text": f"Visto, baja intencion — esperar senales",
+            "text": "Visto, baja intencion — esperar senales",
             "urgency": "baja",
             "cta": None,
         }
@@ -774,14 +872,30 @@ async def get_my_processes(
             continue
         teaser = deal.get("teaser_full", deal.get("teaser", {}))
 
+        # Lookup conversation for this buyer+deal
+        from database import db as _db
+        conv = await _db.conversations.find_one(
+            {"deal_id": eng["deal_id"], "buyer_id": current_user.user_id},
+            {"_id": 0, "conversation_id": 1}
+        )
+        conversation_id = conv.get("conversation_id") if conv else None
+
         # Determine suggested next step
         next_step = None
         if eng["stage"] == "SUBMITTED" and eng["type"] == "INTEREST":
             next_step = {"action": "Revisar Data Room", "href": f"/marketplace/{eng['deal_id']}"}
         elif eng["stage"] == "VIEWED" and eng["type"] == "INTEREST":
             next_step = {"action": "Enviar LOI", "href": f"/marketplace/{eng['deal_id']}"}
+        elif eng["stage"] == "ACCEPTED":
+            if conversation_id:
+                next_step = {"action": "Abrir Q&A", "href": f"/qa/{conversation_id}"}
+            else:
+                next_step = {"action": "Preparar preguntas", "href": f"/marketplace/{eng['deal_id']}"}
         elif eng["stage"] == "SHORTLISTED":
-            next_step = {"action": "Preparar Due Diligence", "href": f"/marketplace/{eng['deal_id']}"}
+            if conversation_id:
+                next_step = {"action": "Continuar Q&A", "href": f"/qa/{conversation_id}"}
+            else:
+                next_step = {"action": "Preparar Due Diligence", "href": f"/marketplace/{eng['deal_id']}"}
         elif eng["stage"] == "EXCLUSIVITY":
             next_step = {"action": "Avanzar Due Diligence", "href": f"/marketplace/{eng['deal_id']}"}
 
@@ -798,6 +912,7 @@ async def get_my_processes(
             "deal_sector": teaser.get("sector_display", "Digital"),
             "deal_location": teaser.get("location") or teaser.get("geography_display", ""),
             "next_step": next_step,
+            "conversation_id": conversation_id,
         })
 
     return {"processes": processes, "total": len(processes)}

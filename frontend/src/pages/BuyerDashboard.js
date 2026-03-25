@@ -7,7 +7,7 @@ import { marketplaceAPI, matchingAPI, engagementsAPI } from '../services/api';
 import { 
   TrendingUp, Search, FileText, Clock, ArrowRight, Bell, Building2,
   Sparkles, MapPin, Zap, ChevronRight, Send, FileSignature, Shield,
-  Star, Lock, AlertCircle, FolderOpen
+  Star, Lock, AlertCircle, FolderOpen, MessageSquare, CheckCircle2
 } from 'lucide-react';
 
 const affinityConfig = {
@@ -19,6 +19,7 @@ const affinityConfig = {
 const stageConfig = {
   SUBMITTED: { label: 'Enviado', color: 'bg-blue-100 text-blue-700', icon: Send },
   VIEWED: { label: 'Visto por seller', color: 'bg-amber-100 text-amber-700', icon: FileText },
+  ACCEPTED: { label: 'Aceptado', color: 'bg-teal-100 text-teal-700', icon: CheckCircle2 },
   SHORTLISTED: { label: 'En Shortlist', color: 'bg-green-100 text-green-700', icon: Star },
   REJECTED: { label: 'No seleccionado', color: 'bg-red-100 text-red-600', icon: AlertCircle },
   EXCLUSIVITY: { label: 'En Exclusividad', color: 'bg-indigo-100 text-indigo-700', icon: Lock },
@@ -157,12 +158,28 @@ const BuyerDashboard = () => {
                         <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-arroba-coral transition-colors" />
                       </div>
                     </div>
-                    {/* Next step suggestion */}
-                    {proc.next_step && proc.stage !== 'REJECTED' && (
-                      <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-                        <span className="text-xs text-arroba-coral font-medium flex items-center gap-1">
-                          <ArrowRight className="w-3 h-3" /> Próximo paso: {proc.next_step.action}
-                        </span>
+                    {/* Next step + Q&A link */}
+                    {proc.stage !== 'REJECTED' && (
+                      <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                        {proc.next_step && (
+                          <span className="text-xs text-arroba-coral font-medium flex items-center gap-1">
+                            <ArrowRight className="w-3 h-3" /> Proximo paso: {proc.next_step.action}
+                          </span>
+                        )}
+                        {proc.conversation_id && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.location.href = `/qa/${proc.conversation_id}`;
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity"
+                            style={{ background: 'rgba(0,100,147,0.08)', color: '#004b74' }}
+                            data-testid={`qa-link-${proc.engagement_id}`}
+                          >
+                            <MessageSquare size={10} /> ABRIR Q&A
+                          </button>
+                        )}
                       </div>
                     )}
                   </Link>

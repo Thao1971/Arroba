@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { dealsAPI, companiesAPI, engagementsAPI, coachingAPI } from '../services/api';
+import { dealsAPI, companiesAPI, engagementsAPI, coachingAPI, conversationsAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DataRoomSellerTab from '../components/DataRoomSellerTab';
@@ -11,7 +11,7 @@ import LoiDetailedView from '../components/LoiDetailedView';
 import { 
   ArrowLeft, Eye, Users, FileSignature, FileText, CheckCircle2,
   AlertCircle, Shield, TrendingUp, Loader2, ChevronRight, Star, X, Lock, FolderOpen,
-  AlertTriangle, Info
+  AlertTriangle, Info, MessageSquare
 } from 'lucide-react';
 
 // Status flow visualization
@@ -32,12 +32,13 @@ const getStatusIndex = (status) => statusFlow.findIndex(s => s.id === status);
 const stageColors = {
   SUBMITTED: 'bg-blue-100 text-blue-700',
   VIEWED: 'bg-yellow-100 text-yellow-700',
+  ACCEPTED: 'bg-teal-100 text-teal-700',
   SHORTLISTED: 'bg-green-100 text-green-700',
   REJECTED: 'bg-red-100 text-red-700',
   EXCLUSIVITY: 'bg-indigo-100 text-indigo-700',
 };
 const stageLabels = {
-  SUBMITTED: 'Enviado', VIEWED: 'Visto', SHORTLISTED: 'Shortlist',
+  SUBMITTED: 'Enviado', VIEWED: 'Visto', ACCEPTED: 'Aceptado', SHORTLISTED: 'Shortlist',
   REJECTED: 'Rechazado', EXCLUSIVITY: 'Exclusividad',
 };
 const opLabels = { full_sale: 'Compra total', partial_sale: 'Parcial', merger: 'Fusión' };
@@ -70,6 +71,16 @@ const ComparatorTab = ({ deal, onRefresh }) => {
     setActionLoading(buyerId);
     try {
       await engagementsAPI.shortlistBuyer(deal.deal_id, buyerId);
+      const res = await engagementsAPI.listDealEngagements(deal.deal_id);
+      setEngData(res.data);
+    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
+    finally { setActionLoading(''); }
+  };
+
+  const handleAccept = async (buyerId) => {
+    setActionLoading(buyerId);
+    try {
+      await engagementsAPI.acceptInterest(deal.deal_id, buyerId);
       const res = await engagementsAPI.listDealEngagements(deal.deal_id);
       setEngData(res.data);
     } catch (err) { alert(err.response?.data?.detail || 'Error'); }
@@ -361,14 +372,27 @@ const ComparatorTab = ({ deal, onRefresh }) => {
                       <td className="px-4 py-3 text-slate-400 text-xs">{new Date(eng.created_at).toLocaleDateString('es-ES')}</td>
                       <td className="px-4 py-3">
                         {eng.stage !== 'REJECTED' && eng.stage !== 'EXCLUSIVITY' && (
-                          <div className="flex gap-1">
-                            {!isShortlisted ? (
+                          <div className="flex gap-1 items-center">
+                            {/* Accept button — for SUBMITTED/VIEWED */}
+                            {(eng.stage === 'SUBMITTED' || eng.stage === 'VIEWED') && (
+                              <Button variant="outline" size="sm" onClick={() => handleAccept(eng.buyer_id)}
+                                disabled={actionLoading === eng.buyer_id}
+                                className="text-teal-600 border-teal-200 hover:bg-teal-50"
+                                data-testid={`accept-btn-${eng.engagement_id}`}>
+                                {actionLoading === eng.buyer_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                                <span className="ml-1 text-[11px]">Aceptar</span>
+                              </Button>
+                            )}
+                            {/* Shortlist button — for ACCEPTED */}
+                            {eng.stage === 'ACCEPTED' && !isShortlisted && (
                               <Button variant="outline" size="sm" onClick={() => handleShortlist(eng.buyer_id)}
                                 disabled={actionLoading === eng.buyer_id || shortlistedIds.length >= 3}
                                 data-testid={`shortlist-btn-${eng.engagement_id}`}>
                                 {actionLoading === eng.buyer_id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3" />}
                               </Button>
-                            ) : (
+                            )}
+                            {/* Shortlisted actions */}
+                            {isShortlisted && (
                               <>
                                 <Button variant="outline" size="sm" onClick={() => handleRemoveShortlist(eng.buyer_id)}
                                   disabled={actionLoading === eng.buyer_id} className="text-yellow-600"
@@ -382,6 +406,16 @@ const ComparatorTab = ({ deal, onRefresh }) => {
                                 </Button>
                               </>
                             )}
+                            {/* Q&A link — for ACCEPTED+ with conversation */}
+                            {eng.conversation_id && (
+                              <Link to={`/qa/${eng.conversation_id}`}
+                                className="inline-flex items-center gap-0.5 px-2 py-1 text-[11px] font-semibold hover:opacity-80"
+                                style={{ background: 'rgba(0,100,147,0.08)', color: '#004b74' }}
+                                data-testid={`qa-link-${eng.engagement_id}`}>
+                                <MessageSquare size={10} /> Q&A
+                              </Link>
+                            )}
+                            {/* Reject */}
                             <Button variant="outline" size="sm" onClick={() => handleReject(eng.buyer_id)}
                               disabled={actionLoading === eng.buyer_id} className="text-red-500"
                               data-testid={`reject-btn-${eng.engagement_id}`}>
@@ -404,6 +438,78 @@ const ComparatorTab = ({ deal, onRefresh }) => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+const QaTab = ({ dealId }) => {
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await conversationsAPI.getForDeal(dealId);
+        setConversations(res.data.conversations || []);
+      } catch {} finally { setLoading(false); }
+    };
+    load();
+  }, [dealId]);
+
+  if (loading) return <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>;
+
+  if (conversations.length === 0) {
+    return (
+      <div className="text-center py-16" style={{ background: 'var(--surface-1, #f3f3f3)' }} data-testid="qa-tab-empty">
+        <MessageSquare className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+        <p className="font-semibold text-slate-500">No hay conversaciones Q&A</p>
+        <p className="text-sm text-slate-400 mt-1">Las conversaciones se crean al aceptar un interes</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3" data-testid="qa-tab">
+      <p className="text-sm text-slate-500 mb-4">{conversations.length} conversacion{conversations.length !== 1 ? 'es' : ''} activa{conversations.length !== 1 ? 's' : ''}</p>
+      {conversations.map((conv) => (
+        <Link key={conv.conversation_id} to={`/qa/${conv.conversation_id}`}
+          className="block p-4 hover:opacity-90 transition-opacity group"
+          style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 2px 8px rgba(25,28,30,0.03)' }}
+          data-testid={`qa-conv-${conv.conversation_id}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 flex items-center justify-center" style={{ background: 'rgba(0,100,147,0.08)' }}>
+                <MessageSquare size={14} style={{ color: '#004b74' }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 truncate group-hover:text-arroba-coral transition-colors">
+                  {conv.buyer_name}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[11px] text-slate-400">
+                    {conv.stats?.questions || 0} preguntas
+                  </span>
+                  {(conv.stats?.pending || 0) > 0 && (
+                    <span className="text-[11px] font-semibold text-amber-600">
+                      {conv.stats.pending} pendiente{conv.stats.pending !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] px-2 py-0.5 font-semibold uppercase"
+                style={{
+                  background: conv.status === 'OPEN' ? 'rgba(130,195,89,0.1)' : 'var(--surface-2, #e2e2e2)',
+                  color: conv.status === 'OPEN' ? '#4d7a2e' : '#666'
+                }}>
+                {conv.status === 'OPEN' ? 'ACTIVA' : 'CERRADA'}
+              </span>
+              <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-arroba-coral transition-colors" />
+            </div>
+          </div>
+        </Link>
+      ))}
     </div>
   );
 };
@@ -603,6 +709,7 @@ const DealManagement = () => {
               { id: 'overview', label: 'Resumen' },
               { id: 'comparator', label: 'Interesados' },
               { id: 'loi-detail', label: 'LOIs' },
+              { id: 'qa', label: 'Q&A' },
               { id: 'dataroom', label: 'Data Room' },
               { id: 'infomemo', label: 'Infomemo' },
             ].map(tab => (
@@ -707,6 +814,10 @@ const DealManagement = () => {
 
             {activeTab === 'comparator' && (
               <ComparatorTab deal={deal} onRefresh={loadDeal} />
+            )}
+
+            {activeTab === 'qa' && (
+              <QaTab dealId={deal.deal_id} />
             )}
 
             {activeTab === 'dataroom' && (
