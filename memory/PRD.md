@@ -67,29 +67,44 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] SellerWizardBoceto.js: prototipo del nuevo wizard con sidebar + live preview
 - [x] Testing: 100% pass rate (9/9 backend, all frontend)
 
+### Fase 8 — Q&A Workspace / Conversaciones (COMPLETADA 25 Mar 2026)
+- [x] Trigger: INTEREST_ACCEPTED (no SHORTLISTED)
+- [x] Nuevo stage "ACCEPTED" en flujo de engagements
+- [x] Backend: POST /api/engagements/deal/{deal_id}/accept/{buyer_id}
+- [x] Backend: Conversation auto-created on accept
+- [x] Backend: CRUD Q&A (create question, answer, close)
+- [x] Backend: conversation_id enriched in interesados, my-processes, deal engagements
+- [x] Frontend: DealManagement — boton "Aceptar" en Interesados tab
+- [x] Frontend: DealManagement — tab Q&A con lista de conversaciones
+- [x] Frontend: SellerInteresados — badge Q&A para buyers con conversacion
+- [x] Frontend: BuyerDashboard — link "ABRIR Q&A" en Mis Procesos
+- [x] Frontend: ConversationPage — workspace estructurado (no chat)
+- [x] Permisos: Buyer pregunta, Seller responde/cierra
+- [x] Testing: 100% (18/18 backend, all frontend)
+
 ---
 
 ## Backlog Priorizado
-
-### P1 — Implementar SellerWizard V2
-- [ ] Convertir boceto en wizard funcional real (sidebar + steps + live preview + web scraping)
-- [ ] Reemplazar SellerWizard actual con el nuevo diseno
 
 ### P1 — Deal Health System
 - [ ] Intent score con decay temporal
 - [ ] Alertas (deal estancado, buyer inactivo)
 - [ ] Monitor verde/amarillo/rojo
 
+### P1 — Deal Readiness
+- [ ] Checklist pre-publicacion
+
+### P1 — Implementar SellerWizard V2
+- [ ] Convertir boceto en wizard funcional real (sidebar + steps + live preview + web scraping)
+- [ ] Reemplazar SellerWizard actual con el nuevo diseno
+
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual
 - [ ] Activity dashboard por buyer
 
-### P1 — Deal Readiness
-- [ ] Checklist pre-publicacion
-
 ### P2
-- [ ] Contacto buyer (messaging), Deal state transitions UI
-- [ ] PDF export infomemo, Q&A en DD
+- [ ] Deal state transitions UI
+- [ ] PDF export infomemo
 - [ ] Advisor como operador, Admin panel
 - [ ] Activar SendGrid real
 
@@ -106,3 +121,6 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - Emergent Object Storage — Activo
 - Iberinform — Activo (test credentials)
 - SendGrid — MOCKEADO
+
+## Engagement Stage Flow
+SUBMITTED → VIEWED → ACCEPTED (crea conversacion Q&A) → SHORTLISTED → EXCLUSIVITY
