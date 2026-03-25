@@ -529,6 +529,7 @@ const DealManagement = () => {
   const [totalPendingQA, setTotalPendingQA] = useState(0);
   const [readiness, setReadiness] = useState(null);
   const [showPublishWarning, setShowPublishWarning] = useState(false);
+  const [health, setHealth] = useState(null);
 
   useEffect(() => {
     loadDeal();
@@ -551,10 +552,14 @@ const DealManagement = () => {
         setTotalPendingQA(pending);
       } catch {}
 
-      // Load readiness
+      // Load readiness + health
       try {
-        const readinessRes = await dealsAPI.readiness(dealId);
+        const [readinessRes, healthRes] = await Promise.all([
+          dealsAPI.readiness(dealId),
+          dealsAPI.health(dealId),
+        ]);
         setReadiness(readinessRes.data);
+        setHealth(healthRes.data);
       } catch {}
     } catch (err) {
       setError('Error al cargar el deal');
@@ -674,6 +679,21 @@ const DealManagement = () => {
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(deal.status)}`}>
                 {getStatusLabel(deal.status)}
               </span>
+              {health && health.health !== 'INACTIVO' && (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold uppercase ${
+                  health.health === 'VERDE' ? 'bg-green-100 text-green-700' :
+                  health.health === 'AMARILLO' ? 'bg-amber-100 text-amber-700' :
+                  'bg-red-100 text-red-700'
+                }`} data-testid="health-indicator">
+                  <span className={`w-2 h-2 rounded-full ${
+                    health.health === 'VERDE' ? 'bg-green-500' :
+                    health.health === 'AMARILLO' ? 'bg-amber-500' :
+                    'bg-red-500'
+                  }`} />
+                  {health.health === 'VERDE' ? 'SANO' : health.health}
+                  {health.counts?.total > 0 && ` · ${health.counts.total}`}
+                </span>
+              )}
               {deal.status === 'draft' && (
                 <Button
                   onClick={activateDeal}
@@ -931,40 +951,108 @@ const DealManagement = () => {
                   </div>
                 )}
 
-                {/* Publish Warning Modal */}
-                {showPublishWarning && readiness && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="publish-warning-modal">
-                    <div className="max-w-lg w-full mx-4 p-6" style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 8px 32px rgba(25,28,30,0.15)' }}>
-                      <div className="flex items-center gap-3 mb-4">
-                        <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
-                        <h3 className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>Publicar con carencias</h3>
-                      </div>
-                      <p className="text-sm mb-4" style={{ color: 'var(--on-surface-variant)' }}>
-                        Tu deal se puede publicar, pero esta saliendo con carencias que pueden reducir el interes de compradores.
+                {/* Deal Health Alerts */}
+                {health && health.alerts && health.alerts.length > 0 && (
+                  <div data-testid="health-alerts">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="label-arroba" style={{ color: health.color === 'red' ? '#dc2626' : health.color === 'amber' ? '#d97706' : '#16a34a' }}>
+                        SALUD DEL DEAL
                       </p>
-                      <div className="space-y-2 mb-6">
-                        {readiness.missing_obligatory?.map((item) => (
-                          <div key={item.id} className="flex items-center gap-2 text-sm py-1.5 px-3"
-                            style={{ background: 'rgba(220,38,38,0.04)' }}>
-                            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                            <span className="text-slate-700">{item.label}</span>
+                      <span className="text-sm text-slate-500">{health.summary}</span>
+                    </div>
+                    <div className="space-y-3">
+                      {health.alerts.map((alert, i) => (
+                        <div key={alert.id || i} className="p-4"
+                          style={{
+                            background: 'var(--surface-lowest, #fff)',
+                            boxShadow: '0 1px 4px rgba(25,28,30,0.03)',
+                            borderLeft: `3px solid ${alert.severity === 'ALTA' ? '#dc2626' : alert.severity === 'MEDIA' ? '#d97706' : '#94a3b8'}`,
+                          }}
+                          data-testid={`health-alert-${i}`}>
+                          <div className="flex items-start gap-3">
+                            <div className={`w-6 h-6 flex items-center justify-center shrink-0 mt-0.5 ${
+                              alert.severity === 'ALTA' ? 'text-red-500' :
+                              alert.severity === 'MEDIA' ? 'text-amber-500' : 'text-slate-400'
+                            }`}>
+                              <AlertTriangle className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 ${
+                                  alert.severity === 'ALTA' ? 'bg-red-100 text-red-600' :
+                                  alert.severity === 'MEDIA' ? 'bg-amber-100 text-amber-600' :
+                                  'bg-slate-100 text-slate-500'
+                                }`}>{alert.category}</span>
+                                <span className="text-[10px] text-slate-400 uppercase">{alert.severity}</span>
+                              </div>
+                              <p className="text-sm font-semibold text-slate-900 mb-1">{alert.problem}</p>
+                              {alert.cause && (
+                                <p className="text-xs text-slate-500 mb-2">{alert.cause}</p>
+                              )}
+                              <p className="text-xs text-slate-700 leading-relaxed">{alert.action}</p>
+                              {alert.actions && alert.actions.length > 0 && (
+                                <div className="flex gap-2 mt-3">
+                                  {alert.actions.map((a, j) => (
+                                    <button key={j}
+                                      className="text-[11px] font-semibold uppercase px-2.5 py-1"
+                                      style={{ background: 'rgba(182,33,42,0.06)', color: 'var(--arroba-primary)' }}
+                                      onClick={() => {
+                                        if (a.includes('teaser') || a.includes('Editar')) setActiveTab('overview');
+                                        else if (a.includes('infomemo')) setActiveTab('infomemo');
+                                        else if (a.includes('Responder')) {
+                                          const convId = alert.metadata?.metadata?.conv_id || alert.metadata?.conv_id;
+                                          if (convId) navigate(`/qa/${convId}`);
+                                        }
+                                      }}
+                                      data-testid={`alert-action-${i}-${j}`}
+                                    >
+                                      {a}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                      <div className="flex gap-3">
-                        <Button className="flex-1 btn-outline" onClick={() => setShowPublishWarning(false)}
-                          data-testid="btn-complete-now">
-                          COMPLETAR AHORA
-                        </Button>
-                        <Button className="flex-1 btn-primary" onClick={() => { setShowPublishWarning(false); activateDeal(true); }}
-                          disabled={actionLoading}
-                          data-testid="btn-publish-anyway">
-                          {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'PUBLICAR DE TODOS MODOS'}
-                        </Button>
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Publish Warning Modal Overlay */}
+            {showPublishWarning && readiness && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="publish-warning-modal">
+                <div className="max-w-lg w-full mx-4 p-6" style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 8px 32px rgba(25,28,30,0.15)' }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
+                    <h3 className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>Publicar con carencias</h3>
+                  </div>
+                  <p className="text-sm mb-4" style={{ color: 'var(--on-surface-variant)' }}>
+                    Tu deal se puede publicar, pero esta saliendo con carencias que pueden reducir el interes de compradores.
+                  </p>
+                  <div className="space-y-2 mb-6">
+                    {readiness.missing_obligatory?.map((item) => (
+                      <div key={item.id} className="flex items-center gap-2 text-sm py-1.5 px-3"
+                        style={{ background: 'rgba(220,38,38,0.04)' }}>
+                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                        <span className="text-slate-700">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button className="flex-1 btn-outline" onClick={() => setShowPublishWarning(false)}
+                      data-testid="btn-complete-now">
+                      COMPLETAR AHORA
+                    </Button>
+                    <Button className="flex-1 btn-primary" onClick={() => { setShowPublishWarning(false); activateDeal(true); }}
+                      disabled={actionLoading}
+                      data-testid="btn-publish-anyway">
+                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'PUBLICAR DE TODOS MODOS'}
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 

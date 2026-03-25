@@ -86,6 +86,7 @@ export const dealsAPI = {
   update: (dealId, data) => api.put(`/deals/${dealId}`, data),
   activate: (dealId, force = false) => api.post(`/deals/${dealId}/activate?force=${force}`),
   readiness: (dealId) => api.get(`/deals/${dealId}/readiness`),
+  health: (dealId) => api.get(`/deals/${dealId}/health`),
   requestAccess: (dealId) => api.post(`/deals/${dealId}/request-access`),
   approveAccess: (dealId, buyerId) => api.post(`/deals/${dealId}/approve-access/${buyerId}`),
   signNda: (dealId) => api.post(`/deals/${dealId}/sign-nda`),

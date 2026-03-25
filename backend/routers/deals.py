@@ -202,6 +202,23 @@ async def get_deal_readiness(
     return readiness
 
 
+@router.get("/{deal_id}/health")
+async def get_deal_health(
+    deal_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get deal health status with alerts, causes, and recommended actions."""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    if deal["owner_id"] != current_user.user_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from services.deal_health_service import compute_deal_health
+    return await compute_deal_health(deal_id)
+
+
+
 @router.post("/{deal_id}/activate")
 async def activate_deal(
     deal_id: str,
