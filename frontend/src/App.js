@@ -19,6 +19,7 @@ import SavedDeals from './pages/SavedDeals';
 import SellerInteresados from './pages/SellerInteresados';
 import AdvisorMandatos from './pages/AdvisorMandatos';
 import SellerWizardBoceto from './pages/SellerWizardBoceto';
+import ConversationPage from './pages/ConversationPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
@@ -93,6 +94,9 @@ const AppRouter = () => {
       <Route path="/seller/company/:companyId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
       <Route path="/seller/deal/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
       <Route path="/seller/deal/:dealId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><DealManagement /></ProtectedRoute>} />
+
+      {/* Q&A Workspace */}
+      <Route path="/qa/:conversationId" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}><ConversationPage /></ProtectedRoute>} />
 
       {/* Advisor Routes */}
       <Route path="/advisor/mandatos" element={<ProtectedRoute allowedRoles={['advisor', 'admin']}><AdvisorMandatos /></ProtectedRoute>} />

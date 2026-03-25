@@ -323,6 +323,19 @@ async def add_to_shortlist(
                       user_id=current_user.user_id,
                       metadata={"buyer_id": buyer_id})
 
+    # Auto-create Q&A conversation when seller accepts buyer
+    from routers.conversations import create_conversation_for_engagement
+    engagement = await engagements_collection.find_one(
+        {"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0, "engagement_id": 1}
+    )
+    eng_id = engagement.get("engagement_id", "") if engagement else ""
+    await create_conversation_for_engagement(
+        deal_id=deal_id,
+        buyer_id=buyer_id,
+        seller_id=current_user.user_id,
+        engagement_id=eng_id
+    )
+
     return {"message": "Buyer añadido a shortlist", "shortlist": current_buyers}
 
 

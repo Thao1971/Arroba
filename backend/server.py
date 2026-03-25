@@ -29,6 +29,7 @@ from routers.dataroom import router as dataroom_router
 from routers.notifications import router as notifications_router
 from routers.tracking import router as tracking_router
 from routers.coaching import router as coaching_router
+from routers.conversations import router as conversations_router
 
 # Configure logging
 logging.basicConfig(
@@ -92,6 +93,7 @@ app.include_router(dataroom_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(tracking_router, prefix="/api")
 app.include_router(coaching_router, prefix="/api")
+app.include_router(conversations_router, prefix="/api")
 
 
 @app.get("/api")

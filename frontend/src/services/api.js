@@ -194,6 +194,16 @@ export const coachingAPI = {
   getSellerInteresados: () => api.get('/engagements/seller/interesados'),
 };
 
+// Conversations Q&A API
+export const conversationsAPI = {
+  getForDeal: (dealId) => api.get(`/conversations/deal/${dealId}`),
+  getMy: () => api.get('/conversations/my'),
+  getOne: (conversationId) => api.get(`/conversations/${conversationId}`),
+  createQuestion: (conversationId, content) => api.post(`/conversations/${conversationId}/questions`, { content }),
+  createAnswer: (conversationId, questionId, content) => api.post(`/conversations/${conversationId}/answers?question_id=${questionId}`, { content }),
+  closeQuestion: (conversationId, questionId) => api.post(`/conversations/${conversationId}/close/${questionId}`),
+};
+
 // Subscriptions API
 export const subscriptionsAPI = {
   getPlans: () => api.get('/subscriptions/plans'),
