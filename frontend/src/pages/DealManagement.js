@@ -527,6 +527,8 @@ const DealManagement = () => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [totalPendingQA, setTotalPendingQA] = useState(0);
+  const [readiness, setReadiness] = useState(null);
+  const [showPublishWarning, setShowPublishWarning] = useState(false);
 
   useEffect(() => {
     loadDeal();
@@ -548,6 +550,12 @@ const DealManagement = () => {
         const pending = (engRes.data?.engagements || []).reduce((acc, e) => acc + (e.pending_questions || 0), 0);
         setTotalPendingQA(pending);
       } catch {}
+
+      // Load readiness
+      try {
+        const readinessRes = await dealsAPI.readiness(dealId);
+        setReadiness(readinessRes.data);
+      } catch {}
     } catch (err) {
       setError('Error al cargar el deal');
     } finally {
@@ -555,11 +563,19 @@ const DealManagement = () => {
     }
   };
 
-  const activateDeal = async () => {
+  const activateDeal = async (force = false) => {
     setActionLoading(true);
     setError('');
     try {
-      await dealsAPI.activate(dealId);
+      const res = await dealsAPI.activate(dealId, force);
+      // Check if backend returned a warning (confirm_required)
+      if (res.data?.action === 'confirm_required') {
+        setReadiness(res.data.readiness);
+        setShowPublishWarning(true);
+        setActionLoading(false);
+        return;
+      }
+      setShowPublishWarning(false);
       await loadDeal();
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al activar el deal');
@@ -801,25 +817,151 @@ const DealManagement = () => {
                   </div>
                 </div>
 
-                {/* Readiness Checklist */}
-                {deal.status === 'draft' && deal.readiness_checklist?.length > 0 && (
-                  <div className="bg-white border border-slate-200 rounded-lg p-6">
-                    <h3 className="font-semibold mb-4">
-                      Checklist de publicación ({deal.readiness_score?.toFixed(0)}%)
-                    </h3>
-                    <div className="space-y-3">
-                      {deal.readiness_checklist.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-3">
-                          {item.completed ? (
-                            <CheckCircle2 className="w-5 h-5 text-arroba-green" />
-                          ) : (
-                            <div className="w-5 h-5 rounded-full border-2 border-slate-300" />
-                          )}
-                          <span className={item.completed ? 'text-slate-700' : 'text-slate-400'}>
-                            {item.item}
-                          </span>
+                {/* Readiness Widget */}
+                {readiness && (
+                  <div style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 2px 8px rgba(25,28,30,0.03)' }}
+                    className="p-6" data-testid="readiness-widget">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>READINESS</p>
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl font-extrabold" style={{ color: 'var(--on-surface)' }}>{readiness.score}%</span>
+                          <span className={`px-2 py-0.5 text-[11px] font-bold uppercase ${
+                            readiness.status === 'LISTO' ? 'bg-green-100 text-green-700' :
+                            readiness.status === 'MEJORABLE' ? 'bg-amber-100 text-amber-700' :
+                            'bg-red-100 text-red-700'
+                          }`} data-testid="readiness-status">{readiness.status}</span>
                         </div>
-                      ))}
+                      </div>
+                      {/* Progress bar */}
+                      <div className="w-32">
+                        <div className="h-2 w-full" style={{ background: 'var(--surface-2, #e2e2e2)' }}>
+                          <div className={`h-full transition-all ${
+                            readiness.score >= 90 ? 'bg-green-500' :
+                            readiness.score >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                          }`} style={{ width: `${readiness.score}%` }} />
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span className="text-[10px] text-slate-400">Obligatorio: {readiness.obligatory?.pct}%</span>
+                          <span className="text-[10px] text-slate-400">Recomendado: {readiness.recommended?.pct}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Obligatory checklist */}
+                    <div className="mb-4">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                        OBLIGATORIOS ({readiness.obligatory?.completed}/{readiness.obligatory?.total})
+                      </p>
+                      <div className="space-y-1.5">
+                        {readiness.obligatory?.items?.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between py-1.5 px-2"
+                            style={{ background: item.completed ? 'transparent' : 'rgba(220,38,38,0.03)' }}
+                            data-testid={`readiness-item-${item.id}`}>
+                            <div className="flex items-center gap-2">
+                              {item.completed ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                              ) : (
+                                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                              )}
+                              <span className={`text-sm ${item.completed ? 'text-slate-600' : 'text-slate-900 font-medium'}`}>
+                                {item.label}
+                              </span>
+                            </div>
+                            {!item.completed && (
+                              <button
+                                onClick={() => {
+                                  if (item.href === 'company') navigate(`/seller/company/${deal.company_id}`);
+                                  else if (item.href === 'dataroom') setActiveTab('dataroom');
+                                  else if (item.href === 'infomemo') setActiveTab('infomemo');
+                                  else if (item.href === 'teaser') setActiveTab('overview');
+                                  else if (item.href === 'deal_edit') setActiveTab('overview');
+                                }}
+                                className="text-[11px] font-semibold uppercase px-2 py-0.5"
+                                style={{ color: 'var(--arroba-primary)', background: 'rgba(182,33,42,0.06)' }}
+                                data-testid={`cta-${item.id}`}
+                              >
+                                {item.cta}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Recommended checklist */}
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+                        RECOMENDADOS ({readiness.recommended?.completed}/{readiness.recommended?.total})
+                      </p>
+                      <div className="space-y-1.5">
+                        {readiness.recommended?.items?.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between py-1.5 px-2"
+                            data-testid={`readiness-item-${item.id}`}>
+                            <div className="flex items-center gap-2">
+                              {item.completed ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                              ) : (
+                                <div className="w-4 h-4 rounded-full border-2 border-slate-200 shrink-0" />
+                              )}
+                              <span className={`text-sm ${item.completed ? 'text-slate-500' : 'text-slate-600'}`}>
+                                {item.label}
+                              </span>
+                              {item.detail && (
+                                <span className="text-[11px] text-slate-400 ml-1">({item.detail})</span>
+                              )}
+                            </div>
+                            {!item.completed && (
+                              <button
+                                onClick={() => {
+                                  if (item.href === 'company') navigate(`/seller/company/${deal.company_id}`);
+                                  else if (item.href === 'dataroom') setActiveTab('dataroom');
+                                  else setActiveTab('overview');
+                                }}
+                                className="text-[11px] font-semibold uppercase px-2 py-0.5 text-slate-500"
+                                style={{ background: 'var(--surface-1, #f3f3f3)' }}
+                              >
+                                {item.cta}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Publish Warning Modal */}
+                {showPublishWarning && readiness && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="publish-warning-modal">
+                    <div className="max-w-lg w-full mx-4 p-6" style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 8px 32px rgba(25,28,30,0.15)' }}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <AlertTriangle className="w-6 h-6 text-amber-500 shrink-0" />
+                        <h3 className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>Publicar con carencias</h3>
+                      </div>
+                      <p className="text-sm mb-4" style={{ color: 'var(--on-surface-variant)' }}>
+                        Tu deal se puede publicar, pero esta saliendo con carencias que pueden reducir el interes de compradores.
+                      </p>
+                      <div className="space-y-2 mb-6">
+                        {readiness.missing_obligatory?.map((item) => (
+                          <div key={item.id} className="flex items-center gap-2 text-sm py-1.5 px-3"
+                            style={{ background: 'rgba(220,38,38,0.04)' }}>
+                            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                            <span className="text-slate-700">{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-3">
+                        <Button className="flex-1 btn-outline" onClick={() => setShowPublishWarning(false)}
+                          data-testid="btn-complete-now">
+                          COMPLETAR AHORA
+                        </Button>
+                        <Button className="flex-1 btn-primary" onClick={() => { setShowPublishWarning(false); activateDeal(true); }}
+                          disabled={actionLoading}
+                          data-testid="btn-publish-anyway">
+                          {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'PUBLICAR DE TODOS MODOS'}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )}

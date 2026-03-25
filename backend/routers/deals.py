@@ -184,28 +184,57 @@ async def update_deal(
     return DealResponse(**updated)
 
 
-@router.post("/{deal_id}/activate", response_model=DealResponse)
-async def activate_deal(
+
+@router.get("/{deal_id}/readiness")
+async def get_deal_readiness(
     deal_id: str,
     current_user: UserResponse = Depends(get_current_user)
 ):
-    """Activate deal for publication (requires active subscription)"""
+    """Get deal readiness score, checklist and publish warnings."""
     deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
-    
     if not deal:
         raise HTTPException(status_code=404, detail="Deal not found")
-    
+    if deal["owner_id"] != current_user.user_id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from services.readiness_service import compute_readiness
+    readiness = await compute_readiness(deal_id)
+    return readiness
+
+
+@router.post("/{deal_id}/activate")
+async def activate_deal(
+    deal_id: str,
+    force: bool = False,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Activate deal for publication. Returns readiness warning if items missing."""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
     if deal["owner_id"] != current_user.user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     if deal["status"] != "draft":
         raise HTTPException(status_code=400, detail="Deal must be in draft status to activate")
-    
-    # TODO: Check subscription status
-    # For now, allow activation without subscription for testing
-    
+
+    # Compute readiness
+    from services.readiness_service import compute_readiness
+    readiness = await compute_readiness(deal_id)
+
+    # If not forced and there are missing obligatory items, return warning
+    if not force and readiness.get("publish_warning"):
+        return {
+            "action": "confirm_required",
+            "readiness": readiness,
+            "message": readiness.get("publish_warning_message"),
+        }
+
     now = datetime.now(timezone.utc).isoformat()
-    
+
+    # Store final readiness score
     await deals_collection.update_one(
         {"deal_id": deal_id},
         {
@@ -213,25 +242,26 @@ async def activate_deal(
                 "status": "published",
                 "activated_at": now,
                 "published_at": now,
-                "updated_at": now
+                "updated_at": now,
+                "readiness_score": readiness.get("score", 0),
             },
             "$push": {
                 "status_history": {
                     "status": "published",
                     "changed_at": now,
                     "changed_by": current_user.user_id,
-                    "notes": "Deal activated and published"
+                    "notes": f"Deal published (readiness: {readiness.get('score', 0)}%)"
                 }
             }
         }
     )
-    
+
     updated = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
-    
+
     # Trigger match alerts for all compatible buyers
     from services.match_alerts_service import check_and_trigger_matches_for_deal
     await check_and_trigger_matches_for_deal(deal_id)
-    
+
     return DealResponse(**updated)
 
 
