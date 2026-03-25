@@ -135,24 +135,24 @@ const Marketplace = () => {
   return (
     <Layout>
       {/* Header */}
-      <section className="bg-white border-b border-slate-200 py-8" data-testid="marketplace-header">
-        <div className="container mx-auto px-4">
+      <section className="py-8" style={{ background: 'var(--surface-lowest)', borderBottom: '1px solid var(--surface-2)' }} data-testid="marketplace-header">
+        <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
-              <p className="label-arroba text-arroba-coral mb-2">Marketplace</p>
-              <h1 className="text-3xl font-bold text-slate-900">Oportunidades de Inversión</h1>
-              <p className="text-slate-500 mt-2">
-                {stats?.published_deals || 0} deals activos · {stats?.active_processes || 0} procesos en curso
+              <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>MARKETPLACE</p>
+              <h1 className="text-3xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Oportunidades de Inversion</h1>
+              <p className="text-sm mt-2" style={{ color: 'var(--outline)' }}>
+                {stats?.published_deals || 0} deals activos &middot; {stats?.active_processes || 0} procesos en curso
               </p>
             </div>
             <Link to="/register?role=seller">
-              <Button className="btn-primary" data-testid="list-agency-btn">PUBLICAR MI AGENCIA</Button>
+              <button className="btn-primary" data-testid="list-agency-btn">PUBLICAR MI AGENCIA</button>
             </Link>
           </div>
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-6 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
           <aside className="lg:w-64 flex-shrink-0" data-testid="filters-sidebar">

@@ -1,91 +1,52 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrobaLogo } from './Header';
 
 const Footer = () => {
   return (
-    <footer className="bg-slate-900 text-white" data-testid="main-footer">
-      <div className="container mx-auto px-4 py-12">
+    <footer style={{ background: 'var(--on-surface)' }} data-testid="main-footer">
+      <div className="container mx-auto px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
           <div>
-            <ArrobaLogo color="#FFFFFF" size={24} showTagline={false} />
-            <p className="text-xs text-slate-500 mt-1">Compra y vende agencias</p>
-            <p className="text-sm text-slate-400 mt-4">
-              La plataforma líder de compraventa y fusión de agencias digitales.
+            <span style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: '-0.03em' }}>
+              arroba
+            </span>
+            <p className="text-xs mt-2" style={{ color: 'var(--outline)' }}>
+              Plataforma M&A para agencias digitales.
             </p>
           </div>
 
-          {/* Platform */}
           <div>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/marketplace" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Marketplace
-                </Link>
-              </li>
-              <li>
-                <Link to="/how-it-works" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Cómo Funciona
-                </Link>
-              </li>
-              <li>
-                <Link to="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Planes y Precios
-                </Link>
-              </li>
+            <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Plataforma</p>
+            <ul className="space-y-2">
+              <li><Link to="/explorar" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Marketplace</Link></li>
+              <li><Link to="/como-funciona" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Como Funciona</Link></li>
+              <li><Link to="/vender" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Vender mi empresa</Link></li>
             </ul>
           </div>
 
-          {/* Company */}
           <div>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/about" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Sobre Nosotros
-                </Link>
-              </li>
-              <li>
-                <Link to="/contact" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Contacto
-                </Link>
-              </li>
-              <li>
-                <a href="https://budadvisors.com" target="_blank" rel="noopener noreferrer" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  BUD Advisors
-                </a>
-              </li>
+            <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Compania</p>
+            <ul className="space-y-2">
+              <li><a href="https://budadvisors.com" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>BUD Advisors</a></li>
+              <li><Link to="/contact" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Contacto</Link></li>
             </ul>
           </div>
 
-          {/* Legal */}
           <div>
-            <ul className="space-y-3">
-              <li>
-                <Link to="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Política de Privacidad
-                </Link>
-              </li>
-              <li>
-                <Link to="/terms" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Términos de Uso
-                </Link>
-              </li>
-              <li>
-                <Link to="/cookies" className="text-sm text-slate-400 hover:text-white transition-colors">
-                  Cookies
-                </Link>
-              </li>
+            <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Legal</p>
+            <ul className="space-y-2">
+              <li><Link to="/privacy" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Privacidad</Link></li>
+              <li><Link to="/terms" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Terminos de Uso</Link></li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-slate-800 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-xs text-slate-500">
-            © {new Date().getFullYear()} Arroba. Todos los derechos reservados.
+        <div className="mt-10 pt-6 flex flex-col md:flex-row justify-between items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <p className="text-xs" style={{ color: 'var(--outline)' }}>
+            &copy; {new Date().getFullYear()} Arroba. Todos los derechos reservados.
           </p>
-          <p className="text-xs text-slate-500 mt-2 md:mt-0">
-            Una compañía de <a href="https://budadvisors.com" target="_blank" rel="noopener noreferrer" className="text-arroba-coral hover:underline">BUD Advisors</a>
+          <p className="text-xs mt-2 md:mt-0" style={{ color: 'var(--outline)' }}>
+            Una compania de <a href="https://budadvisors.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors" style={{ color: 'var(--arroba-primary-light)' }}>BUD Advisors</a>
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { User, ChevronDown, LogOut, Settings, LayoutDashboard, Bell } from 'lucide-react';
+import { User, ChevronDown, LogOut, Settings, LayoutDashboard } from 'lucide-react';
 import NotificationBell from './NotificationBell';
 import {
   DropdownMenu,
@@ -11,43 +11,37 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-const ArrobaLogo = ({ color = '#FF5757', size = 28, showTagline = true }) => {
-  return (
-    <div className="flex flex-col">
-      <svg width={size * 2.5} height={size * 1.2} viewBox="0 0 80 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="3" cy="20" r="1.5" fill={color}/><circle cx="3" cy="24" r="1.5" fill={color}/><circle cx="3" cy="28" r="1.5" fill={color}/>
-        <circle cx="6" cy="16" r="1.5" fill={color}/><circle cx="6" cy="32" r="1.5" fill={color}/>
-        <circle cx="9" cy="16" r="1.5" fill={color}/><circle cx="9" cy="20" r="1.5" fill={color}/><circle cx="9" cy="24" r="1.5" fill={color}/><circle cx="9" cy="28" r="1.5" fill={color}/><circle cx="9" cy="32" r="1.5" fill={color}/>
-        <circle cx="15" cy="20" r="1.5" fill={color}/><circle cx="15" cy="24" r="1.5" fill={color}/><circle cx="15" cy="28" r="1.5" fill={color}/><circle cx="15" cy="32" r="1.5" fill={color}/>
-        <circle cx="18" cy="16" r="1.5" fill={color}/><circle cx="21" cy="16" r="1.5" fill={color}/>
-        <circle cx="27" cy="20" r="1.5" fill={color}/><circle cx="27" cy="24" r="1.5" fill={color}/><circle cx="27" cy="28" r="1.5" fill={color}/><circle cx="27" cy="32" r="1.5" fill={color}/>
-        <circle cx="30" cy="16" r="1.5" fill={color}/><circle cx="33" cy="16" r="1.5" fill={color}/>
-        <circle cx="39" cy="20" r="1.5" fill={color}/><circle cx="39" cy="24" r="1.5" fill={color}/><circle cx="39" cy="28" r="1.5" fill={color}/>
-        <circle cx="42" cy="16" r="1.5" fill={color}/><circle cx="42" cy="32" r="1.5" fill={color}/>
-        <circle cx="45" cy="20" r="1.5" fill={color}/><circle cx="45" cy="24" r="1.5" fill={color}/><circle cx="45" cy="28" r="1.5" fill={color}/>
-        <circle cx="51" cy="8" r="1.5" fill={color}/><circle cx="51" cy="12" r="1.5" fill={color}/><circle cx="51" cy="16" r="1.5" fill={color}/><circle cx="51" cy="20" r="1.5" fill={color}/><circle cx="51" cy="24" r="1.5" fill={color}/><circle cx="51" cy="28" r="1.5" fill={color}/><circle cx="51" cy="32" r="1.5" fill={color}/>
-        <circle cx="54" cy="16" r="1.5" fill={color}/><circle cx="54" cy="32" r="1.5" fill={color}/>
-        <circle cx="57" cy="20" r="1.5" fill={color}/><circle cx="57" cy="24" r="1.5" fill={color}/><circle cx="57" cy="28" r="1.5" fill={color}/>
-        <circle cx="63" cy="20" r="1.5" fill={color}/><circle cx="63" cy="24" r="1.5" fill={color}/><circle cx="63" cy="28" r="1.5" fill={color}/>
-        <circle cx="66" cy="16" r="1.5" fill={color}/><circle cx="66" cy="32" r="1.5" fill={color}/>
-        <circle cx="69" cy="16" r="1.5" fill={color}/><circle cx="69" cy="20" r="1.5" fill={color}/><circle cx="69" cy="24" r="1.5" fill={color}/><circle cx="69" cy="28" r="1.5" fill={color}/><circle cx="69" cy="32" r="1.5" fill={color}/>
-      </svg>
-      {showTagline && (
-        <span className="text-[10px] text-slate-500 tracking-wide mt-0.5">Compra y vende agencias</span>
-      )}
-    </div>
-  );
-};
+const ArrobaLogo = ({ size = 22 }) => (
+  <span style={{
+    fontFamily: "'IBM Plex Sans', sans-serif",
+    fontWeight: 800,
+    fontSize: size,
+    color: 'var(--arroba-primary)',
+    letterSpacing: '-0.03em',
+    lineHeight: 1,
+  }}>
+    arroba
+  </span>
+);
 
 const NavLink = ({ to, children, active }) => (
   <Link
     to={to}
-    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-      active ? 'text-slate-900 bg-slate-100' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-    }`}
+    className="relative px-1 py-1 transition-colors"
+    style={{
+      fontFamily: "'IBM Plex Sans', sans-serif",
+      fontWeight: 700,
+      fontSize: 13,
+      letterSpacing: '-0.01em',
+      color: active ? 'var(--on-surface)' : 'var(--outline)',
+      textDecoration: 'none',
+    }}
     data-testid={`nav-${to.replace(/\//g, '-').replace(/^-/, '')}`}
   >
     {children}
+    {active && (
+      <span className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: 'var(--on-surface)' }} />
+    )}
   </Link>
 );
 
@@ -66,16 +60,25 @@ const Header = () => {
   const isActive = (p) => path === p || path.startsWith(p + '/');
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-slate-200" data-testid="main-header">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
+    <header
+      className="sticky top-0 z-50 w-full"
+      style={{
+        background: 'rgba(255,255,255,0.82)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        boxShadow: '0 1px 0 var(--surface-2)',
+      }}
+      data-testid="main-header"
+    >
+      <div className="container mx-auto px-6">
+        <div className="flex h-14 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center shrink-0" data-testid="logo-link">
-            <ArrobaLogo color="#FF5757" size={24} showTagline={false} />
+            <ArrobaLogo size={22} />
           </Link>
 
           {/* Center Navigation — Role-based */}
-          <nav className="hidden md:flex items-center gap-1" data-testid="main-nav">
+          <nav className="hidden md:flex items-center gap-8" data-testid="main-nav">
             {!isAuthenticated && (
               <>
                 <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Explorar</NavLink>
@@ -117,19 +120,20 @@ const Header = () => {
           </nav>
 
           {/* Right Side */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {!isAuthenticated ? (
               <>
                 <Link
                   to="/login"
-                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:text-slate-900"
+                  className="text-sm font-semibold hover:opacity-70 transition-opacity"
+                  style={{ color: 'var(--on-surface-variant)' }}
                   data-testid="login-btn"
                 >
                   Acceder
                 </Link>
                 <Link
                   to="/register?role=seller"
-                  className="px-4 py-2 text-sm font-semibold text-white bg-arroba-coral hover:bg-arroba-coral/90 rounded-lg transition-colors"
+                  className="btn-primary text-xs px-5 py-2"
                   data-testid="cta-publish"
                 >
                   Publicar mi empresa
@@ -140,19 +144,24 @@ const Header = () => {
                 <NotificationBell />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors" data-testid="user-menu-trigger">
-                      <div className="w-7 h-7 rounded-full bg-arroba-coral/10 flex items-center justify-center">
-                        <User className="w-3.5 h-3.5 text-arroba-coral" />
+                    <button
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm font-medium hover:opacity-70 transition-opacity"
+                      style={{ color: 'var(--on-surface)' }}
+                      data-testid="user-menu-trigger"
+                    >
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center"
+                        style={{ background: 'rgba(182, 33, 42, 0.08)' }}>
+                        <User className="w-3.5 h-3.5" style={{ color: 'var(--arroba-primary)' }} />
                       </div>
-                      <span className="hidden sm:inline">{user?.first_name}</span>
-                      <ChevronDown className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline text-sm font-semibold">{user?.first_name}</span>
+                      <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--outline)' }} />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-white border border-slate-200">
+                  <DropdownMenuContent align="end" className="w-56" style={{ background: 'var(--surface-lowest)', boxShadow: '0 12px 32px rgba(25,28,30,0.08)' }}>
                     <div className="px-3 py-2">
-                      <p className="text-sm font-medium">{user?.first_name} {user?.last_name}</p>
-                      <p className="text-xs text-slate-500">{user?.email}</p>
-                      <p className="text-xs text-slate-400 capitalize mt-0.5">{role}</p>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--on-surface)' }}>{user?.first_name} {user?.last_name}</p>
+                      <p className="text-xs" style={{ color: 'var(--outline)' }}>{user?.email}</p>
+                      <p className="text-xs capitalize mt-0.5" style={{ color: 'var(--outline-variant)' }}>{role}</p>
                     </div>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
@@ -166,7 +175,7 @@ const Header = () => {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer flex items-center gap-2" data-testid="menu-logout">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer flex items-center gap-2" style={{ color: 'var(--arroba-primary)' }} data-testid="menu-logout">
                       <LogOut className="w-4 h-4" /> Cerrar sesion
                     </DropdownMenuItem>
                   </DropdownMenuContent>

@@ -162,13 +162,13 @@ const BuyerRow = ({ buyer, index }) => {
 };
 
 const SummaryCard = ({ label, value, icon: Icon, accent }) => (
-  <div className="flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg" data-testid={`summary-${label}`}>
-    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent}`}>
+  <div className="flex items-center gap-3 px-4 py-3" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.03)' }} data-testid={`summary-${label}`}>
+    <div className={`w-8 h-8 flex items-center justify-center ${accent}`}>
       <Icon className="w-4 h-4" />
     </div>
     <div>
-      <p className="text-lg font-bold text-slate-900 leading-none">{value}</p>
-      <p className="text-[11px] text-slate-500 mt-0.5">{label}</p>
+      <p className="text-lg font-bold leading-none" style={{ color: 'var(--on-surface)' }}>{value}</p>
+      <p className="text-[11px] mt-0.5" style={{ color: 'var(--outline)' }}>{label}</p>
     </div>
   </div>
 );

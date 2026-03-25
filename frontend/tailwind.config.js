@@ -13,9 +13,12 @@ module.exports = {
       },
       colors: {
         arroba: {
-          coral: '#FF5757',
-          blue: '#38B6FF',
-          yellow: '#DBB900',
+          coral: '#B6212A',
+          'coral-light': '#FF5757',
+          blue: '#006493',
+          'blue-light': '#38B6FF',
+          yellow: '#6F5D00',
+          'yellow-light': '#DBB900',
           green: '#82C359',
         },
         background: 'rgb(var(--background) / <alpha-value>)',

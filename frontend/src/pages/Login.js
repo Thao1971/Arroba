@@ -58,7 +58,7 @@ const Login = () => {
           {/* Logo */}
           <div className="text-center mb-8">
             <Link to="/" className="inline-block">
-              <ArrobaLogo color="#FF5757" size={32} />
+              <ArrobaLogo size={32} />
             </Link>
             <h1 className="text-2xl font-bold mt-6 mb-2">Bienvenido de nuevo</h1>
             <p className="text-slate-500">Inicia sesión en tu cuenta de Arroba</p>
