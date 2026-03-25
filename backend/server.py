@@ -124,3 +124,15 @@ async def download_docs():
         media_type="application/zip",
         filename="arroba_documentacion.zip"
     )
+
+
+@app.get("/api/exports/manual")
+async def download_manual():
+    """Download platform manual as Markdown"""
+    from fastapi.responses import FileResponse
+    import os
+    path = "/app/MANUAL_PLATAFORMA.md"
+    if not os.path.exists(path):
+        from fastapi import HTTPException
+        raise HTTPException(404, "Manual no encontrado.")
+    return FileResponse(path, media_type="text/markdown", filename="MANUAL_PLATAFORMA.md")
