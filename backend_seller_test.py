@@ -5,7 +5,7 @@ from datetime import datetime
 import time
 
 class SellerFlowTester:
-    def __init__(self, base_url="https://arroba-qa.preview.emergentagent.com"):
+    def __init__(self, base_url="https://seller-wizard-v2.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0

@@ -8,7 +8,7 @@ import os
 import uuid
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://arroba-qa.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://seller-wizard-v2.preview.emergentagent.com')
 
 # Test credentials
 SELLER_EMAIL = "seller_test@arroba.com"
