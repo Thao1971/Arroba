@@ -555,16 +555,15 @@ const SellerWizard = () => {
                   {/* CIF Lookup */}
                   <div className="mb-10">
                     <SectionLabel label="INFORMACION LEGAL" badge="private" />
-                    <div className="grid grid-cols-2 gap-6 mb-6">
+                    <GhostInput label="DENOMINACION SOCIAL *" value={companyData.legal_name} onChange={(e) => handleCompanyChange('legal_name', e.target.value)} placeholder="Mi Agencia S.L." testId="input-legal-name" className="mb-6" />
+                    <div className="grid grid-cols-2 gap-6">
                       <GhostInput label="CIF / NIF" value={companyData.cif} onChange={(e) => handleCompanyChange('cif', e.target.value.toUpperCase())} placeholder="B12345678" testId="input-cif" />
                       <div>
                         <label className="label-arroba block mb-2 ml-0.5">BUSCAR POR CIF</label>
                         <div className="flex gap-2">
-                          <input value={companyData.cif} onChange={(e) => handleCompanyChange('cif', e.target.value.toUpperCase())} placeholder="B12345678"
-                            className="flex-1 border-0 border-b-2 border-slate-200/40 px-4 py-3 text-sm outline-none" style={{ background: 'var(--surface-2, #e2e2e2)', borderRadius: 0 }} />
                           <button onClick={handleCifLookup} disabled={cifLookupLoading || !companyData.cif}
-                            className="px-5 py-3 text-sm font-bold flex items-center gap-2 disabled:opacity-50" style={{ background: 'var(--on-surface, #191c1e)', color: '#fff' }} data-testid="cif-lookup-btn">
-                            {cifLookupLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} BUSCAR
+                            className="w-full px-5 py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: 'var(--on-surface, #191c1e)', color: '#fff' }} data-testid="cif-lookup-btn">
+                            {cifLookupLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} BUSCAR EN REGISTRO
                           </button>
                         </div>
                         {cifLookupResult && (
@@ -574,7 +573,6 @@ const SellerWizard = () => {
                         )}
                       </div>
                     </div>
-                    <GhostInput label="DENOMINACION SOCIAL *" value={companyData.legal_name} onChange={(e) => handleCompanyChange('legal_name', e.target.value)} placeholder="Mi Agencia S.L." testId="input-legal-name" />
                   </div>
 
                   {/* Public info */}
