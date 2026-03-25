@@ -18,6 +18,7 @@ import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
 import SellerInteresados from './pages/SellerInteresados';
 import AdvisorMandatos from './pages/AdvisorMandatos';
+import SellerWizardBoceto from './pages/SellerWizardBoceto';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
@@ -70,6 +71,7 @@ const AppRouter = () => {
       <Route path="/explorar/:dealId" element={<DealPage />} />
       <Route path="/vender" element={<Register role="seller" />} />
       <Route path="/como-funciona" element={<Home />} />
+      <Route path="/boceto/seller" element={<SellerWizardBoceto />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/auth/callback" element={<AuthCallback />} />

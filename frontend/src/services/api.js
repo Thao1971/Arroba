@@ -30,7 +30,7 @@ api.interceptors.response.use(
       const publicPaths = ['/', '/marketplace', '/explorar', '/pricing', '/about', '/login', '/register', '/auth/callback', '/como-funciona', '/vender'];
       const currentPath = window.location.pathname;
       const isPublicPath = publicPaths.some(path => 
-        currentPath === path || currentPath.startsWith('/marketplace/') || currentPath.startsWith('/explorar/')
+        currentPath === path || currentPath.startsWith('/marketplace/') || currentPath.startsWith('/explorar/') || currentPath.startsWith('/boceto/')
       );
       
       if (!isPublicPath) {
