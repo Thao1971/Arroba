@@ -63,9 +63,12 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 
 ## Backlog Priorizado
 
-### P1 — SellerWizard V2
-- [ ] Convertir boceto en wizard funcional (sidebar + steps + live preview)
-- [ ] Reemplazar SellerWizard actual
+### P1 — SellerWizard V2 (COMPLETADO 25 Mar 2026)
+- [x] Convertir boceto en wizard funcional (sidebar + steps + live preview)
+- [x] Reemplazar SellerWizard actual
+- [x] Layout 60/40 (formulario + live preview), sidebar con 5 pasos
+- [x] CIF lookup, datos financieros, valoracion, deal config, teaser/infomemo AI
+- [x] Eliminado SellerWizardBoceto.js (redundante)
 
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard

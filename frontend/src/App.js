@@ -18,7 +18,7 @@ import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
 import SellerInteresados from './pages/SellerInteresados';
 import AdvisorMandatos from './pages/AdvisorMandatos';
-import SellerWizardBoceto from './pages/SellerWizardBoceto';
+// SellerWizardBoceto removed - merged into SellerWizard V2
 import ConversationPage from './pages/ConversationPage';
 
 // Protected Route Component
@@ -72,7 +72,7 @@ const AppRouter = () => {
       <Route path="/explorar/:dealId" element={<DealPage />} />
       <Route path="/vender" element={<Register role="seller" />} />
       <Route path="/como-funciona" element={<Home />} />
-      <Route path="/boceto/seller" element={<SellerWizardBoceto />} />
+      {/* Boceto route removed - merged into SellerWizard V2 */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
