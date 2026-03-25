@@ -17,31 +17,13 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - Inputs: Ghost borders (bottom-only), surface-2 background
 - Buttons: 0px radius, primary bg, uppercase, shadow
 - Cards: surface-lowest bg, ambient shadow, no visible borders
-- No dividers — white space separation
 
 ---
 
 ## Funcionalidades Implementadas
 
-### Fase 1 — Core Platform
-- [x] Auth (JWT + Sessions + Google OAuth via Emergent)
-- [x] Buyer/Seller Profile & Onboarding
-- [x] Deal CRUD (Draft -> Published)
-- [x] AI Teaser/Infomemo Generation (GPT-5.2)
-- [x] Marketplace + NDA digital flow
-- [x] Taxonomia oficial BUD (CIS)
-
-### Fase 2 — Buyer E2E Flow
-- [x] Interest/LOI engagement model
-- [x] LOI Detailed View (comparador)
-- [x] Matching Engine (0-100)
-- [x] Data Room (Emergent Object Storage)
-- [x] Time Tracking + Intent Scoring
-- [x] Auto-Shortlist + Notifications
-- [x] Decoupled Email (SendGrid placeholder)
-
-### Fase 3 — Auditoria y Demo Data
-- [x] Seed Script (10 historias), documentacion exportable
+### Fase 1-3 — Core Platform, Buyer Flow, Demo Data
+- [x] Auth, Profiles, Deal CRUD, AI Teaser, Marketplace, NDA, Taxonomia, Seed
 
 ### Fase 4 — Seller Coaching System v2
 - [x] Nudges prescriptivos, exclusividad con friccion, action pills
@@ -50,37 +32,30 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] Header dinamico por rol, SellerInteresados centro de decision
 
 ### Fase 6 — Percepcion de Mercado
-- [x] Internal Deal Score (invisible, 0-100)
-- [x] Soft Signals (max 2 por deal, jerarquia LOI > Competition > Process > DR > Freshness)
-- [x] Signals en marketplace, Home, deal page
+- [x] Internal Deal Score, Soft Signals, Market signals en UI
 
-### Fase 7 — Rediseno Visual Completo (COMPLETADA 25 Mar 2026)
+### Fase 7 — Rediseno Visual Completo
 - [x] Design system "The Digital Artifact" aplicado a TODA la web
-- [x] Global CSS tokens (index.css) + Tailwind config actualizado
-- [x] Header.js: glassmorphism, IBM Plex Sans, role-based nav
-- [x] Footer.js: dark bg, ALL CAPS section labels
-- [x] Layout.js: surface-0 background
-- [x] Home.js: hero editorial, social proof bar, featured deals con signals
-- [x] Marketplace.js: header con label MARKETPLACE, filtros, cards con signals
-- [x] Login.js: card-arroba, ghost inputs, btn-primary
-- [x] SellerInteresados.js: summary cards actualizadas
-- [x] SellerWizardBoceto.js: prototipo del nuevo wizard con sidebar + live preview
-- [x] Testing: 100% pass rate (9/9 backend, all frontend)
 
 ### Fase 8 — Q&A Workspace / Conversaciones (COMPLETADA 25 Mar 2026)
 - [x] Trigger: INTEREST_ACCEPTED (no SHORTLISTED)
 - [x] Nuevo stage "ACCEPTED" en flujo de engagements
-- [x] Backend: POST /api/engagements/deal/{deal_id}/accept/{buyer_id}
-- [x] Backend: Conversation auto-created on accept
-- [x] Backend: CRUD Q&A (create question, answer, close)
-- [x] Backend: conversation_id enriched in interesados, my-processes, deal engagements
-- [x] Frontend: DealManagement — boton "Aceptar" en Interesados tab
-- [x] Frontend: DealManagement — tab Q&A con lista de conversaciones
-- [x] Frontend: SellerInteresados — badge Q&A para buyers con conversacion
-- [x] Frontend: BuyerDashboard — link "ABRIR Q&A" en Mis Procesos
-- [x] Frontend: ConversationPage — workspace estructurado (no chat)
-- [x] Permisos: Buyer pregunta, Seller responde/cierra
-- [x] Testing: 100% (18/18 backend, all frontend)
+- [x] Backend CRUD Q&A completo (preguntas, respuestas, cierre)
+- [x] UI: DealManagement (boton Aceptar, tab Q&A), SellerInteresados (badge Q&A), BuyerDashboard (link Q&A)
+- [x] ConversationPage workspace estructurado
+- [x] Testing: 100% (18/18 backend, all frontend) — Iteracion 16
+
+### Fase 9 — Response Acceleration Layer (COMPLETADA 25 Mar 2026)
+- [x] GET /api/conversations/pending/seller — preguntas pendientes con prioridad (oldest → intent → stage)
+- [x] Bloque "Acciones Pendientes" en SellerDashboard: count + buyers waiting + CTA + preview items
+- [x] Notificacion mejorada: "X esta esperando tu respuesta" (no generico)
+- [x] Badges pendientes con urgencia en SellerInteresados (count + "urgente" si >24h)
+- [x] Badges pendientes en DealManagement: tab Q&A con count, comparator Q&A link con pendientes
+- [x] "Hace Xh sin respuesta" indicador en ConversationPage por pregunta PENDING
+- [x] Ordenacion por prioridad: PENDING oldest → ANSWERED → CLOSED
+- [x] Coaching nudge automatico: NC-QA-12 (12h), NC-QA-24 (24h) — no repetitivo
+- [x] Enriquecimiento: interesados, deal engagements, my-processes con pending_questions/urgency
+- [x] Testing: 100% (14/14 backend, all frontend) — Iteracion 17
 
 ---
 
@@ -94,9 +69,8 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 ### P1 — Deal Readiness
 - [ ] Checklist pre-publicacion
 
-### P1 — Implementar SellerWizard V2
-- [ ] Convertir boceto en wizard funcional real (sidebar + steps + live preview + web scraping)
-- [ ] Reemplazar SellerWizard actual con el nuevo diseno
+### P1 — SellerWizard V2
+- [ ] Convertir boceto en wizard funcional real
 
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual
@@ -124,3 +98,8 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 
 ## Engagement Stage Flow
 SUBMITTED → VIEWED → ACCEPTED (crea conversacion Q&A) → SHORTLISTED → EXCLUSIVITY
+
+## Cuentas de prueba
+- Seller: diego.martin@rankingdigital.es / demo2026
+- Buyer: carlos.ruiz@capitaliberica.es / demo2026
+- Buyer: james.harris@techventures.co.uk / demo2026
