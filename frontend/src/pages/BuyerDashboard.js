@@ -125,7 +125,6 @@ const BuyerDashboard = () => {
               <span className="text-[10px] font-bold" style={{ color: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--outline)' }}>
                 {cert.level_label.toUpperCase()}
               </span>
-              <span className="text-[10px] ml-auto" style={{ color: 'var(--outline)' }}>{cert.score}%</span>
             </div>
           )}
         </div>
@@ -458,12 +457,24 @@ const BuyerDashboard = () => {
                   <p className="text-sm font-bold mb-1" style={{ color: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--on-surface)' }}>
                     {cert.level_label}
                   </p>
-                  {/* Progress bar */}
-                  <div className="w-full h-1.5 mb-3" style={{ background: 'var(--surface-2)' }}>
+                  {/* Progress bar — secondary reference */}
+                  <div className="w-full h-1.5 mb-4" style={{ background: 'var(--surface-2)' }}>
                     <div className="h-full transition-all" style={{ background: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--outline)', width: `${cert.score}%` }} />
                   </div>
-                  <div className="space-y-1.5">
-                    {cert.criteria.map(cr => (
+                  {/* Completitud criteria */}
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--outline)' }}>COMPLETITUD</p>
+                  <div className="space-y-1.5 mb-3">
+                    {cert.criteria.filter(cr => cr.category === 'completitud').map(cr => (
+                      <div key={cr.id} className="flex items-center gap-2">
+                        {cr.completed ? <CheckCircle2 size={11} style={{ color: '#16a34a' }} /> : <div className="w-[11px] h-[11px] shrink-0" style={{ border: '1.5px solid var(--outline-variant)', borderRadius: '50%' }} />}
+                        <span className="text-[10px]" style={{ color: cr.completed ? 'var(--on-surface)' : 'var(--outline)' }}>{cr.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Confianza criteria */}
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--outline)' }}>CONFIANZA</p>
+                  <div className="space-y-1.5 mb-3">
+                    {cert.criteria.filter(cr => cr.category === 'confianza').map(cr => (
                       <div key={cr.id} className="flex items-center gap-2">
                         {cr.completed ? <CheckCircle2 size={11} style={{ color: '#16a34a' }} /> : <div className="w-[11px] h-[11px] shrink-0" style={{ border: '1.5px solid var(--outline-variant)', borderRadius: '50%' }} />}
                         <span className="text-[10px]" style={{ color: cr.completed ? 'var(--on-surface)' : 'var(--outline)' }}>{cr.label}</span>
@@ -471,13 +482,13 @@ const BuyerDashboard = () => {
                     ))}
                   </div>
                   {cert.level !== 'certified' && (
-                    <p className="text-[10px] mt-3" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>
-                      Completa los criterios pendientes para obtener el sello de Comprador Certificado. Los sellers ven tu nivel de verificación.
+                    <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>
+                      Completa los criterios pendientes para mejorar tu nivel. Los sellers ven tu etiqueta de confianza al evaluar tu interés.
                     </p>
                   )}
                   {cert.level === 'certified' && (
-                    <p className="text-[10px] mt-3" style={{ color: '#16a34a', lineHeight: 1.4 }}>
-                      Tu perfil tiene el máximo nivel de verificación. Los sellers pueden confiar en tu seriedad como comprador.
+                    <p className="text-[10px]" style={{ color: '#16a34a', lineHeight: 1.4 }}>
+                      Máximo nivel de verificación. Los sellers confían en compradores certificados.
                     </p>
                   )}
                 </div>
@@ -490,10 +501,10 @@ const BuyerDashboard = () => {
                   <p className="text-sm font-bold mb-2" style={{ color: 'var(--on-surface)' }}>Buyer {planInfo.label}</p>
                   <p className="text-xs mb-3" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>{planInfo.features_summary}</p>
                   <div className="space-y-1.5 mb-3">
-                    <PlanFeatureRow label="Ver detalle completo" enabled={planInfo.can_view_full_detail} />
-                    <PlanFeatureRow label="Gestionar interacciones" enabled={planInfo.can_manage_interactions} />
-                    <PlanFeatureRow label="Acceso a Data Room" enabled={planInfo.can_access_dataroom} />
-                    <PlanFeatureRow label="Acceso prioritario" enabled={planInfo.priority_access} />
+                    <PlanFeatureRow label="Ver detalle completo" enabled={planInfo.can_view_full_detail} valueText={!planInfo.can_view_full_detail ? 'Desde Pro' : null} />
+                    <PlanFeatureRow label="Gestionar interacciones" enabled={planInfo.can_manage_interactions} valueText={!planInfo.can_manage_interactions ? 'Desde Pro' : null} />
+                    <PlanFeatureRow label="Acceso a Data Room" enabled={planInfo.can_access_dataroom} valueText={!planInfo.can_access_dataroom ? 'Desde Pro' : null} />
+                    <PlanFeatureRow label="Acceso prioritario" enabled={planInfo.priority_access} valueText={!planInfo.priority_access ? 'Solo Pro+' : null} />
                   </div>
                   {interactionLimit >= 0 && (
                     <div className="pt-2 mb-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
@@ -509,11 +520,14 @@ const BuyerDashboard = () => {
                     </div>
                   )}
                   {planInfo.upgrade_message && (
-                    <Link to={`/planes?role=buyer&source=buyer_dashboard`}>
-                      <button className="w-full py-2 text-[10px] font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>
-                        MEJORAR A {planInfo.next_plan?.toUpperCase()}
-                      </button>
-                    </Link>
+                    <>
+                      <p className="text-[10px] mb-2" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>{planInfo.upgrade_message}</p>
+                      <Link to={`/planes?role=buyer&source=buyer_dashboard`}>
+                        <button className="w-full py-2 text-[10px] font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>
+                          MEJORAR A {planInfo.next_plan?.toUpperCase()}
+                        </button>
+                      </Link>
+                    </>
                   )}
                 </div>
               )}
@@ -596,10 +610,11 @@ const VerificationRow = ({ label, done }) => (
   </div>
 );
 
-const PlanFeatureRow = ({ label, enabled }) => (
+const PlanFeatureRow = ({ label, enabled, valueText }) => (
   <div className="flex items-center gap-2">
     {enabled ? <CheckCircle2 size={11} style={{ color: '#16a34a' }} /> : <Lock size={11} style={{ color: 'var(--outline-variant)' }} />}
-    <span className="text-[10px]" style={{ color: enabled ? 'var(--on-surface)' : 'var(--outline)' }}>{label}</span>
+    <span className="text-[10px] flex-1" style={{ color: enabled ? 'var(--on-surface)' : 'var(--outline)' }}>{label}</span>
+    {valueText && <span className="text-[9px] font-semibold" style={{ color: 'var(--arroba-primary)' }}>{valueText}</span>}
   </div>
 );
 

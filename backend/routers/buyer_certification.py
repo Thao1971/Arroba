@@ -12,13 +12,17 @@ router = APIRouter(prefix="/buyer", tags=["Buyer"])
 
 
 CERTIFICATION_CRITERIA = [
-    {"id": "email_verified", "label": "Email verificado", "weight": 1},
-    {"id": "profile_complete", "label": "Perfil de comprador completo", "weight": 2},
-    {"id": "company_declared", "label": "Empresa declarada", "weight": 2},
-    {"id": "job_title_declared", "label": "Cargo declarado", "weight": 1},
-    {"id": "investment_thesis", "label": "Tesis de inversión definida", "weight": 2},
-    {"id": "nda_signed", "label": "Al menos un NDA firmado", "weight": 1},
-    {"id": "corporate_email", "label": "Email corporativo", "weight": 1},
+    # Completitud del perfil
+    {"id": "email_verified", "label": "Email verificado", "weight": 1, "category": "completitud"},
+    {"id": "profile_complete", "label": "Perfil de comprador completo", "weight": 2, "category": "completitud"},
+    {"id": "job_title_declared", "label": "Cargo declarado", "weight": 1, "category": "completitud"},
+    {"id": "investment_thesis", "label": "Tesis de inversión definida", "weight": 2, "category": "completitud"},
+    # Confianza real
+    {"id": "company_declared", "label": "Empresa declarada", "weight": 2, "category": "confianza"},
+    {"id": "corporate_email", "label": "Email corporativo", "weight": 1, "category": "confianza"},
+    {"id": "nda_signed", "label": "Al menos un NDA firmado", "weight": 1, "category": "confianza"},
+    # Futuro: validación documental
+    # {"id": "company_validated", "label": "Empresa validada documentalmente", "weight": 3, "category": "confianza"},
 ]
 
 PLAN_CONFIG = {
@@ -103,12 +107,15 @@ async def _compute_certification(user: UserResponse) -> dict:
     if score >= 80:
         level = "certified"
         level_label = "Comprador Certificado"
+        seller_trust_text = "Comprador con verificación completa. Perfil, empresa e identidad validados."
     elif score >= 50:
         level = "verified"
         level_label = "Comprador Verificado"
+        seller_trust_text = "Comprador con perfil verificado y actividad demostrada en la plataforma."
     else:
         level = "basic"
         level_label = "Comprador Básico"
+        seller_trust_text = "Comprador registrado. Aún no ha completado la verificación."
 
     criteria_detail = []
     for c in CERTIFICATION_CRITERIA:
@@ -117,11 +124,13 @@ async def _compute_certification(user: UserResponse) -> dict:
             "label": c["label"],
             "completed": checks.get(c["id"], False),
             "weight": c["weight"],
+            "category": c["category"],
         })
 
     return {
         "level": level,
         "level_label": level_label,
+        "seller_trust_text": seller_trust_text,
         "score": score,
         "criteria": criteria_detail,
         "nda_count": nda_count,
