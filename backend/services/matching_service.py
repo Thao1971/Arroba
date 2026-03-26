@@ -174,6 +174,24 @@ def affinity_label(affinity: str) -> str:
     }.get(affinity, "Sin datos")
 
 
+def _generate_match_reason(breakdown: dict) -> str:
+    """Generate a human-readable match reason from breakdown."""
+    reasons = []
+    if breakdown.get("taxonomy", {}).get("match"):
+        reasons.append("Encaja con tu sector de interés")
+    if breakdown.get("revenue_fit", {}).get("match"):
+        reasons.append("Coincide con el rango de facturación que buscas")
+    if breakdown.get("ticket_fit", {}).get("match"):
+        reasons.append("Compatible con tu ticket de inversión")
+    if breakdown.get("geography", {}).get("match"):
+        reasons.append("Ubicación compatible con tus preferencias")
+    if breakdown.get("operation_type", {}).get("match"):
+        reasons.append("Tipo de operación compatible")
+    if not reasons:
+        return "Oportunidad destacada en el mercado"
+    return reasons[0]
+
+
 async def get_recommended_deals_for_buyer(user_id: str, limit: int = 20) -> list:
     """Get deals recommended for a buyer, sorted by match score"""
     user = await users_collection.find_one({"user_id": user_id}, {"_id": 0})
@@ -205,6 +223,7 @@ async def get_recommended_deals_for_buyer(user_id: str, limit: int = 20) -> list
             "match_score": match["match_score"],
             "affinity": match["affinity"],
             "affinity_label": affinity_label(match["affinity"]),
+            "match_reason": _generate_match_reason(match["breakdown"]),
             "hard_filters_pass": match["hard_filters_pass"],
             "teaser": teaser,
             "operation_types_allowed": deal.get("operation_types_allowed", []),
