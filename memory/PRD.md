@@ -134,6 +134,17 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] Rail derecho persistente en todos los tabs: plan status + mercado + accesos rápidos
 - [x] Preparado para sello Comprador Certificado (checklist de verificación visible)
 
+### P0 — Buyer Dashboard Fase 3: Certificación + Diferenciación Plan (COMPLETADO 26 Mar 2026)
+- [x] Backend: GET /api/buyer/certification con 7 criterios ponderados + plan config
+- [x] Niveles: Certificado (>=80%), Verificado (>=50%), Básico (<50%)
+- [x] Criterios: email verificado, perfil completo, empresa, cargo, tesis inversión, NDA firmado, email corporativo
+- [x] Sidebar: badge PLAN FREE + badge COMPRADOR VERIFICADO con score
+- [x] Rail derecho: card certificación (barra progreso + 7 checks + texto explicativo para sellers)
+- [x] Rail derecho: card plan (4 features con Lock/Check: detalle, interacciones, dataroom, prioritario)
+- [x] Free: 4 features bloqueadas + Interacciones Bloqueadas + CTA MEJORAR A PRO
+- [x] Plan config backend (free/pro/pro+) con: interaction_limit, can_view_full_detail, can_manage, dataroom, priority
+- [x] Layout sidebar izquierda fija consistente con Wizard V2
+
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard
 - [ ] Activity dashboard por buyer
