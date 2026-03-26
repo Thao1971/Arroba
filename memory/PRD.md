@@ -85,6 +85,19 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] Email: plantilla resultado (MOCKEADO - pendiente SendGrid)
 - [x] Preparado para consola admin futura (settings, multiples, weights configurables)
 
+### P0 — Página de Planes y Precios (COMPLETADO 26 Mar 2026)
+- [x] Backend: /api/plans/public con planes seed en MongoDB (7 planes + 3 fee rules + 6 FAQ)
+- [x] Frontend: /planes con tabs Sellers/Buyers/Advisors
+- [x] Sellers: Free (0€), Plus (149€/mes), Premium (499€/mes) + comisión éxito 2,9%
+- [x] Buyers: Free (0€), Pro (149€/mes), Pro+ (349€/mes) + comisión éxito 1%
+- [x] Advisors: Partner (15% revenue share sobre honorarios)
+- [x] Tabla comparativa de funcionalidades por plan
+- [x] Bloque pedagógico de estructura de costes (suscripción + comisión + advisor)
+- [x] FAQ con 6 preguntas desplegables
+- [x] Placeholders legales (términos, privacidad, comisión, advisor)
+- [x] CTA final + /pricing redirige a /planes
+- [x] Datos parametrizables desde DB, preparados para futura consola admin
+
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard
 - [ ] Activity dashboard por buyer
