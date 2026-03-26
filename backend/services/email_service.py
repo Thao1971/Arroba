@@ -74,6 +74,28 @@ Revisa toda la actividad:
 
 — Arroba""",
     },
+    "VALUATION_RESULT": {
+        "subject": "{subject}",
+        "body": """Hola {name},
+
+Gracias por utilizar la herramienta de valoracion de ARROBA.
+
+Compania: {company_name}
+
+Estimacion de valor:
+  Rango: {valuation_range}
+  Valor orientativo: {valuation_mid}
+  Nivel de confianza: {confidence}
+
+Esta es una estimacion inicial basada en criterios automaticos.
+No sustituye una valoracion experta ni una opinion independiente.
+
+Proximos pasos:
+- Da de alta tu agencia en ARROBA
+- Solicita una valoracion experta para una analisis mas completo
+
+Equipo ARROBA / BUD Advisors""",
+    },
 }
 
 

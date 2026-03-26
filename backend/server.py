@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from database import init_db, close_db
+from database import init_db, close_db, db
 from config import CORS_ORIGINS
 
 # Import routers
@@ -30,6 +30,7 @@ from routers.notifications import router as notifications_router
 from routers.tracking import router as tracking_router
 from routers.coaching import router as coaching_router
 from routers.conversations import router as conversations_router
+from modules.valuation.router import router as valuation_router
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +53,13 @@ async def lifespan(app: FastAPI):
         init_storage()
     except Exception as e:
         logger.warning(f"Object storage init deferred: {e}")
+    # Seed valuation defaults
+    try:
+        from modules.valuation.config_service import seed_default_multiples, seed_default_settings
+        await seed_default_multiples(db)
+        await seed_default_settings(db)
+    except Exception as e:
+        logger.warning(f"Valuation seed deferred: {e}")
     yield
     # Shutdown
     logger.info("Closing database connection...")
@@ -94,6 +102,7 @@ app.include_router(notifications_router, prefix="/api")
 app.include_router(tracking_router, prefix="/api")
 app.include_router(coaching_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
+app.include_router(valuation_router, prefix="/api")
 
 
 @app.get("/api")

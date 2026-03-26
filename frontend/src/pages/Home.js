@@ -157,6 +157,62 @@ const Home = () => {
         </div>
       </section>
 
+      {/* ─── VALUATION LEAD MAGNET ─── */}
+      <section className="py-16 lg:py-20" style={{ background: 'var(--surface-0)', borderTop: '1px solid var(--surface-2)' }} data-testid="valuation-section">
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col lg:flex-row gap-12 items-center">
+            <div className="flex-1">
+              <p className="label-arroba mb-3" style={{ color: 'var(--arroba-primary)', fontSize: 11 }}>
+                VALORACION INICIAL
+              </p>
+              <h2 className="text-3xl lg:text-4xl font-extrabold mb-4" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em', lineHeight: 1.15 }}>
+                Descubre cuanto podria<br />valer tu agencia
+              </h2>
+              <p className="text-sm mb-8 max-w-md" style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7 }}>
+                Obten una estimacion inicial a partir de tu facturacion, EBITDA y subcategoria. Resultado inmediato, confidencial y sin compromiso.
+              </p>
+              <div className="flex flex-col gap-2 mb-8">
+                {['Estimacion inmediata', 'Basada en criterios sectoriales', 'Sin compromiso'].map((t, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Check className="w-4 h-4" style={{ color: 'var(--arroba-primary)' }} />
+                    <span className="text-sm font-medium" style={{ color: 'var(--on-surface-variant)' }}>{t}</span>
+                  </div>
+                ))}
+              </div>
+              <Link to={isAuthenticated ? '/valoracion' : '/register?redirect=/valoracion'}>
+                <button className="btn-primary px-8 py-3 flex items-center gap-2" data-testid="cta-valuation">
+                  Calcular valoracion <ArrowRight className="w-4 h-4" />
+                </button>
+              </Link>
+            </div>
+            <div className="flex-1 max-w-md w-full">
+              <div className="p-8" style={{ background: 'var(--surface-lowest)', boxShadow: '0 4px 24px rgba(25,28,30,0.06)' }}>
+                <p className="label-arroba mb-6" style={{ color: 'var(--outline)' }}>EJEMPLO DE RESULTADO</p>
+                <div className="text-center py-4">
+                  <p className="text-3xl font-black" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.03em' }}>
+                    3,2M - 4,1M
+                  </p>
+                  <p className="text-sm font-bold mt-1" style={{ color: 'var(--on-surface)' }}>
+                    Valor orientativo: 3,6M
+                  </p>
+                  <span className="inline-block mt-3 px-3 py-1 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.08)', color: '#16a34a' }}>
+                    CONFIANZA ALTA
+                  </span>
+                </div>
+                <div className="mt-6 pt-4 space-y-2" style={{ borderTop: '1px solid var(--surface-1)' }}>
+                  {['Margen EBITDA: 20%', 'Recurrencia: 65%', 'Crecimiento: +12%'].map((t, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      <span className="text-xs" style={{ color: 'var(--outline)' }}>{t}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── SOCIAL PROOF BAR ─── */}
       <section className="py-8" style={{ background: 'var(--surface-0)', borderTop: '1px solid var(--surface-2)', borderBottom: '1px solid var(--surface-2)' }} data-testid="buyers-section">
         <div className="container mx-auto px-6">

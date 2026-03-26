@@ -67,6 +67,13 @@ async def init_db():
     await payment_transactions_collection.create_index("session_id", unique=True)
     await payment_transactions_collection.create_index("user_id")
 
+    # Valuation module
+    await db.valuation_leads.create_index("lead_id", unique=True)
+    await db.valuation_leads.create_index("user_id")
+    await db.valuation_leads.create_index("email")
+    await db.valuation_multiples.create_index([("scope_type", 1), ("scope_id", 1)])
+    await db.valuation_runs.create_index("lead_id")
+
 async def close_db():
     """Close database connection"""
     client.close()

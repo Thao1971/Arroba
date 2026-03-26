@@ -27,7 +27,7 @@ api.interceptors.response.use(
       localStorage.removeItem('access_token');
       // Only redirect to login for protected routes, not for public pages
       // Don't redirect if we're on public pages or already on auth pages
-      const publicPaths = ['/', '/marketplace', '/explorar', '/pricing', '/about', '/login', '/register', '/auth/callback', '/como-funciona', '/vender'];
+      const publicPaths = ['/', '/marketplace', '/explorar', '/pricing', '/about', '/login', '/register', '/auth/callback', '/como-funciona', '/vender', '/valoracion'];
       const currentPath = window.location.pathname;
       const isPublicPath = publicPaths.some(path => 
         currentPath === path || currentPath.startsWith('/marketplace/') || currentPath.startsWith('/explorar/') || currentPath.startsWith('/boceto/')
@@ -215,6 +215,18 @@ export const subscriptionsAPI = {
   getCheckoutStatus: (sessionId) => api.get(`/subscriptions/checkout/status/${sessionId}`),
   getStatus: () => api.get('/subscriptions/status'),
   cancel: () => api.post('/subscriptions/cancel'),
+};
+
+// Valuation API
+export const valuationAPI = {
+  getCategories: () => api.get('/valuation/taxonomy/categories'),
+  getSubcategories: (categoryId) => api.get(`/valuation/taxonomy/subcategories/${categoryId}`),
+  getPublicConfig: () => api.get('/valuation/config/public'),
+  estimate: (data) => api.post('/valuation/estimate', data),
+  getMyValuations: () => api.get('/valuation/my-valuations'),
+  getLead: (leadId) => api.get(`/valuation/lead/${leadId}`),
+  requestPremium: (data) => api.post('/valuation/premium-request', data),
+  sendResultEmail: (leadId) => api.post('/valuation/send-result-email', { lead_id: leadId }),
 };
 
 export default api;
