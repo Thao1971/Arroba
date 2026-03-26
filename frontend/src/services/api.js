@@ -243,4 +243,9 @@ export const ndaAPI = {
   mySignatures: () => api.get('/nda/my-signatures'),
 };
 
+// Buyer Certification API
+export const buyerAPI = {
+  getCertification: () => api.get('/buyer/certification'),
+};
+
 export default api;

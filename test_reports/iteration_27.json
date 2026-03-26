@@ -1,0 +1,93 @@
+{
+  "summary": "Buyer Dashboard Fase 3 (Certification Badge + Plan Differentiation) testing complete. All features verified working correctly. Backend /api/buyer/certification endpoint returns proper certification object with 7 weighted criteria and plan object. UI shows certification badge in sidebar (50% COMPRADOR VERIFICADO) and right rail with progress bar, 7 criteria checkmarks, and plan detail card with 4 locked features for Free plan.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "GET /api/buyer/certification returns 200 for authenticated buyer",
+      "Response has certification and plan objects",
+      "Certification object has level, level_label, score, criteria, nda_count, completed_count, total_count",
+      "Certification has exactly 7 criteria with correct IDs",
+      "Each criterion has id, label, weight (1 or 2), and completed boolean",
+      "Total criteria weights sum to 10",
+      "Carlos with 50% score gets 'verified' level and 'Comprador Verificado' label",
+      "Plan object has tier, label, monthly_interaction_limit, interactions_used, can_view_full_detail, can_manage_interactions, can_access_dataroom, priority_access, features_summary, upgrade_message",
+      "Free plan tier correctly identified",
+      "Free plan has all 4 premium features disabled (false)",
+      "Free plan has 0 monthly interaction limit",
+      "Free plan has upgrade_message mentioning Pro",
+      "Corporate email detected for capitaliberica.es",
+      "Corporate email detected for techventures.co.uk",
+      "Level labels in Spanish (Comprador Certificado/Verificado/Básico)",
+      "All 7 criteria labels in Spanish"
+    ],
+    "frontend": [
+      "Sidebar shows PLAN FREE badge with '0 inter.'",
+      "Sidebar shows COMPRADOR VERIFICADO badge with 50% score",
+      "Sidebar has MEJORAR PLAN button for free plan",
+      "Right rail shows CERTIFICACIÓN card with 'Comprador Verificado' title",
+      "Certification card has progress bar (50% filled in amber/orange)",
+      "Certification card shows all 7 criteria with checkmarks (4 completed, 3 pending)",
+      "Certification card explains value to sellers: 'Los sellers ven tu nivel de verificación'",
+      "Right rail shows TU PLAN card with 'Buyer Free' title",
+      "Plan card shows features_summary text",
+      "Plan card shows 4 feature rows with Lock icons: Ver detalle completo, Gestionar interacciones, Acceso a Data Room, Acceso prioritario",
+      "Plan card shows 'Interacciones: Bloqueadas' for free plan",
+      "Plan card has MEJORAR A PRO button",
+      "Perfil tab shows VERIFICACIÓN section with 4 criteria (Email verificado, Perfil completo, Empresa declarada, Tesis de inversión)",
+      "Perfil tab shows 'El sello de Comprador Certificado estará disponible próximamente' text",
+      "All UI text in Spanish"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_buyer_certification_fase3.py",
+    "/app/test_reports/pytest/pytest_results_buyer_certification_fase3.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_buyer_certification_fase3.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (16/16 tests passed, 1 skipped)",
+    "frontend": "100% (all 15 features verified)"
+  },
+
+  "test_credentials": {
+    "buyer1": "carlos.ruiz@capitaliberica.es / demo2026",
+    "buyer2": "james.harris@techventures.co.uk / demo2026"
+  },
+
+  "seed_data_used": {
+    "buyers": "2 demo buyers on free plan",
+    "certification_status": "Carlos: 4/7 criteria met (50% = verified level)",
+    "criteria_completed": ["email_verified", "profile_complete", "nda_signed", "corporate_email"],
+    "criteria_pending": ["company_declared", "job_title_declared", "investment_thesis"]
+  },
+
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Buyer Dashboard Fase 3 fully tested. Certification system working: (1) Backend /api/buyer/certification computes certification from user profile + NDA count with 7 weighted criteria (total weight=10), (2) Levels: certified (>=80%), verified (>=50%), basic (<50%), (3) Plan config hardcoded in backend with free/pro/pro+ tiers, (4) Sidebar shows PLAN FREE + COMPRADOR VERIFICADO badges, (5) Right rail shows certification card with progress bar + 7 criteria checkmarks + explanation text, (6) Right rail shows plan detail card with 4 feature rows (all locked for free) + MEJORAR A PRO button, (7) Perfil tab has VERIFICACIÓN section consistent with cert criteria. Corporate email check excludes gmail/hotmail/outlook/yahoo/live/icloud/protonmail."
+}

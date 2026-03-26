@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { marketplaceAPI, matchingAPI, engagementsAPI, ndaAPI, notificationsAPI } from '../services/api';
+import { marketplaceAPI, matchingAPI, engagementsAPI, ndaAPI, notificationsAPI, buyerAPI } from '../services/api';
 import {
   Search, FileText, ArrowRight, Building2,
   Sparkles, MapPin, Zap, ChevronRight, Send, FileSignature, Shield,
   Star, Lock, AlertCircle, MessageSquare, CheckCircle2,
-  FolderOpen, Eye, User, Bell, Settings, Bookmark, ArrowLeft, Clock
+  FolderOpen, Eye, User, Bell, Settings, Bookmark, ArrowLeft, Clock,
+  Award
 } from 'lucide-react';
 
 /* ─── Configs ─── */
@@ -53,12 +54,16 @@ const BuyerDashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
+  const [certData, setCertData] = useState(null);
 
-  const planTier = getPlanTier(user);
+  // Derived from certData (backend is source of truth)
+  const planTier = certData?.plan?.tier || getPlanTier(user);
   const plan = planLabels[planTier];
   const isFree = planTier === 'free';
-  const interactionLimit = planTier === 'free' ? 0 : planTier === 'pro' ? 5 : -1;
-  const interactionsUsed = 0;
+  const interactionLimit = certData?.plan?.monthly_interaction_limit ?? (planTier === 'free' ? 0 : planTier === 'pro' ? 5 : -1);
+  const interactionsUsed = certData?.plan?.interactions_used || 0;
+  const cert = certData?.certification;
+  const planInfo = certData?.plan;
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -75,6 +80,7 @@ const BuyerDashboard = () => {
           engagementsAPI.listSaved().then(r => setSavedDeals(r.data?.deals || [])).catch(() => {}),
           notificationsAPI.list().then(r => setNotifications(r.data?.slice?.(0, 20) || [])).catch(() => {}),
           notificationsAPI.unreadCount().then(r => setUnreadCount(r.data?.count || 0)).catch(() => {}),
+          buyerAPI.getCertification().then(r => setCertData(r.data)).catch(() => {}),
         ]);
       } catch (e) { console.error('Dashboard fetch error:', e); }
       finally { setLoading(false); }
@@ -105,14 +111,23 @@ const BuyerDashboard = () => {
           </p>
         </div>
 
-        {/* Plan badge in sidebar */}
-        <div className="px-4 mb-6">
+        {/* Plan + Certification in sidebar */}
+        <div className="px-4 mb-5 space-y-2">
           <div className="px-3 py-2 flex items-center justify-between" style={{ background: plan.bg }}>
             <span className="text-[10px] font-bold" style={{ color: plan.color }}>PLAN {plan.label}</span>
             <span className="text-[10px] font-semibold" style={{ color: 'var(--outline)' }}>
               {interactionLimit === -1 ? 'Ilimitadas' : interactionLimit === 0 ? '0 inter.' : `${interactionsUsed}/${interactionLimit}`}
             </span>
           </div>
+          {cert && (
+            <div className="px-3 py-2 flex items-center gap-2" style={{ background: cert.level === 'certified' ? 'rgba(22,163,74,0.06)' : cert.level === 'verified' ? 'rgba(217,119,6,0.06)' : 'var(--surface-2)' }} data-testid="cert-badge-sidebar">
+              <Award size={12} style={{ color: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--outline)' }} />
+              <span className="text-[10px] font-bold" style={{ color: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--outline)' }}>
+                {cert.level_label.toUpperCase()}
+              </span>
+              <span className="text-[10px] ml-auto" style={{ color: 'var(--outline)' }}>{cert.score}%</span>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
@@ -432,6 +447,77 @@ const BuyerDashboard = () => {
 
             {/* ─── RIGHT RAIL (contextual) ─── */}
             <div className="w-[260px] shrink-0 space-y-5 hidden lg:block">
+
+              {/* Certification card */}
+              {cert && (
+                <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid="cert-card-rail">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Award size={14} style={{ color: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--outline)' }} />
+                    <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>CERTIFICACIÓN</p>
+                  </div>
+                  <p className="text-sm font-bold mb-1" style={{ color: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--on-surface)' }}>
+                    {cert.level_label}
+                  </p>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 mb-3" style={{ background: 'var(--surface-2)' }}>
+                    <div className="h-full transition-all" style={{ background: cert.level === 'certified' ? '#16a34a' : cert.level === 'verified' ? '#d97706' : 'var(--outline)', width: `${cert.score}%` }} />
+                  </div>
+                  <div className="space-y-1.5">
+                    {cert.criteria.map(cr => (
+                      <div key={cr.id} className="flex items-center gap-2">
+                        {cr.completed ? <CheckCircle2 size={11} style={{ color: '#16a34a' }} /> : <div className="w-[11px] h-[11px] shrink-0" style={{ border: '1.5px solid var(--outline-variant)', borderRadius: '50%' }} />}
+                        <span className="text-[10px]" style={{ color: cr.completed ? 'var(--on-surface)' : 'var(--outline)' }}>{cr.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {cert.level !== 'certified' && (
+                    <p className="text-[10px] mt-3" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>
+                      Completa los criterios pendientes para obtener el sello de Comprador Certificado. Los sellers ven tu nivel de verificación.
+                    </p>
+                  )}
+                  {cert.level === 'certified' && (
+                    <p className="text-[10px] mt-3" style={{ color: '#16a34a', lineHeight: 1.4 }}>
+                      Tu perfil tiene el máximo nivel de verificación. Los sellers pueden confiar en tu seriedad como comprador.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Plan detail */}
+              {planInfo && (
+                <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid="plan-detail-rail">
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--outline)' }}>TU PLAN</p>
+                  <p className="text-sm font-bold mb-2" style={{ color: 'var(--on-surface)' }}>Buyer {planInfo.label}</p>
+                  <p className="text-xs mb-3" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>{planInfo.features_summary}</p>
+                  <div className="space-y-1.5 mb-3">
+                    <PlanFeatureRow label="Ver detalle completo" enabled={planInfo.can_view_full_detail} />
+                    <PlanFeatureRow label="Gestionar interacciones" enabled={planInfo.can_manage_interactions} />
+                    <PlanFeatureRow label="Acceso a Data Room" enabled={planInfo.can_access_dataroom} />
+                    <PlanFeatureRow label="Acceso prioritario" enabled={planInfo.priority_access} />
+                  </div>
+                  {interactionLimit >= 0 && (
+                    <div className="pt-2 mb-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span style={{ color: 'var(--outline)' }}>Interacciones</span>
+                        <span className="font-bold" style={{ color: interactionLimit === 0 ? 'var(--arroba-primary)' : 'var(--on-surface)' }}>
+                          {interactionLimit === 0 ? 'Bloqueadas' : `${interactionsUsed}/${interactionLimit}`}
+                        </span>
+                      </div>
+                      {interactionLimit > 0 && (
+                        <div className="w-full h-1" style={{ background: 'var(--surface-2)' }}><div className="h-full" style={{ background: 'var(--arroba-primary)', width: `${Math.min((interactionsUsed / interactionLimit) * 100, 100)}%` }} /></div>
+                      )}
+                    </div>
+                  )}
+                  {planInfo.upgrade_message && (
+                    <Link to={`/planes?role=buyer&source=buyer_dashboard`}>
+                      <button className="w-full py-2 text-[10px] font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>
+                        MEJORAR A {planInfo.next_plan?.toUpperCase()}
+                      </button>
+                    </Link>
+                  )}
+                </div>
+              )}
+
               {/* Market */}
               <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                 <p className="text-[9px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--outline)' }}>MERCADO</p>
@@ -439,12 +525,6 @@ const BuyerDashboard = () => {
                   <div className="flex justify-between"><span className="text-xs" style={{ color: 'var(--outline)' }}>Deals activos</span><span className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{stats?.published_deals || 0}</span></div>
                   <div className="flex justify-between"><span className="text-xs" style={{ color: 'var(--outline)' }}>Nuevos esta semana</span><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>+{stats?.new_this_week || 0}</span></div>
                 </div>
-              </div>
-              {/* Soporte */}
-              <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                <p className="text-[9px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--outline)' }}>SOPORTE</p>
-                <p className="text-xs mb-2" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>¿Necesitas ayuda con tu proceso?</p>
-                <a href="mailto:equipo@arroba.es" className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>Contactar equipo <ArrowRight size={10} /></a>
               </div>
             </div>
           </div>
@@ -513,6 +593,13 @@ const VerificationRow = ({ label, done }) => (
   <div className="flex items-center gap-2 py-1">
     {done ? <CheckCircle2 size={13} style={{ color: '#16a34a' }} /> : <AlertCircle size={13} style={{ color: 'var(--outline-variant)' }} />}
     <span className="text-xs" style={{ color: done ? 'var(--on-surface)' : 'var(--outline)' }}>{label}</span>
+  </div>
+);
+
+const PlanFeatureRow = ({ label, enabled }) => (
+  <div className="flex items-center gap-2">
+    {enabled ? <CheckCircle2 size={11} style={{ color: '#16a34a' }} /> : <Lock size={11} style={{ color: 'var(--outline-variant)' }} />}
+    <span className="text-[10px]" style={{ color: enabled ? 'var(--on-surface)' : 'var(--outline)' }}>{label}</span>
   </div>
 );
 
