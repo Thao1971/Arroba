@@ -377,8 +377,8 @@ const SellerDashboard = () => {
                       <div className="w-10 h-10 bg-arroba-green/10 rounded-sm flex items-center justify-center mx-auto mb-2">
                         <FileText className="w-5 h-5 text-arroba-green" />
                       </div>
-                      <p className="text-lg font-bold">{activeDeal.metrics?.lois_received_count || 0}</p>
-                      <p className="text-xs text-slate-500">{(activeDeal.metrics?.lois_received_count || 0) === 1 ? 'LOI recibida' : 'LOIs recibidas'}</p>
+                      <p className="text-lg font-bold">{(activeDeal.metrics?.lois_received_count || 0) === 1 ? 'LOI recibida' : 'LOIs recibidas'}</p>
+                      <p className="text-xs text-slate-500"></p>
                     </div>
                   </div>
 

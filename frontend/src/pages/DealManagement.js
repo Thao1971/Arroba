@@ -288,7 +288,7 @@ const ComparatorTab = ({ deal, onRefresh }) => {
             {engData?.total_interests || 0} Intereses
           </span>
           <span className="bg-arroba-coral/10 px-3 py-1 rounded-full text-arroba-coral font-medium">
-            {engData?.total_lois === 1 ? '1 LOI recibida' : `${engData?.total_lois || 0} LOIs recibidas`}
+            {(engData?.total_lois || 0) === 1 ? 'LOI recibida' : 'LOIs recibidas'}
           </span>
           <span className="bg-green-50 px-3 py-1 rounded-full text-green-700 font-medium">
             {shortlistedIds.length}/3 Shortlist
@@ -804,8 +804,8 @@ const DealManagement = () => {
                   </div>
                   <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
                     <FileText className="w-6 h-6 text-arroba-green mx-auto mb-2" />
-                      <p className="text-2xl font-bold">{deal.metrics?.lois_received_count || 0}</p>
-                    <p className="text-xs text-slate-500">{(deal.metrics?.lois_received_count || 0) === 1 ? 'LOI recibida' : 'LOIs recibidas'}</p>
+                      <p className="text-2xl font-bold">{(deal.metrics?.lois_received_count || 0) === 1 ? 'LOI recibida' : 'LOIs recibidas'}</p>
+                    <p className="text-xs text-slate-500"></p>
                   </div>
                 </div>
 

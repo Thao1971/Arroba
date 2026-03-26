@@ -177,7 +177,7 @@ def _compute_signals(data: dict) -> list:
     if lc > 0:
         signals.append({
             "type": "loi",
-            "text": f"{lc} LOI{'s' if lc > 1 else ''} recibida{'s' if lc > 1 else ''}",
+            "text": f"LOI{'s' if lc > 1 else ''} recibida{'s' if lc > 1 else ''}",
             "color": "red",
         })
 
