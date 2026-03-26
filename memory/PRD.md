@@ -100,6 +100,19 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] Hover sutil B2B en cards (translateY -2px)
 - [x] Datos parametrizables (interaction types, advisor rules, conditions) para futura admin
 
+### P0 — Deep-link Planes + NDA Mutuo Digital (COMPLETADO 26 Mar 2026)
+- [x] Deep-link: /planes?role=buyer|seller|advisor abre tab correcto
+- [x] BuyerDashboard CTA "VER PLANES PARA BUYERS" → /planes?role=buyer&source=buyer_dashboard
+- [x] Backend NDA: /api/nda/ con template, sign, PDF, email, auditoría
+- [x] Texto legal NDA mutuo adaptado a ARROBA/BUD Advisors (10 cláusulas, CIF B70821400, Madrid)
+- [x] Firma con nombre, email, fecha, hora, IP, user-agent, signature_id
+- [x] Generación PDF con reportlab (subido a Object Storage)
+- [x] Email post-firma NDA_BUYER_SIGNED (MOCKEADO - pendiente SendGrid)
+- [x] Audit trail: nda_signatures + nda_events (NDA_SIGNED, EMAIL_SENT)
+- [x] Compatibilidad con flujo NDA existente (actualiza deal.ndas_signed)
+- [x] Frontend: modal NDA con texto legal completo, formulario firmante, checkbox aceptación
+- [x] Collections: nda_signatures, nda_events, nda_templates
+
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard
 - [ ] Activity dashboard por buyer
