@@ -123,6 +123,17 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] Deals recomendados en grid 2 columnas debajo de procesos
 - [x] Layout: columna principal + rail lateral, hover sutil, design Digital Artifact
 
+### P0 — Buyer Dashboard Premium Fase 2 (COMPLETADO 26 Mar 2026)
+- [x] 5 tabs: Dashboard, Seguimiento, Recomendados, Alertas, Perfil
+- [x] Seguimiento: deals guardados con sector, financieros, fecha de guardado
+- [x] Recomendados: deals con badges afinidad + match_reason explicativo ("Encaja con tu sector", "Coincide con facturación")
+- [x] Backend: _generate_match_reason() en matching_service.py (taxonomy, revenue, ticket, geography, operation)
+- [x] Alertas: lista notificaciones + "MARCAR TODO LEÍDO" + preferencias (Email/In-app, 3 tipos)
+- [x] Perfil comprador: datos personales, tesis de inversión, verificación (checklist 4 items), EDITAR PERFIL CTA
+- [x] Ajuste F1: KPI renombrado "DEALS DISPONIBLES", overlay Free sutil ("Acceso limitado... Ver planes")
+- [x] Rail derecho persistente en todos los tabs: plan status + mercado + accesos rápidos
+- [x] Preparado para sello Comprador Certificado (checklist de verificación visible)
+
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard
 - [ ] Activity dashboard por buyer
