@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { marketplaceAPI, matchingAPI, engagementsAPI, ndaAPI, notificationsAPI } from '../services/api';
 import {
   Search, FileText, ArrowRight, Building2,
   Sparkles, MapPin, Zap, ChevronRight, Send, FileSignature, Shield,
   Star, Lock, AlertCircle, MessageSquare, CheckCircle2,
-  FolderOpen, Eye, User, Bell, Settings, ArrowUpRight,
-  Bookmark, Mail, Clock
+  FolderOpen, Eye, User, Bell, Settings, Bookmark, ArrowLeft, Clock
 } from 'lucide-react';
 
 /* ─── Configs ─── */
@@ -33,7 +31,7 @@ const planLabels = {
   'pro+': { label: 'PRO+', color: 'var(--arroba-primary)', bg: 'rgba(182,33,42,0.06)' },
 };
 
-const TABS = [
+const SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: FolderOpen },
   { id: 'seguimiento', label: 'Seguimiento', icon: Bookmark },
   { id: 'recomendados', label: 'Recomendados', icon: Sparkles },
@@ -45,7 +43,7 @@ const TABS = [
 const BuyerDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [stats, setStats] = useState(null);
   const [recommendedDeals, setRecommendedDeals] = useState([]);
   const [processes, setProcesses] = useState([]);
@@ -71,7 +69,6 @@ const BuyerDashboard = () => {
         ]);
         setStats(statsRes.data);
         setProcesses(processRes.data.processes || []);
-
         Promise.all([
           matchingAPI.getRecommendedDeals().then(r => { setRecommendedDeals(r.data.deals || []); setProfileComplete(r.data.profile_complete || false); }).catch(() => setProfileComplete(false)),
           ndaAPI.mySignatures().then(r => setNdaCount(r.data?.length || 0)).catch(() => {}),
@@ -87,52 +84,109 @@ const BuyerDashboard = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <div className="w-6 h-6 animate-spin" style={{ border: '2px solid var(--surface-2)', borderTopColor: 'var(--arroba-primary)', borderRadius: '50%' }} />
-        </div>
-      </Layout>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--surface-0)' }}>
+        <div className="w-6 h-6 animate-spin" style={{ border: '2px solid var(--surface-2)', borderTopColor: 'var(--arroba-primary)', borderRadius: '50%' }} />
+      </div>
     );
   }
 
   const activeProcesses = processes.filter(p => p.stage !== 'REJECTED');
 
   return (
-    <Layout>
-      <div style={{ background: 'var(--surface-0)', minHeight: '100vh' }} data-testid="buyer-dashboard">
-        <div className="container mx-auto px-6 py-8">
+    <div className="min-h-screen" style={{ background: 'var(--surface-0)' }} data-testid="buyer-dashboard">
 
-          {/* ─── EXECUTIVE HEADER ─── */}
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-8">
+      {/* ─── LEFT SIDEBAR (fixed) ─── */}
+      <aside className="fixed left-0 top-0 bottom-0 w-60 flex flex-col z-40" style={{ background: 'var(--surface-1)', paddingTop: 80 }}>
+        <div className="px-6 mb-6">
+          <Link to="/" className="text-2xl font-black tracking-tight block mb-3" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.03em' }}>arroba</Link>
+          <h2 className="text-base font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Panel de Comprador</h2>
+          <p className="text-[10px] font-bold uppercase tracking-wider mt-1" style={{ color: 'var(--outline)' }}>
+            {user?.first_name} {user?.last_name}
+          </p>
+        </div>
+
+        {/* Plan badge in sidebar */}
+        <div className="px-4 mb-6">
+          <div className="px-3 py-2 flex items-center justify-between" style={{ background: plan.bg }}>
+            <span className="text-[10px] font-bold" style={{ color: plan.color }}>PLAN {plan.label}</span>
+            <span className="text-[10px] font-semibold" style={{ color: 'var(--outline)' }}>
+              {interactionLimit === -1 ? 'Ilimitadas' : interactionLimit === 0 ? '0 inter.' : `${interactionsUsed}/${interactionLimit}`}
+            </span>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 flex flex-col gap-1 px-3">
+          {SECTIONS.map(s => {
+            const Icon = s.icon;
+            const isActive = s.id === activeSection;
+            return (
+              <button key={s.id} onClick={() => setActiveSection(s.id)}
+                className="flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider transition-all"
+                style={{
+                  color: isActive ? 'var(--arroba-primary)' : 'var(--on-surface-variant)',
+                  background: isActive ? 'var(--surface-lowest)' : 'transparent',
+                  boxShadow: isActive ? '0px 4px 12px rgba(26,28,28,0.06)' : 'none',
+                }}
+                data-testid={`nav-${s.id}`}>
+                <Icon size={16} />
+                <span>{s.label}</span>
+                {s.id === 'alertas' && unreadCount > 0 && (
+                  <span className="ml-auto w-5 h-5 text-[9px] font-bold flex items-center justify-center" style={{ background: 'var(--arroba-primary)', color: '#fff', borderRadius: '50%' }}>{unreadCount}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Sidebar bottom */}
+        <div className="px-4 pb-6 space-y-3">
+          {isFree && (
+            <Link to="/planes?role=buyer&source=buyer_dashboard">
+              <button className="w-full py-3 text-[11px] font-bold flex items-center justify-center gap-2"
+                style={{ background: 'var(--arroba-primary)', color: '#fff' }} data-testid="upgrade-plan-btn">
+                MEJORAR PLAN <ArrowRight size={12} />
+              </button>
+            </Link>
+          )}
+          <Link to="/explorar">
+            <button className="w-full py-3 text-[11px] font-bold flex items-center justify-center gap-2"
+              style={{ background: 'var(--on-surface)', color: '#fff' }}>
+              <Search size={12} /> EXPLORAR MARKETPLACE
+            </button>
+          </Link>
+        </div>
+      </aside>
+
+      {/* ─── MAIN CONTENT (offset by sidebar) ─── */}
+      <main className="ml-60 min-h-screen" style={{ paddingTop: 32 }}>
+        <div className="max-w-[1100px] mx-auto px-8 pb-16">
+
+          {/* ─── TOP HEADER ─── */}
+          <div className="flex items-start justify-between gap-4 mb-8">
             <div>
-              <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>PANEL DE COMPRADOR</p>
-              <h1 className="text-3xl font-extrabold mb-1" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>
-                Hola, {user?.first_name || 'Inversor'}
-              </h1>
-              <p className="text-sm" style={{ color: 'var(--outline)' }}>
-                {activeProcesses.length > 0
-                  ? `${activeProcesses.length} proceso${activeProcesses.length !== 1 ? 's' : ''} activo${activeProcesses.length !== 1 ? 's' : ''} · ${ndaCount} NDA${ndaCount !== 1 ? 's' : ''} firmado${ndaCount !== 1 ? 's' : ''}`
-                  : 'Explora oportunidades y activa tu primer proceso'}
+              <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>
+                {SECTIONS.find(s => s.id === activeSection)?.label.toUpperCase()}
               </p>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="px-4 py-2 flex items-center gap-2" style={{ background: plan.bg }}>
-                <span className="text-[10px] font-bold" style={{ color: plan.color }}>{plan.label}</span>
-                {interactionLimit >= 0 && <span className="text-[10px] font-semibold" style={{ color: 'var(--outline)' }}>· {interactionLimit === 0 ? 'Sin interacciones' : `${interactionsUsed}/${interactionLimit}`}</span>}
-                {interactionLimit === -1 && <span className="text-[10px] font-semibold" style={{ color: 'var(--arroba-primary)' }}>· Ilimitadas</span>}
-              </div>
-              {isFree && (
-                <Link to="/planes?role=buyer&source=buyer_dashboard">
-                  <button className="px-4 py-2 text-[11px] font-bold flex items-center gap-1.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }} data-testid="upgrade-plan-btn">
-                    MEJORAR PLAN <ArrowRight size={12} />
-                  </button>
-                </Link>
+              <h1 className="text-3xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>
+                {activeSection === 'dashboard' ? `Hola, ${user?.first_name || 'Inversor'}` :
+                 activeSection === 'seguimiento' ? 'Empresas en seguimiento' :
+                 activeSection === 'recomendados' ? 'Deals recomendados' :
+                 activeSection === 'alertas' ? 'Alertas y notificaciones' :
+                 'Perfil comprador'}
+              </h1>
+              {activeSection === 'dashboard' && (
+                <p className="text-sm mt-1" style={{ color: 'var(--outline)' }}>
+                  {activeProcesses.length > 0
+                    ? `${activeProcesses.length} proceso${activeProcesses.length !== 1 ? 's' : ''} activo${activeProcesses.length !== 1 ? 's' : ''} · ${ndaCount} NDA${ndaCount !== 1 ? 's' : ''} firmado${ndaCount !== 1 ? 's' : ''}`
+                    : 'Explora oportunidades y activa tu primer proceso'}
+                </p>
               )}
             </div>
           </div>
 
           {/* ─── PROFILE ALERT ─── */}
-          {!profileComplete && (
+          {!profileComplete && activeSection === 'dashboard' && (
             <div className="mb-6 p-4 flex items-center justify-between gap-4" style={{ background: 'rgba(182,33,42,0.04)', borderLeft: '3px solid var(--arroba-primary)' }} data-testid="profile-alert">
               <div className="flex items-center gap-3">
                 <Building2 size={16} style={{ color: 'var(--arroba-primary)' }} />
@@ -147,37 +201,16 @@ const BuyerDashboard = () => {
             </div>
           )}
 
-          {/* ─── TAB NAV ─── */}
-          <div className="flex gap-1 mb-8 overflow-x-auto" style={{ borderBottom: '2px solid var(--surface-1)' }}>
-            {TABS.map(t => {
-              const Icon = t.icon;
-              const isActive = t.id === activeTab;
-              return (
-                <button key={t.id} onClick={() => setActiveTab(t.id)}
-                  className="flex items-center gap-2 px-5 py-3 text-xs font-bold uppercase tracking-wider whitespace-nowrap relative transition-colors"
-                  style={{ color: isActive ? 'var(--arroba-primary)' : 'var(--outline)' }}
-                  data-testid={`tab-${t.id}`}>
-                  <Icon size={13} />
-                  {t.label}
-                  {t.id === 'alertas' && unreadCount > 0 && (
-                    <span className="w-4 h-4 text-[9px] font-bold flex items-center justify-center" style={{ background: 'var(--arroba-primary)', color: '#fff', borderRadius: '50%' }}>{unreadCount}</span>
-                  )}
-                  {isActive && <span className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ background: 'var(--arroba-primary)' }} />}
-                </button>
-              );
-            })}
-          </div>
-
           {/* ─── CONTENT + RAIL ─── */}
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* LEFT: Main content */}
+          <div className="flex gap-8">
+            {/* CENTER content */}
             <div className="flex-1 min-w-0">
 
-              {/* ═══ TAB: Dashboard ═══ */}
-              {activeTab === 'dashboard' && (
+              {/* ═══ DASHBOARD ═══ */}
+              {activeSection === 'dashboard' && (
                 <>
                   {/* KPIs */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8" data-testid="kpi-grid">
+                  <div className="grid grid-cols-3 gap-3 mb-8" data-testid="kpi-grid">
                     {[
                       { label: 'PROCESOS ACTIVOS', value: activeProcesses.length, icon: FolderOpen },
                       { label: 'NDAs FIRMADOS', value: ndaCount, icon: FileSignature },
@@ -199,30 +232,14 @@ const BuyerDashboard = () => {
                     })}
                   </div>
 
-                  {/* Free upgrade */}
-                  {isFree && activeProcesses.length === 0 && (
-                    <div className="mb-8 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 12px rgba(25,28,30,0.04)' }}>
-                      <div className="flex items-start gap-3">
-                        <Lock size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--outline)' }} />
-                        <div>
-                          <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>Desbloquea el acceso operativo</p>
-                          <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>Con el plan Free puedes explorar y guardar oportunidades. Para gestionar interacciones y documentación, activa un plan Pro.</p>
-                        </div>
-                      </div>
-                      <Link to="/planes?role=buyer&source=buyer_dashboard" className="shrink-0">
-                        <button className="px-5 py-2.5 text-xs font-bold" style={{ background: 'var(--on-surface)', color: '#fff' }}>VER PLANES</button>
-                      </Link>
-                    </div>
-                  )}
-
                   {/* Processes */}
-                  <div className="mb-8">
+                  <div className="mb-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Mis procesos activos</h2>
-                      <span className="text-xs font-semibold" style={{ color: 'var(--outline)' }}>{activeProcesses.length} activo{activeProcesses.length !== 1 ? 's' : ''}</span>
+                      <h2 className="text-base font-extrabold" style={{ color: 'var(--on-surface)' }}>Mis procesos activos</h2>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--outline)' }}>{activeProcesses.length}</span>
                     </div>
                     {activeProcesses.length === 0 ? (
-                      <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }} data-testid="no-processes">
+                      <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }} data-testid="no-processes">
                         <Search size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
                         <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Aún no tienes procesos activos</p>
                         <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Explora el marketplace para iniciar tu primer proceso.</p>
@@ -237,26 +254,23 @@ const BuyerDashboard = () => {
                 </>
               )}
 
-              {/* ═══ TAB: Seguimiento ═══ */}
-              {activeTab === 'seguimiento' && (
+              {/* ═══ SEGUIMIENTO ═══ */}
+              {activeSection === 'seguimiento' && (
                 <div data-testid="tab-seguimiento-content">
-                  <h2 className="text-lg font-extrabold mb-1" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Empresas en seguimiento</h2>
                   <p className="text-xs mb-6" style={{ color: 'var(--outline)' }}>{savedDeals.length} oportunidad{savedDeals.length !== 1 ? 'es' : ''} guardada{savedDeals.length !== 1 ? 's' : ''}</p>
                   {savedDeals.length === 0 ? (
                     <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
                       <Bookmark size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Sin empresas en seguimiento</p>
-                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Guarda oportunidades desde el marketplace para hacer seguimiento.</p>
-                      <Link to="/explorar"><button className="px-6 py-2 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>EXPLORAR MARKETPLACE</button></Link>
+                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Guarda oportunidades desde el marketplace.</p>
+                      <Link to="/explorar"><button className="px-6 py-2 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>EXPLORAR</button></Link>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {savedDeals.map(deal => {
                         const t = deal.teaser || {};
                         return (
-                          <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`}
-                            className="block p-5 transition-all duration-150 hover:-translate-y-0.5 group"
-                            style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                          <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`} className="block p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
@@ -268,9 +282,7 @@ const BuyerDashboard = () => {
                               </div>
                               <div className="text-right shrink-0">
                                 <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
-                                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_display || t.revenue_range || 'N/D'}</p>
-                                <p className="text-[9px] font-bold uppercase mt-1" style={{ color: 'var(--outline)' }}>EBITDA</p>
-                                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.ebitda_display || t.ebitda_range || 'N/D'}</p>
+                                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_display || 'N/D'}</p>
                               </div>
                             </div>
                           </Link>
@@ -281,60 +293,39 @@ const BuyerDashboard = () => {
                 </div>
               )}
 
-              {/* ═══ TAB: Recomendados ═══ */}
-              {activeTab === 'recomendados' && (
+              {/* ═══ RECOMENDADOS ═══ */}
+              {activeSection === 'recomendados' && (
                 <div data-testid="tab-recomendados-content">
-                  <h2 className="text-lg font-extrabold mb-1" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Deals recomendados</h2>
                   <p className="text-xs mb-6" style={{ color: 'var(--outline)' }}>Oportunidades seleccionadas según tu perfil de inversión</p>
                   {!profileComplete ? (
                     <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
                       <Sparkles size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Recomendaciones no disponibles</p>
-                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Completa tu perfil para activar el matching inteligente.</p>
+                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Completa tu perfil para activar matching.</p>
                       <Link to="/buyer/onboarding"><button className="px-6 py-2 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>COMPLETAR PERFIL</button></Link>
-                    </div>
-                  ) : recommendedDeals.length === 0 ? (
-                    <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
-                      <Search size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
-                      <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>No hay deals compatibles ahora</p>
-                      <p className="text-xs" style={{ color: 'var(--outline)' }}>Te avisaremos cuando haya nuevas oportunidades.</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {recommendedDeals.map(deal => {
                         const t = deal.teaser || {};
                         return (
-                          <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`}
-                            className="block p-5 transition-all duration-150 hover:-translate-y-0.5 group"
-                            style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}
-                            data-testid={`recommended-deal-${deal.deal_id}`}>
+                          <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`} className="block p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid={`recommended-deal-${deal.deal_id}`}>
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                   <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{t.sector_display || 'Digital'}</span>
                                   {deal.affinity && (
-                                    <span className="px-2 py-0.5 text-[10px] font-bold"
-                                      style={{ background: deal.affinity === 'high' ? 'rgba(22,163,74,0.08)' : deal.affinity === 'medium' ? 'rgba(217,119,6,0.08)' : 'var(--surface-1)', color: deal.affinity === 'high' ? '#16a34a' : deal.affinity === 'medium' ? '#d97706' : 'var(--outline)' }}>
-                                      {deal.affinity_label}
-                                    </span>
+                                    <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: deal.affinity === 'high' ? 'rgba(22,163,74,0.08)' : 'rgba(217,119,6,0.08)', color: deal.affinity === 'high' ? '#16a34a' : '#d97706' }}>{deal.affinity_label}</span>
                                   )}
                                 </div>
-                                <p className="text-sm font-bold group-hover:opacity-80 transition-opacity truncate" style={{ color: 'var(--on-surface)' }}>
-                                  {t.title || t.headline || 'Oportunidad'}
-                                </p>
-                                <p className="text-sm mt-1 line-clamp-1" style={{ color: 'var(--outline)' }}>{t.short_description || t.description || ''}</p>
-                                {/* Match reason */}
+                                <p className="text-sm font-bold group-hover:opacity-80 transition-opacity truncate" style={{ color: 'var(--on-surface)' }}>{t.title || t.headline || 'Oportunidad'}</p>
                                 {deal.match_reason && (
-                                  <p className="text-xs mt-2 flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>
-                                    <Sparkles size={10} /> {deal.match_reason}
-                                  </p>
+                                  <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}><Sparkles size={10} /> {deal.match_reason}</p>
                                 )}
                               </div>
                               <div className="text-right shrink-0">
                                 <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
                                 <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_range || t.revenue_display || 'N/D'}</p>
-                                <p className="text-[9px] font-bold uppercase mt-1" style={{ color: 'var(--outline)' }}>EBITDA</p>
-                                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.ebitda_range || t.ebitda_display || 'N/D'}</p>
                               </div>
                             </div>
                           </Link>
@@ -345,14 +336,11 @@ const BuyerDashboard = () => {
                 </div>
               )}
 
-              {/* ═══ TAB: Alertas ═══ */}
-              {activeTab === 'alertas' && (
+              {/* ═══ ALERTAS ═══ */}
+              {activeSection === 'alertas' && (
                 <div data-testid="tab-alertas-content">
                   <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="text-lg font-extrabold mb-1" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Alertas y notificaciones</h2>
-                      <p className="text-xs" style={{ color: 'var(--outline)' }}>{unreadCount > 0 ? `${unreadCount} sin leer` : 'Todo al día'}</p>
-                    </div>
+                    <p className="text-xs" style={{ color: 'var(--outline)' }}>{unreadCount > 0 ? `${unreadCount} sin leer` : 'Todo al día'}</p>
                     {notifications.length > 0 && (
                       <button onClick={async () => { try { await notificationsAPI.markAllRead(); setUnreadCount(0); setNotifications(ns => ns.map(n => ({...n, read: true}))); } catch {} }}
                         className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>MARCAR TODO LEÍDO</button>
@@ -367,24 +355,21 @@ const BuyerDashboard = () => {
                   ) : (
                     <div className="space-y-2">
                       {notifications.map((n, i) => (
-                        <div key={n.notification_id || i} className="p-4 flex items-start gap-3"
-                          style={{ background: n.read ? 'var(--surface-lowest)' : 'rgba(182,33,42,0.03)', boxShadow: '0 1px 4px rgba(25,28,30,0.02)' }}>
+                        <div key={n.notification_id || i} className="p-4 flex items-start gap-3" style={{ background: n.read ? 'var(--surface-lowest)' : 'rgba(182,33,42,0.03)', boxShadow: '0 1px 4px rgba(25,28,30,0.02)' }}>
                           <div className="w-8 h-8 flex items-center justify-center shrink-0" style={{ background: n.read ? 'var(--surface-1)' : 'rgba(182,33,42,0.08)' }}>
                             <Bell size={12} style={{ color: n.read ? 'var(--outline)' : 'var(--arroba-primary)' }} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold truncate" style={{ color: 'var(--on-surface)' }}>{n.title}</p>
                             <p className="text-xs line-clamp-2" style={{ color: 'var(--outline)' }}>{n.message}</p>
-                            <p className="text-[10px] mt-1" style={{ color: 'var(--outline-variant)' }}>
-                              {n.created_at ? new Date(n.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
-                            </p>
+                            <p className="text-[10px] mt-1" style={{ color: 'var(--outline-variant)' }}>{n.created_at ? new Date(n.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
                           </div>
                           {!n.read && <span className="w-2 h-2 mt-1.5 shrink-0" style={{ background: 'var(--arroba-primary)', borderRadius: '50%' }} />}
                         </div>
                       ))}
                     </div>
                   )}
-                  {/* Notification preferences placeholder */}
+                  {/* Preferences */}
                   <div className="mt-8 p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
                     <div className="flex items-center gap-2 mb-3">
                       <Settings size={14} style={{ color: 'var(--outline)' }} />
@@ -407,12 +392,10 @@ const BuyerDashboard = () => {
                 </div>
               )}
 
-              {/* ═══ TAB: Perfil ═══ */}
-              {activeTab === 'perfil' && (
+              {/* ═══ PERFIL ═══ */}
+              {activeSection === 'perfil' && (
                 <div data-testid="tab-perfil-content">
-                  <h2 className="text-lg font-extrabold mb-6" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Perfil comprador</h2>
                   <div className="space-y-5">
-                    {/* Identity */}
                     <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                       <p className="label-arroba mb-4" style={{ color: 'var(--outline)', fontSize: 9 }}>DATOS PERSONALES</p>
                       <div className="grid md:grid-cols-2 gap-4">
@@ -422,7 +405,6 @@ const BuyerDashboard = () => {
                         <ProfileField label="Cargo" value={user?.buyer_profile?.job_title || '—'} />
                       </div>
                     </div>
-                    {/* Investment thesis */}
                     <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                       <p className="label-arroba mb-4" style={{ color: 'var(--outline)', fontSize: 9 }}>TESIS DE INVERSIÓN</p>
                       <div className="grid md:grid-cols-2 gap-4">
@@ -430,16 +412,8 @@ const BuyerDashboard = () => {
                         <ProfileField label="Ticket objetivo" value={user?.buyer_profile?.investment_range ? `${user.buyer_profile.investment_range.min_eur?.toLocaleString('es-ES')} - ${user.buyer_profile.investment_range.max_eur?.toLocaleString('es-ES')} EUR` : '—'} />
                         <ProfileField label="Sectores de interés" value={user?.buyer_profile?.taxonomy_categories?.join(', ') || user?.buyer_profile?.sectors?.join(', ') || '—'} />
                         <ProfileField label="Geografía" value={user?.buyer_profile?.preferred_regions?.join(', ') || '—'} />
-                        <ProfileField label="Tipo de operación" value={user?.buyer_profile?.operation_types?.join(', ') || '—'} />
-                        <ProfileField label="Perfil completo" value={user?.buyer_profile?.profile_complete ? 'Sí' : 'No'} highlight={!user?.buyer_profile?.profile_complete} />
                       </div>
-                      {user?.buyer_profile?.acquisition_thesis && (
-                        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--surface-1)' }}>
-                          <ProfileField label="Descripción de la tesis" value={user.buyer_profile.acquisition_thesis} />
-                        </div>
-                      )}
                     </div>
-                    {/* Verification status */}
                     <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                       <p className="label-arroba mb-4" style={{ color: 'var(--outline)', fontSize: 9 }}>VERIFICACIÓN</p>
                       <div className="space-y-2">
@@ -448,46 +422,16 @@ const BuyerDashboard = () => {
                         <VerificationRow label="Empresa declarada" done={!!user?.buyer_profile?.company_name} />
                         <VerificationRow label="Tesis de inversión" done={!!user?.buyer_profile?.acquisition_thesis} />
                       </div>
-                      <p className="text-[10px] mt-4" style={{ color: 'var(--outline-variant)' }}>
-                        El sello de Comprador Certificado estará disponible próximamente para compradores con verificación completa.
-                      </p>
+                      <p className="text-[10px] mt-4" style={{ color: 'var(--outline-variant)' }}>El sello de Comprador Certificado estará disponible próximamente.</p>
                     </div>
-                    {/* Edit CTA */}
-                    <Link to="/buyer/onboarding">
-                      <button className="w-full py-3 text-xs font-bold" style={{ background: 'var(--on-surface)', color: '#fff' }}>EDITAR PERFIL DE COMPRADOR</button>
-                    </Link>
+                    <Link to="/buyer/onboarding"><button className="w-full py-3 text-xs font-bold" style={{ background: 'var(--on-surface)', color: '#fff' }}>EDITAR PERFIL DE COMPRADOR</button></Link>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* ─── RIGHT RAIL ─── */}
-            <div className="lg:w-[280px] shrink-0 space-y-5">
-              {/* Plan */}
-              <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid="plan-status-card">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>TU PLAN</p>
-                  <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: plan.bg, color: plan.color }}>{plan.label}</span>
-                </div>
-                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>Buyer {planTier === 'pro+' ? 'Pro+' : planTier === 'pro' ? 'Pro' : 'Free'}</p>
-                {interactionLimit >= 0 && (
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between text-[10px] mb-1">
-                      <span style={{ color: 'var(--outline)' }}>Interacciones</span>
-                      <span className="font-bold" style={{ color: interactionLimit === 0 ? 'var(--arroba-primary)' : 'var(--on-surface)' }}>{interactionLimit === 0 ? 'Bloqueadas' : `${interactionsUsed}/${interactionLimit}`}</span>
-                    </div>
-                    {interactionLimit > 0 && (
-                      <div className="w-full h-1" style={{ background: 'var(--surface-2)' }}><div className="h-full" style={{ background: 'var(--arroba-primary)', width: `${Math.min((interactionsUsed / interactionLimit) * 100, 100)}%` }} /></div>
-                    )}
-                  </div>
-                )}
-                {isFree && (
-                  <Link to="/planes?role=buyer&source=buyer_dashboard">
-                    <button className="w-full mt-3 py-2 text-[10px] font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }} data-testid="rail-upgrade-btn">MEJORAR PLAN</button>
-                  </Link>
-                )}
-              </div>
-
+            {/* ─── RIGHT RAIL (contextual) ─── */}
+            <div className="w-[260px] shrink-0 space-y-5 hidden lg:block">
               {/* Market */}
               <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                 <p className="text-[9px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--outline)' }}>MERCADO</p>
@@ -495,39 +439,18 @@ const BuyerDashboard = () => {
                   <div className="flex justify-between"><span className="text-xs" style={{ color: 'var(--outline)' }}>Deals activos</span><span className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{stats?.published_deals || 0}</span></div>
                   <div className="flex justify-between"><span className="text-xs" style={{ color: 'var(--outline)' }}>Nuevos esta semana</span><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>+{stats?.new_this_week || 0}</span></div>
                 </div>
-                <Link to="/explorar" className="flex items-center gap-1 text-xs font-semibold mt-3" style={{ color: 'var(--arroba-primary)' }}>Explorar <ArrowRight size={10} /></Link>
               </div>
-
-              {/* Quick links */}
+              {/* Soporte */}
               <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                <p className="text-[9px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--outline)' }}>ACCESOS RÁPIDOS</p>
-                <div className="space-y-1.5">
-                  {[
-                    { label: 'Explorar marketplace', href: '/explorar', icon: Search },
-                    { label: 'Deals guardados', icon: Star, action: () => setActiveTab('seguimiento') },
-                    { label: 'Soporte', href: 'mailto:equipo@arroba.es', icon: Shield },
-                  ].map((link, i) => (
-                    <div key={i}>
-                      {link.href ? (
-                        <Link to={link.href} className="flex items-center gap-2 py-1 group">
-                          <link.icon size={12} style={{ color: 'var(--outline)' }} />
-                          <span className="text-xs font-semibold group-hover:opacity-70 transition-opacity" style={{ color: 'var(--on-surface)' }}>{link.label}</span>
-                        </Link>
-                      ) : (
-                        <button onClick={link.action} className="flex items-center gap-2 py-1 group w-full text-left">
-                          <link.icon size={12} style={{ color: 'var(--outline)' }} />
-                          <span className="text-xs font-semibold group-hover:opacity-70 transition-opacity" style={{ color: 'var(--on-surface)' }}>{link.label}</span>
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <p className="text-[9px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--outline)' }}>SOPORTE</p>
+                <p className="text-xs mb-2" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>¿Necesitas ayuda con tu proceso?</p>
+                <a href="mailto:equipo@arroba.es" className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>Contactar equipo <ArrowRight size={10} /></a>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </Layout>
+      </main>
+    </div>
   );
 };
 
@@ -536,7 +459,6 @@ const ProcessCard = ({ proc, isFree }) => {
   const stage = stageConfig[proc.stage] || { label: proc.stage, color: 'text-slate-600', bg: 'var(--surface-1)', icon: FileText };
   const StageIcon = stage.icon;
   const isBlocked = isFree && proc.stage !== 'REJECTED';
-
   return (
     <div className="transition-all duration-150 hover:-translate-y-0.5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid={`process-${proc.engagement_id}`}>
       <Link to={`/explorar/${proc.deal_id}`} className="block p-5 group">
@@ -554,7 +476,6 @@ const ProcessCard = ({ proc, isFree }) => {
           </div>
           <div className="text-right shrink-0">
             {proc.valuation_offer && <p className="text-sm font-black" style={{ color: 'var(--arroba-primary)' }}>{(proc.valuation_offer / 1e6).toFixed(1).replace('.', ',')}M€</p>}
-            <ChevronRight size={14} className="mt-1 ml-auto" style={{ color: 'var(--outline-variant)' }} />
           </div>
         </div>
         {proc.next_step && proc.stage !== 'REJECTED' && (
@@ -562,9 +483,7 @@ const ProcessCard = ({ proc, isFree }) => {
             <span className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}><ArrowRight size={10} /> {proc.next_step.action}</span>
             {proc.conversation_id && (
               <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/qa/${proc.conversation_id}`; }}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase"
-                style={{ background: 'rgba(0,100,147,0.06)', color: '#004b74' }}
-                data-testid={`qa-link-${proc.engagement_id}`}>
+                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold uppercase" style={{ background: 'rgba(0,100,147,0.06)', color: '#004b74' }} data-testid={`qa-link-${proc.engagement_id}`}>
                 <MessageSquare size={9} /> Q&A
               </button>
             )}
@@ -583,10 +502,10 @@ const ProcessCard = ({ proc, isFree }) => {
   );
 };
 
-const ProfileField = ({ label, value, highlight }) => (
+const ProfileField = ({ label, value }) => (
   <div>
     <p className="text-[9px] font-bold uppercase tracking-wider mb-0.5" style={{ color: 'var(--outline)' }}>{label}</p>
-    <p className="text-sm" style={{ color: highlight ? 'var(--arroba-primary)' : 'var(--on-surface)' }}>{value || '—'}</p>
+    <p className="text-sm" style={{ color: 'var(--on-surface)' }}>{value || '—'}</p>
   </div>
 );
 
