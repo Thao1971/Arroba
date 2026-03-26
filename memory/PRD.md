@@ -113,6 +113,16 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] Frontend: modal NDA con texto legal completo, formulario firmante, checkbox aceptación
 - [x] Collections: nda_signatures, nda_events, nda_templates
 
+### P0 — Buyer Dashboard Premium Fase 1 (COMPLETADO 26 Mar 2026)
+- [x] Cabecera ejecutiva: nombre, resumen procesos/NDAs, badge plan (FREE/PRO/PRO+), CTA MEJORAR PLAN
+- [x] 6 KPIs: procesos activos, NDAs firmados, deals guardados, deals en mercado, recomendados, interacciones
+- [x] Interacciones: Bloqueadas (free), X/5 (pro), Ilimitadas (pro+)
+- [x] Mis procesos activos: cards con estado, tipo, título, sector, ubicación, valoración (formato EU), siguiente paso, Q&A
+- [x] Diferenciación Free: overlay "Detalle limitado. Mejora tu plan" en cada proceso
+- [x] Rail derecho: plan status card, mercado (deals activos/nuevos), accesos rápidos
+- [x] Deals recomendados en grid 2 columnas debajo de procesos
+- [x] Layout: columna principal + rail lateral, hover sutil, design Digital Artifact
+
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard
 - [ ] Activity dashboard por buyer
