@@ -1,0 +1,109 @@
+{
+  "summary": "Plans & Pricing page V2 (/planes) testing complete. Backend: 23/23 API tests passed (100%). Frontend: All 17 features verified - tabs, billing toggle, interaction badges, taglines, advisor rules/conditions, 7 FAQ items, comparison table with interaction row, hover effects.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "GET /api/plans/public returns 200 OK",
+      "Response has correct structure (plans, fee_rules, faq, interaction_types)",
+      "Plans grouped by seller, buyer, advisor",
+      "Seller plans: 3 cards - Free (0€), Plus (149€), Premium (499€)",
+      "Seller interaction limits: Free=0, Plus=5, Premium=-1(unlimited)",
+      "Seller annual prices: Plus=1609€, Premium=5389€",
+      "All seller plans have taglines",
+      "Buyer plans: 3 cards - Free (0€), Pro (149€), Pro+ (349€)",
+      "Buyer interaction limits: Free=0, Pro=5, Pro+=-1(unlimited)",
+      "Buyer annual prices: Pro=1609€, Pro+=3769€",
+      "All buyer plans have taglines",
+      "Advisor plan: Advisor Partner (15% revenue share)",
+      "Advisor rules: free_mandates=1, paid_threshold=2, monthly_fee=250, commitment=[6,12]",
+      "Advisor conditions: 3 conditions (commitment, no monthly, traceability)",
+      "Advisor plan has tagline",
+      "Fee rules: Seller 2.9%, Buyer 1%, Advisor 15%",
+      "FAQ has 7 items (including new 'Qué cuenta como interacción')",
+      "All FAQ items have question and answer",
+      "interaction_types returned with 3 items (interest, contact_unlock, meeting_scheduled)",
+      "Interaction types have correct structure (type, label, weight)",
+      "All plans have features list",
+      "Badges: Seller Premium (RECOMENDADO), Buyer Pro+ (RECOMENDADO), Advisor (PARTNER)"
+    ],
+    "frontend": [
+      "/planes page loads with hero section",
+      "Sellers tab active by default (red underline)",
+      "Sellers tab shows 3 plan cards: Free, Plus (149€), Premium (499€)",
+      "Billing toggle visible for sellers",
+      "Seller Free shows 'Sin interacciones' badge",
+      "Seller Plus shows 'Hasta 5/mes' badge",
+      "Seller Premium shows 'Ilimitadas' badge",
+      "Seller cards show taglines",
+      "Fee block visible for sellers with 2.9%",
+      "Interactions explainer block visible for sellers",
+      "Comparison table visible with interaction row",
+      "Annual toggle shows -10% discount text",
+      "Annual prices displayed correctly (134€/month for Plus)",
+      "Buyers tab shows 3 plan cards: Free, Pro, Pro+",
+      "Billing toggle visible for buyers",
+      "Buyer Free shows 'Sin interacciones' badge",
+      "Buyer Pro shows 'Hasta 5/mes' badge",
+      "Buyer Pro+ shows 'Ilimitadas' badge",
+      "Fee block visible for buyers with 1%",
+      "Interactions explainer block visible for buyers",
+      "Advisors tab shows Advisor Partner card",
+      "Billing toggle hidden for advisors",
+      "Advisor card shows '1 mandato gratis'",
+      "Advisor card shows '250€/mes desde 2 mandatos'",
+      "Advisor card shows conditions",
+      "Fee block visible for advisors with 15%",
+      "Interactions explainer block hidden for advisors",
+      "Comparison table hidden for advisors",
+      "FAQ section has 7 items",
+      "FAQ includes 'Qué cuenta como interacción' question",
+      "FAQ expand/collapse works",
+      "Plan cards have hover effect (translateY)",
+      "CTA section with 'Crear cuenta gratis' button"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_plans_pricing.py",
+    "/app/test_reports/pytest/pytest_results_plans_v2.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_plans_pricing.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (23/23 tests passed)",
+    "frontend": "100% (all 33 features verified)"
+  },
+
+  "test_credentials": "No auth needed - /planes is public",
+
+  "seed_data_used": {
+    "plans": "7 plans seeded on startup (3 seller, 3 buyer, 1 advisor) with new fields: monthly_interaction_limit, plan_tagline, advisor_rules, conditions",
+    "fee_rules": "3 fee rules seeded on startup",
+    "faq": "7 FAQ items served inline from backend config (including new 'Qué cuenta como interacción')",
+    "interaction_types": "3 interaction types served inline (interest, contact_unlock, meeting_scheduled)"
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Plans & Pricing page V2 fully tested. New features added: (1) monthly_interaction_limit field for all plans (Free=0, Plus/Pro=5, Premium/Pro+=-1 unlimited), (2) plan_tagline for all plans, (3) advisor_rules object with free_mandates, paid_threshold, monthly_fee_from_threshold, allowed_commitment_months, (4) conditions array for advisor plan, (5) interaction_types in API response, (6) 7 FAQ items (was 6), (7) Annual prices with 10% discount (seller_plus=1609, seller_premium=5389, buyer_pro=1609, buyer_proplus=3769). Frontend shows interaction badges (Sin interacciones / Hasta 5/mes / Ilimitadas), billing toggle hidden for advisors, comparison table with interaction row."
+}
