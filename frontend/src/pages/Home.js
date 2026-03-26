@@ -4,7 +4,131 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { marketplaceAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, Check, Shield, Building2, FileText, TrendingUp } from 'lucide-react';
+import { ArrowRight, Check, Shield, Building2, FileText, TrendingUp, ChevronRight } from 'lucide-react';
+
+/* ─── Hero Insight Card Config ─── */
+const HERO_TABS = [
+  {
+    key: 'seller',
+    tabLabel: 'Vender',
+    eyebrow: 'VENTA DE AGENCIAS',
+    title: 'Vende tu agencia con mas criterio, confidencialidad y control',
+    description: 'Activa un proceso ordenado para presentar tu compania, filtrar el interes comprador y avanzar con mayor visibilidad sobre cada paso. En un mercado cada vez mas exigente, vender bien no depende solo del momento, sino de llegar a la contraparte adecuada con la informacion correcta.',
+    primaryCtaLabel: 'Recibir una valoracion',
+    secondaryCtaLabel: 'Mas informacion',
+    primaryCtaHref: '/valoracion',
+    secondaryCtaHref: '/como-funciona',
+  },
+  {
+    key: 'buyer',
+    tabLabel: 'Comprar',
+    eyebrow: 'COMPRA DE AGENCIAS',
+    title: 'Encuentra oportunidades mejor filtradas en un mercado amplio y fragmentado',
+    description: 'Accede a companias seleccionadas, compara oportunidades con mas contexto y detecta encajes estrategicos con mayor rapidez. ARROBA te ayuda a reducir ruido, priorizar mejor y avanzar sobre operaciones con mas informacion desde el inicio.',
+    primaryCtaLabel: 'Explorar oportunidades',
+    secondaryCtaLabel: 'Como funciona',
+    primaryCtaHref: '/explorar',
+    secondaryCtaHref: '/como-funciona',
+  },
+  {
+    key: 'merge',
+    tabLabel: 'Fusionarse',
+    eyebrow: 'FUSION ENTRE AGENCIAS',
+    title: 'Gana tamano y nuevas capacidades para competir en el nuevo ciclo del sector',
+    description: 'La transformacion del mercado, la presion sobre margenes y la irrupcion de nuevas capacidades vinculadas a datos, automatizacion e inteligencia artificial estan empujando a muchas agencias a replantear su escala y su propuesta de valor. ARROBA te ayuda a identificar partners complementarios para crecer con mas solidez.',
+    primaryCtaLabel: 'Explorar una fusion',
+    secondaryCtaLabel: 'Mas informacion',
+    primaryCtaHref: '/register?role=seller',
+    secondaryCtaHref: '/como-funciona',
+  },
+];
+
+const HomeHeroInsightCard = () => {
+  const [activeTab, setActiveTab] = useState('seller');
+  const tab = HERO_TABS.find(t => t.key === activeTab);
+
+  return (
+    <div
+      className="w-full"
+      style={{ background: 'var(--surface-lowest)', boxShadow: '0 8px 40px rgba(25,28,30,0.07)' }}
+      data-testid="hero-insight-card"
+    >
+      {/* Tab header */}
+      <div className="flex" style={{ borderBottom: '2px solid var(--surface-1)' }}>
+        {HERO_TABS.map(t => {
+          const isActive = t.key === activeTab;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className="flex-1 py-3.5 text-xs font-bold uppercase tracking-wider text-center transition-colors relative"
+              style={{
+                color: isActive ? 'var(--arroba-primary)' : 'var(--outline)',
+                background: isActive ? 'var(--surface-lowest)' : 'var(--surface-1)',
+              }}
+              data-testid={`hero-tab-${t.key}`}
+            >
+              {t.tabLabel}
+              {isActive && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 h-[2px]"
+                  style={{ background: 'var(--arroba-primary)' }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab body */}
+      <div className="p-6 lg:p-8">
+        <p
+          className="label-arroba mb-3"
+          style={{ color: 'var(--arroba-primary)', fontSize: 10 }}
+          data-testid="hero-card-eyebrow"
+        >
+          {tab.eyebrow}
+        </p>
+
+        <h3
+          className="text-lg font-extrabold mb-4"
+          style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em', lineHeight: 1.25 }}
+          data-testid="hero-card-title"
+        >
+          {tab.title}
+        </h3>
+
+        <p
+          className="text-sm mb-6"
+          style={{ color: 'var(--outline)', lineHeight: 1.7 }}
+          data-testid="hero-card-description"
+        >
+          {tab.description}
+        </p>
+
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <Link to={tab.primaryCtaHref}>
+            <button
+              className="btn-primary px-6 py-3 text-sm flex items-center gap-2 whitespace-nowrap"
+              data-testid="hero-card-primary-cta"
+            >
+              {tab.primaryCtaLabel} <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </Link>
+          <Link
+            to={tab.secondaryCtaHref}
+            className="flex items-center gap-1 text-sm font-semibold whitespace-nowrap"
+            style={{ color: 'var(--on-surface-variant)' }}
+            data-testid="hero-card-secondary-cta"
+          >
+            {tab.secondaryCtaLabel} <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const signalStyles = {
   loi: { bg: 'rgba(182,33,42,0.06)', color: '#991b1b', dot: '#B6212A' },
@@ -113,46 +237,54 @@ const Home = () => {
   return (
     <Layout>
       {/* ─── HERO ─── */}
-      <section className="py-20 lg:py-28" style={{ background: 'var(--surface-lowest)' }} data-testid="hero-section">
+      <section className="py-16 lg:py-24" style={{ background: 'var(--surface-lowest)' }} data-testid="hero-section">
         <div className="container mx-auto px-6">
-          <div className="max-w-3xl">
-            <p className="label-arroba mb-4" style={{ color: 'var(--arroba-primary)', fontSize: 11 }}>
-              PLATAFORMA M&A PARA AGENCIAS DIGITALES
-            </p>
-            <h1 className="text-4xl lg:text-5xl font-extrabold mb-6" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              El lugar donde<br />
-              <span style={{ color: 'var(--arroba-primary)' }}>comprar y vender</span><br />
-              agencias
-            </h1>
+          <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 items-start">
+            {/* Left: Claim */}
+            <div className="flex-1 lg:max-w-xl pt-2">
+              <p className="label-arroba mb-4" style={{ color: 'var(--arroba-primary)', fontSize: 11 }}>
+                PLATAFORMA M&A PARA AGENCIAS DIGITALES
+              </p>
+              <h1 className="text-4xl lg:text-5xl font-extrabold mb-6" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                El lugar donde<br />
+                <span style={{ color: 'var(--arroba-primary)' }}>comprar y vender</span><br />
+                agencias
+              </h1>
 
-            <p className="text-base mb-8 max-w-lg" style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7 }}>
-              Acceso privado a la mayor plataforma de compradores y vendedores del ecosistema Madtech. Confidencialidad, proceso estructurado, acompanamiento profesional.
-            </p>
+              <p className="text-base mb-8 max-w-lg" style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7 }}>
+                Acceso privado a la mayor plataforma de compradores y vendedores del ecosistema Madtech. Confidencialidad, proceso estructurado, acompanamiento profesional.
+              </p>
 
-            {/* Trust indicators */}
-            <div className="flex flex-col gap-2 mb-8">
-              {['+120 compradores verificados', 'Confidencialidad garantizada', 'Acompanamiento en todo el proceso'].map((t, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <Check className="w-4 h-4" style={{ color: 'var(--arroba-primary)' }} />
-                  <span className="text-sm font-medium" style={{ color: 'var(--on-surface-variant)' }}>{t}</span>
-                </div>
-              ))}
+              {/* Trust indicators */}
+              <div className="flex flex-col gap-2 mb-8">
+                {['+120 compradores verificados', 'Confidencialidad garantizada', 'Acompanamiento en todo el proceso'].map((t, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Check className="w-4 h-4" style={{ color: 'var(--arroba-primary)' }} />
+                    <span className="text-sm font-medium" style={{ color: 'var(--on-surface-variant)' }}>{t}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Register CTA */}
+              <form onSubmit={handleQuickRegister} className="flex gap-2 max-w-md">
+                <input
+                  type="email"
+                  placeholder="Tu correo electronico"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-arroba flex-1"
+                  data-testid="hero-email-input"
+                />
+                <button type="submit" className="btn-primary whitespace-nowrap" data-testid="hero-register-btn">
+                  Registrate
+                </button>
+              </form>
             </div>
 
-            {/* Register CTA */}
-            <form onSubmit={handleQuickRegister} className="flex gap-2 max-w-md">
-              <input
-                type="email"
-                placeholder="Tu correo electronico"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input-arroba flex-1"
-                data-testid="hero-email-input"
-              />
-              <button type="submit" className="btn-primary whitespace-nowrap" data-testid="hero-register-btn">
-                Registrate
-              </button>
-            </form>
+            {/* Right: Insight Card */}
+            <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
+              <HomeHeroInsightCard />
+            </div>
           </div>
         </div>
       </section>
