@@ -7,7 +7,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useAuth } from '../context/AuthContext';
-import { dealsAPI, engagementsAPI } from '../services/api';
+import { dealsAPI, engagementsAPI, ndaAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DataRoomBuyerView from '../components/DataRoomBuyerView';
@@ -43,37 +43,94 @@ const stageBadge = {
 };
 
 // ===== NDA MODAL =====
-const NdaModal = ({ onAccept, onClose, loading }) => {
+const NdaModal = ({ dealId, onSigned, onClose, loading: externalLoading, user }) => {
   const [accepted, setAccepted] = useState(false);
+  const [template, setTemplate] = useState(null);
+  const [loadingTpl, setLoadingTpl] = useState(true);
+  const [signing, setSigning] = useState(false);
+  const [signerName, setSignerName] = useState('');
+  const [signerCompany, setSignerCompany] = useState('');
+  const [signerTitle, setSignerTitle] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await ndaAPI.getTemplate(dealId);
+        setTemplate(res.data);
+        setSignerName(res.data.signer_name_prefill || '');
+      } catch {} finally { setLoadingTpl(false); }
+    };
+    load();
+  }, [dealId]);
+
+  const handleSign = async () => {
+    if (!accepted || !signerName.trim()) return;
+    setSigning(true);
+    try {
+      const res = await ndaAPI.sign({
+        deal_id: dealId,
+        signer_name: signerName.trim(),
+        signer_company: signerCompany.trim() || null,
+        signer_title: signerTitle.trim() || null,
+        accept_terms: true,
+      });
+      onSigned(res.data);
+    } catch (err) {
+      console.error('NDA sign error:', err);
+    } finally { setSigning(false); }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" data-testid="nda-modal">
-      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5 text-arroba-coral" />
-          <h2 className="text-lg font-bold">Acuerdo de Confidencialidad (NDA)</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} data-testid="nda-modal">
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" style={{ background: 'var(--surface-lowest)' }}>
+        {/* Header */}
+        <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '2px solid var(--surface-1)' }}>
+          <Shield size={18} style={{ color: 'var(--arroba-primary)' }} />
+          <div>
+            <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>Acuerdo de Confidencialidad Mutuo</p>
+            <p className="text-xs" style={{ color: 'var(--outline)' }}>ARROBA / BUD Advisors, S.L. — Versión {template?.template_version || '2.0'}</p>
+          </div>
         </div>
-        <div className="bg-slate-50 rounded-lg p-4 text-sm text-slate-600 mb-4 max-h-48 overflow-y-auto">
-          <p className="font-semibold mb-2">ACUERDO DE NO DIVULGACIÓN</p>
-          <p className="mb-2">Al aceptar este acuerdo, el firmante se compromete a:</p>
-          <ul className="list-disc ml-4 space-y-1">
-            <li>Mantener la confidencialidad absoluta sobre toda la información recibida.</li>
-            <li>No divulgar, copiar, ni distribuir el contenido del Information Memorandum.</li>
-            <li>No contactar directamente a la empresa objetivo sin autorización previa.</li>
-            <li>No utilizar la información para fines distintos a la evaluación de la oportunidad.</li>
-            <li>Destruir toda la documentación si se decide no continuar con el proceso.</li>
-          </ul>
-          <p className="mt-2 text-xs text-slate-400">Plataforma Arroba — BUD Advisors</p>
+
+        {/* Document preview */}
+        <div className="flex-1 overflow-y-auto px-6 py-4" style={{ background: 'var(--surface-1)' }}>
+          {loadingTpl ? (
+            <div className="text-center py-12"><Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: 'var(--outline)' }} /><p className="text-xs" style={{ color: 'var(--outline)' }}>Cargando documento...</p></div>
+          ) : (
+            <pre className="whitespace-pre-wrap text-xs leading-relaxed" style={{ fontFamily: "'IBM Plex Sans', sans-serif", color: 'var(--on-surface-variant)' }} data-testid="nda-document-text">
+              {template?.rendered_text || 'Documento no disponible'}
+            </pre>
+          )}
         </div>
-        <label className="flex items-start gap-2 mb-4 cursor-pointer" data-testid="nda-checkbox-label">
-          <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-1 rounded" data-testid="nda-checkbox" />
-          <span className="text-sm">He leído y acepto los términos del Acuerdo de Confidencialidad (NDA)</span>
-        </label>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={onClose} className="flex-1" data-testid="nda-cancel-btn">Cancelar</Button>
-          <Button onClick={onAccept} disabled={!accepted || loading} className="flex-1 bg-arroba-coral hover:bg-arroba-coral/90 text-white" data-testid="nda-accept-btn">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <FileSignature className="w-4 h-4 mr-2" />}
-            Firmar NDA
-          </Button>
+
+        {/* Signer form + accept */}
+        <div className="px-6 py-5" style={{ borderTop: '2px solid var(--surface-1)' }}>
+          <p className="label-arroba mb-3" style={{ color: 'var(--outline)', fontSize: 9 }}>DATOS DEL FIRMANTE</p>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <input value={signerName} onChange={e => setSignerName(e.target.value)} placeholder="Nombre completo *"
+              className="px-3 py-2 text-sm outline-none" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-name" />
+            <input value={signerCompany} onChange={e => setSignerCompany(e.target.value)} placeholder="Empresa"
+              className="px-3 py-2 text-sm outline-none" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-company" />
+            <input value={signerTitle} onChange={e => setSignerTitle(e.target.value)} placeholder="Cargo"
+              className="px-3 py-2 text-sm outline-none" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-title" />
+          </div>
+          <label className="flex items-start gap-2 mb-4 cursor-pointer" data-testid="nda-checkbox-label">
+            <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} className="mt-0.5" style={{ accentColor: 'var(--arroba-primary)' }} data-testid="nda-checkbox" />
+            <span className="text-xs" style={{ color: 'var(--on-surface)' }}>
+              He leído y acepto los términos del Acuerdo de Confidencialidad Mutuo. Confirmo que la firma electrónica tiene plena validez.
+            </span>
+          </label>
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 py-3 text-sm font-bold" style={{ background: 'var(--surface-2)', color: 'var(--on-surface)' }} data-testid="nda-cancel-btn">
+              Cancelar
+            </button>
+            <button onClick={handleSign} disabled={!accepted || !signerName.trim() || signing}
+              className="flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ background: 'var(--arroba-primary)', color: '#fff' }} data-testid="nda-accept-btn">
+              {signing ? <Loader2 size={14} className="animate-spin" /> : <FileSignature size={14} />}
+              Firmar NDA
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -280,15 +337,14 @@ const DealPage = () => {
     return () => { document.title = 'Arroba — Plataforma M&A para Agencias Digitales'; };
   }, [deal]);
 
-  const handleSignNda = async () => {
+  const handleSignNda = () => {
     if (!isAuthenticated) { navigate(`/login?redirect=/explorar/${dealId}`); return; }
-    setSigningNda(true);
-    try {
-      await dealsAPI.signNda(dealId);
-      setShowNdaModal(false);
-      await fetchDeal();
-    } catch (err) { setError(err.response?.data?.detail || 'Error al firmar NDA'); }
-    finally { setSigningNda(false); }
+    setShowNdaModal(true);
+  };
+
+  const handleNdaSigned = async (result) => {
+    setShowNdaModal(false);
+    await fetchDeal();
   };
 
   const handleSubmitInterest = async (data) => {
@@ -334,7 +390,7 @@ const DealPage = () => {
 
   return (
     <Layout>
-      {showNdaModal && <NdaModal onAccept={handleSignNda} onClose={() => setShowNdaModal(false)} loading={signingNda} />}
+      {showNdaModal && <NdaModal dealId={dealId} user={user} onSigned={handleNdaSigned} onClose={() => setShowNdaModal(false)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-5xl" data-testid="deal-page">
         <Link to="/explorar" className="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-6" data-testid="back-to-marketplace">
@@ -387,7 +443,7 @@ const DealPage = () => {
           </div>
           <div className="flex gap-2 flex-shrink-0">
             {!hasNda && !isOwner && (
-              <Button onClick={() => { if (!isAuthenticated) navigate(`/login?redirect=/explorar/${dealId}`); else setShowNdaModal(true); }}
+              <Button onClick={handleSignNda}
                 className="bg-arroba-coral hover:bg-arroba-coral/90 text-white" data-testid="request-access-btn">
                 <Shield className="w-4 h-4 mr-2" /> Solicitar Acceso
               </Button>
@@ -438,7 +494,7 @@ const DealPage = () => {
                 <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-slate-900 mb-2">Documento completo disponible tras NDA</h3>
                 <p className="text-sm text-slate-500 mb-4">Firma el acuerdo de confidencialidad para acceder al infomemo y poder enviar tu interés.</p>
-                <Button onClick={() => { if (!isAuthenticated) navigate(`/login?redirect=/explorar/${dealId}`); else setShowNdaModal(true); }}
+                <Button onClick={handleSignNda}
                   className="bg-arroba-coral hover:bg-arroba-coral/90 text-white" data-testid="request-access-cta-btn">
                   <Shield className="w-4 h-4 mr-2" /> Solicitar Acceso
                 </Button>

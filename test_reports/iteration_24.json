@@ -1,0 +1,100 @@
+{
+  "summary": "NDA Mutuo Digital & Deep-link testing complete. Backend: 24/24 API tests passed (100%). Frontend: All deep-links working (/planes?role=buyer|seller|advisor), BuyerDashboard upgrade CTA correct, NDA modal fully functional with legal text preview, signer form, and acceptance checkbox.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "GET /api/nda/template/{dealId} requires authentication (401)",
+      "GET /api/nda/template/{dealId} returns rendered NDA text with signer prefill",
+      "NDA template version is 2.0",
+      "NDA template is mutual (is_mutual=True)",
+      "NDA template has Madrid jurisdiction",
+      "NDA template includes BUD Advisors S.L.",
+      "NDA template includes CIF B70821400",
+      "NDA template has 10 legal clauses",
+      "GET /api/nda/template/{dealId} returns 404 for invalid deal",
+      "POST /api/nda/sign requires authentication (401)",
+      "POST /api/nda/sign requires accept_terms=True (400)",
+      "POST /api/nda/sign requires signer_name (422)",
+      "POST /api/nda/sign creates signature or returns 'NDA ya firmado'",
+      "POST /api/nda/sign returns signature_id, has_access=true",
+      "POST /api/nda/sign records signer_name, signer_email, signed_ip",
+      "POST /api/nda/sign returns 404 for invalid deal",
+      "GET /api/nda/{signatureId}/pdf requires authentication (401)",
+      "GET /api/nda/{signatureId}/pdf returns PDF URL or streams PDF",
+      "GET /api/nda/{signatureId}/pdf returns 403 for other user's signature",
+      "POST /api/nda/{signatureId}/send-email requires authentication (401)",
+      "POST /api/nda/{signatureId}/send-email sends confirmation email (MOCKED)",
+      "GET /api/nda/my-signatures requires authentication (401)",
+      "GET /api/nda/my-signatures returns list of user's signed NDAs",
+      "NDA_BUYER_SIGNED email template exists in email service"
+    ],
+    "frontend": [
+      "/planes?role=buyer opens Buyers tab active by default",
+      "/planes?role=seller opens Sellers tab active by default",
+      "/planes?role=advisor opens Advisors tab active by default",
+      "BuyerDashboard upgrade CTA links to /planes?role=buyer&source=buyer_dashboard",
+      "NDA modal opens when clicking 'Solicitar Acceso' button",
+      "NDA modal shows full legal text (scrollable pre-formatted)",
+      "NDA modal shows version 2.0 in header",
+      "NDA modal contains BUD Advisors S.L. in text",
+      "NDA modal contains CIF B70821400 in text",
+      "NDA modal contains Madrid jurisdiction in text",
+      "NDA modal has 10 numbered clauses",
+      "NDA modal has signer name input (prefilled)",
+      "NDA modal has signer company input",
+      "NDA modal has signer title input",
+      "NDA modal has acceptance checkbox",
+      "NDA modal has Cancel and 'Firmar NDA' buttons"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_nda_deeplink.py",
+    "/app/test_reports/pytest/pytest_results_nda.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_nda_deeplink.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (24/24 tests passed)",
+    "frontend": "100% (all 16 features verified)"
+  },
+
+  "test_credentials": {
+    "buyer1": "carlos.ruiz@capitaliberica.es / demo2026",
+    "buyer2": "james.harris@techventures.co.uk / demo2026"
+  },
+
+  "seed_data_used": {
+    "nda_templates": "1 template seeded (v2.0, mutual, Madrid jurisdiction)",
+    "nda_signatures": "Created during testing - stored in nda_signatures collection",
+    "nda_events": "Audit trail events (NDA_SIGNED, EMAIL_SENT, EMAIL_RESENT) in nda_events collection"
+  },
+
+  "mocked_apis": {
+    "SendGrid email": "Email sending is MOCKED (logs to console). email_sent flag is set to true in signature record."
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "NDA Mutuo Digital fully tested. Key features: (1) GET /api/nda/template/{dealId} returns rendered NDA with signer prefill, (2) POST /api/nda/sign creates signature with PDF generation (reportlab), audit events, and email flag, (3) GET /api/nda/{signatureId}/pdf returns PDF URL or streams PDF, (4) POST /api/nda/{signatureId}/send-email re-sends confirmation email, (5) GET /api/nda/my-signatures lists user's signed NDAs. NDA template is v2.0, mutual, 10 clauses, BUD Advisors S.L., CIF B70821400, Madrid jurisdiction. Deep-links: /planes?role=buyer|seller|advisor opens correct tab. BuyerDashboard upgrade CTA links to /planes?role=buyer&source=buyer_dashboard. Collections: nda_signatures, nda_events, nda_templates."
+}

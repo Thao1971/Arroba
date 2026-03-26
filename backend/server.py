@@ -32,6 +32,7 @@ from routers.coaching import router as coaching_router
 from routers.conversations import router as conversations_router
 from modules.valuation.router import router as valuation_router
 from routers.plans import router as plans_router
+from routers.nda import router as nda_router
 
 # Configure logging
 logging.basicConfig(
@@ -67,6 +68,12 @@ async def lifespan(app: FastAPI):
         await seed_plans(db)
     except Exception as e:
         logger.warning(f"Plans seed deferred: {e}")
+    # Seed NDA template
+    try:
+        from routers.nda import seed_nda_template
+        await seed_nda_template()
+    except Exception as e:
+        logger.warning(f"NDA template seed deferred: {e}")
     yield
     # Shutdown
     logger.info("Closing database connection...")
@@ -111,6 +118,7 @@ app.include_router(coaching_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
 app.include_router(valuation_router, prefix="/api")
 app.include_router(plans_router, prefix="/api")
+app.include_router(nda_router, prefix="/api")
 
 
 @app.get("/api")

@@ -234,4 +234,13 @@ export const plansAPI = {
   getPublic: () => api.get('/plans/public'),
 };
 
+// NDA API
+export const ndaAPI = {
+  getTemplate: (dealId) => api.get(`/nda/template/${dealId}`),
+  sign: (data) => api.post('/nda/sign', data),
+  getPdf: (signatureId) => api.get(`/nda/${signatureId}/pdf`),
+  sendEmail: (signatureId) => api.post(`/nda/${signatureId}/send-email`),
+  mySignatures: () => api.get('/nda/my-signatures'),
+};
+
 export default api;

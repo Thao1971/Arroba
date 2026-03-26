@@ -59,3 +59,11 @@ def generate_storage_path(deal_id: str, folder: str, filename: str) -> str:
     ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
     unique_name = f"{uuid.uuid4().hex[:12]}.{ext}"
     return f"{APP_NAME}/dataroom/{deal_id}/{folder}/{unique_name}"
+
+
+
+def upload_bytes(data: bytes, path: str, content_type: str) -> str:
+    """Upload raw bytes and return the download URL."""
+    full_path = f"{APP_NAME}/{path}"
+    result = put_object(full_path, data, content_type)
+    return result.get("url", result.get("download_url", f"/api/storage/{full_path}"))

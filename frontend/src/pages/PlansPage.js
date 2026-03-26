@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { plansAPI } from '../services/api';
 import {
@@ -261,7 +261,11 @@ const TABS = [
 ];
 
 const PlansPage = () => {
-  const [activeTab, setActiveTab] = useState('seller');
+  const [searchParams] = useSearchParams();
+  const roleParam = searchParams.get('role');
+  const [activeTab, setActiveTab] = useState(
+    roleParam && ['seller', 'buyer', 'advisor'].includes(roleParam) ? roleParam : 'seller'
+  );
   const [data, setData] = useState(null);
   const [openFaq, setOpenFaq] = useState(null);
   const [showAnnual, setShowAnnual] = useState(false);

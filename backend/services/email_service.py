@@ -96,6 +96,26 @@ Proximos pasos:
 
 Equipo ARROBA / BUD Advisors""",
     },
+    "NDA_BUYER_SIGNED": {
+        "subject": "Tu NDA firmado en ARROBA",
+        "body": """Hola {name},
+
+Confirmamos que has firmado correctamente el Acuerdo de Confidencialidad Mutuo en ARROBA.
+
+Referencia: {deal_title}
+Identificador de firma: {signature_id}
+Fecha: {signed_date}
+Hora: {signed_time}
+
+A partir de este momento tienes acceso al infomemo y al Data Room de la operacion.
+
+Proximo paso recomendado:
+Revisa la documentacion disponible y, si la oportunidad encaja con tu tesis de inversion, expresa tu interes formalmente desde la plataforma.
+
+Si necesitas ayuda, contacta con nuestro equipo en equipo@arroba.es.
+
+Equipo ARROBA / BUD Advisors, S.L.""",
+    },
 }
 
 

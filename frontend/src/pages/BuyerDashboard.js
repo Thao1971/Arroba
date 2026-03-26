@@ -291,8 +291,8 @@ const BuyerDashboard = () => {
                 <h3 className="font-bold text-slate-900">Tu Suscripción</h3>
                 <span className="badge-arroba">Sin plan</span>
               </div>
-              <p className="text-sm text-slate-500 mb-4">Activa tu suscripción para solicitar acceso a deals y firmar NDAs</p>
-              <Link to="/pricing"><Button className="w-full btn-primary">VER PLANES</Button></Link>
+              <p className="text-sm text-slate-500 mb-4">Activa tu suscripción para desbloquear más acceso y funcionalidades</p>
+              <Link to="/planes?role=buyer&source=buyer_dashboard"><Button className="w-full btn-primary" data-testid="upgrade-plan-btn">VER PLANES PARA BUYERS</Button></Link>
             </div>
           </div>
         </div>
