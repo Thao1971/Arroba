@@ -203,7 +203,6 @@ const DealCard = ({ deal }) => {
 };
 
 const Home = () => {
-  const [email, setEmail] = useState('');
   const [stats, setStats] = useState(null);
   const [featuredDeals, setFeaturedDeals] = useState([]);
   const navigate = useNavigate();
@@ -225,15 +224,6 @@ const Home = () => {
     fetchData();
   }, []);
 
-  const handleQuickRegister = (e) => {
-    e.preventDefault();
-    if (email) {
-      navigate(`/register?email=${encodeURIComponent(email)}`);
-    } else {
-      navigate('/register');
-    }
-  };
-
   return (
     <Layout>
       {/* ─── HERO ─── */}
@@ -251,34 +241,9 @@ const Home = () => {
                 agencias
               </h1>
 
-              <p className="text-base mb-8 max-w-lg" style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7 }}>
+              <p className="text-base max-w-lg" style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7 }}>
                 Acceso privado a la mayor plataforma de compradores y vendedores del ecosistema Madtech. Confidencialidad, proceso estructurado, acompanamiento profesional.
               </p>
-
-              {/* Trust indicators */}
-              <div className="flex flex-col gap-2 mb-8">
-                {['+120 compradores verificados', 'Confidencialidad garantizada', 'Acompanamiento en todo el proceso'].map((t, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Check className="w-4 h-4" style={{ color: 'var(--arroba-primary)' }} />
-                    <span className="text-sm font-medium" style={{ color: 'var(--on-surface-variant)' }}>{t}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Register CTA */}
-              <form onSubmit={handleQuickRegister} className="flex gap-2 max-w-md">
-                <input
-                  type="email"
-                  placeholder="Tu correo electronico"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-arroba flex-1"
-                  data-testid="hero-email-input"
-                />
-                <button type="submit" className="btn-primary whitespace-nowrap" data-testid="hero-register-btn">
-                  Registrate
-                </button>
-              </form>
             </div>
 
             {/* Right: Insight Card */}
