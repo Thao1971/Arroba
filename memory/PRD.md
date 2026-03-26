@@ -70,6 +70,21 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] CIF lookup, datos financieros, valoracion, deal config, teaser/infomemo AI
 - [x] Eliminado SellerWizardBoceto.js (redundante)
 
+### P0 — Modulo de Valoracion Publica (COMPLETADO 26 Mar 2026)
+- [x] Backend dominio independiente: /modules/valuation/ (router, service, engine, scoring, config_service, repositories, schemas)
+- [x] Motor de valoracion: multiplos por categoria/subcategoria (CIS), quality_score (0-100), quality_factor (0.7-1.3)
+- [x] 10 categorias con multiplos CIS seed, fallback global para subcategorias sin datos
+- [x] Confidence levels: alta/media/baja segun completitud de datos
+- [x] Fallback EBITDA negativo: estimacion basada en revenue
+- [x] Persistencia: valuation_leads, valuation_multiples, valuation_settings, valuation_runs, valuation_premium_requests
+- [x] Frontend wizard /valoracion: 4 pasos (Identificacion, Compania, Taxonomia, Momento) + pantalla resultado
+- [x] Resultado: rango valoracion, valor orientativo, drivers, confianza, multiples, disclaimer legal
+- [x] CTAs: dar de alta agencia, valoracion experta (1.950 EUR), enviar email
+- [x] Hero block en Home: "Descubre cuanto podria valer tu agencia" con ejemplo visual
+- [x] Legal: checkbox obligatorio veracidad + opcional comunicaciones + disclaimer BUD Advisors
+- [x] Email: plantilla resultado (MOCKEADO - pendiente SendGrid)
+- [x] Preparado para consola admin futura (settings, multiples, weights configurables)
+
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard
 - [ ] Activity dashboard por buyer
