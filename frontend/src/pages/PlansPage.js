@@ -66,10 +66,10 @@ const PlanCard = ({ plan, showAnnual }) => {
 
       {/* Price */}
       <div className="mb-6">
-        {isFree && (
+        {isFree && !isAdvisor && (
           <span className="text-3xl font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>Gratis</span>
         )}
-        {!isFree && !isRevenueShare && (
+        {!isFree && !isRevenueShare && !isAdvisor && (
           <div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>
@@ -84,22 +84,19 @@ const PlanCard = ({ plan, showAnnual }) => {
             )}
           </div>
         )}
-        {isRevenueShare && !isAdvisor && (
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>
-              {plan.revenue_share_pct}%
-            </span>
-            <span className="text-sm" style={{ color: 'var(--outline)' }}>revenue share</span>
+        {isAdvisor && isFree && (
+          <div>
+            <span className="text-3xl font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>Gratis</span>
+            <p className="text-xs mt-1" style={{ color: 'var(--outline)' }}>+ 15% sobre honorarios pactados</p>
           </div>
         )}
-        {isAdvisor && (
+        {isAdvisor && !isFree && (
           <div>
-            <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>1 mandato gratis</p>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>
-                250 €
+                {fmtPrice(plan.monthly_price)} €
               </span>
-              <span className="text-sm" style={{ color: 'var(--outline)' }}>/mes desde 2 mandatos</span>
+              <span className="text-sm" style={{ color: 'var(--outline)' }}>/mes</span>
             </div>
             <p className="text-xs mt-1" style={{ color: 'var(--outline)' }}>+ 15% sobre honorarios pactados</p>
           </div>
@@ -146,7 +143,7 @@ const PlanCard = ({ plan, showAnnual }) => {
           }}
           data-testid={`plan-cta-${plan.plan_id}`}
         >
-          {isFree ? 'Empezar gratis' : isAdvisor ? 'Solicitar acceso' : 'Activar plan'}
+          {isFree ? 'Empezar gratis' : (isAdvisor && !isFree) ? 'Hablar con el equipo' : 'Activar plan'}
           <ArrowRight size={14} className="transition-transform duration-150 group-hover/btn:translate-x-0.5" />
         </button>
       </Link>
@@ -348,10 +345,28 @@ const PlansPage = () => {
               )}
             </>
           ) : (
-            <div className="max-w-2xl mx-auto">
-              {plans.map(p => <PlanCard key={p.plan_id} plan={p} showAnnual={false} />)}
-              <div className="mt-8"><FeeBlock role="advisor" feeRule={feeRule} /></div>
-            </div>
+            /* Advisor: 2 cards + fee + explainer */
+            <>
+              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-8">
+                {plans.map(p => <PlanCard key={p.plan_id} plan={p} showAnnual={false} />)}
+              </div>
+              <div className="max-w-4xl mx-auto mb-8">
+                <FeeBlock role="advisor" feeRule={feeRule} />
+              </div>
+              <div className="max-w-3xl mx-auto p-6" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 12px rgba(25,28,30,0.04)' }}>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 flex items-center justify-center shrink-0" style={{ background: 'var(--surface-2)' }}>
+                    <Handshake size={16} style={{ color: 'var(--on-surface)' }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Cómo funciona para advisors</p>
+                    <p className="text-sm" style={{ color: 'var(--outline)', lineHeight: 1.6 }}>
+                      Los advisors pueden empezar con 1 mandato activo gratis. Para gestionar 2 o más mandatos activos dentro de la plataforma, deben activar Advisor Pro. En ambos casos, ARROBA participa con el 15% de los honorarios pactados con el cliente, siempre dentro de un marco transparente y verificable.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </section>

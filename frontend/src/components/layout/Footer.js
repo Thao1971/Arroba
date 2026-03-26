@@ -19,13 +19,13 @@ const Footer = () => {
             <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Plataforma</p>
             <ul className="space-y-2">
               <li><Link to="/explorar" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Marketplace</Link></li>
-              <li><Link to="/como-funciona" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Como Funciona</Link></li>
+              <li><Link to="/planes" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Planes</Link></li>
               <li><Link to="/vender" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Vender mi empresa</Link></li>
             </ul>
           </div>
 
           <div>
-            <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Compania</p>
+            <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Compañía</p>
             <ul className="space-y-2">
               <li><a href="https://budadvisors.com" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>BUD Advisors</a></li>
               <li><Link to="/contact" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Contacto</Link></li>
@@ -36,7 +36,7 @@ const Footer = () => {
             <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Legal</p>
             <ul className="space-y-2">
               <li><Link to="/privacy" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Privacidad</Link></li>
-              <li><Link to="/terms" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Terminos de Uso</Link></li>
+              <li><Link to="/terms" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Términos de uso</Link></li>
             </ul>
           </div>
         </div>

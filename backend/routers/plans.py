@@ -166,11 +166,39 @@ DEFAULT_PLANS = [
     },
     # ── ADVISORS ──
     {
-        "plan_id": "advisor_partner",
+        "plan_id": "advisor_free",
         "role_type": "advisor",
-        "plan_name": "Advisor Partner",
-        "plan_tagline": "Un modelo pensado para asesores que quieren canalizar operaciones a través de ARROBA con un marco transparente.",
-        "billing_type": "revenue_share",
+        "plan_name": "Advisor Free",
+        "plan_tagline": "Empieza a canalizar operaciones a través de ARROBA con un mandato activo.",
+        "billing_type": "free",
+        "monthly_price": 0,
+        "annual_price": None,
+        "annual_discount_pct": None,
+        "success_fee_pct": None,
+        "revenue_share_pct": 15,
+        "monthly_interaction_limit": -1,
+        "badge": None,
+        "is_highlighted": False,
+        "advisor_rules": {
+            "max_active_mandates": 1,
+        },
+        "features": [
+            "1 mandato activo gratis",
+            "Acceso básico a la plataforma",
+            "Gestión inicial de oportunidades",
+            "Comisión del 15% sobre los honorarios pactados con su cliente",
+            "Visibilidad sobre mandato y honorarios",
+        ],
+        "conditions": [],
+        "is_active": True,
+        "sort_order": 1,
+    },
+    {
+        "plan_id": "advisor_pro",
+        "role_type": "advisor",
+        "plan_name": "Advisor Pro",
+        "plan_tagline": "Pensado para asesores que gestionan varias operaciones activas dentro de ARROBA.",
+        "billing_type": "recurring",
         "monthly_price": 250,
         "annual_price": None,
         "annual_discount_pct": None,
@@ -180,17 +208,16 @@ DEFAULT_PLANS = [
         "badge": "PARTNER",
         "is_highlighted": True,
         "advisor_rules": {
-            "free_mandates": 1,
-            "paid_threshold": 2,
-            "monthly_fee_from_threshold": 250,
+            "min_active_mandates": 2,
             "allowed_commitment_months": [6, 12],
         },
         "features": [
-            "1 mandato activo gratis",
-            "A partir de 2 mandatos: 250 €/mes",
-            "15% sobre los honorarios pactados con su cliente",
-            "Visibilidad sobre mandato y honorarios",
-            "Gestión de oportunidades dentro de la plataforma",
+            "Todo lo incluido en Advisor Free",
+            "A partir de 2 mandatos activos",
+            "Gestión recurrente de múltiples oportunidades",
+            "Comisión del 15% sobre los honorarios pactados con su cliente",
+            "Contratación mínima de 6 o 12 meses",
+            "Trazabilidad contractual y validación de honorarios",
         ],
         "conditions": [
             "Contratación mínima de 6 o 12 meses",
@@ -198,7 +225,7 @@ DEFAULT_PLANS = [
             "Es necesaria trazabilidad contractual para validar honorarios y liquidaciones",
         ],
         "is_active": True,
-        "sort_order": 1,
+        "sort_order": 2,
     },
 ]
 
@@ -272,10 +299,8 @@ FAQ_ITEMS = [
 
 async def seed_plans(database):
     """Seed default plans if none exist. Drop and reseed if structure changed."""
-    existing = await database.plans.find_one({"plan_id": "seller_free"}, {"_id": 0})
-    needs_reseed = not existing or "monthly_interaction_limit" not in existing
-
-    if needs_reseed:
+    existing = await database.plans.find_one({"plan_id": "advisor_free"}, {"_id": 0})
+    if not existing:
         await database.plans.delete_many({})
         await database.transaction_fee_rules.delete_many({})
 

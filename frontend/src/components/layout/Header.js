@@ -83,7 +83,7 @@ const Header = () => {
               <>
                 <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Explorar</NavLink>
                 <NavLink to="/vender" active={isActive('/vender')}>Vender mi empresa</NavLink>
-                <NavLink to="/como-funciona" active={isActive('/como-funciona')}>Como funciona</NavLink>
+                <NavLink to="/planes" active={isActive('/planes')}>Planes</NavLink>
               </>
             )}
 
