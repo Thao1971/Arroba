@@ -86,17 +86,19 @@ Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enf
 - [x] Preparado para consola admin futura (settings, multiples, weights configurables)
 
 ### P0 — Página de Planes y Precios (COMPLETADO 26 Mar 2026)
-- [x] Backend: /api/plans/public con planes seed en MongoDB (7 planes + 3 fee rules + 6 FAQ)
+- [x] Backend: /api/plans/public con planes seed en MongoDB (7 planes + 3 fee rules + 7 FAQ + 3 interaction types)
 - [x] Frontend: /planes con tabs Sellers/Buyers/Advisors
-- [x] Sellers: Free (0€), Plus (149€/mes), Premium (499€/mes) + comisión éxito 2,9%
-- [x] Buyers: Free (0€), Pro (149€/mes), Pro+ (349€/mes) + comisión éxito 1%
-- [x] Advisors: Partner (15% revenue share sobre honorarios)
-- [x] Tabla comparativa de funcionalidades por plan
-- [x] Bloque pedagógico de estructura de costes (suscripción + comisión + advisor)
-- [x] FAQ con 6 preguntas desplegables
-- [x] Placeholders legales (términos, privacidad, comisión, advisor)
-- [x] CTA final + /pricing redirige a /planes
-- [x] Datos parametrizables desde DB, preparados para futura consola admin
+- [x] Sellers: Free (0 interacciones), Plus (149€/mes, 5 interacciones), Premium (499€/mes, ilimitadas) + 2,9% comisión
+- [x] Buyers: Free (0 interacciones), Pro (149€/mes, 5 interacciones), Pro+ (349€/mes, ilimitadas) + 1% comisión
+- [x] Advisors: 1 mandato gratis, desde 2 mandatos 250€/mes, 15% revenue share, compromiso 6-12 meses
+- [x] Toggle facturación mensual/anual con 10% descuento
+- [x] Badges de interacciones por plan (Sin interacciones / Hasta 5/mes / Ilimitadas)
+- [x] Bloque explicativo de interacciones + bloque pedagógico de estructura económica
+- [x] Tabla comparativa con fila de interacciones
+- [x] FAQ con 7 preguntas (incluyendo "¿Qué cuenta como interacción?")
+- [x] Placeholders legales + CTA final
+- [x] Hover sutil B2B en cards (translateY -2px)
+- [x] Datos parametrizables (interaction types, advisor rules, conditions) para futura admin
 
 ### P1 — Buyer Signal Clarity
 - [ ] LOI Comparator visual dashboard
