@@ -12,6 +12,7 @@ const ShareMenu = ({ dealId, title }) => {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const url = `${window.location.origin}/explorar/${dealId}`;
+  const shareTitle = title ? `${title} — ARROBA` : 'Oportunidad en ARROBA';
 
   const copyUrl = async (e) => {
     e.preventDefault();
@@ -24,7 +25,7 @@ const ShareMenu = ({ dealId, title }) => {
     e.preventDefault();
     e.stopPropagation();
     if (navigator.share) {
-      try { await navigator.share({ title: title || 'Oportunidad en ARROBA', url }); } catch {}
+      try { await navigator.share({ title: shareTitle, text: shareTitle, url }); } catch {}
     } else { copyUrl(e); }
     setOpen(false);
   };

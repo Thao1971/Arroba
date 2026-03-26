@@ -250,6 +250,36 @@ const DealPage = () => {
 
   useEffect(() => { fetchDeal(); }, [fetchDeal]);
 
+  // Dynamic OG meta tags for social sharing
+  useEffect(() => {
+    if (!deal) return;
+    const teaser = deal.teaser || {};
+    const title = teaser.title || teaser.headline || 'Oportunidad de Inversión';
+    const desc = teaser.short_description || teaser.description || 'Oportunidad en el sector digital — ARROBA';
+    const pageTitle = `${title} — ARROBA`;
+
+    document.title = pageTitle;
+
+    const setMeta = (property, content) => {
+      let el = document.querySelector(`meta[property="${property}"]`) || document.querySelector(`meta[name="${property}"]`);
+      if (el) { el.setAttribute('content', content); }
+      else {
+        el = document.createElement('meta');
+        el.setAttribute(property.startsWith('og:') ? 'property' : 'name', property);
+        el.setAttribute('content', content);
+        document.head.appendChild(el);
+      }
+    };
+
+    setMeta('og:title', pageTitle);
+    setMeta('og:description', desc);
+    setMeta('og:url', window.location.href);
+    setMeta('twitter:title', pageTitle);
+    setMeta('twitter:description', desc);
+
+    return () => { document.title = 'Arroba — Plataforma M&A para Agencias Digitales'; };
+  }, [deal]);
+
   const handleSignNda = async () => {
     if (!isAuthenticated) { navigate(`/login?redirect=/explorar/${dealId}`); return; }
     setSigningNda(true);
