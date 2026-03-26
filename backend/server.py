@@ -31,6 +31,7 @@ from routers.tracking import router as tracking_router
 from routers.coaching import router as coaching_router
 from routers.conversations import router as conversations_router
 from modules.valuation.router import router as valuation_router
+from routers.plans import router as plans_router
 
 # Configure logging
 logging.basicConfig(
@@ -60,6 +61,12 @@ async def lifespan(app: FastAPI):
         await seed_default_settings(db)
     except Exception as e:
         logger.warning(f"Valuation seed deferred: {e}")
+    # Seed plans
+    try:
+        from routers.plans import seed_plans
+        await seed_plans(db)
+    except Exception as e:
+        logger.warning(f"Plans seed deferred: {e}")
     yield
     # Shutdown
     logger.info("Closing database connection...")
@@ -103,6 +110,7 @@ app.include_router(tracking_router, prefix="/api")
 app.include_router(coaching_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
 app.include_router(valuation_router, prefix="/api")
+app.include_router(plans_router, prefix="/api")
 
 
 @app.get("/api")

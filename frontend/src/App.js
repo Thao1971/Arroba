@@ -21,6 +21,7 @@ import AdvisorMandatos from './pages/AdvisorMandatos';
 // SellerWizardBoceto removed - merged into SellerWizard V2
 import ConversationPage from './pages/ConversationPage';
 import ValuationWizard from './pages/ValuationWizard';
+import PlansPage from './pages/PlansPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
@@ -75,6 +76,8 @@ const AppRouter = () => {
       <Route path="/como-funciona" element={<Home />} />
       {/* Boceto route removed - merged into SellerWizard V2 */}
       <Route path="/valoracion" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin', 'advisor']} skipOnboardingCheck><ValuationWizard /></ProtectedRoute>} />
+      <Route path="/planes" element={<PlansPage />} />
+      <Route path="/pricing" element={<Navigate to="/planes" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/auth/callback" element={<AuthCallback />} />

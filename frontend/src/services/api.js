@@ -27,7 +27,7 @@ api.interceptors.response.use(
       localStorage.removeItem('access_token');
       // Only redirect to login for protected routes, not for public pages
       // Don't redirect if we're on public pages or already on auth pages
-      const publicPaths = ['/', '/marketplace', '/explorar', '/pricing', '/about', '/login', '/register', '/auth/callback', '/como-funciona', '/vender', '/valoracion'];
+      const publicPaths = ['/', '/marketplace', '/explorar', '/pricing', '/planes', '/about', '/login', '/register', '/auth/callback', '/como-funciona', '/vender', '/valoracion'];
       const currentPath = window.location.pathname;
       const isPublicPath = publicPaths.some(path => 
         currentPath === path || currentPath.startsWith('/marketplace/') || currentPath.startsWith('/explorar/') || currentPath.startsWith('/boceto/')
@@ -227,6 +227,11 @@ export const valuationAPI = {
   getLead: (leadId) => api.get(`/valuation/lead/${leadId}`),
   requestPremium: (data) => api.post('/valuation/premium-request', data),
   sendResultEmail: (leadId) => api.post('/valuation/send-result-email', { lead_id: leadId }),
+};
+
+// Plans API
+export const plansAPI = {
+  getPublic: () => api.get('/plans/public'),
 };
 
 export default api;
