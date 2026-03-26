@@ -4,7 +4,7 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { marketplaceAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, Check, Shield, Building2, FileText, TrendingUp, ChevronRight } from 'lucide-react';
+import { ArrowRight, Check, Shield, Building2, FileText, TrendingUp, ChevronRight, MoreHorizontal, Copy, Share2, X } from 'lucide-react';
 
 /* ─── Hero Insight Card Config ─── */
 const HERO_TABS = [
@@ -149,6 +149,43 @@ const SignalBadge = ({ signal }) => {
   );
 };
 
+const HomeShareMenu = ({ dealId, title }) => {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const url = `${window.location.origin}/explorar/${dealId}`;
+
+  const copyUrl = async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+  };
+  const nativeShare = async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (navigator.share) { try { await navigator.share({ title: title || 'Oportunidad en ARROBA', url }); } catch {} }
+    else { copyUrl(e); }
+    setOpen(false);
+  };
+  const toggle = (e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); };
+
+  if (!open) return (
+    <button onClick={toggle} className="p-1 transition-opacity opacity-0 group-hover:opacity-100" style={{ color: 'var(--outline)' }} data-testid={`share-btn-${dealId}`}>
+      <MoreHorizontal size={16} />
+    </button>
+  );
+  return (
+    <div className="relative" onClick={e => e.preventDefault()}>
+      <button onClick={toggle} className="p-1" style={{ color: 'var(--outline)' }}><X size={14} /></button>
+      <div className="absolute right-0 top-7 z-20 py-1 min-w-[150px]" style={{ background: 'var(--surface-lowest)', boxShadow: '0 8px 24px rgba(25,28,30,0.12)' }}>
+        <button onClick={copyUrl} className="w-full px-4 py-2 text-left text-xs font-semibold flex items-center gap-2 hover:opacity-70" style={{ color: 'var(--on-surface)' }}>
+          <Copy size={12} /> {copied ? 'Copiado' : 'Copiar enlace'}
+        </button>
+        <button onClick={nativeShare} className="w-full px-4 py-2 text-left text-xs font-semibold flex items-center gap-2 hover:opacity-70" style={{ color: 'var(--on-surface)' }}>
+          <Share2 size={12} /> Compartir
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const DealCard = ({ deal }) => {
   const teaser = deal.teaser || {};
   const signals = deal.signals || [];
@@ -164,9 +201,12 @@ const DealCard = ({ deal }) => {
           background: deal.status === 'published' ? 'var(--on-surface)' : 'var(--arroba-primary)',
           color: '#fff',
         }}>
-          {deal.status === 'published' ? 'DISPONIBLE' : 'EN NEGOCIACION'}
+          {deal.status === 'published' ? 'DISPONIBLE' : 'EN NEGOCIACIÓN'}
         </span>
-        <span className="text-xs" style={{ color: 'var(--outline)' }}>{teaser.geography_display}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: 'var(--outline)' }}>{teaser.geography_display}</span>
+          <HomeShareMenu dealId={deal.deal_id} title={teaser.headline} />
+        </div>
       </div>
 
       <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>

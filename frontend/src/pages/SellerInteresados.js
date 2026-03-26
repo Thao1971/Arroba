@@ -256,7 +256,7 @@ const SellerInteresados = () => {
         {buyers.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5" data-testid="summary-cards">
             <SummaryCard label="Total buyers" value={summary.total} icon={Users} accent="bg-slate-100 text-slate-600" />
-            <SummaryCard label="LOIs recibidas" value={summary.lois} icon={FileText} accent="bg-green-100 text-green-600" />
+            <SummaryCard label={summary.lois === 1 ? 'LOI recibida' : 'LOIs recibidas'} value={summary.lois} icon={FileText} accent="bg-green-100 text-green-600" />
             <SummaryCard label="Alta intencion" value={summary.high_intent} icon={TrendingUp} accent="bg-blue-100 text-blue-600" />
             <SummaryCard label="Requieren accion" value={summary.needs_action} icon={Zap} accent="bg-red-100 text-red-600" />
           </div>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#191c1e"/>
+  <text x="100" y="280" font-family="sans-serif" font-weight="800" font-size="72" fill="#B6212A" letter-spacing="-2">arroba</text>
+  <text x="100" y="340" font-family="sans-serif" font-weight="600" font-size="24" fill="#76777d" letter-spacing="3" text-transform="uppercase">PLATAFORMA M&amp;A PARA AGENCIAS DIGITALES</text>
+  <text x="100" y="420" font-family="sans-serif" font-weight="400" font-size="22" fill="#ffffff">El lugar donde comprar y vender agencias</text>
+  <rect x="100" y="500" width="200" height="4" fill="#B6212A"/>
+</svg>

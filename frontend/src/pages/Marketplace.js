@@ -6,7 +6,57 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { marketplaceAPI, matchingAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Zap, Sparkles, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Zap, Sparkles, ArrowUpDown, MoreHorizontal, Copy, Share2, X } from 'lucide-react';
+
+const ShareMenu = ({ dealId, title }) => {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const url = `${window.location.origin}/explorar/${dealId}`;
+
+  const copyUrl = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { /* fallback */ }
+  };
+
+  const nativeShare = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (navigator.share) {
+      try { await navigator.share({ title: title || 'Oportunidad en ARROBA', url }); } catch {}
+    } else { copyUrl(e); }
+    setOpen(false);
+  };
+
+  const toggle = (e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); };
+
+  if (!open) {
+    return (
+      <button onClick={toggle} className="p-1.5 transition-opacity opacity-0 group-hover:opacity-100"
+        style={{ color: 'var(--outline)' }} data-testid={`share-btn-${dealId}`}>
+        <MoreHorizontal size={16} />
+      </button>
+    );
+  }
+
+  return (
+    <div className="relative" onClick={e => e.preventDefault()}>
+      <button onClick={toggle} className="p-1.5" style={{ color: 'var(--outline)' }}><X size={14} /></button>
+      <div className="absolute right-0 top-8 z-20 py-1 min-w-[160px]"
+        style={{ background: 'var(--surface-lowest)', boxShadow: '0 8px 24px rgba(25,28,30,0.12)' }}>
+        <button onClick={copyUrl} className="w-full px-4 py-2.5 text-left text-xs font-semibold flex items-center gap-2 hover:opacity-70"
+          style={{ color: 'var(--on-surface)' }} data-testid={`copy-url-${dealId}`}>
+          <Copy size={12} /> {copied ? 'Copiado' : 'Copiar enlace'}
+        </button>
+        <button onClick={nativeShare} className="w-full px-4 py-2.5 text-left text-xs font-semibold flex items-center gap-2 hover:opacity-70"
+          style={{ color: 'var(--on-surface)' }} data-testid={`share-native-${dealId}`}>
+          <Share2 size={12} /> Compartir
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const opTypeLabels = {
   full_sale: { text: 'Venta Total', color: 'bg-arroba-coral/10 text-arroba-coral' },
@@ -288,13 +338,14 @@ const Marketplace = () => {
                             </span>
                           )}
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1">
                           {opTypes.slice(0, 2).map(t => {
                             const l = opTypeLabels[t] || { text: t, color: 'bg-slate-100 text-slate-600' };
                             return (
                               <span key={t} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${l.color}`}>{l.text}</span>
                             );
                           })}
+                          <ShareMenu dealId={deal.deal_id} title={teaser.title || teaser.headline} />
                         </div>
                       </div>
 

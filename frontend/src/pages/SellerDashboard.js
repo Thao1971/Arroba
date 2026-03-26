@@ -378,7 +378,7 @@ const SellerDashboard = () => {
                         <FileText className="w-5 h-5 text-arroba-green" />
                       </div>
                       <p className="text-lg font-bold">{activeDeal.metrics?.lois_received_count || 0}</p>
-                      <p className="text-xs text-slate-500">LOIs</p>
+                      <p className="text-xs text-slate-500">{(activeDeal.metrics?.lois_received_count || 0) === 1 ? 'LOI recibida' : 'LOIs recibidas'}</p>
                     </div>
                   </div>
 

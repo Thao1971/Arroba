@@ -74,7 +74,7 @@ const Header = () => {
         <div className="flex h-14 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center shrink-0" data-testid="logo-link">
-            <ArrobaLogo size={22} />
+            <ArrobaLogo size={33} />
           </Link>
 
           {/* Center Navigation — Role-based */}
