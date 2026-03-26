@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
-const ArrobaLogo = ({ size = 22 }) => (
+const ArrobaLogo = ({ size = 33 }) => (
   <span style={{
     fontFamily: "'IBM Plex Sans', sans-serif",
     fontWeight: 800,

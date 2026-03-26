@@ -12,10 +12,10 @@ const HERO_TABS = [
     key: 'seller',
     tabLabel: 'Vender',
     eyebrow: 'VENTA DE AGENCIAS',
-    title: 'Vende tu agencia con mas criterio, confidencialidad y control',
-    description: 'Activa un proceso ordenado para presentar tu compania, filtrar el interes comprador y avanzar con mayor visibilidad sobre cada paso. En un mercado cada vez mas exigente, vender bien no depende solo del momento, sino de llegar a la contraparte adecuada con la informacion correcta.',
-    primaryCtaLabel: 'Recibir una valoracion',
-    secondaryCtaLabel: 'Mas informacion',
+    title: 'Vende tu agencia con más criterio, confidencialidad y control',
+    description: 'Activa un proceso ordenado para presentar tu compañía, filtrar el interés comprador y avanzar con mayor visibilidad sobre cada paso. En un mercado cada vez más exigente, vender bien no depende solo del momento, sino de llegar a la contraparte adecuada con la información correcta.',
+    primaryCtaLabel: 'Recibir una valoración',
+    secondaryCtaLabel: 'Más información',
     primaryCtaHref: '/valoracion',
     secondaryCtaHref: '/como-funciona',
   },
@@ -24,20 +24,20 @@ const HERO_TABS = [
     tabLabel: 'Comprar',
     eyebrow: 'COMPRA DE AGENCIAS',
     title: 'Encuentra oportunidades mejor filtradas en un mercado amplio y fragmentado',
-    description: 'Accede a companias seleccionadas, compara oportunidades con mas contexto y detecta encajes estrategicos con mayor rapidez. ARROBA te ayuda a reducir ruido, priorizar mejor y avanzar sobre operaciones con mas informacion desde el inicio.',
+    description: 'Accede a compañías seleccionadas, compara oportunidades con más contexto y detecta encajes estratégicos con mayor rapidez. ARROBA te ayuda a reducir ruido, priorizar mejor y avanzar sobre operaciones con más información desde el inicio.',
     primaryCtaLabel: 'Explorar oportunidades',
-    secondaryCtaLabel: 'Como funciona',
+    secondaryCtaLabel: 'Cómo funciona',
     primaryCtaHref: '/explorar',
     secondaryCtaHref: '/como-funciona',
   },
   {
     key: 'merge',
     tabLabel: 'Fusionarse',
-    eyebrow: 'FUSION ENTRE AGENCIAS',
-    title: 'Gana tamano y nuevas capacidades para competir en el nuevo ciclo del sector',
-    description: 'La transformacion del mercado, la presion sobre margenes y la irrupcion de nuevas capacidades vinculadas a datos, automatizacion e inteligencia artificial estan empujando a muchas agencias a replantear su escala y su propuesta de valor. ARROBA te ayuda a identificar partners complementarios para crecer con mas solidez.',
-    primaryCtaLabel: 'Explorar una fusion',
-    secondaryCtaLabel: 'Mas informacion',
+    eyebrow: 'FUSIÓN ENTRE AGENCIAS',
+    title: 'Gana tamaño y nuevas capacidades para competir en el nuevo ciclo del sector',
+    description: 'La transformación del mercado, la presión sobre márgenes y la irrupción de nuevas capacidades vinculadas a datos, automatización e inteligencia artificial están empujando a muchas agencias a replantear su escala y su propuesta de valor. ARROBA te ayuda a identificar partners complementarios para crecer con más solidez.',
+    primaryCtaLabel: 'Explorar una fusión',
+    secondaryCtaLabel: 'Más información',
     primaryCtaHref: '/register?role=seller',
     secondaryCtaHref: '/como-funciona',
   },
@@ -203,7 +203,6 @@ const DealCard = ({ deal }) => {
 };
 
 const Home = () => {
-  const [stats, setStats] = useState(null);
   const [featuredDeals, setFeaturedDeals] = useState([]);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -211,11 +210,9 @@ const Home = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, dealsRes] = await Promise.all([
-          marketplaceAPI.getStats(),
+        const [dealsRes] = await Promise.all([
           marketplaceAPI.getFeaturedDeals()
         ]);
-        setStats(statsRes.data);
         setFeaturedDeals(dealsRes.data);
       } catch (error) {
         console.error('Error fetching home data:', error);
@@ -242,7 +239,7 @@ const Home = () => {
               </h1>
 
               <p className="text-base max-w-lg" style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7 }}>
-                Acceso privado a la mayor plataforma de compradores y vendedores del ecosistema Madtech. Confidencialidad, proceso estructurado, acompanamiento profesional.
+                Acceso privado a la mayor plataforma de compradores y vendedores del ecosistema Madtech. Confidencialidad, proceso estructurado, acompañamiento profesional.
               </p>
             </div>
 
@@ -257,19 +254,19 @@ const Home = () => {
       {/* ─── VALUATION LEAD MAGNET ─── */}
       <section className="py-16 lg:py-20" style={{ background: 'var(--surface-0)', borderTop: '1px solid var(--surface-2)' }} data-testid="valuation-section">
         <div className="container mx-auto px-6">
-          <div className="flex flex-col lg:flex-row gap-12 items-center">
-            <div className="flex-1">
+          <div className="flex flex-col lg:flex-row gap-10 lg:gap-16 items-start">
+            <div className="flex-1 lg:max-w-xl">
               <p className="label-arroba mb-3" style={{ color: 'var(--arroba-primary)', fontSize: 11 }}>
-                VALORACION INICIAL
+                VALORACIÓN INICIAL
               </p>
               <h2 className="text-3xl lg:text-4xl font-extrabold mb-4" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em', lineHeight: 1.15 }}>
-                Descubre cuanto podria<br />valer tu agencia
+                Descubre cuánto podría<br />valer tu agencia
               </h2>
               <p className="text-sm mb-8 max-w-md" style={{ color: 'var(--on-surface-variant)', lineHeight: 1.7 }}>
-                Obten una estimacion inicial a partir de tu facturacion, EBITDA y subcategoria. Resultado inmediato, confidencial y sin compromiso.
+                Obtén una estimación inicial a partir de tu facturación, EBITDA y subcategoría. Resultado inmediato, confidencial y sin compromiso.
               </p>
               <div className="flex flex-col gap-2 mb-8">
-                {['Estimacion inmediata', 'Basada en criterios sectoriales', 'Sin compromiso'].map((t, i) => (
+                {['Estimación inmediata', 'Basada en criterios sectoriales', 'Sin compromiso'].map((t, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <Check className="w-4 h-4" style={{ color: 'var(--arroba-primary)' }} />
                     <span className="text-sm font-medium" style={{ color: 'var(--on-surface-variant)' }}>{t}</span>
@@ -278,16 +275,16 @@ const Home = () => {
               </div>
               <Link to={isAuthenticated ? '/valoracion' : '/register?redirect=/valoracion'}>
                 <button className="btn-primary px-8 py-3 flex items-center gap-2" data-testid="cta-valuation">
-                  Calcular valoracion <ArrowRight className="w-4 h-4" />
+                  Calcular valoración <ArrowRight className="w-4 h-4" />
                 </button>
               </Link>
             </div>
-            <div className="flex-1 max-w-md w-full">
+            <div className="w-full lg:w-[440px] xl:w-[480px] shrink-0">
               <div className="p-8" style={{ background: 'var(--surface-lowest)', boxShadow: '0 4px 24px rgba(25,28,30,0.06)' }}>
                 <p className="label-arroba mb-6" style={{ color: 'var(--outline)' }}>EJEMPLO DE RESULTADO</p>
                 <div className="text-center py-4">
                   <p className="text-3xl font-black" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.03em' }}>
-                    3,2M - 4,1M
+                    3,2M — 4,1M
                   </p>
                   <p className="text-sm font-bold mt-1" style={{ color: 'var(--on-surface)' }}>
                     Valor orientativo: 3,6M
@@ -310,24 +307,8 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── SOCIAL PROOF BAR ─── */}
-      <section className="py-8" style={{ background: 'var(--surface-0)', borderTop: '1px solid var(--surface-2)', borderBottom: '1px solid var(--surface-2)' }} data-testid="buyers-section">
-        <div className="container mx-auto px-6">
-          <div className="flex items-center gap-10">
-            <span className="label-arroba shrink-0">Compradores verificados</span>
-            <div className="flex items-center gap-10 overflow-hidden">
-              {['HAVAS', 'Publicis', 'IPG', 'Deloitte', 'dentsu'].map((name, i) => (
-                <span key={i} className="text-lg font-bold whitespace-nowrap" style={{ color: 'var(--outline-variant)' }}>
-                  {name}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ─── FEATURED DEALS ─── */}
-      <section className="py-16" style={{ background: 'var(--surface-0)' }} data-testid="featured-section">
+      <section className="py-16" style={{ background: 'var(--surface-0)', borderTop: '1px solid var(--surface-2)' }} data-testid="featured-section">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -352,7 +333,7 @@ const Home = () => {
           ) : (
             <div className="text-center py-16" style={{ background: 'var(--surface-1)' }}>
               <Building2 className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
-              <p style={{ color: 'var(--outline)' }}>Proximamente nuevas agencias</p>
+              <p style={{ color: 'var(--outline)' }}>Próximamente nuevas agencias</p>
               <Link to="/register?role=seller">
                 <button className="btn-primary mt-4">Publica tu agencia</button>
               </Link>
@@ -367,18 +348,19 @@ const Home = () => {
           <div className="mb-12">
             <p className="label-arroba mb-3" style={{ color: 'var(--arroba-primary)' }}>PROCESO</p>
             <h2 className="text-3xl font-extrabold mb-3" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>
-              Como funciona
+              Cómo funciona
             </h2>
             <p style={{ color: 'var(--outline)', maxWidth: 480 }}>
               Un proceso estructurado y seguro para conectar compradores y vendedores de agencias digitales.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { num: '01', title: 'Registrate gratis', desc: 'Crea tu cuenta y define si quieres comprar, vender o fusionarte', icon: Shield },
-              { num: '02', title: 'Explora oportunidades', desc: 'Accede al marketplace con todas las agencias verificadas', icon: Building2 },
-              { num: '03', title: 'Cierra tu operacion', desc: 'Te acompanamos en todo el proceso hasta el cierre', icon: FileText },
+              { num: '01', title: 'Regístrate gratis', desc: 'Crea tu cuenta y define si quieres comprar, vender o fusionarte' },
+              { num: '02', title: 'Explora oportunidades', desc: 'Accede al marketplace con todas las agencias verificadas' },
+              { num: '03', title: 'Trabaja en un entorno seguro', desc: 'Confidencialidad, NDA digital y Data Room protegido en cada operación' },
+              { num: '04', title: 'Cierra tu operación', desc: 'Te acompañamos en todo el proceso hasta el cierre' },
             ].map((step, i) => (
               <div key={i} className="p-8" style={{ background: 'var(--surface-0)' }}>
                 <span className="text-3xl font-extrabold" style={{ color: 'var(--surface-2)', letterSpacing: '-0.02em' }}>
@@ -392,33 +374,14 @@ const Home = () => {
         </div>
       </section>
 
-      {/* ─── STATS ─── */}
-      <section className="py-16" style={{ background: 'var(--on-surface)' }} data-testid="stats-section">
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { value: `${stats?.published_deals || '20'}+`, label: 'Agencias activas', color: 'var(--arroba-primary-light)' },
-              { value: `${stats?.closed_deals || '15'}+`, label: 'Operaciones cerradas', color: 'var(--arroba-secondary-light)' },
-              { value: stats?.total_value_transacted || '50M+', label: 'Valor transaccionado', color: 'var(--arroba-tertiary-light)' },
-              { value: '120+', label: 'Compradores verificados', color: 'var(--arroba-green)' },
-            ].map((s, i) => (
-              <div key={i} className="text-center">
-                <p className="text-3xl lg:text-4xl font-extrabold" style={{ color: s.color, letterSpacing: '-0.02em' }}>{s.value}</p>
-                <p className="text-sm mt-2" style={{ color: 'var(--outline)' }}>{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ─── CTA ─── */}
       <section className="py-20" style={{ background: 'var(--arroba-primary)' }} data-testid="cta-section">
         <div className="container mx-auto px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
-            Listo para empezar?
+            ¿Listo para empezar?
           </h2>
           <p className="text-white/70 mb-8 max-w-xl mx-auto text-sm">
-            Unete a la mayor plataforma de M&A de agencias digitales
+            Únete a la mayor plataforma de M&A de agencias digitales
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link to="/register">
