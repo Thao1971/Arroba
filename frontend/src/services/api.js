@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
+// Use current browser origin so API works on any domain (preview, beta.arroba.com, www.arroba.com)
+const API_URL = typeof window !== 'undefined' ? window.location.origin : process.env.REACT_APP_BACKEND_URL;
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
