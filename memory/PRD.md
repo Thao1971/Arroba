@@ -1,180 +1,420 @@
-# PRD.md — Arroba Platform
-## Product Requirements Document
+# ARROBA — Product Requirements Document (PRD)
+## Plataforma M&A para Agencias Digitales
+**Última actualización:** 27 de marzo de 2026
+**Titular:** BUD Advisors, S.L. · CIF B70821400
 
 ---
 
-## Problema Original
-Construir "Arroba", plataforma M&A para comprar y vender agencias digitales. Enfoque en UX prescriptivo, percepcion de mercado y diseno institucional.
+## 1. Problema y Visión
 
-## Design System: "The Digital Artifact"
-- Font: IBM Plex Sans (400-800)
-- Border radius: 0px globally
-- Surface hierarchy: #f9f9f9 (bg), #f3f3f3 (surface-1), #e2e2e2 (surface-2), #ffffff (cards)
-- Primary: #B6212A, Secondary: #006493, Tertiary: #6F5D00
-- Labels: ALL CAPS, 0.05em letter-spacing, 10px, weight 700
+ARROBA es un marketplace confidencial de compraventa y fusión de agencias digitales del ecosistema MadTech en España. La plataforma conecta sellers (propietarios de agencias), buyers (compradores/inversores) y advisors (asesores de M&A) en un entorno estructurado, seguro y profesional.
+
+**Objetivo:** Ofrecer un proceso M&A ordenado con percepción de mercado, coaching prescriptivo, valoración automatizada y herramientas de gestión de operaciones que transmitan seriedad, confidencialidad y criterio financiero.
 
 ---
 
-## Funcionalidades Implementadas
+## 2. Design System: "The Digital Artifact"
 
-### Fase 1-3 — Core Platform, Buyer Flow, Demo Data
-- [x] Auth, Profiles, Deal CRUD, AI Teaser, Marketplace, NDA, Seed data
-
-### Fase 4-5 — Seller Coaching + Role-Based Nav
-- [x] Nudges prescriptivos, action pills, header dinamico
-
-### Fase 6 — Percepcion de Mercado
-- [x] Internal Deal Score, Soft Signals (LOI > Competition > Process > DR > Freshness)
-
-### Fase 7 — Rediseno Visual "The Digital Artifact"
-- [x] Global CSS tokens, todos los componentes rediseñados
-
-### Fase 8 — Q&A Workspace (25 Mar 2026)
-- [x] Trigger: INTEREST_ACCEPTED (no SHORTLISTED)
-- [x] Stage ACCEPTED en flujo de engagements
-- [x] CRUD Q&A, ConversationPage, entradas en SellerInteresados/BuyerDashboard/DealManagement
-
-### Fase 9 — Response Acceleration Layer (25 Mar 2026)
-- [x] GET /api/conversations/pending/seller con prioridad
-- [x] Bloque "Acciones Pendientes" en SellerDashboard
-- [x] Badges pendientes con urgencia en SellerInteresados y DealManagement
-- [x] "Hace Xh sin respuesta" en ConversationPage
-- [x] Coaching nudge NC-QA-12 (12h) y NC-QA-24 (24h)
-
-### Fase 10 — Deal Readiness (25 Mar 2026)
-- [x] GET /api/deals/{deal_id}/readiness — score + checklist
-- [x] Obligatorios (70%): teaser, infomemo, revenue, EBITDA, operacion, precio, DR min docs, taxonomia
-- [x] Recomendados (30%): DR ampliado, credenciales, carpetas, equipo, matching, revision manual
-- [x] Status: LISTO (>=90%), MEJORABLE (>=60%), DEBIL (<60%)
-- [x] Readiness widget en DealManagement overview con CTAs directos
-- [x] Publish warning modal (bloqueo suave, no duro)
-- [x] Activate endpoint con force param: confirm_required si faltan obligatorios
-
-### Fase 11 — Deal Health System (25 Mar 2026)
-- [x] GET /api/deals/{deal_id}/health — semaforo VERDE/AMARILLO/ROJO
-- [x] Alertas estructuradas: problema + causa probable + accion recomendada
-- [x] NC-01 Sin traccion, NC-02 Sin conversion, NC-03 LOI sin DD, NC-04 Buyer inactivo
-- [x] NC-05 Exclusividad estancada, NC-QA Q&A stale, DH-NDA NDA sin interest
-- [x] Health indicator en header de DealManagement
-- [x] Alert cards con severity borders, category badges, CTAs
-- [x] Integrado con coaching system existente (no sistema separado)
+| Elemento | Valor |
+|---|---|
+| Tipografía | IBM Plex Sans (300-800) |
+| Border radius | 0px globalmente |
+| Surface-0 (fondo) | #f9f9f9 |
+| Surface-1 | #f3f3f3 |
+| Surface-2 | #e2e2e2 |
+| Surface-lowest (cards) | #ffffff |
+| Primary (arroba-coral) | #B6212A |
+| Secondary (arroba-blue) | #006493 |
+| Tertiary | #6F5D00 |
+| On-surface | #191c1e |
+| On-surface-variant | #45464d |
+| Outline | #76777d |
+| Labels | ALL CAPS, 0.05em letter-spacing, 10px, weight 700 |
+| Hover cards | translateY(-2px), sombra sutil, 150-200ms |
+| Layout dashboard | Sidebar izquierda fija + contenido central + rail derecho contextual |
 
 ---
 
-## Backlog Priorizado
+## 3. Arquitectura Técnica
 
-### P1 — SellerWizard V2 (COMPLETADO 25 Mar 2026)
-- [x] Convertir boceto en wizard funcional (sidebar + steps + live preview)
-- [x] Reemplazar SellerWizard actual
-- [x] Layout 60/40 (formulario + live preview), sidebar con 5 pasos
-- [x] CIF lookup, datos financieros, valoracion, deal config, teaser/infomemo AI
-- [x] Eliminado SellerWizardBoceto.js (redundante)
+### Stack
+- **Frontend:** React 18 + Tailwind CSS + Shadcn/UI + IBM Plex Sans
+- **Backend:** FastAPI (Python) + MongoDB (Motor async)
+- **Storage:** Emergent Object Storage (ficheros, PDFs)
+- **AI:** OpenAI GPT-5.2 (vía Emergent LLM Key)
+- **PDF:** reportlab (generación de NDA)
 
-### P0 — Modulo de Valoracion Publica (COMPLETADO 26 Mar 2026)
-- [x] Backend dominio independiente: /modules/valuation/ (router, service, engine, scoring, config_service, repositories, schemas)
-- [x] Motor de valoracion: multiplos por categoria/subcategoria (CIS), quality_score (0-100), quality_factor (0.7-1.3)
-- [x] 10 categorias con multiplos CIS seed, fallback global para subcategorias sin datos
-- [x] Confidence levels: alta/media/baja segun completitud de datos
-- [x] Fallback EBITDA negativo: estimacion basada en revenue
-- [x] Persistencia: valuation_leads, valuation_multiples, valuation_settings, valuation_runs, valuation_premium_requests
-- [x] Frontend wizard /valoracion: 4 pasos (Identificacion, Compania, Taxonomia, Momento) + pantalla resultado
-- [x] Resultado: rango valoracion, valor orientativo, drivers, confianza, multiples, disclaimer legal
-- [x] CTAs: dar de alta agencia, valoracion experta (1.950 EUR), enviar email
-- [x] Hero block en Home: "Descubre cuanto podria valer tu agencia" con ejemplo visual
-- [x] Legal: checkbox obligatorio veracidad + opcional comunicaciones + disclaimer BUD Advisors
-- [x] Email: plantilla resultado (MOCKEADO - pendiente SendGrid)
-- [x] Preparado para consola admin futura (settings, multiples, weights configurables)
+### Estructura del proyecto
+```
+/app/
+├── backend/
+│   ├── server.py                    # FastAPI app principal
+│   ├── database.py                  # Motor MongoDB + colecciones + índices
+│   ├── config.py                    # Variables de entorno
+│   ├── models/
+│   │   ├── user.py                  # UserCreate, UserResponse, BuyerProfile, SellerProfile
+│   │   ├── company.py               # Company models
+│   │   ├── deal.py                  # Deal models
+│   │   ├── engagement.py            # Engagement models
+│   │   └── transactions.py          # LOI, NDA, Mandate, Match, Notification, Subscription models
+│   ├── routers/
+│   │   ├── auth.py                  # JWT auth, Google OAuth, session management
+│   │   ├── users.py                 # Profile CRUD
+│   │   ├── companies.py             # Company CRUD + financials + valuation
+│   │   ├── deals.py                 # Deal CRUD + teaser + NDA legacy
+│   │   ├── marketplace.py           # Public marketplace + stats + featured
+│   │   ├── engagements.py           # Interest, LOI, stages, my-processes, saved, actions
+│   │   ├── conversations.py         # Q&A workspace
+│   │   ├── matching.py              # Recommended deals + match_reason
+│   │   ├── notifications.py         # In-app notifications + mark read
+│   │   ├── nda.py                   # NDA mutuo digital: template, sign, PDF, email, audit
+│   │   ├── plans.py                 # Planes y precios (seed + public API)
+│   │   ├── buyer_certification.py   # Certificación buyer + plan enforcement
+│   │   ├── taxonomy.py              # Taxonomía oficial BUD Advisors MadTech
+│   │   ├── cif_lookup.py            # Búsqueda CIF/NIF
+│   │   ├── teaser.py                # Generación teaser IA
+│   │   ├── infomemo.py              # Generación infomemo IA
+│   │   ├── dataroom.py              # Data Room
+│   │   ├── coaching.py              # Coaching prescriptivo seller
+│   │   ├── tracking.py              # Time tracking + intent scoring
+│   │   └── subscriptions.py         # Stripe subscriptions (preparado)
+│   ├── modules/
+│   │   └── valuation/               # Dominio valoración independiente
+│   │       ├── router.py            # API endpoints valoración
+│   │       ├── service.py           # Orquestación
+│   │       ├── engine.py            # Motor de cálculo
+│   │       ├── scoring.py           # Quality score
+│   │       ├── config_service.py    # Settings + multiples + seed
+│   │       ├── repositories.py      # MongoDB operations
+│   │       └── schemas.py           # Pydantic models
+│   ├── services/
+│   │   ├── email_service.py         # Templates email (MOCKEADO hasta SendGrid)
+│   │   ├── matching_service.py      # Match scoring + match_reason
+│   │   ├── valuation_service.py     # Valoración legacy (companies)
+│   │   ├── coaching_service.py      # Nudges prescriptivos
+│   │   ├── deal_health_service.py   # Deal Health semáforo
+│   │   ├── deal_score_service.py    # Internal Deal Score + Soft Signals
+│   │   ├── readiness_service.py     # Deal Readiness checklist
+│   │   ├── taxonomy.py              # Taxonomía MadTech v2.0 (10 categorías)
+│   │   ├── storage_service.py       # Emergent Object Storage
+│   │   ├── notification_service.py  # Notificaciones in-app
+│   │   ├── events_service.py        # Event tracking
+│   │   └── ...
+│   └── tests/                       # Pytest tests
+├── frontend/
+│   ├── src/
+│   │   ├── App.js                   # Router principal
+│   │   ├── pages/
+│   │   │   ├── Home.js              # Landing + hero tabs + valoración
+│   │   │   ├── Marketplace.js       # Explorar deals + share menu
+│   │   │   ├── DealPage.js          # Ficha deal + NDA modal
+│   │   │   ├── BuyerDashboard.js    # Dashboard buyer premium (6 tabs)
+│   │   │   ├── BuyerOnboarding.js   # Onboarding perfil buyer
+│   │   │   ├── SellerDashboard.js   # Dashboard seller
+│   │   │   ├── SellerWizard.js      # Wizard V2 (5 pasos + live preview)
+│   │   │   ├── DealManagement.js    # Gestión deal seller
+│   │   │   ├── SellerInteresados.js # Gestión interesados
+│   │   │   ├── PlansPage.js         # Planes y precios
+│   │   │   ├── ValuationWizard.js   # Valoración pública (4 pasos)
+│   │   │   ├── ConversationPage.js  # Q&A workspace
+│   │   │   └── ...
+│   │   ├── services/api.js          # Axios API services
+│   │   ├── context/AuthContext.js   # Auth state management
+│   │   └── components/
+│   │       ├── layout/              # Header, Footer, Layout
+│   │       └── ui/                  # Shadcn/UI components
+│   └── public/
+│       ├── index.html               # OG meta tags + título
+│       └── og-image.png             # Open Graph image
+```
 
-### P0 — Página de Planes y Precios (COMPLETADO 26 Mar 2026)
-- [x] Backend: /api/plans/public con planes seed en MongoDB (7 planes + 3 fee rules + 7 FAQ + 3 interaction types)
-- [x] Frontend: /planes con tabs Sellers/Buyers/Advisors
-- [x] Sellers: Free (0 interacciones), Plus (149€/mes, 5 interacciones), Premium (499€/mes, ilimitadas) + 2,9% comisión
-- [x] Buyers: Free (0 interacciones), Pro (149€/mes, 5 interacciones), Pro+ (349€/mes, ilimitadas) + 1% comisión
-- [x] Advisors: 1 mandato gratis, desde 2 mandatos 250€/mes, 15% revenue share, compromiso 6-12 meses
-- [x] Toggle facturación mensual/anual con 10% descuento
-- [x] Badges de interacciones por plan (Sin interacciones / Hasta 5/mes / Ilimitadas)
-- [x] Bloque explicativo de interacciones + bloque pedagógico de estructura económica
-- [x] Tabla comparativa con fila de interacciones
-- [x] FAQ con 7 preguntas (incluyendo "¿Qué cuenta como interacción?")
-- [x] Placeholders legales + CTA final
-- [x] Hover sutil B2B en cards (translateY -2px)
-- [x] Datos parametrizables (interaction types, advisor rules, conditions) para futura admin
+---
 
-### P0 — Deep-link Planes + NDA Mutuo Digital (COMPLETADO 26 Mar 2026)
-- [x] Deep-link: /planes?role=buyer|seller|advisor abre tab correcto
-- [x] BuyerDashboard CTA "VER PLANES PARA BUYERS" → /planes?role=buyer&source=buyer_dashboard
-- [x] Backend NDA: /api/nda/ con template, sign, PDF, email, auditoría
-- [x] Texto legal NDA mutuo adaptado a ARROBA/BUD Advisors (10 cláusulas, CIF B70821400, Madrid)
-- [x] Firma con nombre, email, fecha, hora, IP, user-agent, signature_id
-- [x] Generación PDF con reportlab (subido a Object Storage)
-- [x] Email post-firma NDA_BUYER_SIGNED (MOCKEADO - pendiente SendGrid)
-- [x] Audit trail: nda_signatures + nda_events (NDA_SIGNED, EMAIL_SENT)
-- [x] Compatibilidad con flujo NDA existente (actualiza deal.ndas_signed)
-- [x] Frontend: modal NDA con texto legal completo, formulario firmante, checkbox aceptación
-- [x] Collections: nda_signatures, nda_events, nda_templates
+## 4. Colecciones MongoDB
 
-### P0 — Buyer Dashboard Premium Fase 1 (COMPLETADO 26 Mar 2026)
-- [x] Cabecera ejecutiva: nombre, resumen procesos/NDAs, badge plan (FREE/PRO/PRO+), CTA MEJORAR PLAN
-- [x] 6 KPIs: procesos activos, NDAs firmados, deals guardados, deals en mercado, recomendados, interacciones
-- [x] Interacciones: Bloqueadas (free), X/5 (pro), Ilimitadas (pro+)
-- [x] Mis procesos activos: cards con estado, tipo, título, sector, ubicación, valoración (formato EU), siguiente paso, Q&A
-- [x] Diferenciación Free: overlay "Detalle limitado. Mejora tu plan" en cada proceso
-- [x] Rail derecho: plan status card, mercado (deals activos/nuevos), accesos rápidos
-- [x] Deals recomendados en grid 2 columnas debajo de procesos
-- [x] Layout: columna principal + rail lateral, hover sutil, design Digital Artifact
+| Colección | Descripción |
+|---|---|
+| `users` | Usuarios (buyer, seller, advisor, admin) |
+| `companies` | Compañías registradas por sellers |
+| `deals` | Operaciones/deals |
+| `engagements` | Interacciones buyer-deal (interest, LOI) |
+| `lois` | Letters of Intent |
+| `ndas` | NDAs legacy (embebido en deals) |
+| `nda_signatures` | NDA mutuo digital v2 (firma, PDF, audit) |
+| `nda_events` | Audit trail de firma NDA |
+| `nda_templates` | Templates NDA versionados |
+| `notifications` | Notificaciones in-app |
+| `events` | Event tracking general |
+| `matches` | Match scores buyer-deal |
+| `saved_deals` | Deals guardados por buyers |
+| `infomemos` | Information Memorandums generados |
+| `teasers` | Teasers generados |
+| `plans` | Planes y precios (8 planes seed) |
+| `transaction_fee_rules` | Reglas de comisión (3 rules) |
+| `valuation_leads` | Leads de valoración pública |
+| `valuation_multiples` | Múltiplos por categoría (10 categorías CIS) |
+| `valuation_settings` | Configuración motor valoración |
+| `valuation_runs` | Auditoría de cálculos |
+| `valuation_premium_requests` | Solicitudes valoración experta |
+| `buyer_interactions` | Tracking interacciones mensuales buyer |
+| `cis_financial_cache` | Cache datos financieros CIS |
+| `subscriptions` | Suscripciones (preparado para Stripe) |
+| `payment_transactions` | Transacciones de pago |
+| `mandates` | Mandatos de advisors |
+| `user_sessions` | Sesiones de usuario |
 
-### P0 — Buyer Dashboard Premium Fase 2 (COMPLETADO 26 Mar 2026)
-- [x] 5 tabs: Dashboard, Seguimiento, Recomendados, Alertas, Perfil
-- [x] Seguimiento: deals guardados con sector, financieros, fecha de guardado
-- [x] Recomendados: deals con badges afinidad + match_reason explicativo ("Encaja con tu sector", "Coincide con facturación")
-- [x] Backend: _generate_match_reason() en matching_service.py (taxonomy, revenue, ticket, geography, operation)
-- [x] Alertas: lista notificaciones + "MARCAR TODO LEÍDO" + preferencias (Email/In-app, 3 tipos)
-- [x] Perfil comprador: datos personales, tesis de inversión, verificación (checklist 4 items), EDITAR PERFIL CTA
-- [x] Ajuste F1: KPI renombrado "DEALS DISPONIBLES", overlay Free sutil ("Acceso limitado... Ver planes")
-- [x] Rail derecho persistente en todos los tabs: plan status + mercado + accesos rápidos
-- [x] Preparado para sello Comprador Certificado (checklist de verificación visible)
+---
 
-### P0 — Buyer Dashboard Fase 3: Certificación + Diferenciación Plan (COMPLETADO 26 Mar 2026)
-- [x] Backend: GET /api/buyer/certification con 7 criterios ponderados + plan config
-- [x] Niveles: Certificado (>=80%), Verificado (>=50%), Básico (<50%)
-- [x] Criterios: email verificado, perfil completo, empresa, cargo, tesis inversión, NDA firmado, email corporativo
-- [x] Sidebar: badge PLAN FREE + badge COMPRADOR VERIFICADO con score
-- [x] Rail derecho: card certificación (barra progreso + 7 checks + texto explicativo para sellers)
-- [x] Rail derecho: card plan (4 features con Lock/Check: detalle, interacciones, dataroom, prioritario)
-- [x] Free: 4 features bloqueadas + Interacciones Bloqueadas + CTA MEJORAR A PRO
-- [x] Plan config backend (free/pro/pro+) con: interaction_limit, can_view_full_detail, can_manage, dataroom, priority
-- [x] Layout sidebar izquierda fija consistente con Wizard V2
+## 5. Endpoints API
 
-### P1 — Buyer Signal Clarity
-- [ ] LOI Comparator visual dashboard
+### Auth y Usuarios
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/auth/register` | Registro |
+| POST | `/api/auth/login` | Login (JWT) |
+| GET | `/api/auth/me` | Perfil actual |
+| PUT | `/api/users/me` | Actualizar perfil |
+| PUT | `/api/users/me/buyer-profile` | Actualizar perfil buyer |
+
+### Marketplace
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/marketplace/deals` | Listar deals publicados |
+| GET | `/api/marketplace/deals/{id}` | Detalle deal público |
+| GET | `/api/marketplace/stats` | Estadísticas marketplace |
+| GET | `/api/marketplace/featured` | Deals destacados |
+
+### Companies y Deals
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/companies` | Crear compañía |
+| PUT | `/api/companies/{id}` | Actualizar compañía |
+| POST | `/api/companies/{id}/financials` | Actualizar financieros |
+| POST | `/api/companies/{id}/calculate-valuation` | Calcular valoración |
+| POST | `/api/deals` | Crear deal |
+| GET | `/api/deals/{id}` | Detalle deal |
+| GET | `/api/deals/{id}/readiness` | Deal Readiness score |
+| GET | `/api/deals/{id}/health` | Deal Health semáforo |
+
+### Engagements
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/engagements/interest` | Enviar interés |
+| POST | `/api/engagements/{id}/upgrade-to-loi` | Convertir a LOI |
+| GET | `/api/engagements/my-processes` | Mis procesos (con actions) |
+| GET | `/api/engagements/saved` | Deals guardados |
+| POST | `/api/engagements/save/{dealId}` | Guardar deal |
+
+### NDA Mutuo Digital
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/nda/template/{dealId}` | Preview NDA con datos pre-rellenados |
+| POST | `/api/nda/sign` | Firmar NDA (genera PDF + audit) |
+| GET | `/api/nda/{signatureId}/pdf` | Descargar PDF firmado |
+| POST | `/api/nda/{signatureId}/send-email` | Reenviar email confirmación |
+| GET | `/api/nda/my-signatures` | Mis NDAs firmados |
+
+### Valoración Pública
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/valuation/taxonomy/categories` | Categorías para valoración |
+| GET | `/api/valuation/taxonomy/subcategories/{id}` | Subcategorías |
+| GET | `/api/valuation/config/public` | Config pública (disclaimer, premium) |
+| POST | `/api/valuation/estimate` | Ejecutar estimación |
+| GET | `/api/valuation/my-valuations` | Mis valoraciones |
+| POST | `/api/valuation/premium-request` | Solicitar valoración experta |
+
+### Planes y Precios
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/plans/public` | Planes + fees + FAQ + interaction types |
+
+### Buyer Certification
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/buyer/certification` | Estado certificación + plan + interacciones |
+
+### Matching
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/matching/deals` | Deals recomendados con match_reason |
+
+### Q&A, Notificaciones, Coaching
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/conversations/{id}` | Conversación Q&A |
+| GET | `/api/notifications` | Notificaciones |
+| POST | `/api/notifications/read-all` | Marcar todas leídas |
+| GET | `/api/conversations/pending/seller` | Q&A pendientes seller |
+
+---
+
+## 6. Páginas Frontend
+
+| Ruta | Página | Descripción |
+|---|---|---|
+| `/` | Home | Landing con hero tabs (Vender/Comprar/Fusionarse) + valoración |
+| `/explorar` | Marketplace | Explorar deals con filtros + share menu |
+| `/explorar/:dealId` | DealPage | Ficha deal + NDA modal + OG dinámico |
+| `/valoracion` | ValuationWizard | Valoración pública 4 pasos (protegida) |
+| `/planes` | PlansPage | Planes y precios con tabs + deep-link (?role=) |
+| `/login` | Login | Acceso |
+| `/register` | Register | Registro |
+| `/buyer/procesos` | BuyerDashboard | Dashboard buyer premium 6 tabs |
+| `/buyer/onboarding` | BuyerOnboarding | Onboarding perfil buyer |
+| `/buyer/guardados` | SavedDeals | Deals guardados |
+| `/seller/deals` | SellerDashboard | Dashboard seller |
+| `/seller/onboarding` | SellerWizard | Wizard V2 (5 pasos) |
+| `/seller/deal/:dealId` | DealManagement | Gestión deal |
+| `/seller/interesados` | SellerInteresados | Gestión interesados |
+| `/qa/:conversationId` | ConversationPage | Q&A workspace |
+
+---
+
+## 7. Funcionalidades Implementadas (Detalle)
+
+### 7.1 Home Page
+- Hero con tabs interactivos: Vender / Comprar / Fusionarse (config driven)
+- Bloque valoración: "Descubre cuánto podría valer tu agencia" + ejemplo visual
+- Deals destacados con menú compartir (3 puntos: copiar URL + Web Share API)
+- Open Graph dinámico por deal (og:title, og:description)
+- Cómo funciona: 4 pasos (Regístrate → Explora → Entorno seguro → Cierra operación)
+- CTA final
+
+### 7.2 Seller Wizard V2
+- Layout: sidebar izquierda + 60/40 split (formulario + live preview)
+- 5 pasos: Datos básicos (CIF lookup) → Financieros → Valoración → Acuerdo → Teaser/Infomemo
+- Generación IA de teaser e infomemo (GPT-5.2)
+- Live preview dinámico con métricas
+
+### 7.3 Módulo de Valoración Pública (Lead Magnet)
+- Backend dominio independiente: `/modules/valuation/`
+- Motor: múltiplos CIS por categoría × quality_factor (margen, eficiencia, recurrencia, crecimiento)
+- 4 pasos: Identificación → Compañía → Taxonomía → Momento
+- Resultado: rango valoración, valor central, drivers, confianza, disclaimer legal
+- Persistencia: leads, runs (auditoría), premium requests
+- Email post-resultado (mockeado)
+- Upsell valoración experta 1.950€
+
+### 7.4 Planes y Precios
+- 8 planes en MongoDB: 3 seller + 3 buyer + 2 advisor
+- **Sellers:** Free (0 inter.) → Plus (149€, 5/mes) → Premium (499€, ilimitadas) + 2,9% éxito
+- **Buyers:** Free (0 inter.) → Pro (149€, 5/mes) → Pro+ (349€, ilimitadas) + 1% éxito
+- **Advisors:** Free (1 mandato) → Pro (250€/mes, 2+ mandatos, 6-12 meses) + 15% honorarios
+- Toggle mensual/anual con 10% descuento
+- Interacciones como palanca de monetización
+- FAQ 7 preguntas, bloque pedagógico comisiones
+- Deep-link: `/planes?role=buyer` abre tab correcto
+
+### 7.5 NDA Mutuo Digital
+- Texto legal: 10 cláusulas, BUD Advisors S.L., CIF B70821400, jurisdicción Madrid, vigencia 2 años
+- Firma electrónica: nombre, email, empresa, cargo, fecha, hora, IP, signature_id
+- PDF generado con reportlab, subido a Object Storage
+- Auditoría: nda_signatures + nda_events (NDA_SIGNED, EMAIL_SENT)
+- Email confirmación NDA_BUYER_SIGNED (mockeado)
+- Modal frontend: texto legal scrollable + formulario firmante + checkbox aceptación
+
+### 7.6 Buyer Dashboard Premium
+- **Layout:** Sidebar izquierda fija (logo + plan + certificación + 6 secciones + CTAs) + contenido central + rail derecho contextual
+- **6 secciones:** Dashboard, Mis procesos, Seguimiento, Recomendados, Alertas, Perfil
+- **Dashboard:** 6 KPIs, procesos activos con overlay Free sutil
+- **Mis procesos:** Lista con estado/tipo/valoración → detalle con bloque "Siguientes acciones" desde backend
+- **Acciones por proceso:** Recommended/Available/Blocked con motivo (firmar NDA, infomemo, data room, Q&A, LOI, reuniones, guardar, retirar)
+- **Seguimiento:** Watchlist/guardados con sector, financieros, fecha
+- **Recomendados:** Deals con badges afinidad + match_reason explicativo
+- **Alertas:** Notificaciones + preferencias (Email/In-app)
+- **Perfil:** Datos personales, tesis de inversión, verificación
+- **Certificación:** 7 criterios ponderados (COMPLETITUD: email, perfil, cargo, tesis / CONFIANZA: empresa, email corp, NDA)
+- **Niveles:** Básico (<50%), Verificado (50-79%), Certificado (≥80%)
+- **CTA "COMPLETAR VERIFICACIÓN"** redirige al primer requisito pendiente
+- **Plan diferenciación:** Features con Lock/Check + "Desde Pro" / "Solo Pro+"
+- **Backend:** GET /api/buyer/certification + _compute_process_actions()
+
+### 7.7 Seller Dashboard y Gestión
+- Deal Readiness: checklist obligatorio/recomendado, score, CTAs directos
+- Deal Health: semáforo VERDE/AMARILLO/ROJO con alertas prescriptivas
+- Response Acceleration: prioridad Q&A, nudges 12h/24h
+- Coaching prescriptivo seller con nudges
+- Internal Deal Score + Soft Signals
+
+### 7.8 Q&A Workspace
+- Trigger: INTEREST_ACCEPTED
+- CRUD preguntas/respuestas
+- Pendientes con urgencia
+- Acceso desde buyer y seller dashboards
+
+---
+
+## 8. Integraciones
+
+| Servicio | Estado | Detalle |
+|---|---|---|
+| OpenAI GPT-5.2 | Activo | Emergent LLM Key — teaser, infomemo |
+| Emergent Object Storage | Activo | PDFs NDA, documentos data room |
+| Iberinform | Activo | CIF lookup (test credentials) |
+| SendGrid | MOCKEADO | Templates listos, envío logueado |
+
+---
+
+## 9. Modelo de Monetización
+
+### Suscripciones
+| Plan | Precio | Interacciones | Destacado |
+|---|---|---|---|
+| Seller Free | 0€ | 0 | Publicación básica |
+| Seller Plus | 149€/mes | 5/mes | Dashboard operación |
+| Seller Premium | 499€/mes | Ilimitadas | Soporte prioritario |
+| Buyer Free | 0€ | 0 | Exploración básica |
+| Buyer Pro | 149€/mes | 5/mes | Acceso operativo |
+| Buyer Pro+ | 349€/mes | Ilimitadas | Acceso prioritario |
+| Advisor Free | 0€ | — | 1 mandato |
+| Advisor Pro | 250€/mes | — | 2+ mandatos, 6-12 meses |
+
+### Comisiones
+| Perfil | Tipo | Porcentaje |
+|---|---|---|
+| Seller | Éxito (sobre transacción) | 2,9% |
+| Buyer | Éxito (sobre transacción) | 1% |
+| Advisor | Revenue share (sobre honorarios) | 15% |
+
+---
+
+## 10. Cuentas de Prueba
+
+| Rol | Email | Password |
+|---|---|---|
+| Seller | diego.martin@rankingdigital.es | demo2026 |
+| Buyer | carlos.ruiz@capitaliberica.es | demo2026 |
+| Buyer | james.harris@techventures.co.uk | demo2026 |
+
+---
+
+## 11. Backlog Pendiente
+
+### P1
+- [ ] LOI Comparator — Dashboard visual para comparar LOIs recibidas
 - [ ] Activity dashboard por buyer
 
 ### P2
+- [ ] Consola Admin — Gestión planes, múltiplos, taxonomía, settings
 - [ ] Deal state transitions UI
 - [ ] PDF export infomemo
-- [ ] Advisor como operador, Admin panel
+- [ ] Advisor dashboard real
 - [ ] Activar SendGrid real
-- [ ] Response Time Score interno (solo coaching, no visible)
+- [ ] Response Time Score interno
+- [ ] Validación documental de empresa (criterio certificación avanzado)
 
 ---
 
-## Stack Tecnico
-- Frontend: React 18 + Tailwind + Shadcn/UI + IBM Plex Sans
-- Backend: FastAPI + MongoDB (Motor async)
-- Storage: Emergent Object Storage
-- AI: OpenAI GPT-5.2 (Emergent LLM Key)
+## 12. Testing
 
-## Integraciones
-- OpenAI GPT-5.2 — Activo (Emergent LLM Key)
-- Emergent Object Storage — Activo
-- Iberinform — Activo (test credentials)
-- SendGrid — MOCKEADO
-
-## Engagement Stage Flow
-SUBMITTED → VIEWED → ACCEPTED (crea Q&A) → SHORTLISTED → EXCLUSIVITY
-
-## Cuentas de prueba
-- Seller: diego.martin@rankingdigital.es / demo2026
-- Buyer: carlos.ruiz@capitaliberica.es / demo2026
-- Buyer: james.harris@techventures.co.uk / demo2026
-- Password universal: demo2026
+| Iteración | Scope | Resultado |
+|---|---|---|
+| 20 | Seller Wizard V2 | 100% (18/18 backend + frontend) |
+| 21 | Módulo Valoración | 100% (21/21 backend + frontend) |
+| 22 | Planes y Precios v1 | 100% (11/11 backend + frontend) |
+| 23 | Planes y Precios v2 | 100% (23/23 backend + 33 frontend) |
+| 24 | NDA + Deep-link | 100% (24/24 backend + 16 frontend) |
+| 25 | Buyer Dashboard F1 | 100% (14/14 frontend) |
+| 26 | Buyer Dashboard F2 | 100% (10/10 backend + 17 frontend) |
+| 27 | Buyer Dashboard F3 | 100% (16/16 backend + 15 frontend) |
