@@ -34,6 +34,7 @@ const planLabels = {
 
 const SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: FolderOpen },
+  { id: 'procesos', label: 'Mis procesos', icon: FileText },
   { id: 'seguimiento', label: 'Seguimiento', icon: Bookmark },
   { id: 'recomendados', label: 'Recomendados', icon: Sparkles },
   { id: 'alertas', label: 'Alertas', icon: Bell },
@@ -45,6 +46,7 @@ const BuyerDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [selectedProcess, setSelectedProcess] = useState(null);
   const [stats, setStats] = useState(null);
   const [recommendedDeals, setRecommendedDeals] = useState([]);
   const [processes, setProcesses] = useState([]);
@@ -184,6 +186,7 @@ const BuyerDashboard = () => {
               </p>
               <h1 className="text-3xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>
                 {activeSection === 'dashboard' ? `Hola, ${user?.first_name || 'Inversor'}` :
+                 activeSection === 'procesos' ? (selectedProcess ? selectedProcess.deal_title : 'Mis procesos activos') :
                  activeSection === 'seguimiento' ? 'Empresas en seguimiento' :
                  activeSection === 'recomendados' ? 'Deals recomendados' :
                  activeSection === 'alertas' ? 'Alertas y notificaciones' :
@@ -266,6 +269,32 @@ const BuyerDashboard = () => {
                     )}
                   </div>
                 </>
+              )}
+
+              {/* ═══ MIS PROCESOS ═══ */}
+              {activeSection === 'procesos' && !selectedProcess && (
+                <div data-testid="tab-procesos-content">
+                  <p className="text-xs mb-6" style={{ color: 'var(--outline)' }}>{activeProcesses.length} proceso{activeProcesses.length !== 1 ? 's' : ''} activo{activeProcesses.length !== 1 ? 's' : ''}</p>
+                  {activeProcesses.length === 0 ? (
+                    <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
+                      <Search size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
+                      <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Aún no tienes procesos activos</p>
+                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Explora el marketplace para iniciar tu primer proceso.</p>
+                      <Link to="/explorar"><button className="px-6 py-2 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>EXPLORAR</button></Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {processes.map(proc => (
+                        <ProcessCard key={proc.engagement_id} proc={proc} isFree={isFree} onClick={() => setSelectedProcess(proc)} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ═══ PROCESS DETAIL ═══ */}
+              {activeSection === 'procesos' && selectedProcess && (
+                <ProcessDetailView proc={selectedProcess} isFree={isFree} onBack={() => setSelectedProcess(null)} />
               )}
 
               {/* ═══ SEGUIMIENTO ═══ */}
@@ -482,9 +511,22 @@ const BuyerDashboard = () => {
                     ))}
                   </div>
                   {cert.level !== 'certified' && (
-                    <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>
-                      Completa los criterios pendientes para mejorar tu nivel. Los sellers ven tu etiqueta de confianza al evaluar tu interés.
-                    </p>
+                    <>
+                      <p className="text-[10px] mb-2" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>
+                        Completa los criterios pendientes para mejorar tu nivel. Los sellers ven tu etiqueta de confianza al evaluar tu interés.
+                      </p>
+                      <button onClick={() => {
+                        const pending = cert.criteria.find(c => !c.completed);
+                        if (pending?.id === 'company_declared' || pending?.id === 'job_title_declared' || pending?.id === 'investment_thesis' || pending?.id === 'profile_complete') {
+                          navigate('/buyer/onboarding');
+                        } else {
+                          setActiveSection('perfil');
+                        }
+                      }}
+                        className="w-full py-2 text-[10px] font-bold mt-1" style={{ background: 'var(--on-surface)', color: '#fff' }} data-testid="complete-verification-btn">
+                        COMPLETAR VERIFICACIÓN
+                      </button>
+                    </>
                   )}
                   {cert.level === 'certified' && (
                     <p className="text-[10px]" style={{ color: '#16a34a', lineHeight: 1.4 }}>
@@ -549,13 +591,16 @@ const BuyerDashboard = () => {
 };
 
 /* ─── Sub-components ─── */
-const ProcessCard = ({ proc, isFree }) => {
+const ProcessCard = ({ proc, isFree, onClick }) => {
   const stage = stageConfig[proc.stage] || { label: proc.stage, color: 'text-slate-600', bg: 'var(--surface-1)', icon: FileText };
   const StageIcon = stage.icon;
   const isBlocked = isFree && proc.stage !== 'REJECTED';
+  const Wrapper = onClick ? 'button' : Link;
+  const wrapperProps = onClick ? { onClick, className: 'block p-5 group w-full text-left' } : { to: `/explorar/${proc.deal_id}`, className: 'block p-5 group' };
+
   return (
     <div className="transition-all duration-150 hover:-translate-y-0.5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid={`process-${proc.engagement_id}`}>
-      <Link to={`/explorar/${proc.deal_id}`} className="block p-5 group">
+      <Wrapper {...wrapperProps}>
         <div className="flex items-start justify-between gap-4 mb-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -570,6 +615,7 @@ const ProcessCard = ({ proc, isFree }) => {
           </div>
           <div className="text-right shrink-0">
             {proc.valuation_offer && <p className="text-sm font-black" style={{ color: 'var(--arroba-primary)' }}>{(proc.valuation_offer / 1e6).toFixed(1).replace('.', ',')}M€</p>}
+            <ChevronRight size={14} className="mt-1 ml-auto" style={{ color: 'var(--outline-variant)' }} />
           </div>
         </div>
         {proc.next_step && proc.stage !== 'REJECTED' && (
@@ -583,7 +629,7 @@ const ProcessCard = ({ proc, isFree }) => {
             )}
           </div>
         )}
-      </Link>
+      </Wrapper>
       {isBlocked && (
         <div className="px-5 pb-4">
           <div className="flex items-center gap-2 py-2 px-3" style={{ background: 'var(--surface-1)' }}>
@@ -592,6 +638,112 @@ const ProcessCard = ({ proc, isFree }) => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+/* ─── Process Detail View with Actions ─── */
+const ProcessDetailView = ({ proc, isFree, onBack }) => {
+  const stage = stageConfig[proc.stage] || { label: proc.stage, color: 'text-slate-600', bg: 'var(--surface-1)', icon: FileText };
+  const StageIcon = stage.icon;
+  const actions = proc.actions || { recommended: null, available: [], blocked: [] };
+
+  return (
+    <div data-testid="process-detail">
+      {/* Back */}
+      <button onClick={onBack} className="flex items-center gap-1 text-xs font-semibold mb-6" style={{ color: 'var(--outline)' }}>
+        <ArrowLeft size={12} /> Volver a mis procesos
+      </button>
+
+      {/* Header */}
+      <div className="p-6 mb-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold" style={{ background: stage.bg, color: stage.color }}><StageIcon size={10} /> {stage.label}</span>
+              <span className="text-[10px] font-semibold uppercase" style={{ color: 'var(--outline)' }}>{proc.type}</span>
+              {proc.has_nda && <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>NDA FIRMADO</span>}
+            </div>
+            <h2 className="text-xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>{proc.deal_title}</h2>
+            <div className="flex items-center gap-4 mt-1 text-xs" style={{ color: 'var(--outline)' }}>
+              {proc.deal_sector && <span>{proc.deal_sector}</span>}
+              {proc.deal_location && <span className="flex items-center gap-0.5"><MapPin size={10} /> {proc.deal_location}</span>}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            {proc.valuation_offer && (
+              <div>
+                <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>OFERTA</p>
+                <p className="text-xl font-black" style={{ color: 'var(--arroba-primary)' }}>{(proc.valuation_offer / 1e6).toFixed(1).replace('.', ',')}M€</p>
+              </div>
+            )}
+            {proc.deal_revenue && (
+              <div className="mt-2">
+                <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>FACTURACIÓN</p>
+                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{proc.deal_revenue}</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <Link to={`/explorar/${proc.deal_id}`} className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>
+          Ver ficha completa <ArrowRight size={10} />
+        </Link>
+      </div>
+
+      {/* ── ACTIONS BLOCK ── */}
+      <div className="mb-5">
+        <p className="label-arroba mb-4" style={{ color: 'var(--outline)', fontSize: 9 }}>SIGUIENTES ACCIONES</p>
+
+        {/* Recommended action */}
+        {actions.recommended && (
+          <Link to={actions.recommended.href || '#'} className="block p-4 mb-3 transition-all duration-150 hover:-translate-y-0.5"
+            style={{ background: 'var(--surface-lowest)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}
+            data-testid="action-recommended">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--arroba-primary)' }}>ACCIÓN RECOMENDADA</p>
+                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{actions.recommended.label}</p>
+              </div>
+              <ArrowRight size={14} style={{ color: 'var(--arroba-primary)' }} />
+            </div>
+          </Link>
+        )}
+
+        {/* Available actions */}
+        <div className="space-y-2 mb-4">
+          {actions.available.filter(a => a.id !== actions.recommended?.id).map(action => (
+            <div key={action.id} className="p-3 flex items-center justify-between"
+              style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.02)' }}
+              data-testid={`action-${action.id}`}>
+              <span className="text-xs font-semibold" style={{ color: 'var(--on-surface)' }}>{action.label}</span>
+              {action.href ? (
+                <Link to={action.href} className="text-[10px] font-bold" style={{ color: 'var(--arroba-primary)' }}>Ir</Link>
+              ) : (
+                <span className="text-[10px] font-semibold" style={{ color: 'var(--outline)' }}>Próximamente</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Blocked actions */}
+        {actions.blocked.length > 0 && (
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--outline)' }}>NO DISPONIBLES</p>
+            <div className="space-y-2">
+              {actions.blocked.map(action => (
+                <div key={action.id} className="p-3 flex items-center justify-between opacity-60"
+                  style={{ background: 'var(--surface-1)' }} data-testid={`action-blocked-${action.id}`}>
+                  <div className="flex items-center gap-2">
+                    <Lock size={10} style={{ color: 'var(--outline)' }} />
+                    <span className="text-xs" style={{ color: 'var(--outline)' }}>{action.label}</span>
+                  </div>
+                  <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{action.reason}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

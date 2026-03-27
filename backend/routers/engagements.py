@@ -926,6 +926,73 @@ def _derive_action(eng: dict, intent_score: int, deal: dict) -> dict:
 
 
 
+def _compute_process_actions(eng: dict, deal: dict, has_nda: bool, conversation_id: str | None, buyer_id: str) -> dict:
+    """Compute available, recommended, and blocked actions for a buyer process."""
+    stage = eng.get("stage", "")
+    eng_type = eng.get("type", "")
+    deal_id = eng.get("deal_id", "")
+    is_rejected = stage == "REJECTED"
+
+    available = []
+    blocked = []
+    recommended = None
+
+    if is_rejected:
+        return {"recommended": None, "available": [], "blocked": [{"id": "all", "label": "Proceso no seleccionado", "reason": "El seller no ha continuado con este proceso."}]}
+
+    # NDA
+    if not has_nda:
+        recommended = {"id": "sign_nda", "label": "Firmar NDA", "href": f"/explorar/{deal_id}", "priority": 1}
+        available.append({"id": "sign_nda", "label": "Firmar NDA", "href": f"/explorar/{deal_id}"})
+        blocked.append({"id": "view_infomemo", "label": "Ver infomemo", "reason": "Requiere NDA firmado"})
+        blocked.append({"id": "view_dataroom", "label": "Acceder a Data Room", "reason": "Requiere NDA firmado"})
+    else:
+        available.append({"id": "view_infomemo", "label": "Ver infomemo", "href": f"/explorar/{deal_id}"})
+        available.append({"id": "view_dataroom", "label": "Acceder a Data Room", "href": f"/explorar/{deal_id}"})
+
+    # Q&A
+    if conversation_id:
+        available.append({"id": "ask_question", "label": "Hacer pregunta", "href": f"/qa/{conversation_id}"})
+    elif stage in ("ACCEPTED", "SHORTLISTED", "EXCLUSIVITY"):
+        blocked.append({"id": "ask_question", "label": "Hacer pregunta", "reason": "Q&A aún no activado para este proceso"})
+
+    # Interest / LOI actions
+    if eng_type == "INTEREST" and stage in ("SUBMITTED", "VIEWED", "ACCEPTED"):
+        available.append({"id": "send_loi", "label": "Enviar oferta / LOI", "href": f"/explorar/{deal_id}"})
+        if not recommended:
+            if stage == "VIEWED":
+                recommended = {"id": "send_loi", "label": "Enviar oferta / LOI", "href": f"/explorar/{deal_id}", "priority": 2}
+            elif stage == "ACCEPTED" and conversation_id:
+                recommended = {"id": "ask_question", "label": "Abrir Q&A", "href": f"/qa/{conversation_id}", "priority": 2}
+
+    if stage == "SHORTLISTED":
+        available.append({"id": "send_loi", "label": "Enviar oferta / LOI", "href": f"/explorar/{deal_id}"})
+        if not recommended:
+            recommended = {"id": "send_loi", "label": "Preparar LOI", "href": f"/explorar/{deal_id}", "priority": 2}
+
+    if stage == "EXCLUSIVITY":
+        if not recommended:
+            recommended = {"id": "advance_dd", "label": "Avanzar Due Diligence", "href": f"/explorar/{deal_id}", "priority": 1}
+
+    # General actions always available
+    available.append({"id": "save_deal", "label": "Guardar / seguir", "href": f"/explorar/{deal_id}"})
+
+    # Withdraw
+    if stage not in ("EXCLUSIVITY",):
+        available.append({"id": "withdraw", "label": "Retirar interés", "href": None})
+
+    # Contact actions (placeholders for future)
+    available.append({"id": "contact_seller", "label": "Agendar reunión con el seller", "href": None})
+    available.append({"id": "contact_arroba", "label": "Agendar reunión con ARROBA", "href": "mailto:equipo@arroba.es"})
+
+    return {
+        "recommended": recommended,
+        "available": available,
+        "blocked": blocked,
+    }
+
+
+
 @router.get("/my-processes")
 async def get_my_processes(
     current_user: UserResponse = Depends(get_current_user)
@@ -971,6 +1038,10 @@ async def get_my_processes(
         elif eng["stage"] == "EXCLUSIVITY":
             next_step = {"action": "Avanzar Due Diligence", "href": f"/marketplace/{eng['deal_id']}"}
 
+        # Compute available actions for this process
+        has_nda = any(n.get("buyer_id") == current_user.user_id for n in deal.get("ndas_signed", []))
+        actions = _compute_process_actions(eng, deal, has_nda, conversation_id, current_user.user_id)
+
         processes.append({
             "engagement_id": eng["engagement_id"],
             "deal_id": eng["deal_id"],
@@ -983,8 +1054,12 @@ async def get_my_processes(
             "deal_title": teaser.get("title") or teaser.get("headline") or "Oportunidad",
             "deal_sector": teaser.get("sector_display", "Digital"),
             "deal_location": teaser.get("location") or teaser.get("geography_display", ""),
+            "deal_revenue": teaser.get("revenue_display") or teaser.get("revenue_range"),
+            "deal_ebitda": teaser.get("ebitda_display") or teaser.get("ebitda_range"),
+            "has_nda": has_nda,
             "next_step": next_step,
             "conversation_id": conversation_id,
+            "actions": actions,
         })
 
     return {"processes": processes, "total": len(processes)}
