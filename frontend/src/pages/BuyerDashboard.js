@@ -59,6 +59,11 @@ const BuyerDashboard = () => {
   const [profileComplete, setProfileComplete] = useState(false);
   const [certData, setCertData] = useState(null);
   const [billingData, setBillingData] = useState(null);
+  const [notifPrefs, setNotifPrefs] = useState({
+    new_opportunities: true,
+    seller_responses: true,
+    process_changes: true,
+  });
 
   // Derived from certData (backend is source of truth)
   const planTier = certData?.plan?.tier || getPlanTier(user);
@@ -345,7 +350,7 @@ const BuyerDashboard = () => {
                         return (
                           <div key={deal.deal_id} className="p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid={`recommended-deal-${deal.deal_id}`}>
                             <div className="flex items-start justify-between gap-4">
-                              <Link to={`/explorar/${deal.deal_id}`} className="flex-1 min-w-0">
+                              <Link to={`/explorar/${deal.deal_id}?from=buyer&section=${activeSection}`} className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                   <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{t.sector_display || 'Digital'}</span>
                                   {deal.affinity && (
@@ -412,23 +417,30 @@ const BuyerDashboard = () => {
                   )}
                   {/* Preferences */}
                   <div className="mt-8 p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-4">
                       <Settings size={14} style={{ color: 'var(--outline)' }} />
                       <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>Preferencias de notificación</p>
                     </div>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {[
-                        { label: 'Nuevas oportunidades compatibles', channel: 'Email' },
-                        { label: 'Respuestas del seller', channel: 'Email + In-app' },
-                        { label: 'Cambios de estado en mis procesos', channel: 'In-app' },
-                      ].map((pref, i) => (
-                        <div key={i} className="flex items-center justify-between py-1">
-                          <span className="text-xs" style={{ color: 'var(--on-surface)' }}>{pref.label}</span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5" style={{ background: 'var(--surface-1)', color: 'var(--outline)' }}>{pref.channel}</span>
+                        { key: 'new_opportunities', label: 'Nuevas oportunidades compatibles', desc: 'Cuando aparece un deal que encaja con tu perfil' },
+                        { key: 'seller_responses', label: 'Respuestas del seller', desc: 'Cuando un seller responde a tu interés o Q&A' },
+                        { key: 'process_changes', label: 'Cambios de estado en mis procesos', desc: 'Cuando tu proceso avanza o cambia de estado' },
+                      ].map((pref) => (
+                        <div key={pref.key} className="flex items-center justify-between py-1">
+                          <div className="flex-1 min-w-0 mr-4">
+                            <p className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{pref.label}</p>
+                            <p className="text-[10px]" style={{ color: 'var(--outline)' }}>{pref.desc}</p>
+                          </div>
+                          <button onClick={() => setNotifPrefs(prev => ({ ...prev, [pref.key]: !prev[pref.key] }))}
+                            className="relative w-10 h-5 shrink-0 transition-colors"
+                            style={{ background: notifPrefs[pref.key] ? 'var(--arroba-primary)' : 'var(--surface-2)' }}
+                            data-testid={`toggle-${pref.key}`}>
+                            <span className="absolute top-0.5 w-4 h-4 transition-all" style={{ background: '#fff', left: notifPrefs[pref.key] ? 22 : 2 }} />
+                          </button>
                         </div>
                       ))}
                     </div>
-                    <p className="text-[10px] mt-3" style={{ color: 'var(--outline-variant)' }}>La configuración avanzada de canales estará disponible próximamente.</p>
                   </div>
                 </div>
               )}
@@ -758,7 +770,7 @@ const ProcessDetailView = ({ proc, isFree, onBack }) => {
             )}
           </div>
         </div>
-        <Link to={`/explorar/${proc.deal_id}`} className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>
+        <Link to={`/explorar/${proc.deal_id}?from=buyer&section=${activeSection}`} className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>
           Ver ficha completa <ArrowRight size={10} />
         </Link>
       </div>
@@ -856,7 +868,7 @@ const SeguimientoCard = ({ deal, teaser, onUnsave }) => {
   return (
     <div className="p-5 transition-all duration-150 hover:-translate-y-0.5 group relative" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
       <div className="flex items-start justify-between gap-4">
-        <Link to={`/explorar/${deal.deal_id}`} className="flex-1 min-w-0">
+        <Link to={`/explorar/${deal.deal_id}?from=buyer&section=${activeSection}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{teaser.sector_display || 'Digital'}</span>
             <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{teaser.geography_display}</span>

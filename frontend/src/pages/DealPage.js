@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -261,6 +261,9 @@ const LoiForm = ({ engagementId, onSubmit, loading }) => {
 // ===== MAIN DEAL PAGE =====
 const DealPage = () => {
   const { dealId } = useParams();
+  const [searchParams] = useSearchParams();
+  const fromBuyer = searchParams.get('from') === 'buyer';
+  const fromSection = searchParams.get('section');
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [deal, setDeal] = useState(null);
@@ -393,9 +396,16 @@ const DealPage = () => {
       {showNdaModal && <NdaModal dealId={dealId} user={user} onSigned={handleNdaSigned} onClose={() => setShowNdaModal(false)} />}
 
       <div className="container mx-auto px-4 py-8 max-w-5xl" data-testid="deal-page">
-        <Link to="/explorar" className="inline-flex items-center text-sm text-slate-500 hover:text-slate-700 mb-6" data-testid="back-to-marketplace">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Volver al Marketplace
-        </Link>
+        {fromBuyer ? (
+          <Link to={`/buyer/procesos`} className="inline-flex items-center text-sm mb-6" style={{ color: 'var(--outline)' }} data-testid="back-to-dashboard"
+            onClick={(e) => { if (fromSection) { e.preventDefault(); navigate(`/buyer/procesos`); setTimeout(() => { const el = document.querySelector(`[data-testid="nav-${fromSection}"]`); if (el) el.click(); }, 100); } }}>
+            <ArrowLeft className="w-4 h-4 mr-1" /> Volver al panel de comprador
+          </Link>
+        ) : (
+          <Link to="/explorar" className="inline-flex items-center text-sm mb-6" style={{ color: 'var(--outline)' }} data-testid="back-to-marketplace">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Volver al Marketplace
+          </Link>
+        )}
 
         {/* Error banner */}
         {error && (
