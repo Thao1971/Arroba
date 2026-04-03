@@ -44,6 +44,7 @@ Fecha: 27 de marzo de 2026 · Titular: BUD Advisors, S.L. · CIF B70821400
 | Notificaciones in-app | Lista, unread count, mark read |
 | Planes y precios | 8 planes, 3 fee rules, interacciones, toggle anual, FAQ, deep-link |
 | Certificación buyer | 7 criterios ponderados, 3 niveles, diferenciación plan |
+| LOI Comparator | Tab "LOIs" en DealManagement: tabla/cards comparativas, señales buyer, badges automáticos, sort/filter, acciones. Deep-link: `?tab=lois`. Endpoint: `GET /api/engagements/deal/{id}/loi-comparator` |
 | Auth JWT + Google OAuth | Login, registro, sesiones Emergent Auth |
 
 ### Implementado con matiz específico
@@ -69,7 +70,6 @@ Fecha: 27 de marzo de 2026 · Titular: BUD Advisors, S.L. · CIF B70821400
 
 | Módulo | Prioridad |
 |---|---|
-| LOI Comparator (visual dashboard seller) | P1 |
 | Activity Dashboard por buyer (vista seller) | P1 |
 | Admin Console / Panel UI canónico | P2 |
 | Advisor Dashboard real | P2 |

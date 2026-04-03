@@ -1,349 +1,369 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { engagementsAPI, trackingAPI } from '../services/api';
+import { engagementsAPI } from '../services/api';
 import {
-  FileSignature, TrendingUp, Download, Eye, Clock, User,
-  Loader2, FolderOpen, Star, Send, Filter, Zap, Target, Info,
-  CheckCircle2, XCircle, Lock, ArrowRight, AlertTriangle
+  FileSignature, TrendingUp, Clock, User, Loader2, Star, Zap, Target,
+  CheckCircle2, XCircle, Lock, ArrowRight, AlertTriangle, ArrowUpDown,
+  Shield, MessageSquare, Eye, Award, ChevronDown
 } from 'lucide-react';
 
-const classConfig = {
-  RECOMMENDED_SHORTLIST: { label: 'Recomendado', color: 'bg-green-100 text-green-700 border-green-300', icon: Star, iconColor: 'text-green-600' },
-  CONSIDER: { label: 'Considerar', color: 'bg-amber-100 text-amber-700 border-amber-300', icon: Target, iconColor: 'text-amber-600' },
-  LOW_PRIORITY: { label: 'Baja prioridad', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: null, iconColor: '' },
-  ALREADY_SHORTLISTED: { label: 'En Shortlist', color: 'bg-green-100 text-green-700 border-green-300', icon: CheckCircle2, iconColor: 'text-green-600' },
-  EXCLUSIVITY: { label: 'Exclusividad', color: 'bg-indigo-100 text-indigo-700 border-indigo-300', icon: Lock, iconColor: 'text-indigo-600' },
-  REJECTED: { label: 'Descartado', color: 'bg-red-100 text-red-500 border-red-200', icon: XCircle, iconColor: 'text-red-500' },
+/* ─── Configs ─── */
+const stageLabels = {
+  SUBMITTED: { label: 'Enviado', bg: 'rgba(59,130,246,0.06)', color: 'text-blue-700' },
+  VIEWED: { label: 'Visto', bg: 'rgba(217,119,6,0.06)', color: 'text-amber-700' },
+  ACCEPTED: { label: 'Aceptado', bg: 'rgba(20,184,166,0.06)', color: 'text-teal-700' },
+  SHORTLISTED: { label: 'Shortlist', bg: 'rgba(22,163,74,0.06)', color: 'text-green-700' },
+  EXCLUSIVITY: { label: 'Exclusividad', bg: 'rgba(79,70,229,0.06)', color: 'text-indigo-700' },
+  REJECTED: { label: 'Descartado', bg: 'rgba(220,38,38,0.05)', color: 'text-red-600' },
 };
 
-const intentConfig = {
-  alta: { label: 'Alta intención', color: 'bg-green-50 text-green-700', icon: Zap },
-  media: { label: 'Media intención', color: 'bg-amber-50 text-amber-700', icon: Target },
-  baja: { label: 'Baja intención', color: 'bg-slate-50 text-slate-500', icon: null },
+const certLabels = {
+  certified: { label: 'Certificado', color: '#16a34a' },
+  verified: { label: 'Verificado', color: '#d97706' },
+  basic: { label: 'Básico', color: 'var(--outline)' },
 };
 
-const formatTime = (seconds) => {
-  if (!seconds || seconds < 60) return seconds ? `${seconds}s` : '—';
-  const m = Math.floor(seconds / 60);
-  if (m < 60) return `${m} min`;
-  return `${Math.floor(m / 60)}h ${m % 60}m`;
+const intentLabels = {
+  alta: { label: 'Alta', color: '#16a34a', icon: Zap },
+  media: { label: 'Media', color: '#d97706', icon: Target },
+  baja: { label: 'Baja', color: 'var(--outline)', icon: null },
 };
 
+const flagConfig = {
+  best_offer: { bg: 'rgba(182,33,42,0.06)', color: 'var(--arroba-primary)' },
+  most_cash: { bg: 'rgba(22,163,74,0.06)', color: '#16a34a' },
+  highest_activity: { bg: 'rgba(0,100,147,0.06)', color: '#006493' },
+  low_activity: { bg: 'rgba(220,38,38,0.05)', color: '#dc2626' },
+  expires_soon: { bg: 'rgba(217,119,6,0.06)', color: '#d97706' },
+};
+
+const fmtEur = (v) => v ? `${(v / 1e6).toFixed(1).replace('.', ',')}M€` : '—';
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—';
+
+/* ═══════════════════════════════════════════
+   LOI COMPARATOR
+   ═══════════════════════════════════════════ */
 const LoiDetailedView = ({ deal, onRefresh }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [tooltipId, setTooltipId] = useState(null);
-  const [applyingShortlist, setApplyingShortlist] = useState(false);
+  const [sortField, setSortField] = useState('valuation_offer');
+  const [sortDir, setSortDir] = useState('desc');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('table');
   const [actionLoading, setActionLoading] = useState('');
 
   const loadData = async () => {
     try {
-      const res = await trackingAPI.getSuggestions(deal.deal_id);
+      const res = await engagementsAPI.getLoiComparator(deal.deal_id);
       setData(res.data);
     } catch {} finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, [deal.deal_id]);
 
-  const buyers = data?.buyers || [];
-  const recommendation = data?.recommendation;
-  const exclusivityCandidate = data?.exclusivity_candidate;
-  const shortlistStatus = data?.shortlist_status || { current_count: 0, max: 3, available_slots: 3 };
+  const lois = useMemo(() => {
+    let items = data?.lois || [];
+    if (stageFilter !== 'all') items = items.filter(l => l.stage === stageFilter);
+    items.sort((a, b) => {
+      const av = a[sortField] ?? 0;
+      const bv = b[sortField] ?? 0;
+      return sortDir === 'desc' ? (bv > av ? 1 : -1) : (av > bv ? 1 : -1);
+    });
+    return items;
+  }, [data, sortField, sortDir, stageFilter]);
 
-  // Filter
-  const filtered = useMemo(() => {
-    if (filter === 'loi') return buyers.filter(b => b.engagement_type === 'LOI');
-    if (filter === 'alta') return buyers.filter(b => b.intent_level === 'alta');
-    if (filter === 'recommended') return buyers.filter(b => b.classification === 'RECOMMENDED_SHORTLIST');
-    return buyers;
-  }, [buyers, filter]);
+  const summary = data?.summary || {};
+  const askingPrice = data?.deal_asking_price || 0;
 
-  // Summary counts
-  const counts = useMemo(() => ({
-    lois: buyers.filter(b => b.engagement_type === 'LOI').length,
-    interests: buyers.filter(b => b.engagement_type === 'INTEREST').length,
-    recommended: buyers.filter(b => b.classification === 'RECOMMENDED_SHORTLIST').length,
-    alta: buyers.filter(b => b.intent_level === 'alta').length,
-  }), [buyers]);
-
-  // Apply suggested shortlist
-  const handleApplySuggested = async () => {
-    if (!recommendation?.buyer_ids?.length) return;
-    const confirmed = window.confirm(
-      shortlistStatus.current_count > 0
-        ? `Ya tienes ${shortlistStatus.current_count} buyer(s) en shortlist. ¿Añadir ${recommendation.buyer_ids.length} más?`
-        : `¿Shortlistar ${recommendation.buyer_ids.length} buyer(s) recomendado(s)?`
-    );
-    if (!confirmed) return;
-
-    setApplyingShortlist(true);
-    try {
-      for (const buyerId of recommendation.buyer_ids) {
-        await engagementsAPI.shortlistBuyer(deal.deal_id, buyerId);
-      }
-      await loadData();
-      if (onRefresh) onRefresh();
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Error al aplicar shortlist');
-    } finally { setApplyingShortlist(false); }
+  const handleSort = (field) => {
+    if (sortField === field) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setSortField(field); setSortDir('desc'); }
   };
 
-  // Individual actions
   const handleAction = async (action, buyerId) => {
     setActionLoading(buyerId);
     try {
       if (action === 'shortlist') await engagementsAPI.shortlistBuyer(deal.deal_id, buyerId);
       if (action === 'reject') await engagementsAPI.rejectBuyer(deal.deal_id, buyerId);
       if (action === 'exclusivity') await engagementsAPI.grantExclusivity(deal.deal_id, buyerId);
-      if (action === 'remove-shortlist') await engagementsAPI.removeFromShortlist(deal.deal_id, buyerId);
       await loadData();
       if (onRefresh) onRefresh();
-    } catch (err) {
-      alert(err.response?.data?.detail || 'Error');
-    } finally { setActionLoading(''); }
+    } catch (err) { alert(err.response?.data?.detail || 'Error'); }
+    finally { setActionLoading(''); }
   };
 
-  if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
+  if (loading) return <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--outline)' }} /></div>;
+
+  if (!data || lois.length === 0) {
+    return (
+      <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }} data-testid="loi-comparator-empty">
+        <FileSignature size={28} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
+        <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Sin LOIs recibidas</p>
+        <p className="text-xs" style={{ color: 'var(--outline)' }}>Cuando los buyers envíen ofertas, aparecerán aquí para comparar.</p>
+      </div>
+    );
+  }
 
   return (
-    <div data-testid="loi-detailed-view">
-      {/* System Recommendation Banner */}
-      {recommendation && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6" data-testid="suggestion-banner">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Star className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-green-900 text-sm">Sugerencia del sistema</h3>
-                <p className="text-sm text-green-700">{recommendation.message}</p>
-                <p className="text-xs text-green-600 mt-0.5">{recommendation.detail}</p>
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {recommendation.buyer_names?.map((name, i) => (
-                    <span key={i} className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-medium">{name}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <Button onClick={handleApplySuggested} disabled={applyingShortlist}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm flex-shrink-0"
-              data-testid="apply-shortlist-btn">
-              {applyingShortlist ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
-              Aplicar shortlist sugerida
-            </Button>
-          </div>
+    <div data-testid="loi-comparator">
+      {/* ─── SUMMARY HEADER ─── */}
+      <div className="grid grid-cols-4 gap-3 mb-6" data-testid="loi-summary">
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--outline)' }}>LOIs RECIBIDAS</p>
+          <p className="text-2xl font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>{summary.count}</p>
         </div>
-      )}
-
-      {/* Exclusivity Suggestion */}
-      {exclusivityCandidate && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6" data-testid="exclusivity-banner">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Lock className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-indigo-900 text-sm">Candidato para exclusividad</h3>
-                <p className="text-sm text-indigo-700">{exclusivityCandidate.message}</p>
-                <p className="text-xs text-indigo-600 mt-0.5">{exclusivityCandidate.detail}</p>
-              </div>
-            </div>
-            <Button onClick={() => handleAction('exclusivity', exclusivityCandidate.buyer_id)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm flex-shrink-0"
-              data-testid="apply-exclusivity-btn">
-              <Lock className="w-4 h-4 mr-1" /> Conceder exclusividad
-            </Button>
-          </div>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--outline)' }}>MEJOR OFERTA</p>
+          <p className="text-2xl font-black" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.02em' }}>{fmtEur(summary.best_offer)}</p>
         </div>
-      )}
-
-      {/* Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-5">
-        <div className="bg-slate-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-arroba-coral">{counts.lois}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider">LOIs</p>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--outline)' }}>MEDIA % CASH</p>
+          <p className="text-2xl font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>{summary.avg_cash_pct}%</p>
         </div>
-        <div className="bg-slate-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-slate-900">{counts.interests}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider">Intereses</p>
-        </div>
-        <div className="bg-slate-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-green-600">{counts.recommended}</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider">Recomendados</p>
-        </div>
-        <div className="bg-slate-50 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-slate-600">{shortlistStatus.current_count}/3</p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider">Shortlist</p>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--outline)' }}>MAYOR INTENCIÓN</p>
+          <p className="text-sm font-bold truncate" style={{ color: 'var(--on-surface)' }}>{summary.highest_intent_buyer || '—'}</p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2 mb-4">
-        <Filter className="w-4 h-4 text-slate-400" />
-        {[
-          { id: 'all', label: 'Todos' },
-          { id: 'loi', label: 'Con LOI' },
-          { id: 'recommended', label: 'Recomendados' },
-          { id: 'alta', label: 'Alta intención' },
-        ].map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-              filter === f.id ? 'bg-arroba-coral text-white border-arroba-coral' : 'bg-white border-slate-200 hover:border-slate-300'
-            }`} data-testid={`filter-${f.id}`}>
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Buyer Cards */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-8 bg-slate-50 rounded-lg" data-testid="no-results">
-          <FileSignature className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="font-bold text-slate-900 mb-1">
-            {buyers.length === 0 ? 'No hay compradores todavía' : 'Sin resultados con este filtro'}
-          </h3>
+      {/* ─── TOOLBAR ─── */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <select value={stageFilter} onChange={e => setStageFilter(e.target.value)}
+            className="px-3 py-1.5 text-xs font-semibold outline-none" style={{ background: 'var(--surface-2)', color: 'var(--on-surface)', borderRadius: 0 }} data-testid="loi-stage-filter">
+            <option value="all">Todos los stages</option>
+            {Object.entries(stageLabels).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
         </div>
-      ) : (
-        <div className="space-y-3" data-testid="buyer-cards">
-          {filtered.map(buyer => {
-            const cls = classConfig[buyer.classification] || classConfig.LOW_PRIORITY;
-            const ClsIcon = cls.icon;
-            const intent = intentConfig[buyer.intent_level] || intentConfig.baja;
-            const ts = buyer.time_summary || {};
-            const isLoading = actionLoading === buyer.buyer_id;
-
+        <div className="flex items-center gap-2">
+          {['valuation_offer', 'cash_percentage', 'intent_score', 'total_time_minutes', 'submitted_at'].map(f => {
+            const labels = { valuation_offer: 'Oferta', cash_percentage: '% Cash', intent_score: 'Intención', total_time_minutes: 'Actividad', submitted_at: 'Fecha' };
+            const isActive = sortField === f;
             return (
-              <div key={buyer.buyer_id} className={`border rounded-lg overflow-hidden ${buyer.classification === 'RECOMMENDED_SHORTLIST' ? 'border-green-300 bg-green-50/30' : 'border-slate-200'}`}
-                data-testid={`buyer-card-${buyer.buyer_id}`}>
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 py-3 bg-white">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-arroba-coral/10 flex items-center justify-center">
-                      <User className="w-4 h-4 text-arroba-coral" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">{buyer.buyer_name}</p>
-                      <p className="text-xs text-slate-400">{buyer.engagement_type}{buyer.signals?.has_loi ? ' · LOI' : ''}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {/* Classification badge with reason tooltip */}
-                    <div className="relative">
-                      <button onClick={() => setTooltipId(tooltipId === buyer.buyer_id ? null : buyer.buyer_id)}
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1 border ${cls.color}`}
-                        data-testid={`class-badge-${buyer.buyer_id}`}>
-                        {ClsIcon && <ClsIcon className="w-3 h-3" />}
-                        {cls.label}
-                        <Info className="w-3 h-3 opacity-40" />
-                      </button>
-                      {tooltipId === buyer.buyer_id && (
-                        <div className="absolute right-0 top-full mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-3 z-50"
-                          data-testid={`tooltip-${buyer.buyer_id}`}>
-                          <p className="text-xs font-bold text-slate-700 mb-1.5">{buyer.reason}</p>
-                          {buyer.intent_factors?.length > 0 && (
-                            <>
-                              <p className="text-[10px] text-slate-400 uppercase mb-1">Factores de intención:</p>
-                              {buyer.intent_factors.map((f, i) => (
-                                <div key={i} className="flex justify-between text-xs py-0.5">
-                                  <span className="text-slate-600">{f.factor}</span>
-                                  <span className="font-bold">+{f.points}</span>
-                                </div>
-                              ))}
-                              <div className="border-t border-slate-100 mt-1 pt-1 flex justify-between text-xs font-bold">
-                                <span>Score</span><span>{buyer.intent_score}/100</span>
-                              </div>
-                            </>
+              <button key={f} onClick={() => handleSort(f)}
+                className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1"
+                style={{ background: isActive ? 'var(--on-surface)' : 'var(--surface-2)', color: isActive ? '#fff' : 'var(--outline)' }}
+                data-testid={`sort-${f}`}>
+                {labels[f]} {isActive && <ArrowUpDown size={9} />}
+              </button>
+            );
+          })}
+          <div className="flex ml-2" style={{ background: 'var(--surface-2)' }}>
+            <button onClick={() => setViewMode('table')} className="px-2 py-1 text-[10px] font-bold"
+              style={{ background: viewMode === 'table' ? 'var(--on-surface)' : 'transparent', color: viewMode === 'table' ? '#fff' : 'var(--outline)' }} data-testid="view-table">Tabla</button>
+            <button onClick={() => setViewMode('cards')} className="px-2 py-1 text-[10px] font-bold"
+              style={{ background: viewMode === 'cards' ? 'var(--on-surface)' : 'transparent', color: viewMode === 'cards' ? '#fff' : 'var(--outline)' }} data-testid="view-cards">Cards</button>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── TABLE VIEW ─── */}
+      {viewMode === 'table' && (
+        <div className="overflow-x-auto" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <table className="w-full text-sm" data-testid="loi-comparison-table">
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--surface-2)' }}>
+                <th className="text-left py-3 px-4 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>Buyer</th>
+                <th className="text-right py-3 px-3 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>Oferta</th>
+                <th className="text-right py-3 px-3 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>% Ask</th>
+                <th className="text-center py-3 px-3 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>Estructura</th>
+                <th className="text-center py-3 px-3 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>Intención</th>
+                <th className="text-center py-3 px-3 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>Actividad</th>
+                <th className="text-center py-3 px-3 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>Stage</th>
+                <th className="text-right py-3 px-4 text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lois.map(loi => {
+                const stage = stageLabels[loi.stage] || stageLabels.SUBMITTED;
+                const cert = certLabels[loi.buyer_certification_level] || certLabels.basic;
+                const intent = intentLabels[loi.intent_level] || intentLabels.baja;
+                return (
+                  <tr key={loi.engagement_id} style={{ borderBottom: '1px solid var(--surface-1)' }} data-testid={`loi-row-${loi.engagement_id}`}>
+                    {/* Buyer */}
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{loi.buyer_name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{loi.buyer_type}</span>
+                            <Award size={9} style={{ color: cert.color }} />
+                            <span className="text-[10px]" style={{ color: cert.color }}>{cert.label}</span>
+                          </div>
+                          {loi.flags.length > 0 && (
+                            <div className="flex gap-1 mt-1">
+                              {loi.flags.map((f, i) => {
+                                const fc = flagConfig[f.type] || {};
+                                return <span key={i} className="px-1.5 py-0.5 text-[9px] font-bold" style={{ background: fc.bg, color: fc.color }}>{f.label}</span>;
+                              })}
+                            </div>
                           )}
                         </div>
-                      )}
+                      </div>
+                    </td>
+                    {/* Offer */}
+                    <td className="py-3 px-3 text-right">
+                      <p className="text-sm font-black" style={{ color: 'var(--arroba-primary)' }}>{fmtEur(loi.valuation_offer)}</p>
+                    </td>
+                    {/* % vs asking */}
+                    <td className="py-3 px-3 text-right">
+                      <p className="text-xs font-bold" style={{ color: loi.pct_vs_asking >= 95 ? '#16a34a' : loi.pct_vs_asking >= 80 ? 'var(--on-surface)' : '#d97706' }}>{loi.pct_vs_asking}%</p>
+                    </td>
+                    {/* Structure */}
+                    <td className="py-3 px-3 text-center">
+                      <p className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{loi.cash_percentage}% cash</p>
+                      {loi.earn_out_percentage > 0 && <p className="text-[10px]" style={{ color: 'var(--outline)' }}>{loi.earn_out_percentage}% earn-out</p>}
+                    </td>
+                    {/* Intent */}
+                    <td className="py-3 px-3 text-center">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: intent.color }}>
+                        {intent.icon && React.createElement(intent.icon, { size: 10 })} {intent.label}
+                      </span>
+                    </td>
+                    {/* Activity */}
+                    <td className="py-3 px-3 text-center">
+                      <p className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{loi.total_time_minutes}min</p>
+                      <p className="text-[10px]" style={{ color: 'var(--outline)' }}>{loi.dr_views} DR views</p>
+                    </td>
+                    {/* Stage */}
+                    <td className="py-3 px-3 text-center">
+                      <span className={`inline-block px-2 py-0.5 text-[10px] font-bold ${stage.color}`} style={{ background: stage.bg }}>
+                        {stage.label}
+                      </span>
+                    </td>
+                    {/* Actions */}
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {loi.stage !== 'SHORTLISTED' && loi.stage !== 'EXCLUSIVITY' && loi.stage !== 'REJECTED' && (
+                          <button onClick={() => handleAction('shortlist', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
+                            className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }} data-testid={`action-shortlist-${loi.engagement_id}`}>
+                            Shortlist
+                          </button>
+                        )}
+                        {loi.stage === 'SHORTLISTED' && (
+                          <button onClick={() => handleAction('exclusivity', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
+                            className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(79,70,229,0.06)', color: '#4f46e5' }} data-testid={`action-exclusivity-${loi.engagement_id}`}>
+                            Exclusividad
+                          </button>
+                        )}
+                        {loi.conversation_id && (
+                          <Link to={`/qa/${loi.conversation_id}`} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(0,100,147,0.06)', color: '#004b74' }}>
+                            Q&A
+                          </Link>
+                        )}
+                        {loi.stage !== 'REJECTED' && loi.stage !== 'EXCLUSIVITY' && (
+                          <button onClick={() => handleAction('reject', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
+                            className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.05)', color: '#dc2626' }}>
+                            Rechazar
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ─── CARDS VIEW ─── */}
+      {viewMode === 'cards' && (
+        <div className="grid md:grid-cols-2 gap-4" data-testid="loi-comparison-cards">
+          {lois.map(loi => {
+            const stage = stageLabels[loi.stage] || stageLabels.SUBMITTED;
+            const cert = certLabels[loi.buyer_certification_level] || certLabels.basic;
+            const intent = intentLabels[loi.intent_level] || intentLabels.baja;
+            return (
+              <div key={loi.engagement_id} className="p-5 transition-all duration-150 hover:-translate-y-0.5"
+                style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}
+                data-testid={`loi-card-${loi.engagement_id}`}>
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{loi.buyer_name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{loi.buyer_type}</span>
+                      <Award size={9} style={{ color: cert.color }} />
+                      <span className="text-[10px]" style={{ color: cert.color }}>{cert.label}</span>
                     </div>
-                    {/* Intent label */}
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${intent.color}`}>
-                      {buyer.intent_label}
+                  </div>
+                  <span className={`px-2 py-0.5 text-[10px] font-bold ${stage.color}`} style={{ background: stage.bg }}>{stage.label}</span>
+                </div>
+
+                {/* Flags */}
+                {loi.flags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {loi.flags.map((f, i) => {
+                      const fc = flagConfig[f.type] || {};
+                      return <span key={i} className="px-1.5 py-0.5 text-[9px] font-bold" style={{ background: fc.bg, color: fc.color }}>{f.label}</span>;
+                    })}
+                  </div>
+                )}
+
+                {/* Offer */}
+                <div className="grid grid-cols-3 gap-3 mb-3 pt-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>OFERTA</p>
+                    <p className="text-lg font-black" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.02em' }}>{fmtEur(loi.valuation_offer)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>% ASK</p>
+                    <p className="text-lg font-black" style={{ color: loi.pct_vs_asking >= 95 ? '#16a34a' : 'var(--on-surface)', letterSpacing: '-0.02em' }}>{loi.pct_vs_asking}%</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>CASH</p>
+                    <p className="text-lg font-black" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>{loi.cash_percentage}%</p>
+                  </div>
+                </div>
+
+                {/* Signals */}
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>INTENCIÓN</p>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: intent.color }}>
+                      {intent.icon && React.createElement(intent.icon, { size: 10 })} {intent.label}
                     </span>
                   </div>
-                </div>
-
-                {/* Body — 3 columns */}
-                <div className="px-4 py-3 grid sm:grid-cols-3 gap-4 border-t border-slate-100 bg-white/50 text-sm">
-                  {/* Signals */}
                   <div>
-                    <p className="text-[10px] uppercase text-slate-400 mb-1.5 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Señales</p>
-                    <div className="space-y-1">
-                      <div className="flex justify-between"><span className="text-slate-500">LOI</span><span className={buyer.signals?.has_loi ? 'text-green-600 font-bold' : 'text-slate-400'}>{buyer.signals?.has_loi ? 'Sí' : 'No'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Descargas DR</span><span className="font-bold">{buyer.signals?.dr_downloads || 0}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Intención</span><span className="font-bold">{buyer.intent_label}</span></div>
-                    </div>
+                    <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>ACTIVIDAD</p>
+                    <p className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{loi.total_time_minutes}min</p>
                   </div>
-                  {/* Data Room */}
                   <div>
-                    <p className="text-[10px] uppercase text-slate-400 mb-1.5 flex items-center gap-1"><FolderOpen className="w-3 h-3" /> Actividad DR</p>
-                    <div className="space-y-1">
-                      <div className="flex justify-between"><span className="text-slate-500"><Download className="w-3 h-3 inline mr-1" />Descargas</span><span className="font-bold text-green-600">{buyer.signals?.dr_downloads || 0}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500"><Clock className="w-3 h-3 inline mr-1" />Tiempo DR</span><span className="font-bold">{buyer.signals?.dr_time_min > 0 ? `${buyer.signals.dr_time_min} min` : '—'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Total</span><span>{buyer.signals?.total_time_min > 0 ? `${buyer.signals.total_time_min} min` : '—'}</span></div>
-                    </div>
-                  </div>
-                  {/* Time */}
-                  <div>
-                    <p className="text-[10px] uppercase text-slate-400 mb-1.5 flex items-center gap-1"><Clock className="w-3 h-3" /> Tiempo invertido</p>
-                    <div className="space-y-1">
-                      <div className="flex justify-between"><span className="text-slate-500">Deal Page</span><span>{formatTime(ts.deal_page)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Infomemo</span><span>{formatTime(ts.infomemo)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Data Room</span><span className="font-bold text-arroba-coral">{formatTime(ts.data_room)}</span></div>
-                    </div>
+                    <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>DR</p>
+                    <p className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{loi.dr_views} vistas</p>
                   </div>
                 </div>
 
-                {/* Footer: Suggested action + buttons */}
-                <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-xs">
-                    {buyer.action && (
-                      <span className="text-slate-500 flex items-center gap-1">
-                        <ArrowRight className="w-3 h-3" /> {buyer.action_label}
-                      </span>
-                    )}
+                {/* Conditions */}
+                {loi.conditions && (
+                  <div className="mb-3 pt-2" style={{ borderTop: '1px solid var(--surface-1)' }}>
+                    <p className="text-[9px] font-bold uppercase mb-1" style={{ color: 'var(--outline)' }}>CONDICIONES</p>
+                    <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>{loi.conditions}</p>
                   </div>
-                  {buyer.classification !== 'REJECTED' && buyer.classification !== 'EXCLUSIVITY' && (
-                    <div className="flex gap-1.5">
-                      {buyer.stage !== 'SHORTLISTED' && shortlistStatus.available_slots > 0 && (
-                        <Button variant="outline" size="sm" disabled={isLoading}
-                          onClick={() => handleAction('shortlist', buyer.buyer_id)}
-                          className="text-xs h-7 text-green-600 border-green-200 hover:bg-green-50"
-                          data-testid={`action-shortlist-${buyer.buyer_id}`}>
-                          {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Star className="w-3 h-3 mr-1" />} Shortlist
-                        </Button>
-                      )}
-                      {buyer.stage === 'SHORTLISTED' && (
-                        <>
-                          <Button variant="outline" size="sm" disabled={isLoading}
-                            onClick={() => handleAction('exclusivity', buyer.buyer_id)}
-                            className="text-xs h-7 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                            data-testid={`action-exclusivity-${buyer.buyer_id}`}>
-                            <Lock className="w-3 h-3 mr-1" /> Exclusividad
-                          </Button>
-                          <Button variant="outline" size="sm" disabled={isLoading}
-                            onClick={() => handleAction('remove-shortlist', buyer.buyer_id)}
-                            className="text-xs h-7 text-slate-400"
-                            data-testid={`action-remove-${buyer.buyer_id}`}>
-                            Quitar
-                          </Button>
-                        </>
-                      )}
-                      {buyer.stage !== 'SHORTLISTED' && (
-                        <Button variant="outline" size="sm" disabled={isLoading}
-                          onClick={() => handleAction('reject', buyer.buyer_id)}
-                          className="text-xs h-7 text-red-500 border-red-200 hover:bg-red-50"
-                          data-testid={`action-reject-${buyer.buyer_id}`}>
-                          Descartar
-                        </Button>
-                      )}
-                    </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 pt-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
+                  {loi.stage !== 'SHORTLISTED' && loi.stage !== 'EXCLUSIVITY' && loi.stage !== 'REJECTED' && (
+                    <button onClick={() => handleAction('shortlist', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
+                      className="px-3 py-1.5 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>Shortlist</button>
+                  )}
+                  {loi.stage === 'SHORTLISTED' && (
+                    <button onClick={() => handleAction('exclusivity', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
+                      className="px-3 py-1.5 text-[10px] font-bold" style={{ background: 'rgba(79,70,229,0.06)', color: '#4f46e5' }}>Exclusividad</button>
+                  )}
+                  {loi.conversation_id && (
+                    <Link to={`/qa/${loi.conversation_id}`} className="px-3 py-1.5 text-[10px] font-bold" style={{ background: 'rgba(0,100,147,0.06)', color: '#004b74' }}>Q&A</Link>
+                  )}
+                  {loi.stage !== 'REJECTED' && loi.stage !== 'EXCLUSIVITY' && (
+                    <button onClick={() => handleAction('reject', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
+                      className="px-3 py-1.5 text-[10px] font-bold ml-auto" style={{ background: 'rgba(220,38,38,0.05)', color: '#dc2626' }}>Rechazar</button>
                   )}
                 </div>
+
+                <p className="text-[10px] mt-2" style={{ color: 'var(--outline)' }}>Enviada el {fmtDate(loi.submitted_at)}</p>
               </div>
             );
           })}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
@@ -517,6 +517,8 @@ const QaTab = ({ dealId }) => {
 
 const DealManagement = () => {
   const { dealId } = useParams();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
   const navigate = useNavigate();
   const { user } = useAuth();
   
@@ -525,7 +527,7 @@ const DealManagement = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(tabParam === 'lois' ? 'loi-detail' : 'overview');
   const [totalPendingQA, setTotalPendingQA] = useState(0);
   const [readiness, setReadiness] = useState(null);
   const [showPublishWarning, setShowPublishWarning] = useState(false);

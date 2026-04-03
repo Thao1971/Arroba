@@ -1063,3 +1063,161 @@ async def get_my_processes(
         })
 
     return {"processes": processes, "total": len(processes)}
+
+
+@router.get("/deal/{deal_id}/loi-comparator")
+async def get_loi_comparator(
+    deal_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """LOI Comparator — enriched LOI data for seller comparison."""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(404, "Deal no encontrado")
+    if deal["owner_id"] != current_user.user_id and current_user.role != "admin":
+        raise HTTPException(403, "No autorizado")
+
+    asking_price = deal.get("asking_price", 0)
+
+    # Get all LOI engagements for this deal
+    cursor = engagements_collection.find(
+        {"deal_id": deal_id, "type": "LOI"},
+        {"_id": 0}
+    ).sort("valuation_offer", -1)
+    lois_raw = await cursor.to_list(50)
+
+    if not lois_raw:
+        return {"lois": [], "summary": {"count": 0}, "deal_asking_price": asking_price}
+
+    from database import db as _db
+
+    # Enrich each LOI
+    lois = []
+    best_offer = 0
+    total_cash_pct = 0
+    cash_count = 0
+
+    for eng in lois_raw:
+        buyer_id = eng["buyer_id"]
+        buyer = await users_collection.find_one({"user_id": buyer_id}, {"_id": 0})
+        bp = buyer.get("buyer_profile", {}) if buyer else {}
+
+        # Buyer signals from time tracking
+        time_docs = await _db.time_tracking.find(
+            {"deal_id": deal_id, "user_id": buyer_id}, {"_id": 0}
+        ).to_list(100)
+        total_seconds = sum(t.get("duration_seconds", 0) for t in time_docs)
+        total_minutes = round(total_seconds / 60, 1)
+
+        # DR downloads
+        dr_downloads = await _db.dataroom_access_log.count_documents(
+            {"deal_id": deal_id, "user_id": buyer_id, "action": "download"}
+        )
+        dr_views = await _db.dataroom_access_log.count_documents(
+            {"deal_id": deal_id, "user_id": buyer_id}
+        )
+
+        # Intent score
+        intent_data = None
+        try:
+            from services.intent_service import compute_intent_score
+            intent_data = await compute_intent_score(deal_id, buyer_id)
+        except Exception:
+            pass
+        intent_score = intent_data.get("intent_score", 0) if intent_data else 0
+        intent_level = intent_data.get("intent_level", "baja") if intent_data else "baja"
+
+        # Certification
+        cert_level = "basic"
+        try:
+            from routers.buyer_certification import _compute_certification, _get_plan_tier
+            if buyer:
+                from models.user import UserResponse as UR
+                user_obj = UR(**buyer)
+                cert = await _compute_certification(user_obj)
+                cert_level = cert.get("level", "basic")
+        except Exception:
+            pass
+
+        # Conversation
+        conv = await _db.conversations.find_one(
+            {"deal_id": deal_id, "buyer_id": buyer_id},
+            {"_id": 0, "conversation_id": 1}
+        )
+
+        # Compute comparator fields
+        offer = eng.get("valuation_offer", 0)
+        if offer > best_offer:
+            best_offer = offer
+        pct_vs_asking = round((offer / asking_price * 100), 1) if asking_price > 0 else 0
+
+        structure = eng.get("structure", "cash")
+        cash_pct = 100 if structure == "cash" else (eng.get("cash_percentage", 0) or (100 - (eng.get("earn_out_percentage", 0) or 0)))
+        earn_out_pct = 100 - cash_pct
+        total_cash_pct += cash_pct
+        cash_count += 1
+
+        last_active = eng.get("updated_at") or eng.get("created_at")
+
+        lois.append({
+            "engagement_id": eng["engagement_id"],
+            "buyer_id": buyer_id,
+            "buyer_name": eng.get("buyer_name") or f"{buyer.get('first_name', '')} {buyer.get('last_name', '')}".strip() if buyer else "Anónimo",
+            "buyer_type": eng.get("buyer_type") or bp.get("buyer_type", "—"),
+            "buyer_certification_level": cert_level,
+            "valuation_offer": offer,
+            "pct_vs_asking": pct_vs_asking,
+            "structure": structure,
+            "cash_percentage": cash_pct,
+            "earn_out_percentage": earn_out_pct,
+            "acquisition_percentage": eng.get("acquisition_percentage", 100),
+            "conditions": eng.get("conditions", ""),
+            "submitted_at": eng.get("upgraded_to_loi_at") or eng.get("created_at"),
+            "expires_at": eng.get("expires_at"),
+            "stage": eng.get("stage"),
+            "intent_score": intent_score,
+            "intent_level": intent_level,
+            "dr_downloads": dr_downloads,
+            "dr_views": dr_views,
+            "total_time_minutes": total_minutes,
+            "last_active_at": last_active,
+            "conversation_id": conv.get("conversation_id") if conv else None,
+            # Flags (computed below)
+            "flags": [],
+        })
+
+    # Compute flags
+    if lois:
+        avg_cash = total_cash_pct / cash_count if cash_count > 0 else 0
+        max_offer = max(l["valuation_offer"] for l in lois)
+        max_cash = max(l["cash_percentage"] for l in lois)
+        max_intent = max(l["intent_score"] for l in lois)
+        max_activity = max(l["total_time_minutes"] for l in lois)
+
+        for l in lois:
+            flags = []
+            if l["valuation_offer"] == max_offer and len(lois) > 1:
+                flags.append({"type": "best_offer", "label": "Mejor oferta"})
+            if l["cash_percentage"] == max_cash and max_cash > avg_cash and len(lois) > 1:
+                flags.append({"type": "most_cash", "label": "Más cash"})
+            if l["intent_score"] == max_intent and max_intent > 50 and len(lois) > 1:
+                flags.append({"type": "highest_activity", "label": "Mayor actividad"})
+            if l["total_time_minutes"] < 5 and l["stage"] not in ("EXCLUSIVITY",):
+                flags.append({"type": "low_activity", "label": "Baja actividad"})
+            if l["expires_at"]:
+                flags.append({"type": "expires_soon", "label": "Con vencimiento"})
+            l["flags"] = flags
+
+    # Summary
+    summary = {
+        "count": len(lois),
+        "best_offer": best_offer,
+        "avg_cash_pct": round(total_cash_pct / cash_count, 1) if cash_count > 0 else 0,
+        "highest_intent_buyer": max(lois, key=lambda x: x["intent_score"])["buyer_name"] if lois else None,
+    }
+
+    return {
+        "lois": lois,
+        "summary": summary,
+        "deal_asking_price": asking_price,
+    }
