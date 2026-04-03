@@ -1,316 +1,170 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Layout from '../components/layout/Layout';
+import SellerShell from '../components/layout/SellerShell';
 import { coachingAPI } from '../services/api';
 import {
   Loader2, Users, ArrowRight, AlertTriangle, TrendingUp,
-  FileText, Clock, ChevronRight, Zap, Eye, MessageSquare
+  FileText, ChevronRight, Zap, Eye, MessageSquare
 } from 'lucide-react';
 
 const timeAgo = (dateStr) => {
   if (!dateStr) return '';
   const now = new Date();
   const d = new Date(dateStr);
-  const diffMs = now - d;
-  const mins = Math.floor(diffMs / 60000);
+  const mins = Math.floor((now - d) / 60000);
   if (mins < 60) return `hace ${mins}m`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `hace ${hours}h`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `hace ${days}d`;
-  const weeks = Math.floor(days / 7);
-  return `hace ${weeks}sem`;
+  return `hace ${Math.floor(days / 7)}sem`;
 };
 
-const urgencyDot = (urgency) => {
-  if (urgency === 'alta') return 'bg-red-500';
-  if (urgency === 'media') return 'bg-amber-400';
-  return 'bg-slate-300';
-};
-
-const intentBar = (score) => {
-  const width = Math.max(score, 4);
-  let color = 'bg-slate-300';
-  if (score >= 55) color = 'bg-green-500';
-  else if (score >= 25) color = 'bg-amber-400';
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} />
-      </div>
-      <span className={`text-xs font-bold tabular-nums ${
-        score >= 55 ? 'text-green-600' : score >= 25 ? 'text-amber-600' : 'text-slate-400'
-      }`}>{score}</span>
-    </div>
-  );
-};
-
-const stageLabel = (stage) => ({
-  SUBMITTED: 'Nuevo',
-  VIEWED: 'Visto',
-  ACCEPTED: 'Aceptado',
-  SHORTLISTED: 'Shortlist',
-  EXCLUSIVITY: 'Exclusividad',
-  REJECTED: 'Descartado',
-}[stage] || stage);
-
-const stageStyle = (stage) => ({
-  SUBMITTED: 'bg-blue-50 text-blue-700 border-blue-200',
-  VIEWED: 'bg-slate-50 text-slate-600 border-slate-200',
-  ACCEPTED: 'bg-teal-50 text-teal-700 border-teal-200',
-  SHORTLISTED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  EXCLUSIVITY: 'bg-purple-50 text-purple-700 border-purple-200',
-  REJECTED: 'bg-red-50 text-red-500 border-red-200',
-}[stage] || 'bg-slate-50 text-slate-600 border-slate-200');
-
-const NudgeCard = ({ nudge, index }) => {
-  const borderColor = nudge.priority === 'ALTA' ? 'border-l-red-500' :
-    nudge.priority === 'MEDIA' ? 'border-l-amber-400' : 'border-l-slate-300';
-  return (
-    <Link
-      to={nudge.deal_id ? `/seller/deal/${nudge.deal_id}` : '#'}
-      className={`block p-3 bg-white border border-slate-200 border-l-4 ${borderColor} rounded-lg hover:shadow-sm transition-all`}
-      data-testid={`nudge-${index}`}
-    >
-      <div className="flex items-start gap-2">
-        <AlertTriangle className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
-          nudge.priority === 'ALTA' ? 'text-red-500' : 'text-amber-500'
-        }`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-900 leading-tight">{nudge.title}</p>
-          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{nudge.message}</p>
-          {nudge.actions && nudge.actions.length > 0 && (
-            <div className="flex gap-1.5 mt-2">
-              {nudge.actions.map((a, i) => (
-                <span key={i} className="px-2 py-0.5 text-[11px] font-medium bg-slate-100 text-slate-700 rounded-full">
-                  {a}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-      </div>
-    </Link>
-  );
-};
-
-const BuyerRow = ({ buyer, index }) => {
-  const action = buyer.action || {};
-  return (
-    <div
-      className="grid grid-cols-12 gap-2 items-center px-4 py-3 border-b border-slate-100 hover:bg-slate-50/70 transition-colors group"
-      data-testid={`buyer-row-${index}`}
-    >
-      {/* Urgency dot + Buyer */}
-      <div className="col-span-2 flex items-center gap-2.5 min-w-0">
-        <div className={`w-2 h-2 rounded-full shrink-0 ${urgencyDot(action.urgency)}`}
-          title={`Urgencia: ${action.urgency}`} />
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 truncate">{buyer.buyer_name}</p>
-          <p className="text-[11px] text-slate-400 capitalize truncate">{buyer.buyer_type}</p>
-        </div>
-      </div>
-
-      {/* Deal */}
-      <div className="col-span-2 min-w-0">
-        <Link to={`/seller/deal/${buyer.deal_id}`} className="text-xs text-slate-600 truncate hover:text-arroba-coral transition-colors">
-          {buyer.deal_title}
-        </Link>
-      </div>
-
-      {/* Type + Stage */}
-      <div className="col-span-2 flex items-center gap-1.5">
-        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-semibold ${
-          buyer.type === 'LOI' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
-        }`}>
-          {buyer.type === 'LOI' ? <FileText className="w-2.5 h-2.5" /> : <TrendingUp className="w-2.5 h-2.5" />}
-          {buyer.type}
-        </span>
-        <span className={`px-1.5 py-0.5 rounded text-[11px] font-medium border ${stageStyle(buyer.stage)}`}>
-          {stageLabel(buyer.stage)}
-        </span>
-      </div>
-
-      {/* Intent */}
-      <div className="col-span-1">
-        {intentBar(buyer.intent_score)}
-      </div>
-
-      {/* LOI amount */}
-      <div className="col-span-1 text-right">
-        {buyer.valuation_offer ? (
-          <span className="text-sm font-bold text-slate-900">{(buyer.valuation_offer / 1e6).toFixed(1)}M</span>
-        ) : (
-          <span className="text-xs text-slate-300">-</span>
-        )}
-      </div>
-
-      {/* Suggested Action + Q&A link */}
-      <div className="col-span-3 min-w-0 flex items-center gap-2">
-        <p className={`text-xs leading-snug flex-1 ${
-          action.urgency === 'alta' ? 'text-red-600 font-semibold' :
-          action.urgency === 'media' ? 'text-amber-700 font-medium' :
-          'text-slate-500'
-        }`}>{action.text}</p>
-        {buyer.pending_questions > 0 && (
-          <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold ${
-            buyer.pending_urgency === 'alta' ? 'bg-red-100 text-red-700' :
-            buyer.pending_urgency === 'media' ? 'bg-amber-100 text-amber-700' :
-            'bg-slate-100 text-slate-600'
-          }`} data-testid={`pending-badge-${index}`}>
-            <Clock size={9} />
-            {buyer.pending_questions} pendiente{buyer.pending_questions !== 1 ? 's' : ''}{buyer.pending_urgency === 'alta' ? ' · urgente' : ''}
-          </span>
-        )}
-        {buyer.conversation_id && (
-          <Link
-            to={`/qa/${buyer.conversation_id}`}
-            className="shrink-0 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold uppercase tracking-wider hover:opacity-80 transition-opacity"
-            style={{ background: 'rgba(0,100,147,0.08)', color: '#004b74' }}
-            onClick={(e) => e.stopPropagation()}
-            data-testid={`qa-link-${index}`}
-          >
-            <MessageSquare size={10} /> Q&A
-          </Link>
-        )}
-      </div>
-
-      {/* Time + Arrow */}
-      <div className="col-span-1 flex items-center justify-end gap-2">
-        <span className="text-[11px] text-slate-400 whitespace-nowrap">{timeAgo(buyer.last_activity)}</span>
-        <Link to={`/seller/deal/${buyer.deal_id}`}>
-          <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-arroba-coral transition-colors shrink-0" />
-        </Link>
-      </div>
-    </div>
-  );
-};
-
-const SummaryCard = ({ label, value, icon: Icon, accent }) => (
-  <div className="flex items-center gap-3 px-4 py-3" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.03)' }} data-testid={`summary-${label}`}>
-    <div className={`w-8 h-8 flex items-center justify-center ${accent}`}>
-      <Icon className="w-4 h-4" />
-    </div>
-    <div>
-      <p className="text-lg font-bold leading-none" style={{ color: 'var(--on-surface)' }}>{value}</p>
-      <p className="text-[11px] mt-0.5" style={{ color: 'var(--outline)' }}>{label}</p>
-    </div>
-  </div>
-);
+const stageLabel = (stage) => ({ SUBMITTED: 'Nuevo', VIEWED: 'Visto', ACCEPTED: 'Aceptado', SHORTLISTED: 'Shortlist', EXCLUSIVITY: 'Exclusividad', REJECTED: 'Descartado' }[stage] || stage);
 
 const SellerInteresados = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await coachingAPI.getSellerInteresados();
-        setData(res.data);
-      } catch (e) {
-        console.error('Error loading interesados:', e);
-        setError('Error cargando datos');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    coachingAPI.getSellerInteresados().then(r => setData(r.data)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <p className="text-slate-500">{error}</p>
-        </div>
-      </Layout>
-    );
-  }
+  if (loading) return (
+    <SellerShell title="Interesados" subtitle="CENTRO DE DECISIÓN">
+      <div className="flex items-center justify-center py-16"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--outline)' }} /></div>
+    </SellerShell>
+  );
 
   const { buyers = [], nudges = [], summary = {}, deals_count = 0 } = data || {};
 
   return (
-    <Layout>
-      <div className="container mx-auto px-4 py-6 max-w-6xl" data-testid="seller-interesados-page">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Interesados</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Centro de decision — todos los buyers de {deals_count} deal{deals_count !== 1 ? 's' : ''} activo{deals_count !== 1 ? 's' : ''}
-          </p>
-        </div>
+    <SellerShell
+      title="Interesados"
+      subtitle="CENTRO DE DECISIÓN"
+    >
+      <div data-testid="seller-interesados-page">
+        <p className="text-sm mb-6" style={{ color: 'var(--outline)' }}>
+          Todos los buyers de {deals_count} deal{deals_count !== 1 ? 's' : ''} activo{deals_count !== 1 ? 's' : ''}
+        </p>
 
-        {/* Summary cards */}
+        {/* KPIs */}
         {buyers.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5" data-testid="summary-cards">
-            <SummaryCard label="Total buyers" value={summary.total} icon={Users} accent="bg-slate-100 text-slate-600" />
-            <SummaryCard label={summary.lois === 1 ? 'LOI recibida' : 'LOIs recibidas'} value="" icon={FileText} accent="bg-green-100 text-green-600" />
-            <SummaryCard label="Alta intencion" value={summary.high_intent} icon={TrendingUp} accent="bg-blue-100 text-blue-600" />
-            <SummaryCard label="Requieren accion" value={summary.needs_action} icon={Zap} accent="bg-red-100 text-red-600" />
+          <div className="grid grid-cols-4 gap-3 mb-6" data-testid="summary-cards">
+            {[
+              { label: 'TOTAL BUYERS', valor: summary.total, icon: Users },
+              { label: summary.lois === 1 ? 'LOI RECIBIDA' : 'LOIS RECIBIDAS', valor: summary.lois || 0, icon: FileText },
+              { label: 'ALTA INTENCIÓN', valor: summary.high_intent, icon: TrendingUp },
+              { label: 'REQUIEREN ACCIÓN', valor: summary.needs_action, icon: Zap, color: 'var(--arroba-primary)' },
+            ].map((kpi, i) => {
+              const Icon = kpi.icon;
+              return (
+                <div key={i} className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
+                  <div className="flex items-center gap-1.5 mb-2"><Icon size={11} style={{ color: 'var(--outline)' }} /><p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>{kpi.label}</p></div>
+                  <p className="text-lg font-black" style={{ color: kpi.color || 'var(--on-surface)', letterSpacing: '-0.02em' }}>{kpi.valor}</p>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {/* Nudges */}
         {nudges.length > 0 && (
-          <div className="space-y-2 mb-5" data-testid="interesados-nudges">
+          <div className="space-y-2 mb-6" data-testid="interesados-nudges">
             {nudges.slice(0, 3).map((n, i) => (
-              <NudgeCard key={n.id + i} nudge={n} index={i} />
+              <Link key={i} to={n.deal_id ? `/seller/deal/${n.deal_id}` : '#'}
+                className="block p-4 flex items-start gap-3 transition-all duration-150 hover:-translate-y-0.5"
+                style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)', borderLeft: `3px solid ${n.priority === 'ALTA' ? '#dc2626' : '#d97706'}` }}>
+                <AlertTriangle size={14} style={{ color: n.priority === 'ALTA' ? '#dc2626' : '#d97706' }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{n.title}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--outline)' }}>{n.message}</p>
+                </div>
+              </Link>
             ))}
           </div>
         )}
 
-        {/* Buyers table */}
+        {/* Tabla buyers */}
         {buyers.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-slate-300 rounded-xl" data-testid="interesados-empty">
-            <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 font-medium">Aun no tienes interesados</p>
-            <p className="text-sm text-slate-400 mt-1">Publica un deal para empezar a recibir interes</p>
+          <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }} data-testid="interesados-empty">
+            <Users size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
+            <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>Aún no tienes interesados</p>
+            <p className="text-xs" style={{ color: 'var(--outline)' }}>Publica un deal para empezar a recibir interés.</p>
           </div>
         ) : (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden" data-testid="interesados-table">
-            {/* Table header */}
-            <div className="grid grid-cols-12 gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <div className="col-span-2 pl-4">Buyer</div>
-              <div className="col-span-2">Deal</div>
-              <div className="col-span-2">Tipo / Estado</div>
-              <div className="col-span-1">Intencion</div>
-              <div className="col-span-1 text-right">LOI</div>
-              <div className="col-span-3">Que hacer</div>
-              <div className="col-span-1 text-right">Actividad</div>
-            </div>
-
-            {/* Rows */}
-            {buyers.map((b, i) => (
-              <BuyerRow key={b.engagement_id || i} buyer={b} index={i} />
-            ))}
-
-            {/* Footer */}
-            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <span className="text-xs text-slate-500">
-                {buyers.length} interesado{buyers.length !== 1 ? 's' : ''} en {deals_count} deal{deals_count !== 1 ? 's' : ''}
-              </span>
-              <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Accion urgente</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400"></span> Seguimiento</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300"></span> Monitorizar</span>
+          <div style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid="interesados-table">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--surface-2)' }}>
+                  <th className="text-left py-3 px-4 label-arroba" style={{ color: 'var(--outline)' }}>BUYER</th>
+                  <th className="text-left py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>DEAL</th>
+                  <th className="text-center py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>TIPO / ESTADO</th>
+                  <th className="text-center py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>INTENCIÓN</th>
+                  <th className="text-right py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>LOI</th>
+                  <th className="text-left py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>QUÉ HACER</th>
+                  <th className="text-right py-3 px-4 label-arroba" style={{ color: 'var(--outline)' }}>ACTIVIDAD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {buyers.map((b, i) => {
+                  const action = b.action || {};
+                  const urgColor = action.urgency === 'alta' ? '#dc2626' : action.urgency === 'media' ? '#d97706' : 'var(--outline-variant)';
+                  const intentColor = b.intent_score >= 55 ? '#16a34a' : b.intent_score >= 25 ? '#d97706' : 'var(--outline)';
+                  return (
+                    <tr key={b.engagement_id || i} style={{ borderBottom: '1px solid var(--surface-1)' }} data-testid={`buyer-row-${i}`}>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: urgColor }} />
+                          <div>
+                            <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{b.buyer_name}</p>
+                            <p className="text-[10px]" style={{ color: 'var(--outline)' }}>{b.buyer_type}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <Link to={`/seller/deal/${b.deal_id}`} className="text-xs" style={{ color: 'var(--outline)' }}>{b.deal_title}</Link>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center gap-1 justify-center">
+                          <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: b.type === 'LOI' ? 'rgba(182,33,42,0.06)' : 'var(--surface-1)', color: b.type === 'LOI' ? 'var(--arroba-primary)' : 'var(--on-surface)' }}>{b.type}</span>
+                          <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{stageLabel(b.stage)}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center gap-2 justify-center">
+                          <div className="w-12 h-1.5" style={{ background: 'var(--surface-2)' }}>
+                            <div className="h-full" style={{ background: intentColor, width: `${Math.max(b.intent_score, 4)}%` }} />
+                          </div>
+                          <span className="text-xs font-bold" style={{ color: intentColor }}>{b.intent_score}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{b.valuation_offer ? `${(b.valuation_offer/1e6).toFixed(1).replace('.',',')}M` : '—'}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <p className="text-xs" style={{ color: 'var(--on-surface)' }}>{action.label || '—'}</p>
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{timeAgo(b.last_activity)}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="px-4 py-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--surface-1)' }}>
+              <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{buyers.length} interesado{buyers.length !== 1 ? 's' : ''} en {deals_count} deal{deals_count !== 1 ? 's' : ''}</span>
+              <div className="flex items-center gap-3 text-[10px]" style={{ color: 'var(--outline)' }}>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#dc2626' }} /> Acción urgente</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: '#d97706' }} /> Seguimiento</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: 'var(--outline-variant)' }} /> Monitorizar</span>
               </div>
             </div>
           </div>
         )}
       </div>
-    </Layout>
+    </SellerShell>
   );
 };
 
