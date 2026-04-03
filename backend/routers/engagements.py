@@ -1065,6 +1065,168 @@ async def get_my_processes(
     return {"processes": processes, "total": len(processes)}
 
 
+@router.get("/deal/{deal_id}/buyer-activity/{buyer_id}")
+async def get_buyer_activity(
+    deal_id: str,
+    buyer_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Activity Dashboard — detailed buyer activity for a specific deal."""
+    deal = await deals_collection.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(404, "Deal no encontrado")
+    if deal["owner_id"] != current_user.user_id and current_user.role not in ("admin", "advisor"):
+        raise HTTPException(403, "No autorizado")
+
+    from database import db as _db
+
+    # Buyer info
+    buyer = await users_collection.find_one({"user_id": buyer_id}, {"_id": 0})
+    bp = buyer.get("buyer_profile", {}) if buyer else {}
+    buyer_name = f"{buyer.get('first_name', '')} {buyer.get('last_name', '')}".strip() if buyer else "Anónimo"
+
+    # Certification
+    cert_level = "basic"
+    try:
+        from routers.buyer_certification import _compute_certification
+        from models.user import UserResponse as UR
+        if buyer:
+            user_obj = UR(**buyer)
+            cert = await _compute_certification(user_obj)
+            cert_level = cert.get("level", "basic")
+    except Exception:
+        pass
+
+    # Engagement
+    eng = await engagements_collection.find_one(
+        {"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0}
+    )
+
+    # Time tracking — by section
+    time_entries = await _db.time_tracking.find(
+        {"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0}
+    ).to_list(200)
+
+    time_by_section = {}
+    for t in time_entries:
+        s = t.get("section", "unknown")
+        time_by_section[s] = time_by_section.get(s, 0) + t.get("session_seconds", 0)
+    total_seconds = sum(time_by_section.values())
+
+    # Data Room activity
+    dr_entries = await _db.dataroom_access_log.find(
+        {"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0}
+    ).sort("timestamp", -1).to_list(100)
+
+    dr_downloads = sum(1 for d in dr_entries if d.get("action") == "DOWNLOAD")
+    dr_views = len(dr_entries)
+    dr_folders = {}
+    for d in dr_entries:
+        f = d.get("folder", "otros")
+        dr_folders[f] = dr_folders.get(f, 0) + 1
+    dr_recent = dr_entries[:5]
+
+    # Intent score
+    try:
+        from services.intent_service import compute_intent_score
+        intent = await compute_intent_score(buyer_id, deal_id)
+    except Exception:
+        intent = {"score": 0, "level": "baja", "label": "Baja intención", "factors": []}
+
+    # NDA
+    has_nda = any(n.get("buyer_id") == buyer_id for n in deal.get("ndas_signed", []))
+    nda_sig = await _db.nda_signatures.find_one(
+        {"deal_id": deal_id, "buyer_user_id": buyer_id}, {"_id": 0, "rendered_text": 0}
+    )
+
+    # Conversation / Q&A
+    conv = await _db.conversations.find_one(
+        {"deal_id": deal_id, "buyer_id": buyer_id}, {"_id": 0, "conversation_id": 1}
+    )
+    qa_count = 0
+    if conv:
+        qa_count = await _db.qa_items.count_documents({"conversation_id": conv["conversation_id"]})
+
+    # Process milestones (timeline)
+    milestones = []
+    if eng:
+        if eng.get("created_at"):
+            milestones.append({"event": "Interés enviado", "date": eng["created_at"], "type": "interest"})
+        if eng.get("viewed_at"):
+            milestones.append({"event": "Visto por seller", "date": eng["viewed_at"], "type": "viewed"})
+        if eng.get("accepted_at"):
+            milestones.append({"event": "Interés aceptado", "date": eng["accepted_at"], "type": "accepted"})
+        if eng.get("upgraded_to_loi_at"):
+            milestones.append({"event": "LOI enviada", "date": eng["upgraded_to_loi_at"], "type": "loi"})
+        if eng.get("shortlisted_at"):
+            milestones.append({"event": "Añadido a shortlist", "date": eng["shortlisted_at"], "type": "shortlist"})
+    if has_nda and nda_sig:
+        milestones.append({"event": "NDA firmado", "date": nda_sig.get("signed_at"), "type": "nda"})
+    milestones.sort(key=lambda x: x["date"] or "", reverse=True)
+
+    # Risk signals
+    risks = []
+    if total_seconds < 300 and eng and eng.get("type") == "LOI":
+        risks.append({"type": "low_time", "label": "Tiempo muy bajo para una LOI", "severity": "warning"})
+    if dr_downloads == 0 and has_nda:
+        risks.append({"type": "no_dr_downloads", "label": "No ha descargado documentos del Data Room", "severity": "info"})
+    last_activity = dr_entries[0]["timestamp"] if dr_entries else (time_entries[-1]["updated_at"] if time_entries else None)
+    if last_activity:
+        from datetime import datetime, timezone
+        try:
+            la = datetime.fromisoformat(str(last_activity).replace("Z", "+00:00")) if isinstance(last_activity, str) else last_activity
+            days_inactive = (datetime.now(timezone.utc) - la).days
+            if days_inactive > 14:
+                risks.append({"type": "inactive", "label": f"Sin actividad desde hace {days_inactive} días", "severity": "warning"})
+        except Exception:
+            pass
+
+    return {
+        "buyer": {
+            "buyer_id": buyer_id,
+            "name": buyer_name,
+            "email": buyer.get("email") if buyer else None,
+            "company": bp.get("company_name"),
+            "job_title": bp.get("job_title"),
+            "buyer_type": bp.get("buyer_type"),
+            "certification_level": cert_level,
+        },
+        "engagement": {
+            "type": eng.get("type") if eng else None,
+            "stage": eng.get("stage") if eng else None,
+            "valuation_offer": eng.get("valuation_offer") if eng else None,
+            "structure": eng.get("structure") if eng else None,
+            "conditions": eng.get("conditions") if eng else None,
+            "created_at": eng.get("created_at") if eng else None,
+        },
+        "intent": intent,
+        "time": {
+            "total_seconds": total_seconds,
+            "total_minutes": round(total_seconds / 60, 1),
+            "by_section": {k: round(v / 60, 1) for k, v in time_by_section.items()},
+            "sessions_count": len(time_entries),
+        },
+        "dataroom": {
+            "total_views": dr_views,
+            "total_downloads": dr_downloads,
+            "by_folder": dr_folders,
+            "recent_activity": [{"folder": d.get("folder"), "action": d.get("action"), "date": d.get("timestamp")} for d in dr_recent],
+        },
+        "nda": {
+            "signed": has_nda,
+            "signed_at": nda_sig.get("signed_at") if nda_sig else None,
+            "signature_id": nda_sig.get("signature_id") if nda_sig else None,
+        },
+        "qa": {
+            "conversation_id": conv.get("conversation_id") if conv else None,
+            "messages_count": qa_count,
+        },
+        "milestones": milestones,
+        "risks": risks,
+        "last_active_at": str(last_activity) if last_activity else None,
+    }
+
+
 @router.get("/deal/{deal_id}/loi-comparator")
 async def get_loi_comparator(
     deal_id: str,

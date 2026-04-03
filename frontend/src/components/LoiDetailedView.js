@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { engagementsAPI } from '../services/api';
+import BuyerActivityPanel from './BuyerActivityPanel';
 import {
   FileSignature, TrendingUp, Clock, User, Loader2, Star, Zap, Target,
   CheckCircle2, XCircle, Lock, ArrowRight, AlertTriangle, ArrowUpDown,
@@ -52,6 +53,7 @@ const LoiDetailedView = ({ deal, onRefresh }) => {
   const [stageFilter, setStageFilter] = useState('all');
   const [viewMode, setViewMode] = useState('table');
   const [actionLoading, setActionLoading] = useState('');
+  const [selectedBuyerId, setSelectedBuyerId] = useState(null);
 
   const loadData = async () => {
     try {
@@ -107,6 +109,14 @@ const LoiDetailedView = ({ deal, onRefresh }) => {
 
   return (
     <div data-testid="loi-comparator">
+      {/* ─── BUYER ACTIVITY PANEL ─── */}
+      {selectedBuyerId && (
+        <BuyerActivityPanel dealId={deal.deal_id} buyerId={selectedBuyerId} onClose={() => setSelectedBuyerId(null)} />
+      )}
+
+      {/* ─── COMPARATOR (hidden when activity panel is open) ─── */}
+      {!selectedBuyerId && (
+      <>
       {/* ─── SUMMARY HEADER ─── */}
       <div className="grid grid-cols-4 gap-3 mb-6" data-testid="loi-summary">
         <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
@@ -235,6 +245,10 @@ const LoiDetailedView = ({ deal, onRefresh }) => {
                     {/* Actions */}
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setSelectedBuyerId(loi.buyer_id)}
+                          className="px-2 py-1 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }} data-testid={`action-activity-${loi.engagement_id}`}>
+                          Actividad
+                        </button>
                         {loi.stage !== 'SHORTLISTED' && loi.stage !== 'EXCLUSIVITY' && loi.stage !== 'REJECTED' && (
                           <button onClick={() => handleAction('shortlist', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
                             className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }} data-testid={`action-shortlist-${loi.engagement_id}`}>
@@ -346,6 +360,8 @@ const LoiDetailedView = ({ deal, onRefresh }) => {
 
                 {/* Actions */}
                 <div className="flex items-center gap-1.5 pt-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
+                  <button onClick={() => setSelectedBuyerId(loi.buyer_id)}
+                    className="px-3 py-1.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>Actividad</button>
                   {loi.stage !== 'SHORTLISTED' && loi.stage !== 'EXCLUSIVITY' && loi.stage !== 'REJECTED' && (
                     <button onClick={() => handleAction('shortlist', loi.buyer_id)} disabled={actionLoading === loi.buyer_id}
                       className="px-3 py-1.5 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>Shortlist</button>
@@ -368,6 +384,8 @@ const LoiDetailedView = ({ deal, onRefresh }) => {
             );
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   );

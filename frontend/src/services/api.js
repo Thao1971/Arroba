@@ -138,6 +138,7 @@ export const engagementsAPI = {
   getMyStatus: (dealId) => api.get(`/engagements/my-status/${dealId}`),
   listDealEngagements: (dealId) => api.get(`/engagements/deal/${dealId}`),
   getLoiComparator: (dealId) => api.get(`/engagements/deal/${dealId}/loi-comparator`),
+  getBuyerActivity: (dealId, buyerId) => api.get(`/engagements/deal/${dealId}/buyer-activity/${buyerId}`),
   acceptInterest: (dealId, buyerId) => api.post(`/engagements/deal/${dealId}/accept/${buyerId}`),
   shortlistBuyer: (dealId, buyerId) => api.post(`/engagements/deal/${dealId}/shortlist/${buyerId}`),
   removeFromShortlist: (dealId, buyerId) => api.delete(`/engagements/deal/${dealId}/shortlist/${buyerId}`),
