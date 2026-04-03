@@ -34,6 +34,7 @@ const BuyerOnboarding = () => {
   const [buyerCategory, setBuyerCategory] = useState(''); // 'strategic' or 'financial'
 
   const [form, setForm] = useState({
+    company_name: '', job_title: '', acquisition_thesis: '',
     type: '', operation_types: [], taxonomy_categories: [],
     ticket_min: '', ticket_max: '',
     revenue_range_min: '', revenue_range_max: '',
@@ -52,6 +53,9 @@ const BuyerOnboarding = () => {
         const t = bp.type || '';
         setBuyerCategory(t === 'strategic' ? 'strategic' : t ? 'financial' : '');
         setForm({
+          company_name: bp.company_name || '',
+          job_title: bp.job_title || '',
+          acquisition_thesis: bp.acquisition_thesis || '',
           type: t,
           operation_types: bp.operation_types || [],
           taxonomy_categories: bp.taxonomy_categories || [],
@@ -97,6 +101,9 @@ const BuyerOnboarding = () => {
     setLoading(true); setError('');
     try {
       await usersAPI.updateBuyerProfile({
+        company_name: form.company_name.trim() || null,
+        job_title: form.job_title.trim() || null,
+        acquisition_thesis: form.acquisition_thesis.trim() || null,
         type: form.type,
         operation_types: form.operation_types,
         taxonomy_categories: form.taxonomy_categories,
@@ -117,6 +124,7 @@ const BuyerOnboarding = () => {
 
   // Progress indicator
   const steps = [
+    { done: !!form.company_name && !!form.job_title, label: 'Identidad' },
     { done: !!form.type, label: 'Tipo' },
     { done: form.operation_types.length > 0, label: 'Operación' },
     { done: form.taxonomy_categories.length > 0, label: 'Sectores' },
@@ -156,6 +164,30 @@ const BuyerOnboarding = () => {
         )}
 
         <div className="space-y-8">
+          {/* Step 0: Identity — for certification */}
+          <div className="bg-white border border-slate-200 rounded-lg p-6" data-testid="section-identity">
+            <h2 className="font-bold mb-1 flex items-center gap-2"><Building2 className="w-5 h-5 text-arroba-coral" /> Datos del comprador</h2>
+            <p className="text-xs text-slate-400 mb-4">Estos datos se usan para la verificación de tu perfil y son visibles para sellers.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="label-arroba block mb-1">EMPRESA *</label>
+                <input type="text" value={form.company_name} onChange={e => setForm(prev => ({ ...prev, company_name: e.target.value }))}
+                  placeholder="Nombre de tu empresa o vehículo inversor" className="input-arroba w-full" data-testid="input-company-name" />
+              </div>
+              <div>
+                <label className="label-arroba block mb-1">CARGO *</label>
+                <input type="text" value={form.job_title} onChange={e => setForm(prev => ({ ...prev, job_title: e.target.value }))}
+                  placeholder="CEO, Managing Partner, Director de M&A..." className="input-arroba w-full" data-testid="input-job-title" />
+              </div>
+              <div>
+                <label className="label-arroba block mb-1">TESIS DE INVERSIÓN</label>
+                <textarea value={form.acquisition_thesis} onChange={e => setForm(prev => ({ ...prev, acquisition_thesis: e.target.value }))}
+                  placeholder="Describe brevemente qué tipo de agencias o compañías buscas y por qué" rows={3} className="input-arroba w-full resize-none" data-testid="input-thesis" />
+                <p className="text-[10px] text-slate-400 mt-1">Esto mejora la calidad de las recomendaciones y tu nivel de verificación.</p>
+              </div>
+            </div>
+          </div>
+
           {/* Step 1: Buyer Type — Two-step: Strategic vs Financial */}
           <div className="bg-white border border-slate-200 rounded-lg p-6" data-testid="section-type">
             <h2 className="font-bold mb-4 flex items-center gap-2"><User className="w-5 h-5 text-arroba-coral" /> Tipo de comprador *</h2>

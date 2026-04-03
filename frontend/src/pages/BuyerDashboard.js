@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { marketplaceAPI, matchingAPI, engagementsAPI, ndaAPI, notificationsAPI, buyerAPI } from '../services/api';
+import { marketplaceAPI, matchingAPI, engagementsAPI, ndaAPI, notificationsAPI, buyerAPI, billingAPI } from '../services/api';
 import {
   Search, FileText, ArrowRight, Building2,
   Sparkles, MapPin, Zap, ChevronRight, Send, FileSignature, Shield,
   Star, Lock, AlertCircle, MessageSquare, CheckCircle2,
   FolderOpen, Eye, User, Bell, Settings, Bookmark, ArrowLeft, Clock,
-  Award
+  Award, CreditCard, Info, MoreHorizontal, Copy, Share2, X, Trash2
 } from 'lucide-react';
 
 /* ─── Configs ─── */
@@ -39,6 +39,7 @@ const SECTIONS = [
   { id: 'recomendados', label: 'Recomendados', icon: Sparkles },
   { id: 'alertas', label: 'Alertas', icon: Bell },
   { id: 'perfil', label: 'Perfil', icon: User },
+  { id: 'facturacion', label: 'Facturación', icon: CreditCard },
 ];
 
 /* ═══════════════════════════════════════════ */
@@ -57,6 +58,7 @@ const BuyerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
   const [certData, setCertData] = useState(null);
+  const [billingData, setBillingData] = useState(null);
 
   // Derived from certData (backend is source of truth)
   const planTier = certData?.plan?.tier || getPlanTier(user);
@@ -83,6 +85,7 @@ const BuyerDashboard = () => {
           notificationsAPI.list().then(r => setNotifications(r.data?.slice?.(0, 20) || [])).catch(() => {}),
           notificationsAPI.unreadCount().then(r => setUnreadCount(r.data?.count || 0)).catch(() => {}),
           buyerAPI.getCertification().then(r => setCertData(r.data)).catch(() => {}),
+          billingAPI.getSummary().then(r => setBillingData(r.data)).catch(() => {}),
         ]);
       } catch (e) { console.error('Dashboard fetch error:', e); }
       finally { setLoading(false); }
@@ -229,21 +232,24 @@ const BuyerDashboard = () => {
                   {/* KPIs */}
                   <div className="grid grid-cols-3 gap-3 mb-8" data-testid="kpi-grid">
                     {[
-                      { label: 'PROCESOS ACTIVOS', value: activeProcesses.length, icon: FolderOpen },
-                      { label: 'NDAs FIRMADOS', value: ndaCount, icon: FileSignature },
-                      { label: 'EN SEGUIMIENTO', value: savedDeals.length, icon: Star },
-                      { label: 'DEALS DISPONIBLES', value: stats?.published_deals || 0, icon: Building2 },
-                      { label: 'RECOMENDADOS', value: recommendedDeals.length, icon: Sparkles },
-                      { label: 'INTERACCIONES', value: interactionLimit === -1 ? 'Sin límite' : interactionLimit === 0 ? 'Bloqueadas' : `${interactionsUsed}/${interactionLimit}`, icon: Zap, highlight: interactionLimit === 0 },
+                      { label: 'PROCESOS ACTIVOS', value: activeProcesses.length, icon: FolderOpen, tip: 'Operaciones donde has interactuado: NDA, interés, LOI o due diligence.' },
+                      { label: 'NDAs FIRMADOS', value: ndaCount, icon: FileSignature, tip: 'Acuerdos de confidencialidad firmados que te dan acceso a infomemos y data rooms.' },
+                      { label: 'EN SEGUIMIENTO', value: savedDeals.length, icon: Star, tip: 'Deals que has guardado para seguir su evolución.' },
+                      { label: 'DEALS DISPONIBLES', value: stats?.published_deals || 0, icon: Building2, tip: 'Total de operaciones activas publicadas en el marketplace.' },
+                      { label: 'RECOMENDADOS', value: recommendedDeals.length, icon: Sparkles, tip: 'Oportunidades seleccionadas según tu perfil inversor y tesis de inversión.' },
+                      { label: 'INTERACCIONES', value: interactionLimit === -1 ? 'Sin límite' : interactionLimit === 0 ? 'Bloqueadas' : `${interactionsUsed}/${interactionLimit}`, icon: Zap, highlight: interactionLimit === 0, tip: 'Intereses, contactos o reuniones que puedes gestionar este mes según tu plan.' },
                     ].map((kpi, i) => {
                       const Icon = kpi.icon;
                       return (
-                        <div key={i} className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
+                        <div key={i} className="p-4 relative group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
                           <div className="flex items-center gap-1.5 mb-2">
                             <Icon size={11} style={{ color: 'var(--outline)' }} />
                             <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'var(--outline)' }}>{kpi.label}</p>
+                            <Info size={9} className="opacity-0 group-hover:opacity-100 transition-opacity cursor-help" style={{ color: 'var(--outline)' }} />
                           </div>
                           <p className="text-lg font-black" style={{ color: kpi.highlight ? 'var(--arroba-primary)' : 'var(--on-surface)', letterSpacing: '-0.02em' }}>{kpi.value}</p>
+                          {/* Tooltip */}
+                          <div className="absolute left-0 right-0 top-full mt-1 p-2 text-[10px] leading-tight z-10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{ background: 'var(--on-surface)', color: '#fff' }}>{kpi.tip}</div>
                         </div>
                       );
                     })}
@@ -251,10 +257,11 @@ const BuyerDashboard = () => {
 
                   {/* Processes */}
                   <div className="mb-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-1">
                       <h2 className="text-base font-extrabold" style={{ color: 'var(--on-surface)' }}>Mis procesos activos</h2>
                       <span className="text-xs font-semibold" style={{ color: 'var(--outline)' }}>{activeProcesses.length}</span>
                     </div>
+                    <p className="text-xs mb-4" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>Tus procesos activos incluyen todas las operaciones en las que ya has interactuado de forma relevante: NDA firmado, interés enviado, LOI presentada o due diligence en curso.</p>
                     {activeProcesses.length === 0 ? (
                       <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }} data-testid="no-processes">
                         <Search size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
@@ -300,7 +307,7 @@ const BuyerDashboard = () => {
               {/* ═══ SEGUIMIENTO ═══ */}
               {activeSection === 'seguimiento' && (
                 <div data-testid="tab-seguimiento-content">
-                  <p className="text-xs mb-6" style={{ color: 'var(--outline)' }}>{savedDeals.length} oportunidad{savedDeals.length !== 1 ? 'es' : ''} guardada{savedDeals.length !== 1 ? 's' : ''}</p>
+                  <p className="text-xs mb-6" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>Aquí aparecen las empresas que has guardado para seguir su evolución y volver a ellas más tarde. {savedDeals.length} oportunidad{savedDeals.length !== 1 ? 'es' : ''} guardada{savedDeals.length !== 1 ? 's' : ''}.</p>
                   {savedDeals.length === 0 ? (
                     <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
                       <Bookmark size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
@@ -313,22 +320,28 @@ const BuyerDashboard = () => {
                       {savedDeals.map(deal => {
                         const t = deal.teaser || {};
                         return (
-                          <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`} className="block p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                          <div key={deal.deal_id} className="p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                             <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
+                              <Link to={`/explorar/${deal.deal_id}`} className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{t.sector_display || 'Digital'}</span>
                                   <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{t.geography_display}</span>
                                 </div>
                                 <p className="text-sm font-bold group-hover:opacity-80 transition-opacity truncate" style={{ color: 'var(--on-surface)' }}>{t.headline || t.title || 'Oportunidad'}</p>
                                 <p className="text-xs mt-1" style={{ color: 'var(--outline)' }}>Guardado el {new Date(deal.saved_at).toLocaleDateString('es-ES')}</p>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
-                                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_display || 'N/D'}</p>
+                              </Link>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right">
+                                  <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
+                                  <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_display || 'N/D'}</p>
+                                </div>
+                                <button onClick={async () => { try { await engagementsAPI.unsaveDeal(deal.deal_id); setSavedDeals(prev => prev.filter(d => d.deal_id !== deal.deal_id)); } catch {} }}
+                                  className="p-1.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--outline)' }} title="Quitar de seguimiento" data-testid={`unsave-${deal.deal_id}`}>
+                                  <Trash2 size={14} />
+                                </button>
                               </div>
                             </div>
-                          </Link>
+                          </div>
                         );
                       })}
                     </div>
@@ -339,7 +352,7 @@ const BuyerDashboard = () => {
               {/* ═══ RECOMENDADOS ═══ */}
               {activeSection === 'recomendados' && (
                 <div data-testid="tab-recomendados-content">
-                  <p className="text-xs mb-6" style={{ color: 'var(--outline)' }}>Oportunidades seleccionadas según tu perfil de inversión</p>
+                  <p className="text-xs mb-6" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>Estos deals se te recomiendan porque encajan con tu perfil inversor, tu rango de interés y el tipo de operaciones que estás buscando.</p>
                   {!profileComplete ? (
                     <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
                       <Sparkles size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
@@ -467,7 +480,82 @@ const BuyerDashboard = () => {
                       </div>
                       <p className="text-[10px] mt-4" style={{ color: 'var(--outline-variant)' }}>El sello de Comprador Certificado estará disponible próximamente.</p>
                     </div>
+                    {/* Visibility toggle */}
+                    <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                      <p className="label-arroba mb-3" style={{ color: 'var(--outline)', fontSize: 9 }}>VISIBILIDAD DEL PERFIL</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>Perfil público</span>
+                        <div className="relative">
+                          <button disabled={isFree}
+                            className="relative w-10 h-5 transition-colors" style={{ background: isFree ? 'var(--surface-2)' : 'var(--arroba-primary)', opacity: isFree ? 0.5 : 1 }}>
+                            <span className="absolute top-0.5 w-4 h-4 transition-transform" style={{ background: '#fff', left: 22 }} />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>
+                        {isFree
+                          ? 'Tu perfil es visible por defecto. Con una cuenta premium puedes ocultarlo y navegar con mayor discreción.'
+                          : 'Tu perfil es visible para sellers dentro de la plataforma. Puedes desactivar la visibilidad desde aquí.'}
+                      </p>
+                      {isFree && (
+                        <Link to="/planes?role=buyer" className="text-[10px] font-bold mt-2 inline-block" style={{ color: 'var(--arroba-primary)' }}>Ver planes premium</Link>
+                      )}
+                    </div>
                     <Link to="/buyer/onboarding"><button className="w-full py-3 text-xs font-bold" style={{ background: 'var(--on-surface)', color: '#fff' }}>EDITAR PERFIL DE COMPRADOR</button></Link>
+                  </div>
+                </div>
+              )}
+
+              {/* ═══ FACTURACIÓN ═══ */}
+              {activeSection === 'facturacion' && (
+                <div data-testid="tab-facturacion-content">
+                  <div className="space-y-5">
+                    {/* Plan actual */}
+                    <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                      <p className="label-arroba mb-3" style={{ color: 'var(--outline)', fontSize: 9 }}>PLAN ACTUAL</p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{billingData?.plan?.name || 'Free'}</p>
+                          <p className="text-xs" style={{ color: 'var(--outline)' }}>{billingData?.plan?.status === 'active' ? 'Activo' : 'Sin suscripción'}</p>
+                        </div>
+                        <Link to="/planes?role=buyer"><button className="px-4 py-2 text-[10px] font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>CAMBIAR PLAN</button></Link>
+                      </div>
+                    </div>
+                    {/* Método de pago */}
+                    <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                      <p className="label-arroba mb-3" style={{ color: 'var(--outline)', fontSize: 9 }}>MÉTODO DE PAGO</p>
+                      {billingData?.payment_method?.configured ? (
+                        <div className="flex items-center gap-3">
+                          <CreditCard size={16} style={{ color: 'var(--on-surface)' }} />
+                          <div>
+                            <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{billingData.payment_method.brand} •••• {billingData.payment_method.last_four}</p>
+                            <p className="text-xs" style={{ color: 'var(--outline)' }}>Expira {billingData.payment_method.expires}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-xs mb-2" style={{ color: 'var(--outline)' }}>No hay método de pago configurado.</p>
+                          <p className="text-[10px]" style={{ color: 'var(--outline-variant)' }}>Se configurará automáticamente al activar un plan de pago.</p>
+                        </div>
+                      )}
+                    </div>
+                    {/* Facturas */}
+                    <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                      <p className="label-arroba mb-3" style={{ color: 'var(--outline)', fontSize: 9 }}>FACTURAS</p>
+                      {(billingData?.invoices?.length || 0) === 0 ? (
+                        <p className="text-xs" style={{ color: 'var(--outline)' }}>No hay facturas emitidas.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {billingData.invoices.map((inv, i) => (
+                            <div key={i} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--surface-1)' }}>
+                              <div><p className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{inv.description || 'Factura'}</p><p className="text-[10px]" style={{ color: 'var(--outline)' }}>{new Date(inv.created_at).toLocaleDateString('es-ES')}</p></div>
+                              <div className="flex items-center gap-3"><span className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{inv.amount}€</span><span className="px-2 py-0.5 text-[9px] font-bold" style={{ background: inv.status === 'paid' ? 'rgba(22,163,74,0.06)' : 'rgba(217,119,6,0.06)', color: inv.status === 'paid' ? '#16a34a' : '#d97706' }}>{inv.status === 'paid' ? 'PAGADA' : 'PENDIENTE'}</span></div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[10px]" style={{ color: 'var(--outline-variant)' }}>La gestión de pagos se realizará a través de pasarela segura una vez activada la suscripción.</p>
                   </div>
                 </div>
               )}

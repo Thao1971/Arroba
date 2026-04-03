@@ -251,4 +251,9 @@ export const buyerAPI = {
   getCertification: () => api.get('/buyer/certification'),
 };
 
+// Billing API
+export const billingAPI = {
+  getSummary: () => api.get('/billing/summary'),
+};
+
 export default api;
