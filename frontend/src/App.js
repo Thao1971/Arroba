@@ -10,9 +10,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import BuyerDashboard from './pages/BuyerDashboard';
-import SellerDashboard from './pages/SellerDashboard';
+import SellerWorkspace from './pages/SellerWorkspace';
 import SellerWizard from './pages/SellerWizard';
-import DealManagement from './pages/DealManagement';
 import DealPage from './pages/DealPage';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
@@ -91,14 +90,19 @@ const AppRouter = () => {
       <Route path="/buyer/processes" element={<Navigate to="/buyer/procesos" replace />} />
 
       {/* Seller Routes */}
-      <Route path="/seller/deals" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerDashboard /></ProtectedRoute>} />
-      <Route path="/seller/interesados" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerInteresados /></ProtectedRoute>} />
+      {/* Seller Workspace — unified shell */}
+      <Route path="/seller" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
+      <Route path="/seller/deals" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
+      <Route path="/seller/interesados" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
+      <Route path="/seller/deals/:dealId/:section" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
+      <Route path="/seller/deals/:dealId" element={<Navigate to="resumen" replace />} />
+      {/* Legacy redirects */}
+      <Route path="/seller/deal/:dealId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
       <Route path="/seller/dashboard" element={<Navigate to="/seller/deals" replace />} />
+      {/* Seller Wizard (outside workspace shell) */}
       <Route path="/seller/onboarding" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
       <Route path="/seller/company/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
       <Route path="/seller/company/:companyId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
-      <Route path="/seller/deal/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
-      <Route path="/seller/deal/:dealId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><DealManagement /></ProtectedRoute>} />
 
       {/* Q&A Workspace */}
       <Route path="/qa/:conversationId" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}><ConversationPage /></ProtectedRoute>} />
