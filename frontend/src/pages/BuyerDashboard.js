@@ -319,30 +319,7 @@ const BuyerDashboard = () => {
                     <div className="space-y-3">
                       {savedDeals.map(deal => {
                         const t = deal.teaser || {};
-                        return (
-                          <div key={deal.deal_id} className="p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                            <div className="flex items-start justify-between gap-4">
-                              <Link to={`/explorar/${deal.deal_id}`} className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{t.sector_display || 'Digital'}</span>
-                                  <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{t.geography_display}</span>
-                                </div>
-                                <p className="text-sm font-bold group-hover:opacity-80 transition-opacity truncate" style={{ color: 'var(--on-surface)' }}>{t.headline || t.title || 'Oportunidad'}</p>
-                                <p className="text-xs mt-1" style={{ color: 'var(--outline)' }}>Guardado el {new Date(deal.saved_at).toLocaleDateString('es-ES')}</p>
-                              </Link>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <div className="text-right">
-                                  <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
-                                  <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_display || 'N/D'}</p>
-                                </div>
-                                <button onClick={async () => { try { await engagementsAPI.unsaveDeal(deal.deal_id); setSavedDeals(prev => prev.filter(d => d.deal_id !== deal.deal_id)); } catch {} }}
-                                  className="p-1.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--outline)' }} title="Quitar de seguimiento" data-testid={`unsave-${deal.deal_id}`}>
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
+                        return <SeguimientoCard key={deal.deal_id} deal={deal} teaser={t} onUnsave={async () => { try { await engagementsAPI.unsaveDeal(deal.deal_id); setSavedDeals(prev => prev.filter(d => d.deal_id !== deal.deal_id)); } catch {} }} />;
                       })}
                     </div>
                   )}
@@ -364,10 +341,11 @@ const BuyerDashboard = () => {
                     <div className="space-y-3">
                       {recommendedDeals.map(deal => {
                         const t = deal.teaser || {};
+                        const isSaved = savedDeals.some(s => s.deal_id === deal.deal_id);
                         return (
-                          <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`} className="block p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid={`recommended-deal-${deal.deal_id}`}>
+                          <div key={deal.deal_id} className="p-5 transition-all duration-150 hover:-translate-y-0.5 group" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }} data-testid={`recommended-deal-${deal.deal_id}`}>
                             <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
+                              <Link to={`/explorar/${deal.deal_id}`} className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                   <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{t.sector_display || 'Digital'}</span>
                                   {deal.affinity && (
@@ -378,13 +356,20 @@ const BuyerDashboard = () => {
                                 {deal.match_reason && (
                                   <p className="text-xs mt-1.5 flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}><Sparkles size={10} /> {deal.match_reason}</p>
                                 )}
-                              </div>
-                              <div className="text-right shrink-0">
-                                <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
-                                <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_range || t.revenue_display || 'N/D'}</p>
+                              </Link>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right">
+                                  <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
+                                  <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{t.revenue_range || t.revenue_display || 'N/D'}</p>
+                                </div>
+                                {/* Save/unsave inline */}
+                                <button onClick={async (e) => { e.preventDefault(); try { if (isSaved) { await engagementsAPI.unsaveDeal(deal.deal_id); setSavedDeals(prev => prev.filter(d => d.deal_id !== deal.deal_id)); } else { await engagementsAPI.saveDeal(deal.deal_id); setSavedDeals(prev => [...prev, { deal_id: deal.deal_id, teaser: t, saved_at: new Date().toISOString() }]); } } catch {} }}
+                                  className="p-1.5 transition-opacity" style={{ color: isSaved ? 'var(--arroba-primary)' : 'var(--outline)' }} title={isSaved ? 'Quitar de seguimiento' : 'Guardar'}>
+                                  {isSaved ? <Star size={14} fill="currentColor" /> : <Star size={14} />}
+                                </button>
                               </div>
                             </div>
-                          </Link>
+                          </div>
                         );
                       })}
                     </div>
@@ -857,5 +842,56 @@ const PlanFeatureRow = ({ label, enabled, valueText }) => (
     {valueText && <span className="text-[9px] font-semibold" style={{ color: 'var(--arroba-primary)' }}>{valueText}</span>}
   </div>
 );
+
+/* ─── Seguimiento card with 3-dot menu ─── */
+const SeguimientoCard = ({ deal, teaser, onUnsave }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const url = `${window.location.origin}/explorar/${deal.deal_id}`;
+  const title = teaser.headline || teaser.title || 'Oportunidad en ARROBA';
+
+  const copyUrl = () => { navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {}); setMenuOpen(false); };
+  const shareNative = () => { if (navigator.share) { navigator.share({ title, url }).catch(() => {}); } else { copyUrl(); } setMenuOpen(false); };
+
+  return (
+    <div className="p-5 transition-all duration-150 hover:-translate-y-0.5 group relative" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+      <div className="flex items-start justify-between gap-4">
+        <Link to={`/explorar/${deal.deal_id}`} className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{teaser.sector_display || 'Digital'}</span>
+            <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{teaser.geography_display}</span>
+          </div>
+          <p className="text-sm font-bold group-hover:opacity-80 transition-opacity truncate" style={{ color: 'var(--on-surface)' }}>{title}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--outline)' }}>Guardado el {new Date(deal.saved_at).toLocaleDateString('es-ES')}</p>
+        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>Facturación</p>
+            <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{teaser.revenue_display || 'N/D'}</p>
+          </div>
+          {/* 3-dot menu */}
+          <div className="relative">
+            <button onClick={() => setMenuOpen(!menuOpen)} className="p-1.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--outline)' }} data-testid={`menu-${deal.deal_id}`}>
+              {menuOpen ? <X size={14} /> : <MoreHorizontal size={14} />}
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-8 z-20 py-1 min-w-[170px]" style={{ background: 'var(--surface-lowest)', boxShadow: '0 8px 24px rgba(25,28,30,0.12)' }}>
+                <button onClick={onUnsave} className="w-full px-4 py-2.5 text-left text-xs font-semibold flex items-center gap-2 hover:opacity-70" style={{ color: 'var(--on-surface)' }}>
+                  <Trash2 size={12} /> Quitar de seguimiento
+                </button>
+                <button onClick={copyUrl} className="w-full px-4 py-2.5 text-left text-xs font-semibold flex items-center gap-2 hover:opacity-70" style={{ color: 'var(--on-surface)' }}>
+                  <Copy size={12} /> {copied ? 'Copiado' : 'Copiar enlace'}
+                </button>
+                <button onClick={shareNative} className="w-full px-4 py-2.5 text-left text-xs font-semibold flex items-center gap-2 hover:opacity-70" style={{ color: 'var(--on-surface)' }}>
+                  <Share2 size={12} /> Compartir
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default BuyerDashboard;
