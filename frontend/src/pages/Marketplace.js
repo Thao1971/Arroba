@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { marketplaceAPI, matchingAPI, engagementsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Zap, Sparkles, ArrowUpDown, MoreHorizontal, Copy, Share2, X, Heart } from 'lucide-react';
+import { SPAIN_PROVINCES } from './BuyerOnboarding';
 
 const ShareMenu = ({ dealId, title }) => {
   const [open, setOpen] = useState(false);
@@ -298,13 +299,7 @@ const Marketplace = () => {
                     <SelectTrigger className="w-full" data-testid="filter-province"><SelectValue placeholder="Todas las provincias" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todas</SelectItem>
-                      <SelectItem value="Madrid">Madrid</SelectItem>
-                      <SelectItem value="Barcelona">Barcelona</SelectItem>
-                      <SelectItem value="Valencia">Valencia</SelectItem>
-                      <SelectItem value="Sevilla">Sevilla</SelectItem>
-                      <SelectItem value="Bilbao">Bilbao</SelectItem>
-                      <SelectItem value="Málaga">Málaga</SelectItem>
-                      <SelectItem value="Zaragoza">Zaragoza</SelectItem>
+                      {SPAIN_PROVINCES.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

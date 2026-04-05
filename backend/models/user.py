@@ -37,6 +37,11 @@ class BuyerProfile(BaseModel):
     control_preference: ControlPreference = "flexible"
     company_verification_level: str = "not_started"
     company_verification_status: str = "not_started"
+    company_tax_id_validation_status: str = "not_started"
+    company_tax_id_validated_at: Optional[str] = None
+    company_tax_id_validation_source: Optional[str] = None
+    buyer_category: Optional[str] = None
+    buyer_financial_subtype: Optional[str] = None
     profile_privacy_mode: str = "public"
     profile_complete: bool = False
 
@@ -132,6 +137,11 @@ class UpdateBuyerProfile(BaseModel):
     urgency: Optional[Urgency] = None
     control_preference: Optional[ControlPreference] = None
     company_verification_level: Optional[str] = None
+    company_tax_id_validation_status: Optional[str] = None
+    company_tax_id_validated_at: Optional[str] = None
+    company_tax_id_validation_source: Optional[str] = None
+    buyer_category: Optional[str] = None
+    buyer_financial_subtype: Optional[str] = None
     profile_privacy_mode: Optional[str] = None
 
 class UpdateUserProfile(BaseModel):
