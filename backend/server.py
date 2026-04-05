@@ -143,13 +143,25 @@ async def health_check():
 
 @app.get("/api/exports/documentacion")
 async def download_docs():
-    """Download all documentation as ZIP"""
+    """Download all documentation as ZIP — generates on demand if missing"""
     from fastapi.responses import FileResponse
     import os
+    import zipfile
     zip_path = "/app/exports/arroba_documentacion.zip"
+    sources = [
+        ("/app/MANUAL_APLICACION_ARROBA.md", "MANUAL_APLICACION_ARROBA.md"),
+        ("/app/memory/PRD.md", "PRD.md"),
+        ("/app/memory/CHANGELOG.md", "CHANGELOG.md"),
+        ("/app/memory/ROADMAP.md", "ROADMAP.md"),
+    ]
     if not os.path.exists(zip_path):
-        from fastapi import HTTPException
-        raise HTTPException(404, "ZIP no encontrado. Ejecuta el seed script primero.")
+        os.makedirs("/app/exports", exist_ok=True)
+        existing = [(src, name) for src, name in sources if os.path.exists(src)]
+        if not existing:
+            raise HTTPException(404, "No hay documentación disponible.")
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for src, name in existing:
+                zf.write(src, name)
     return FileResponse(
         zip_path,
         media_type="application/zip",

@@ -112,11 +112,11 @@ const BuyerDashboard = () => {
     <div className="min-h-screen" style={{ background: 'var(--surface-0)' }} data-testid="buyer-dashboard">
 
       {/* ─── LEFT SIDEBAR (fixed) ─── */}
-      <aside className="fixed left-0 top-0 bottom-0 w-60 flex flex-col z-40" style={{ background: 'var(--surface-1)', paddingTop: 80 }}>
-        <div className="px-6 mb-6">
-          <Link to="/" className="text-2xl font-black tracking-tight block mb-3" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.03em' }}>arroba</Link>
-          <h2 className="text-base font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Panel de Comprador</h2>
-          <p className="text-[10px] font-bold uppercase tracking-wider mt-1" style={{ color: 'var(--outline)' }}>
+      <aside className="fixed left-0 top-0 bottom-0 w-60 flex flex-col z-40" style={{ background: 'var(--surface-1)', paddingTop: 24 }}>
+        <div className="px-6 mb-4">
+          <Link to="/" className="text-2xl font-black tracking-tight block mb-2" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.03em' }}>arroba</Link>
+          <p className="label-arroba" style={{ color: 'var(--outline)', fontSize: 9 }}>PANEL DE COMPRADOR</p>
+          <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--on-surface)' }}>
             {user?.first_name} {user?.last_name}
           </p>
         </div>
@@ -176,7 +176,7 @@ const BuyerDashboard = () => {
           <Link to="/explorar">
             <button className="w-full py-3 text-[11px] font-bold flex items-center justify-center gap-2"
               style={{ background: 'var(--on-surface)', color: '#fff' }}>
-              <Search size={12} /> EXPLORAR MARKETPLACE
+              <Search size={12} /> LISTADO DE AGENCIAS
             </button>
           </Link>
         </div>
@@ -240,7 +240,7 @@ const BuyerDashboard = () => {
                       { label: 'PROCESOS ACTIVOS', value: activeProcesses.length, icon: FolderOpen, tip: 'Operaciones donde has interactuado: NDA, interés, LOI o due diligence.' },
                       { label: 'NDAs FIRMADOS', value: ndaCount, icon: FileSignature, tip: 'Acuerdos de confidencialidad firmados que te dan acceso a infomemos y data rooms.' },
                       { label: 'EN SEGUIMIENTO', value: savedDeals.length, icon: Star, tip: 'Deals que has guardado para seguir su evolución.' },
-                      { label: 'DEALS DISPONIBLES', value: stats?.published_deals || 0, icon: Building2, tip: 'Total de operaciones activas publicadas en el marketplace.' },
+                      { label: 'DEALS DISPONIBLES', value: stats?.published_deals || 0, icon: Building2, tip: 'Total de operaciones activas publicadas en el listado de agencias.' },
                       { label: 'RECOMENDADOS', value: recommendedDeals.length, icon: Sparkles, tip: 'Oportunidades seleccionadas según tu perfil inversor y tesis de inversión.' },
                       { label: 'INTERACCIONES', value: interactionLimit === -1 ? 'Sin límite' : interactionLimit === 0 ? 'Bloqueadas' : `${interactionsUsed}/${interactionLimit}`, icon: Zap, highlight: interactionLimit === 0, tip: 'Intereses, contactos o reuniones que puedes gestionar este mes según tu plan.' },
                     ].map((kpi, i) => {
@@ -271,7 +271,7 @@ const BuyerDashboard = () => {
                       <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }} data-testid="no-processes">
                         <Search size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
                         <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Aún no tienes procesos activos</p>
-                        <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Explora el marketplace para iniciar tu primer proceso.</p>
+                        <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Explora el listado de agencias para iniciar tu primer proceso.</p>
                         <Link to="/explorar"><button className="px-6 py-2 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>EXPLORAR</button></Link>
                       </div>
                     ) : (
@@ -291,7 +291,7 @@ const BuyerDashboard = () => {
                     <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
                       <Search size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Aún no tienes procesos activos</p>
-                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Explora el marketplace para iniciar tu primer proceso.</p>
+                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Explora el listado de agencias para iniciar tu primer proceso.</p>
                       <Link to="/explorar"><button className="px-6 py-2 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>EXPLORAR</button></Link>
                     </div>
                   ) : (
@@ -317,7 +317,7 @@ const BuyerDashboard = () => {
                     <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
                       <Bookmark size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Sin empresas en seguimiento</p>
-                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Guarda oportunidades desde el marketplace.</p>
+                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Guarda oportunidades desde el listado de agencias.</p>
                       <Link to="/explorar"><button className="px-6 py-2 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>EXPLORAR</button></Link>
                     </div>
                   ) : (

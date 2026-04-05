@@ -17,7 +17,7 @@ import {
 const GENERAL_NAV = [
   { id: 'inicio', path: '/seller', label: 'Inicio', icon: BarChart3 },
   { id: 'interesados', path: '/seller/interesados', label: 'Interesados', icon: Users },
-  { id: 'explorar', path: '/explorar', label: 'Explorar marketplace', icon: Search },
+  { id: 'explorar', path: '/explorar', label: 'Listado de agencias', icon: Search },
 ];
 
 /* ─── Deal sub-navigation ─── */
