@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { ArrobaLogo } from '../components/layout/Header';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Building2, Users, Briefcase } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Building2, Users, Briefcase, Check } from 'lucide-react';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -124,23 +124,23 @@ const Register = () => {
                         key={role.id}
                         type="button"
                         onClick={() => handleRoleSelect(role.id)}
-                        className={`w-full p-4 rounded-sm border-2 text-left transition-all ${
-                          isSelected 
-                            ? `border-${role.color} bg-${role.color}/5` 
-                            : 'border-slate-200 hover:border-slate-300'
-                        }`}
+                        className="w-full p-4 text-left transition-all"
+                        style={{
+                          background: isSelected ? 'rgba(182,33,42,0.04)' : 'var(--surface-2, #f3f3f3)',
+                          borderLeft: isSelected ? '3px solid var(--arroba-primary)' : '3px solid transparent',
+                        }}
                         data-testid={`role-${role.id}`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${
-                            isSelected ? `bg-${role.color}/20` : 'bg-slate-100'
-                          }`}>
-                            <Icon className={`w-5 h-5 ${isSelected ? `text-${role.color}` : 'text-slate-500'}`} />
+                          <div className="w-10 h-10 flex items-center justify-center"
+                            style={{ background: isSelected ? 'rgba(182,33,42,0.08)' : 'var(--surface-1, #e2e2e2)' }}>
+                            <Icon className="w-5 h-5" style={{ color: isSelected ? 'var(--arroba-primary)' : 'var(--outline, #76777d)' }} />
                           </div>
-                          <div>
-                            <p className="font-semibold text-slate-900">{role.title}</p>
-                            <p className="text-sm text-slate-500">{role.description}</p>
+                          <div className="flex-1">
+                            <p className="font-semibold" style={{ color: isSelected ? 'var(--arroba-primary)' : 'var(--on-surface)' }}>{role.title}</p>
+                            <p className="text-sm" style={{ color: 'var(--outline)' }}>{role.description}</p>
                           </div>
+                          {isSelected && <Check className="w-5 h-5 shrink-0 mt-1" style={{ color: 'var(--arroba-primary)' }} />}
                         </div>
                       </button>
                     );

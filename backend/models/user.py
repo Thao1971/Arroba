@@ -16,20 +16,28 @@ def generate_user_id():
 class BuyerProfile(BaseModel):
     type: Optional[BuyerType] = None
     company_name: Optional[str] = None
+    company_tax_id: Optional[str] = None
     job_title: Optional[str] = None
     acquisition_thesis: Optional[str] = None
+    qualitative_criteria: List[str] = []
     operation_types: List[OperationType] = []
     ticket_min: Optional[float] = None
     ticket_max: Optional[float] = None
     revenue_range_min: Optional[float] = None
     revenue_range_max: Optional[float] = None
+    ebitda_margin_min_pct: Optional[float] = None
     ebitda_range_min: Optional[float] = None
     ebitda_range_max: Optional[float] = None
-    sectors: List[str] = []  # legacy
-    taxonomy_categories: List[str] = []  # official BUD taxonomy IDs
+    sectors: List[str] = []
+    taxonomy_categories: List[str] = []
+    geography_country: str = "España"
+    geography_provinces: List[str] = []
     geographies: List[str] = []
     urgency: Urgency = "medium"
     control_preference: ControlPreference = "flexible"
+    company_verification_level: str = "not_started"
+    company_verification_status: str = "not_started"
+    profile_privacy_mode: str = "public"
     profile_complete: bool = False
 
 class SellerProfile(BaseModel):
@@ -104,20 +112,27 @@ class TokenResponse(BaseModel):
 class UpdateBuyerProfile(BaseModel):
     type: Optional[BuyerType] = None
     company_name: Optional[str] = None
+    company_tax_id: Optional[str] = None
     job_title: Optional[str] = None
     acquisition_thesis: Optional[str] = None
+    qualitative_criteria: Optional[List[str]] = None
     operation_types: Optional[List[OperationType]] = None
     ticket_min: Optional[float] = None
     ticket_max: Optional[float] = None
     revenue_range_min: Optional[float] = None
     revenue_range_max: Optional[float] = None
+    ebitda_margin_min_pct: Optional[float] = None
     ebitda_range_min: Optional[float] = None
     ebitda_range_max: Optional[float] = None
     sectors: Optional[List[str]] = None
     taxonomy_categories: Optional[List[str]] = None
+    geography_country: Optional[str] = None
+    geography_provinces: Optional[List[str]] = None
     geographies: Optional[List[str]] = None
     urgency: Optional[Urgency] = None
     control_preference: Optional[ControlPreference] = None
+    company_verification_level: Optional[str] = None
+    profile_privacy_mode: Optional[str] = None
 
 class UpdateUserProfile(BaseModel):
     first_name: Optional[str] = None

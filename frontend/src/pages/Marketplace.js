@@ -278,15 +278,16 @@ const Marketplace = () => {
                 </div>
 
                 <div>
-                  <label className="label-arroba mb-1 block">EBITDA</label>
-                  <Select value={filters.ebitda_min || "all"} onValueChange={(value) => { const ranges = { '0-200K': ['0','200000'], '200K-500K': ['200000','500000'], '500K-1M': ['500000','1000000'], '1M+': ['1000000',''] }; if (value === 'all') { handleFilterChange('ebitda_min', ''); handleFilterChange('ebitda_max', ''); } else { const [min, max] = ranges[value] || ['','']; setFilters(prev => ({ ...prev, ebitda_min: min, ebitda_max: max })); } }}>
-                    <SelectTrigger className="w-full" data-testid="filter-ebitda"><SelectValue placeholder="Cualquier EBITDA" /></SelectTrigger>
+                  <label className="label-arroba mb-1 block">Margen EBITDA (%)</label>
+                  <Select value={filters.ebitda_min || "all"} onValueChange={(value) => { if (value === 'all') { handleFilterChange('ebitda_min', ''); handleFilterChange('ebitda_max', ''); } else { setFilters(prev => ({ ...prev, ebitda_min: value, ebitda_max: '' })); } }}>
+                    <SelectTrigger className="w-full" data-testid="filter-ebitda"><SelectValue placeholder="Cualquier margen" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Cualquier EBITDA</SelectItem>
-                      <SelectItem value="0-200K">Hasta 200K €</SelectItem>
-                      <SelectItem value="200K-500K">200K – 500K €</SelectItem>
-                      <SelectItem value="500K-1M">500K – 1M €</SelectItem>
-                      <SelectItem value="1M+">Más de 1M €</SelectItem>
+                      <SelectItem value="all">Cualquier margen</SelectItem>
+                      <SelectItem value="5">Más del 5%</SelectItem>
+                      <SelectItem value="10">Más del 10%</SelectItem>
+                      <SelectItem value="15">Más del 15%</SelectItem>
+                      <SelectItem value="20">Más del 20%</SelectItem>
+                      <SelectItem value="25">Más del 25%</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

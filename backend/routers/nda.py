@@ -226,10 +226,17 @@ async def get_nda_template(deal_id: str, user: UserResponse = Depends(get_curren
     deal_ref = deal.get("title", deal_id)
     signer_name = f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email
 
+    # Get profile data for prefill
+    from database import users_collection
+    buyer_doc = await users_collection.find_one({"user_id": user.user_id}, {"_id": 0})
+    bp = buyer_doc.get("buyer_profile", {}) if buyer_doc else {}
+    profile_company = bp.get("company_name", "")
+    profile_job = bp.get("job_title", "")
+
     preview = _render_nda(
         signer_name=signer_name,
         signer_email=user.email,
-        signer_company="[Tu empresa]",
+        signer_company=profile_company or "[Tu empresa]",
         deal_reference=deal_ref,
         signature_id="[pendiente]",
         signed_at=datetime.now(timezone.utc).isoformat(),
@@ -243,6 +250,8 @@ async def get_nda_template(deal_id: str, user: UserResponse = Depends(get_curren
         "rendered_text": preview,
         "signer_name_prefill": signer_name,
         "signer_email": user.email,
+        "signer_company_prefill": profile_company,
+        "signer_title_prefill": profile_job,
     }
 
 
@@ -266,6 +275,19 @@ async def sign_nda(payload: NdaSignRequest, request: Request, user: UserResponse
     )
     if existing:
         return {"message": "NDA ya firmado", "signature_id": existing["signature_id"], "has_access": True}
+
+    # Validate company and job_title match buyer profile
+    buyer_doc = await users_collection.find_one({"user_id": user.user_id}, {"_id": 0})
+    bp = buyer_doc.get("buyer_profile", {}) if buyer_doc else {}
+    profile_company = (bp.get("company_name") or "").strip().lower()
+    profile_job = (bp.get("job_title") or "").strip().lower()
+    signing_company = (payload.signer_company or "").strip().lower()
+    signing_title = (payload.signer_title or "").strip().lower()
+
+    if profile_company and signing_company and signing_company != profile_company:
+        raise HTTPException(400, "La empresa de firma debe coincidir con la declarada en tu perfil. Actualiza tu perfil antes de firmar.")
+    if profile_job and signing_title and signing_title != profile_job:
+        raise HTTPException(400, "El cargo de firma debe coincidir con el declarado en tu perfil. Actualiza tu perfil antes de firmar.")
 
     # Collect metadata
     now = datetime.now(timezone.utc)

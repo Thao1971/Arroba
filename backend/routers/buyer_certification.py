@@ -19,10 +19,9 @@ CERTIFICATION_CRITERIA = [
     {"id": "investment_thesis", "label": "Tesis de inversión definida", "weight": 2, "category": "completitud"},
     # Confianza real
     {"id": "company_declared", "label": "Empresa declarada", "weight": 2, "category": "confianza"},
+    {"id": "company_tax_id", "label": "CIF declarado", "weight": 1, "category": "confianza"},
     {"id": "corporate_email", "label": "Email corporativo", "weight": 1, "category": "confianza"},
     {"id": "nda_signed", "label": "Al menos un NDA firmado", "weight": 1, "category": "confianza"},
-    # Futuro: validación documental
-    # {"id": "company_validated", "label": "Empresa validada documentalmente", "weight": 3, "category": "confianza"},
 ]
 
 PLAN_CONFIG = {
@@ -92,6 +91,7 @@ async def _compute_certification(user: UserResponse) -> dict:
         "email_verified": bool(user.email),
         "profile_complete": bool(bp.get("profile_complete")),
         "company_declared": bool(bp.get("company_name")),
+        "company_tax_id": bool(bp.get("company_tax_id")),
         "job_title_declared": bool(bp.get("job_title")),
         "investment_thesis": bool(bp.get("acquisition_thesis")),
         "nda_signed": nda_count > 0,

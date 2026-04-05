@@ -58,6 +58,8 @@ const NdaModal = ({ dealId, onSigned, onClose, loading: externalLoading, user })
         const res = await ndaAPI.getTemplate(dealId);
         setTemplate(res.data);
         setSignerName(res.data.signer_name_prefill || '');
+        setSignerCompany(res.data.signer_company_prefill || '');
+        setSignerTitle(res.data.signer_title_prefill || '');
       } catch {} finally { setLoadingTpl(false); }
     };
     load();
@@ -109,10 +111,10 @@ const NdaModal = ({ dealId, onSigned, onClose, loading: externalLoading, user })
           <div className="grid grid-cols-3 gap-3 mb-4">
             <input value={signerName} onChange={e => setSignerName(e.target.value)} placeholder="Nombre completo *"
               className="px-3 py-2 text-sm outline-none" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-name" />
-            <input value={signerCompany} onChange={e => setSignerCompany(e.target.value)} placeholder="Empresa"
-              className="px-3 py-2 text-sm outline-none" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-company" />
-            <input value={signerTitle} onChange={e => setSignerTitle(e.target.value)} placeholder="Cargo"
-              className="px-3 py-2 text-sm outline-none" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-title" />
+            <input value={signerCompany} readOnly placeholder="Empresa (desde tu perfil)"
+              className="px-3 py-2 text-sm outline-none cursor-not-allowed opacity-70" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-company" />
+            <input value={signerTitle} readOnly placeholder="Cargo (desde tu perfil)"
+              className="px-3 py-2 text-sm outline-none cursor-not-allowed opacity-70" style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--surface-2)', borderRadius: 0, color: 'var(--on-surface)' }} data-testid="nda-signer-title" />
           </div>
           <label className="flex items-start gap-2 mb-4 cursor-pointer" data-testid="nda-checkbox-label">
             <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} className="mt-0.5" style={{ accentColor: 'var(--arroba-primary)' }} data-testid="nda-checkbox" />

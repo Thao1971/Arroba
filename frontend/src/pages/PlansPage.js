@@ -32,7 +32,7 @@ const PlanCard = ({ plan, showAnnual }) => {
 
   return (
     <div
-      className="flex flex-col h-full p-6 lg:p-8 relative transition-all duration-200 hover:-translate-y-1"
+      className="group/card flex flex-col h-full p-6 lg:p-8 relative transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
       style={{
         background: 'var(--surface-lowest)',
         boxShadow: plan.is_highlighted
@@ -44,6 +44,8 @@ const PlanCard = ({ plan, showAnnual }) => {
       }}
       data-testid={`plan-card-${plan.plan_id}`}
     >
+      {/* Hover border overlay */}
+      <div className="absolute inset-0 opacity-0 group-hover/card:opacity-100 transition-opacity pointer-events-none" style={{ border: '2px solid var(--arroba-primary)' }} />
       {plan.badge && (
         <span
           className="absolute -top-0 right-6 px-3 py-1 text-[10px] font-bold"
