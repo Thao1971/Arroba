@@ -728,7 +728,7 @@ const ProcessCard = ({ proc, isFree, onClick }) => {
 };
 
 /* ─── Process Detail View with Actions ─── */
-const ProcessDetailView = ({ proc, isFree, onBack }) => {
+const ProcessDetailView = ({ proc, isFree, onBack, context = 'procesos' }) => {
   const stage = stageConfig[proc.stage] || { label: proc.stage, color: 'text-slate-600', bg: 'var(--surface-1)', icon: FileText };
   const StageIcon = stage.icon;
   const actions = proc.actions || { recommended: null, available: [], blocked: [] };
@@ -770,7 +770,7 @@ const ProcessDetailView = ({ proc, isFree, onBack }) => {
             )}
           </div>
         </div>
-        <Link to={`/explorar/${proc.deal_id}?from=buyer&section=${activeSection}`} className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>
+        <Link to={`/explorar/${proc.deal_id}?from=buyer&section=${context}`} className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--arroba-primary)' }}>
           Ver ficha completa <ArrowRight size={10} />
         </Link>
       </div>
@@ -856,7 +856,7 @@ const PlanFeatureRow = ({ label, enabled, valueText }) => (
 );
 
 /* ─── Seguimiento card with 3-dot menu ─── */
-const SeguimientoCard = ({ deal, teaser, onUnsave }) => {
+const SeguimientoCard = ({ deal, teaser, onUnsave, context = 'seguimiento' }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const url = `${window.location.origin}/explorar/${deal.deal_id}`;
@@ -868,7 +868,7 @@ const SeguimientoCard = ({ deal, teaser, onUnsave }) => {
   return (
     <div className="p-5 transition-all duration-150 hover:-translate-y-0.5 group relative" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
       <div className="flex items-start justify-between gap-4">
-        <Link to={`/explorar/${deal.deal_id}?from=buyer&section=${activeSection}`} className="flex-1 min-w-0">
+        <Link to={`/explorar/${deal.deal_id}?from=buyer&section=${context}`} className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{teaser.sector_display || 'Digital'}</span>
             <span className="text-[10px]" style={{ color: 'var(--outline)' }}>{teaser.geography_display}</span>
