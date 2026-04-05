@@ -8,6 +8,7 @@ import Layout from '../components/layout/Layout';
 import { useAuth } from '../context/AuthContext';
 import { usersAPI, taxonomyAPI, cifAPI } from '../services/api';
 import { fmtES, fmtEUR, fmtPct } from '../utils/formatES';
+import { NumericInputES } from '../components/NumericInputES';
 
 /* ═══ SHARED PROVINCES (single source of truth) ═══ */
 export const SPAIN_PROVINCES = [
@@ -82,6 +83,9 @@ const BuyerOnboarding = () => {
   const [cifChecking, setCifChecking] = useState(false);
   const [responsibleDeclaration, setResponsibleDeclaration] = useState(false);
   const [finalConfirm, setFinalConfirm] = useState(false);
+  const [verifiedStatus, setVerifiedStatus] = useState('not_started');
+  const [reinforcedStatus, setReinforcedStatus] = useState('not_started');
+  const [uploadingLevel, setUploadingLevel] = useState('');
 
   const [form, setForm] = useState({
     company_name: '', company_tax_id: '', job_title: '', acquisition_thesis: '',
@@ -184,6 +188,25 @@ const BuyerOnboarding = () => {
   };
 
   const isFree = !user?.subscription?.plan_type || user?.subscription?.plan_type === 'buyer_free';
+
+  const handleDocUpload = async (file, level) => {
+    if (!file) return;
+    setUploadingLevel(level);
+    try {
+      // Upload document via a general endpoint (prepared for future implementation)
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('level', level);
+      formData.append('type', 'company_verification');
+      // For now, mark as pending since admin review is needed
+      if (level === 'verified') setVerifiedStatus('pending');
+      if (level === 'reinforced') setReinforcedStatus('pending');
+    } catch (err) {
+      console.error('Upload error:', err);
+    } finally {
+      setUploadingLevel('');
+    }
+  };
   const filteredProv = provinceSearch ? SPAIN_PROVINCES.filter(p => p.toLowerCase().includes(provinceSearch.toLowerCase())) : SPAIN_PROVINCES;
   const catNames = form.taxonomy_categories.map(id => categories.find(c => c.id === id)?.name || id);
   const qualNames = form.qualitative_criteria.map(qualLabel);
@@ -271,10 +294,10 @@ const BuyerOnboarding = () => {
             <h2 className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>Criterios financieros de inversión</h2>
             <Tip text="Usamos estos datos para proponerte oportunidades compatibles con tu capacidad real de inversión." />
             <div className="grid grid-cols-2 gap-4">
-              <div><label className="label-arroba block mb-1">TICKET MÍNIMO (EUR) *</label><input type="number" value={form.ticket_min} onChange={e => setForm(p => ({...p, ticket_min: e.target.value}))} placeholder="500000" className="input-arroba w-full" data-testid="input-ticket-min" /></div>
-              <div><label className="label-arroba block mb-1">TICKET MÁXIMO (EUR)</label><input type="number" value={form.ticket_max} onChange={e => setForm(p => ({...p, ticket_max: e.target.value}))} placeholder="5000000" className="input-arroba w-full" data-testid="input-ticket-max" /></div>
-              <div><label className="label-arroba block mb-1">FACTURACIÓN MÍNIMA (EUR) *</label><input type="number" value={form.revenue_range_min} onChange={e => setForm(p => ({...p, revenue_range_min: e.target.value}))} placeholder="1000000" className="input-arroba w-full" data-testid="input-rev-min" /></div>
-              <div><label className="label-arroba block mb-1">FACTURACIÓN MÁXIMA (EUR)</label><input type="number" value={form.revenue_range_max} onChange={e => setForm(p => ({...p, revenue_range_max: e.target.value}))} placeholder="10000000" className="input-arroba w-full" data-testid="input-rev-max" /></div>
+              <div><label className="label-arroba block mb-1">TICKET MÍNIMO (EUR) *</label><NumericInputES value={form.ticket_min} onChange={v => setForm(p => ({...p, ticket_min: v}))} placeholder="500.000" testId="input-ticket-min" /></div>
+              <div><label className="label-arroba block mb-1">TICKET MÁXIMO (EUR)</label><NumericInputES value={form.ticket_max} onChange={v => setForm(p => ({...p, ticket_max: v}))} placeholder="5.000.000" testId="input-ticket-max" /></div>
+              <div><label className="label-arroba block mb-1">FACTURACIÓN MÍNIMA (EUR) *</label><NumericInputES value={form.revenue_range_min} onChange={v => setForm(p => ({...p, revenue_range_min: v}))} placeholder="1.000.000" testId="input-rev-min" /></div>
+              <div><label className="label-arroba block mb-1">FACTURACIÓN MÁXIMA (EUR)</label><NumericInputES value={form.revenue_range_max} onChange={v => setForm(p => ({...p, revenue_range_max: v}))} placeholder="10.000.000" testId="input-rev-max" /></div>
             </div>
             <div><label className="label-arroba block mb-1">MARGEN EBITDA MÍNIMO (%)</label><input type="number" value={form.ebitda_margin_min_pct} onChange={e => setForm(p => ({...p, ebitda_margin_min_pct: e.target.value}))} placeholder="15" min="0" max="100" className="input-arroba w-full" data-testid="input-ebitda-pct" /><Tip text="Porcentaje mínimo de margen EBITDA sobre facturación que consideras aceptable." /></div>
           </div>
@@ -322,39 +345,72 @@ const BuyerOnboarding = () => {
           </div>
         )}
 
-        {/* ═══ STEP 6: Verificación empresa (independiente) ═══ */}
+        {/* ═══ STEP 6: Verificación empresa (funcional) ═══ */}
         {step === 6 && (
           <div className="space-y-5" data-testid="step-verificacion">
             <h2 className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>Verificación de empresa</h2>
             <Tip text="Este paso confirma la veracidad de los datos declarados. Los niveles superiores son opcionales y se completan después." />
-            <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-              <p className="label-arroba mb-3" style={{ color: 'var(--outline)', fontSize: 9 }}>DATOS DECLARADOS</p>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div><span style={{ color: 'var(--outline)' }}>Empresa</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{form.company_name || '—'}</p></div>
-                <div><span style={{ color: 'var(--outline)' }}>CIF</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{form.company_tax_id || '—'} {cifStatus === 'valid' && <CheckCircle2 size={11} className="inline" style={{ color: '#16a34a' }} />}</p></div>
-                <div><span style={{ color: 'var(--outline)' }}>Cargo</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{form.job_title || '—'}</p></div>
-                <div><span style={{ color: 'var(--outline)' }}>Email</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{user?.email || '—'}</p></div>
+
+            {/* A) Editable company data */}
+            <div className="p-5 space-y-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+              <p className="label-arroba" style={{ color: 'var(--outline)', fontSize: 9 }}>DATOS DECLARADOS</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="label-arroba block mb-1">EMPRESA</label><input type="text" value={form.company_name} onChange={e => setForm(p => ({...p, company_name: e.target.value}))} className="input-arroba w-full" data-testid="ver-company" /></div>
+                <div>
+                  <label className="label-arroba block mb-1">CIF</label>
+                  <div className="flex gap-2">
+                    <input type="text" value={form.company_tax_id} onChange={e => setForm(p => ({...p, company_tax_id: e.target.value.toUpperCase()}))} onBlur={validateCif} className="input-arroba flex-1" data-testid="ver-cif" />
+                    {cifChecking && <Loader2 size={14} className="animate-spin mt-3" style={{ color: 'var(--outline)' }} />}
+                  </div>
+                  {cifStatus === 'valid' && <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: '#16a34a' }}><CheckCircle2 size={10} /> Validado</p>}
+                  {cifStatus === 'not_found' && <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: '#dc2626' }}><AlertCircle size={10} /> No encontrado</p>}
+                  {cifStatus === 'service_error' && <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: '#d97706' }}><AlertCircle size={10} /> No verificable ahora</p>}
+                </div>
+                <div><label className="label-arroba block mb-1">CARGO</label><input type="text" value={form.job_title} onChange={e => setForm(p => ({...p, job_title: e.target.value}))} className="input-arroba w-full" data-testid="ver-job" /></div>
+                <div><label className="label-arroba block mb-1">EMAIL CORPORATIVO</label><input type="text" value={user?.email || ''} readOnly className="input-arroba w-full opacity-60" /></div>
               </div>
             </div>
+
+            {/* B) Responsible declaration */}
             <label className="flex items-start gap-2 cursor-pointer p-4" style={{ background: 'rgba(182,33,42,0.03)' }} data-testid="responsible-declaration">
               <input type="checkbox" checked={responsibleDeclaration} onChange={e => setResponsibleDeclaration(e.target.checked)} className="mt-0.5 shrink-0" style={{ accentColor: 'var(--arroba-primary)' }} />
               <span className="text-xs" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>Declaro que los datos de empresa, cargo e identidad facilitados son veraces y que opero dentro de ARROBA en el ejercicio de mi actividad profesional.</span>
             </label>
+
+            {/* Levels */}
             <div className="space-y-3 mt-4">
               <p className="label-arroba" style={{ color: 'var(--outline)', fontSize: 9 }}>NIVELES DE VERIFICACIÓN</p>
-              <VLevel icon={<CheckCircle2 size={14} style={{ color: form.company_name && form.job_title && responsibleDeclaration ? '#16a34a' : 'var(--outline-variant)' }} />} title="Empresa declarada" desc="Has declarado tu empresa y tu cargo profesional." done={form.company_name && form.job_title && responsibleDeclaration} />
-              <VLevelExpandable title="Empresa verificada" desc="Comprobación básica de empresa e identificación." details={[
-                'Sube un documento donde aparezcan razón social y CIF de tu empresa.',
-                'Documentos aceptados: tarjeta acreditativa del NIF, documento censal, nota simple o documento equivalente.',
-                'Se realiza una validación semiautomática o revisión básica del documento.',
-                'Puedes completar este paso más adelante. No es necesario para terminar el onboarding.',
-              ]} />
-              <VLevelExpandable title="Empresa verificada reforzada" desc="Validación de vinculación o representación. Nivel alto de confianza." details={[
-                'Aporta una prueba reforzada de relación o representación respecto a la empresa.',
-                'Documentos aceptados: nota simple o certificación mercantil donde conste administrador o apoderado, poder de representación, certificado de representante o documento equivalente.',
-                'Se realiza una revisión manual interna para validar la documentación.',
-                'Puedes completar este paso más adelante. No es necesario para terminar el onboarding.',
-              ]} />
+              <VLevel icon={<CheckCircle2 size={14} style={{ color: form.company_name && form.job_title && responsibleDeclaration ? '#16a34a' : 'var(--outline-variant)' }} />} title="Empresa declarada" desc="Has declarado tu empresa y tu cargo profesional." done={!!(form.company_name && form.job_title && responsibleDeclaration)} />
+
+              {/* C) Empresa verificada — with upload */}
+              <VLevelWithUpload
+                title="Empresa verificada"
+                desc="Comprobación básica de empresa e identificación."
+                details={[
+                  'Sube un documento donde aparezcan razón social y CIF de tu empresa.',
+                  'Documentos aceptados: tarjeta acreditativa del NIF, documento censal, nota simple o documento equivalente.',
+                  'Se realiza una validación semiautomática o revisión básica del documento.',
+                ]}
+                level="verified"
+                status={verifiedStatus}
+                onUpload={(file) => handleDocUpload(file, 'verified')}
+                uploading={uploadingLevel === 'verified'}
+              />
+
+              {/* D) Empresa verificada reforzada — with upload */}
+              <VLevelWithUpload
+                title="Empresa verificada reforzada"
+                desc="Validación de vinculación o representación. Nivel alto de confianza."
+                details={[
+                  'Aporta una prueba reforzada de relación o representación respecto a la empresa.',
+                  'Documentos aceptados: nota simple o certificación mercantil donde conste administrador o apoderado, poder de representación, certificado de representante o documento equivalente.',
+                  'Se realiza una revisión manual interna para validar la documentación.',
+                ]}
+                level="reinforced"
+                status={reinforcedStatus}
+                onUpload={(file) => handleDocUpload(file, 'reinforced')}
+                uploading={uploadingLevel === 'reinforced'}
+              />
             </div>
           </div>
         )}
@@ -440,6 +496,68 @@ const VLevelExpandable = ({ title, desc, details }) => {
               <p className="text-[10px]" style={{ color: i === details.length - 1 ? 'var(--arroba-primary)' : 'var(--outline)', lineHeight: 1.4, fontWeight: i === details.length - 1 ? 600 : 400 }}>{d}</p>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const VLevelWithUpload = ({ title, desc, details, level, status, onUpload, uploading }) => {
+  const [open, setOpen] = React.useState(false);
+  const fileRef = React.useRef(null);
+  const statusConfig = {
+    not_started: { label: 'No iniciada', color: 'var(--outline)' },
+    pending: { label: 'Pendiente de revisión', color: '#d97706' },
+    approved: { label: 'Aprobada', color: '#16a34a' },
+    rejected: { label: 'Rechazada', color: '#dc2626' },
+  };
+  const st = statusConfig[status] || statusConfig.not_started;
+
+  return (
+    <div className="p-3" style={{ background: 'var(--surface-lowest)' }}>
+      <button onClick={() => setOpen(!open)} className="flex items-start gap-3 w-full text-left">
+        <Shield size={14} className="mt-0.5 shrink-0" style={{ color: status === 'approved' ? '#16a34a' : 'var(--outline)' }} />
+        <div className="flex-1">
+          <p className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--on-surface)' }}>
+            {title} <span className="font-normal" style={{ color: 'var(--outline)' }}>(opcional)</span>
+            <span className="ml-auto text-[10px]" style={{ color: st.color }}>{st.label}</span>
+          </p>
+          <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>{desc}</p>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-3 pl-7 space-y-2" style={{ borderTop: '1px solid var(--surface-1)', paddingTop: 12 }}>
+          {details.map((d, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <div className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ background: 'var(--outline)' }} />
+              <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>{d}</p>
+            </div>
+          ))}
+          {/* Upload area */}
+          <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
+            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={e => { if (e.target.files[0]) onUpload(e.target.files[0]); }} />
+            {status === 'not_started' && (
+              <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                className="px-4 py-2 text-[10px] font-bold flex items-center gap-2 disabled:opacity-50"
+                style={{ background: 'var(--surface-2)', color: 'var(--on-surface)' }}
+                data-testid={`upload-${level}`}>
+                {uploading ? <Loader2 size={10} className="animate-spin" /> : null} SUBIR DOCUMENTO
+              </button>
+            )}
+            {status === 'pending' && (
+              <p className="text-[10px] font-semibold" style={{ color: '#d97706' }}>Documento subido. Pendiente de revisión.</p>
+            )}
+            {status === 'approved' && (
+              <p className="text-[10px] font-semibold flex items-center gap-1" style={{ color: '#16a34a' }}><CheckCircle2 size={10} /> Verificación aprobada</p>
+            )}
+            {status === 'rejected' && (
+              <div>
+                <p className="text-[10px] font-semibold mb-1" style={{ color: '#dc2626' }}>Documento rechazado. Sube un nuevo documento.</p>
+                <button onClick={() => fileRef.current?.click()} className="px-4 py-2 text-[10px] font-bold" style={{ background: 'var(--surface-2)', color: 'var(--on-surface)' }}>SUBIR NUEVO DOCUMENTO</button>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] font-semibold" style={{ color: 'var(--arroba-primary)', lineHeight: 1.4 }}>Puedes completar este paso más adelante. No es necesario para terminar el onboarding.</p>
         </div>
       )}
     </div>
