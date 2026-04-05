@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { engagementsAPI } from '../services/api';
+import { fmtMillions } from '../utils/formatES';
 import {
   Loader2, Shield, Zap, Target,
   FolderOpen, Eye, Download, MessageSquare, Award, ArrowLeft,
@@ -22,7 +23,7 @@ const iconoHito = {
   nda: { icon: Shield, color: '#4f46e5' },
 };
 const etiquetaSeccion = { deal_page: 'Ficha del deal', infomemo: 'Infomemo', data_room: 'Data Room' };
-const fmtEur = (v) => v ? `${(v / 1e6).toFixed(1).replace('.', ',')}M€` : '—';
+const fmtEur = (v) => fmtMillions(v);
 const fmtFecha = (d) => d ? new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—';
 const fmtMin = (m) => { if (!m || m < 1) return '< 1 min'; if (m < 60) return `${Math.round(m)} min`; return `${Math.floor(m / 60)}h ${Math.round(m % 60)}m`; };
 

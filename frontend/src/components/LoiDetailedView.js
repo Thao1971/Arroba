@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { fmtMillions } from '../utils/formatES';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { engagementsAPI } from '../services/api';
@@ -39,7 +40,7 @@ const flagConfig = {
   expires_soon: { bg: 'rgba(217,119,6,0.06)', color: '#d97706' },
 };
 
-const fmtEur = (v) => v ? `${(v / 1e6).toFixed(1).replace('.', ',')}M€` : '—';
+const fmtEur = (v) => fmtMillions(v);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '—';
 
 /* ═══════════════════════════════════════════

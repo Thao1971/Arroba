@@ -9,6 +9,8 @@ import {
   Shield, FileText, ChevronRight, Info, Lock
 } from 'lucide-react';
 
+import { fmtMillions } from '../utils/formatES';
+
 /* ─── Step config ─── */
 const STEPS = [
   { id: 'identity', label: 'Identificacion', icon: User },
@@ -59,10 +61,7 @@ const ConfidenceBadge = ({ level }) => {
 
 /* ─── Result Screen ─── */
 const ValuationResult = ({ result, config, onRegisterCompany, onRequestPremium, onSendEmail, emailSent }) => {
-  const fmtEur = (v) => {
-    const millions = v / 1e6;
-    return `${millions.toFixed(1).replace('.', ',')}M`;
-  };
+  const fmtEur = (v) => fmtMillions(v).replace('€', '');
 
   return (
     <div className="max-w-3xl mx-auto" data-testid="valuation-result">

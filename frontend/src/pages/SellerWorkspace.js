@@ -1,3 +1,5 @@
+
+import { fmtMillions } from '../utils/formatES';
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -337,9 +339,9 @@ const InicioDashboard = ({ user, companies, deals, activeDeal, hasCompany, nudge
               <Link to={`/seller/company/${companies[0]?.company_id}`} className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>Editar</Link>
             </div>
             <div className="grid grid-cols-3 gap-4 pt-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
-              <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>FACTURACIÓN</p><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{companies[0]?.financials?.[0]?.revenue ? `${(companies[0].financials[0].revenue / 1e6).toFixed(1).replace('.',',')}M €` : '—'}</p></div>
+              <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>FACTURACIÓN</p><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{companies[0]?.financials?.[0]?.revenue ? fmtMillions(companies[0].financials[0].revenue) : '—'}</p></div>
               <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>EBITDA</p><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{companies[0]?.financials?.[0]?.ebitda ? `${(companies[0].financials[0].ebitda / 1e3).toFixed(0)}k €` : '—'}</p></div>
-              <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>VALORACIÓN</p><p className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{companies[0]?.valuation?.valuation_min ? `${(companies[0].valuation.valuation_min / 1e6).toFixed(1).replace('.',',')}-${(companies[0].valuation.valuation_max / 1e6).toFixed(1).replace('.',',')}M €` : '—'}</p></div>
+              <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>VALORACIÓN</p><p className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{companies[0]?.valuation?.valuation_min ? `${fmtMillions(companies[0].valuation.valuation_min)} - ${fmtMillions(companies[0].valuation.valuation_max)}` : '—'}</p></div>
             </div>
           </div>
         )}
@@ -409,7 +411,7 @@ const InteresadosGlobal = ({ data }) => {
                 <td className="py-3 px-3"><Link to={`/seller/deals/${b.deal_id}/resumen`} className="text-xs" style={{ color: 'var(--outline)' }}>{b.deal_title}</Link></td>
                 <td className="py-3 px-3 text-center"><div className="flex items-center gap-1 justify-center"><span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: b.type === 'LOI' ? 'rgba(182,33,42,0.06)' : 'var(--surface-1)', color: b.type === 'LOI' ? 'var(--arroba-primary)' : 'var(--on-surface)' }}>{b.type}</span><span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{stageLabel(b.stage)}</span></div></td>
                 <td className="py-3 px-3 text-center">{intentBar(b.intent_score)}</td>
-                <td className="py-3 px-3 text-right"><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{b.valuation_offer ? `${(b.valuation_offer/1e6).toFixed(1).replace('.',',')}M` : '—'}</span></td>
+                <td className="py-3 px-3 text-right"><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{b.valuation_offer ? fmtMillions(b.valuation_offer) : '—'}</span></td>
                 <td className="py-3 px-4 text-right"><span className="text-[10px]" style={{ color: 'var(--outline)' }}>{timeAgo(b.last_activity)}</span></td>
               </tr>
             ); })}
@@ -451,14 +453,14 @@ const DealView = ({ deal, company, section, readiness, health, engData, qaConver
           <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
             <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>INFORMACIÓN</p>
             <div className="space-y-2">
-              <div className="flex justify-between"><span className="text-xs" style={{ color: 'var(--outline)' }}>Precio solicitado</span><span className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{deal.asking_price ? `${(deal.asking_price/1e6).toFixed(1).replace('.',',')}M €` : 'Negociable'}</span></div>
+              <div className="flex justify-between"><span className="text-xs" style={{ color: 'var(--outline)' }}>Precio solicitado</span><span className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{deal.asking_price ? fmtMillions(deal.asking_price) : 'Negociable'}</span></div>
               <div className="flex justify-between"><span className="text-xs" style={{ color: 'var(--outline)' }}>Creado</span><span className="text-xs" style={{ color: 'var(--on-surface)' }}>{new Date(deal.created_at).toLocaleDateString('es-ES')}</span></div>
             </div>
           </div>
           {company?.valuation && (
             <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
               <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>VALORACIÓN</p>
-              <p className="text-xl font-black" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.02em' }}>{(company.valuation.valuation_min/1e6).toFixed(1).replace('.',',')}M - {(company.valuation.valuation_max/1e6).toFixed(1).replace('.',',')}M €</p>
+              <p className="text-xl font-black" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.02em' }}>{fmtMillions(company.valuation.valuation_min)} — {fmtMillions(company.valuation.valuation_max)}</p>
             </div>
           )}
         </div>
@@ -503,7 +505,7 @@ const DealInteresados = ({ deal, engData, onRefresh }) => {
       ) : (
         <div style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
           <table className="w-full text-sm"><thead><tr style={{ borderBottom: '2px solid var(--surface-2)' }}><th className="text-left py-3 px-4 label-arroba" style={{ color: 'var(--outline)' }}>BUYER</th><th className="text-center py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>TIPO</th><th className="text-center py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>STAGE</th><th className="text-right py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>OFERTA</th><th className="text-right py-3 px-4 label-arroba" style={{ color: 'var(--outline)' }}>ACCIONES</th></tr></thead>
-          <tbody>{engagements.map(eng => (<tr key={eng.engagement_id} style={{ borderBottom: '1px solid var(--surface-1)' }}><td className="py-3 px-4"><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{eng.buyer_name || 'Buyer'}</p></td><td className="py-3 px-3 text-center text-xs" style={{ color: 'var(--outline)' }}>{eng.type}</td><td className="py-3 px-3 text-center"><span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{eng.stage}</span></td><td className="py-3 px-3 text-right"><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{eng.valuation_offer ? `${(eng.valuation_offer/1e6).toFixed(1).replace('.',',')}M€` : '—'}</span></td><td className="py-3 px-4 text-right"><div className="flex items-center justify-end gap-1">{eng.stage !== 'SHORTLISTED' && eng.stage !== 'EXCLUSIVITY' && eng.stage !== 'REJECTED' && (<button onClick={async () => { try { await engagementsAPI.shortlistBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch {} }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>Shortlist</button>)}{eng.stage !== 'REJECTED' && eng.stage !== 'EXCLUSIVITY' && (<button onClick={async () => { try { await engagementsAPI.rejectBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch {} }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.05)', color: '#dc2626' }}>Rechazar</button>)}</div></td></tr>))}</tbody></table>
+          <tbody>{engagements.map(eng => (<tr key={eng.engagement_id} style={{ borderBottom: '1px solid var(--surface-1)' }}><td className="py-3 px-4"><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{eng.buyer_name || 'Buyer'}</p></td><td className="py-3 px-3 text-center text-xs" style={{ color: 'var(--outline)' }}>{eng.type}</td><td className="py-3 px-3 text-center"><span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{eng.stage}</span></td><td className="py-3 px-3 text-right"><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{eng.valuation_offer ? fmtMillions(eng.valuation_offer) : '—'}</span></td><td className="py-3 px-4 text-right"><div className="flex items-center justify-end gap-1">{eng.stage !== 'SHORTLISTED' && eng.stage !== 'EXCLUSIVITY' && eng.stage !== 'REJECTED' && (<button onClick={async () => { try { await engagementsAPI.shortlistBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch {} }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>Shortlist</button>)}{eng.stage !== 'REJECTED' && eng.stage !== 'EXCLUSIVITY' && (<button onClick={async () => { try { await engagementsAPI.rejectBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch {} }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.05)', color: '#dc2626' }}>Rechazar</button>)}</div></td></tr>))}</tbody></table>
         </div>
       )}
     </div>

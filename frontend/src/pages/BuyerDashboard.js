@@ -1,3 +1,4 @@
+import { fmtMillions } from "../utils/formatES";
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -699,7 +700,7 @@ const ProcessCard = ({ proc, isFree, onClick }) => {
             </div>
           </div>
           <div className="text-right shrink-0">
-            {proc.valuation_offer && <p className="text-sm font-black" style={{ color: 'var(--arroba-primary)' }}>{(proc.valuation_offer / 1e6).toFixed(1).replace('.', ',')}M€</p>}
+            {proc.valuation_offer && <p className="text-sm font-black" style={{ color: 'var(--arroba-primary)' }}>{fmtMillions(proc.valuation_offer).replace('€','')}M€</p>}
             <ChevronRight size={14} className="mt-1 ml-auto" style={{ color: 'var(--outline-variant)' }} />
           </div>
         </div>
@@ -759,7 +760,7 @@ const ProcessDetailView = ({ proc, isFree, onBack, context = 'procesos' }) => {
             {proc.valuation_offer && (
               <div>
                 <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--outline)' }}>OFERTA</p>
-                <p className="text-xl font-black" style={{ color: 'var(--arroba-primary)' }}>{(proc.valuation_offer / 1e6).toFixed(1).replace('.', ',')}M€</p>
+                <p className="text-xl font-black" style={{ color: 'var(--arroba-primary)' }}>{fmtMillions(proc.valuation_offer).replace('€','')}M€</p>
               </div>
             )}
             {proc.deal_revenue && (

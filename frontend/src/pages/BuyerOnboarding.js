@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/layout/Layout';
-import { useAuth } from '../context/AuthContext';
-import { usersAPI, taxonomyAPI, cifAPI } from '../services/api';
 import {
   User, TrendingUp, MapPin, Check, Loader2, Building2, Briefcase,
   Info, Search, ArrowRight, ArrowLeft, Shield, Lock, Eye, AlertCircle, CheckCircle2
 } from 'lucide-react';
+import Layout from '../components/layout/Layout';
+import { useAuth } from '../context/AuthContext';
+import { usersAPI, taxonomyAPI, cifAPI } from '../services/api';
+import { fmtES, fmtEUR, fmtPct } from '../utils/formatES';
 
 /* ═══ SHARED PROVINCES (single source of truth) ═══ */
 export const SPAIN_PROVINCES = [
@@ -342,8 +343,18 @@ const BuyerOnboarding = () => {
             <div className="space-y-3 mt-4">
               <p className="label-arroba" style={{ color: 'var(--outline)', fontSize: 9 }}>NIVELES DE VERIFICACIÓN</p>
               <VLevel icon={<CheckCircle2 size={14} style={{ color: form.company_name && form.job_title && responsibleDeclaration ? '#16a34a' : 'var(--outline-variant)' }} />} title="Empresa declarada" desc="Has declarado tu empresa y tu cargo profesional." done={form.company_name && form.job_title && responsibleDeclaration} />
-              <VLevel icon={<Shield size={14} style={{ color: 'var(--outline)' }} />} title="Empresa verificada" desc="Comprobación básica de empresa e identificación. Sube un documento donde aparezcan razón social y CIF (tarjeta NIF, documento censal, nota simple)." optional />
-              <VLevel icon={<Shield size={14} style={{ color: 'var(--outline)' }} />} title="Empresa verificada reforzada" desc="Validación de vinculación o representación (nota simple con administrador, poder de representación). Nivel alto de confianza." optional />
+              <VLevelExpandable title="Empresa verificada" desc="Comprobación básica de empresa e identificación." details={[
+                'Sube un documento donde aparezcan razón social y CIF de tu empresa.',
+                'Documentos aceptados: tarjeta acreditativa del NIF, documento censal, nota simple o documento equivalente.',
+                'Se realiza una validación semiautomática o revisión básica del documento.',
+                'Puedes completar este paso más adelante. No es necesario para terminar el onboarding.',
+              ]} />
+              <VLevelExpandable title="Empresa verificada reforzada" desc="Validación de vinculación o representación. Nivel alto de confianza." details={[
+                'Aporta una prueba reforzada de relación o representación respecto a la empresa.',
+                'Documentos aceptados: nota simple o certificación mercantil donde conste administrador o apoderado, poder de representación, certificado de representante o documento equivalente.',
+                'Se realiza una revisión manual interna para validar la documentación.',
+                'Puedes completar este paso más adelante. No es necesario para terminar el onboarding.',
+              ]} />
             </div>
           </div>
         )}
@@ -356,7 +367,7 @@ const BuyerOnboarding = () => {
             <RB label="EMPRESA" items={[{k:'Empresa',v:form.company_name||'—'},{k:'CIF',v:form.company_tax_id||'—'},{k:'Cargo',v:form.job_title||'—'},{k:'Tesis',v:form.acquisition_thesis||'—'}]} onEdit={() => setStep(0)} />
             <RB label="PERFIL" items={[{k:'Categoría',v:form.buyer_category === 'strategic' ? 'Estratégico' : form.buyer_category === 'financial' ? `Financiero — ${FIN_SUBTYPES.find(s => s.id === form.buyer_financial_subtype)?.label || ''}` : '—'},{k:'Operaciones',v:form.operation_types.map(o => OP_TYPES.find(t => t.id === o)?.label || o).join(', ')||'—'}]} onEdit={() => setStep(1)} />
             <RB label="SECTORES" items={[{k:'Categorías',v:catNames.join(', ')||'—'}]} onEdit={() => setStep(2)} />
-            <RB label="FINANCIEROS" items={[{k:'Ticket',v:form.ticket_min ? `${Number(form.ticket_min).toLocaleString('es-ES')} — ${form.ticket_max ? Number(form.ticket_max).toLocaleString('es-ES') : '∞'} EUR` : '—'},{k:'Facturación',v:form.revenue_range_min ? `${Number(form.revenue_range_min).toLocaleString('es-ES')}+ EUR` : '—'},{k:'Margen EBITDA mín.',v:form.ebitda_margin_min_pct ? `${form.ebitda_margin_min_pct}%` : '—'}]} onEdit={() => setStep(3)} />
+            <RB label="FINANCIEROS" items={[{k:'Ticket',v:form.ticket_min ? `${fmtEUR(form.ticket_min)} — ${form.ticket_max ? fmtEUR(form.ticket_max) : '∞'}` : '—'},{k:'Facturación',v:form.revenue_range_min ? `${fmtEUR(form.revenue_range_min)}+` : '—'},{k:'Margen EBITDA mín.',v:form.ebitda_margin_min_pct ? fmtPct(form.ebitda_margin_min_pct) : '—'}]} onEdit={() => setStep(3)} />
             <RB label="CUALITATIVOS" items={[{k:'Criterios',v:qualNames.join(', ')||'—'}]} onEdit={() => setStep(4)} />
             <RB label="GEOGRAFÍA" items={[{k:'Provincias',v:geoLabel}]} onEdit={() => setStep(5)} />
             <RB label="VERIFICACIÓN" items={[{k:'Nivel',v:form.company_name && form.job_title && responsibleDeclaration ? 'Empresa declarada' : 'Pendiente'}]} onEdit={() => setStep(6)} />
@@ -406,5 +417,33 @@ const VLevel = ({ icon, title, desc, done, optional }) => (
     <div><p className="text-xs font-bold" style={{ color: done ? '#16a34a' : 'var(--on-surface)' }}>{title} {optional && <span className="font-normal" style={{ color: 'var(--outline)' }}>(opcional)</span>}</p><p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>{desc}</p></div>
   </div>
 );
+
+const VLevelExpandable = ({ title, desc, details }) => {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="p-3" style={{ background: 'var(--surface-lowest)' }}>
+      <button onClick={() => setOpen(!open)} className="flex items-start gap-3 w-full text-left">
+        <Shield size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--outline)' }} />
+        <div className="flex-1">
+          <p className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--on-surface)' }}>
+            {title} <span className="font-normal" style={{ color: 'var(--outline)' }}>(opcional)</span>
+            <span className="ml-auto text-[10px]" style={{ color: 'var(--arroba-primary)' }}>{open ? 'Cerrar' : 'Ver requisitos'}</span>
+          </p>
+          <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.4 }}>{desc}</p>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-3 pl-7 space-y-2" style={{ borderTop: '1px solid var(--surface-1)', paddingTop: 12 }}>
+          {details.map((d, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <div className="w-1 h-1 rounded-full mt-1.5 shrink-0" style={{ background: 'var(--outline)' }} />
+              <p className="text-[10px]" style={{ color: i === details.length - 1 ? 'var(--arroba-primary)' : 'var(--outline)', lineHeight: 1.4, fontWeight: i === details.length - 1 ? 600 : 400 }}>{d}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default BuyerOnboarding;

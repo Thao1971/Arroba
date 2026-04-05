@@ -7,11 +7,10 @@ import {
   TrendingUp, Handshake, Shield, Info, Zap
 } from 'lucide-react';
 
+import { fmtES } from '../utils/formatES';
+
 /* ─── Format price EU ─── */
-const fmtPrice = (v) => {
-  if (v === null || v === undefined || v === 0) return '0';
-  return v.toLocaleString('es-ES');
-};
+const fmtPrice = (v) => fmtES(v, 0);
 
 /* ─── Interaction limit label ─── */
 const interactionLabel = (limit) => {
