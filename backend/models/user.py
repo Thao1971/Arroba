@@ -15,6 +15,9 @@ def generate_user_id():
 
 class BuyerProfile(BaseModel):
     type: Optional[BuyerType] = None
+    company_name: Optional[str] = None
+    job_title: Optional[str] = None
+    acquisition_thesis: Optional[str] = None
     operation_types: List[OperationType] = []
     ticket_min: Optional[float] = None
     ticket_max: Optional[float] = None
@@ -100,6 +103,9 @@ class TokenResponse(BaseModel):
 
 class UpdateBuyerProfile(BaseModel):
     type: Optional[BuyerType] = None
+    company_name: Optional[str] = None
+    job_title: Optional[str] = None
+    acquisition_thesis: Optional[str] = None
     operation_types: Optional[List[OperationType]] = None
     ticket_min: Optional[float] = None
     ticket_max: Optional[float] = None

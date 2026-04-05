@@ -4,9 +4,9 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { marketplaceAPI, matchingAPI } from '../services/api';
+import { marketplaceAPI, matchingAPI, engagementsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Zap, Sparkles, ArrowUpDown, MoreHorizontal, Copy, Share2, X } from 'lucide-react';
+import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Zap, Sparkles, ArrowUpDown, MoreHorizontal, Copy, Share2, X, Heart } from 'lucide-react';
 
 const ShareMenu = ({ dealId, title }) => {
   const [open, setOpen] = useState(false);
@@ -99,15 +99,18 @@ const Marketplace = () => {
   const [stats, setStats] = useState(null);
   const [sortBy, setSortBy] = useState('actividad');
   const [matchData, setMatchData] = useState({}); // deal_id -> {affinity, affinity_label}
-
+  const [savedIds, setSavedIds] = useState(new Set());
   const buyerProfileComplete = user?.buyer_profile?.profile_complete;
   
   const [filters, setFilters] = useState({
     sector: searchParams.get('sector') || '',
+    operation_type: searchParams.get('operation_type') || '',
     revenue_min: searchParams.get('revenue_min') || '',
     revenue_max: searchParams.get('revenue_max') || '',
-    operation_type: searchParams.get('operation_type') || '',
-    country: searchParams.get('country') || '',
+    ebitda_min: searchParams.get('ebitda_min') || '',
+    ebitda_max: searchParams.get('ebitda_max') || '',
+    province: searchParams.get('province') || '',
+    size: searchParams.get('size') || '',
   });
 
   useEffect(() => {
@@ -136,6 +139,14 @@ const Marketplace = () => {
               map[d.deal_id] = { affinity: d.affinity, label: d.affinity_label };
             });
             setMatchData(map);
+          } catch {}
+        }
+        // Fetch saved deals for heart state
+        if (isAuthenticated) {
+          try {
+            const savedRes = await engagementsAPI.listSaved();
+            const ids = new Set((savedRes.data?.deals || []).map(d => d.deal_id));
+            setSavedIds(ids);
           } catch {}
         }
       } catch (error) {
@@ -179,8 +190,20 @@ const Marketplace = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ sector: '', revenue_min: '', revenue_max: '', operation_type: '', country: '' });
+    setFilters({ sector: '', operation_type: '', revenue_min: '', revenue_max: '', ebitda_min: '', ebitda_max: '', province: '', size: '' });
     setSearchParams({});
+  };
+
+  const toggleSave = async (dealId, e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!isAuthenticated) return;
+    const isSaved = savedIds.has(dealId);
+    // Optimistic update
+    setSavedIds(prev => { const next = new Set(prev); if (isSaved) next.delete(dealId); else next.add(dealId); return next; });
+    try {
+      if (isSaved) await engagementsAPI.unsaveDeal(dealId);
+      else await engagementsAPI.saveDeal(dealId);
+    } catch { setSavedIds(prev => { const next = new Set(prev); if (isSaved) next.add(dealId); else next.delete(dealId); return next; }); }
   };
 
   return (
@@ -190,8 +213,8 @@ const Marketplace = () => {
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
             <div>
-              <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>MARKETPLACE</p>
-              <h1 className="text-3xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Oportunidades de Inversion</h1>
+              <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>LISTADO DE AGENCIAS</p>
+              <h1 className="text-3xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Oportunidades de inversión</h1>
               <p className="text-sm mt-2" style={{ color: 'var(--outline)' }}>
                 {stats?.published_deals || 0} deals activos &middot; {stats?.active_processes || 0} procesos en curso
               </p>
@@ -228,7 +251,7 @@ const Marketplace = () => {
                 </div>
 
                 <div>
-                  <label className="label-arroba mb-1 block">Tipo de Operación</label>
+                  <label className="label-arroba mb-1 block">Tipo de operación</label>
                   <Select value={filters.operation_type || "all"} onValueChange={(value) => handleFilterChange('operation_type', value === "all" ? '' : value)}>
                     <SelectTrigger className="w-full" data-testid="filter-operation"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
                     <SelectContent>
@@ -242,27 +265,60 @@ const Marketplace = () => {
 
                 <div>
                   <label className="label-arroba mb-1 block">Facturación</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input type="number" placeholder="Min" value={filters.revenue_min}
-                      onChange={(e) => handleFilterChange('revenue_min', e.target.value)}
-                      className="input-arroba" data-testid="filter-revenue-min" />
-                    <Input type="number" placeholder="Max" value={filters.revenue_max}
-                      onChange={(e) => handleFilterChange('revenue_max', e.target.value)}
-                      className="input-arroba" data-testid="filter-revenue-max" />
-                  </div>
+                  <Select value={filters.revenue_min || "all"} onValueChange={(value) => { const ranges = { '0-1M': ['0','1000000'], '1M-3M': ['1000000','3000000'], '3M-10M': ['3000000','10000000'], '10M+': ['10000000',''] }; if (value === 'all') { handleFilterChange('revenue_min', ''); handleFilterChange('revenue_max', ''); } else { const [min, max] = ranges[value] || ['','']; setFilters(prev => ({ ...prev, revenue_min: min, revenue_max: max })); } }}>
+                    <SelectTrigger className="w-full" data-testid="filter-revenue"><SelectValue placeholder="Cualquier facturación" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Cualquier facturación</SelectItem>
+                      <SelectItem value="0-1M">Hasta 1M €</SelectItem>
+                      <SelectItem value="1M-3M">1M – 3M €</SelectItem>
+                      <SelectItem value="3M-10M">3M – 10M €</SelectItem>
+                      <SelectItem value="10M+">Más de 10M €</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
-                  <label className="label-arroba mb-1 block">País</label>
-                  <Select value={filters.country || "all"} onValueChange={(value) => handleFilterChange('country', value === "all" ? '' : value)}>
-                    <SelectTrigger className="w-full" data-testid="filter-country"><SelectValue placeholder="Todos los países" /></SelectTrigger>
+                  <label className="label-arroba mb-1 block">EBITDA</label>
+                  <Select value={filters.ebitda_min || "all"} onValueChange={(value) => { const ranges = { '0-200K': ['0','200000'], '200K-500K': ['200000','500000'], '500K-1M': ['500000','1000000'], '1M+': ['1000000',''] }; if (value === 'all') { handleFilterChange('ebitda_min', ''); handleFilterChange('ebitda_max', ''); } else { const [min, max] = ranges[value] || ['','']; setFilters(prev => ({ ...prev, ebitda_min: min, ebitda_max: max })); } }}>
+                    <SelectTrigger className="w-full" data-testid="filter-ebitda"><SelectValue placeholder="Cualquier EBITDA" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="España">España</SelectItem>
-                      <SelectItem value="México">México</SelectItem>
-                      <SelectItem value="Argentina">Argentina</SelectItem>
-                      <SelectItem value="Colombia">Colombia</SelectItem>
-                      <SelectItem value="Chile">Chile</SelectItem>
+                      <SelectItem value="all">Cualquier EBITDA</SelectItem>
+                      <SelectItem value="0-200K">Hasta 200K €</SelectItem>
+                      <SelectItem value="200K-500K">200K – 500K €</SelectItem>
+                      <SelectItem value="500K-1M">500K – 1M €</SelectItem>
+                      <SelectItem value="1M+">Más de 1M €</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="label-arroba mb-1 block">Provincia</label>
+                  <Select value={filters.province || "all"} onValueChange={(value) => handleFilterChange('province', value === "all" ? '' : value)}>
+                    <SelectTrigger className="w-full" data-testid="filter-province"><SelectValue placeholder="Todas las provincias" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      <SelectItem value="Madrid">Madrid</SelectItem>
+                      <SelectItem value="Barcelona">Barcelona</SelectItem>
+                      <SelectItem value="Valencia">Valencia</SelectItem>
+                      <SelectItem value="Sevilla">Sevilla</SelectItem>
+                      <SelectItem value="Bilbao">Bilbao</SelectItem>
+                      <SelectItem value="Málaga">Málaga</SelectItem>
+                      <SelectItem value="Zaragoza">Zaragoza</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="label-arroba mb-1 block">Tamaño</label>
+                  <Select value={filters.size || "all"} onValueChange={(value) => handleFilterChange('size', value === "all" ? '' : value)}>
+                    <SelectTrigger className="w-full" data-testid="filter-size"><SelectValue placeholder="Cualquier tamaño" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Cualquier tamaño</SelectItem>
+                      <SelectItem value="1-10">1 – 10 empleados</SelectItem>
+                      <SelectItem value="11-25">11 – 25 empleados</SelectItem>
+                      <SelectItem value="26-50">26 – 50 empleados</SelectItem>
+                      <SelectItem value="51-100">51 – 100 empleados</SelectItem>
+                      <SelectItem value="100+">Más de 100 empleados</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -347,6 +403,13 @@ const Marketplace = () => {
                             );
                           })}
                           <ShareMenu dealId={deal.deal_id} title={teaser.title || teaser.headline} />
+                          {isAuthenticated && (
+                            <button onClick={(e) => toggleSave(deal.deal_id, e)}
+                              className="p-1.5 transition-colors" style={{ color: savedIds.has(deal.deal_id) ? 'var(--arroba-primary)' : 'var(--outline)' }}
+                              data-testid={`save-heart-${deal.deal_id}`}>
+                              <Heart size={16} fill={savedIds.has(deal.deal_id) ? 'currentColor' : 'none'} />
+                            </button>
+                          )}
                         </div>
                       </div>
 

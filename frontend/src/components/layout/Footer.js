@@ -18,7 +18,7 @@ const Footer = () => {
           <div>
             <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>Plataforma</p>
             <ul className="space-y-2">
-              <li><Link to="/explorar" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Marketplace</Link></li>
+              <li><Link to="/explorar" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Listado de agencias</Link></li>
               <li><Link to="/planes" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Planes</Link></li>
               <li><Link to="/vender" className="text-sm hover:text-white transition-colors" style={{ color: 'var(--outline-variant)' }}>Vender mi empresa</Link></li>
             </ul>

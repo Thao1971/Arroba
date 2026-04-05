@@ -81,7 +81,7 @@ const Header = () => {
           <nav className="hidden md:flex items-center gap-8" data-testid="main-nav">
             {!isAuthenticated && (
               <>
-                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Explorar</NavLink>
+                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Agencias</NavLink>
                 <NavLink to="/vender" active={isActive('/vender')}>Vender mi empresa</NavLink>
                 <NavLink to="/planes" active={isActive('/planes')}>Planes</NavLink>
               </>
@@ -89,7 +89,7 @@ const Header = () => {
 
             {isAuthenticated && role === 'buyer' && (
               <>
-                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Explorar</NavLink>
+                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Agencias</NavLink>
                 <NavLink to="/buyer/procesos" active={isActive('/buyer/procesos')}>Mis procesos</NavLink>
                 <NavLink to="/buyer/guardados" active={isActive('/buyer/guardados')}>Guardados</NavLink>
               </>
@@ -99,7 +99,7 @@ const Header = () => {
               <>
                 <NavLink to="/seller/deals" active={isActive('/seller/d')}>Mis deals</NavLink>
                 <NavLink to="/seller/interesados" active={isActive('/seller/interesados')}>Interesados</NavLink>
-                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Explorar</NavLink>
+                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Agencias</NavLink>
               </>
             )}
 
@@ -107,14 +107,14 @@ const Header = () => {
               <>
                 <NavLink to="/advisor/mandatos" active={isActive('/advisor/mandatos')}>Mandatos</NavLink>
                 <NavLink to="/advisor/interesados" active={isActive('/advisor/interesados')}>Interesados</NavLink>
-                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Explorar</NavLink>
+                <NavLink to="/explorar" active={isActive('/explorar') || isActive('/marketplace')}>Agencias</NavLink>
               </>
             )}
 
             {isAuthenticated && role === 'admin' && (
               <>
                 <NavLink to="/admin/dashboard" active={isActive('/admin')}>Admin</NavLink>
-                <NavLink to="/explorar" active={isActive('/explorar')}>Explorar</NavLink>
+                <NavLink to="/explorar" active={isActive('/explorar')}>Agencias</NavLink>
               </>
             )}
           </nav>
