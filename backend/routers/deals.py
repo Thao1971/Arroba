@@ -13,6 +13,27 @@ from utils.helpers import round_financial_display
 
 router = APIRouter(prefix="/deals", tags=["Deals"])
 
+# ─── Seller plan entitlement ───
+ACTIVE_DEAL_STATUSES = {"published", "shortlist", "exclusivity", "nda", "evaluation"}
+
+def get_seller_active_company_limit(user) -> int | None:
+    """Get max active companies for seller plan. None = unlimited."""
+    sub = getattr(user, 'subscription', None)
+    pt = getattr(sub, 'plan_type', '') if sub else ''
+    if 'premium' in pt:
+        return None  # unlimited
+    return 1  # free and plus: 1
+
+async def count_active_companies(owner_id: str) -> int:
+    """Count companies that have at least one deal in active status."""
+    pipeline = [
+        {"$match": {"owner_id": owner_id, "status": {"$in": list(ACTIVE_DEAL_STATUSES)}}},
+        {"$group": {"_id": "$company_id"}},
+        {"$count": "total"}
+    ]
+    result = await deals_collection.aggregate(pipeline).to_list(1)
+    return result[0]["total"] if result else 0
+
 
 def build_teaser_from_company(company: dict) -> dict:
     """Build teaser data from company info"""
@@ -236,6 +257,28 @@ async def activate_deal(
 
     if deal["status"] != "draft":
         raise HTTPException(status_code=400, detail="Deal must be in draft status to activate")
+
+    # ── Plan entitlement: check active company limit ──
+    limit = get_seller_active_company_limit(current_user)
+    if limit is not None:
+        current_active = await count_active_companies(current_user.user_id)
+        # Check if this company is already counted as active (editing existing deal)
+        already_active = deal.get("company_id") and await deals_collection.find_one({
+            "company_id": deal["company_id"], "owner_id": current_user.user_id,
+            "status": {"$in": list(ACTIVE_DEAL_STATUSES)}, "deal_id": {"$ne": deal_id}
+        })
+        if current_active >= limit and not already_active:
+            sub = getattr(current_user, 'subscription', None)
+            pt = getattr(sub, 'plan_type', '') if sub else 'seller_free'
+            return {
+                "error_code": "PLAN_ACTIVE_COMPANY_LIMIT_REACHED",
+                "message": f"Tu plan actual permite {limit} compañía{'s' if limit > 1 else ''} activa{'s' if limit > 1 else ''} en venta.",
+                "current_plan": pt,
+                "active_companies": current_active,
+                "active_company_limit": limit,
+                "upgrade_required": True,
+                "recommended_plan": "seller_premium",
+            }
 
     # Compute readiness
     from services.readiness_service import compute_readiness

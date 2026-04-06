@@ -24,11 +24,11 @@ async def create_company(
     if current_user.role not in ["seller", "advisor"]:
         raise HTTPException(status_code=403, detail="Only sellers and advisors can create companies")
     
-    # Check if user already has a company (for sellers)
-    if current_user.role == "seller":
-        existing = await companies_collection.find_one({"owner_id": current_user.user_id})
+    # Check for duplicate by same owner + CIF (not single-company block)
+    if current_user.role == "seller" and company_data.cif:
+        existing = await companies_collection.find_one({"owner_id": current_user.user_id, "cif": company_data.cif})
         if existing:
-            raise HTTPException(status_code=400, detail="Seller already has a company")
+            raise HTTPException(status_code=400, detail="Ya tienes una compañía registrada con este CIF")
     
     # Generate acronym
     acronym = generate_acronym(company_data.legal_name, company_data.founded_year)

@@ -272,12 +272,21 @@ const SellerWorkspace = () => {
 };
 
 /* ── INICIO DASHBOARD ── */
-const InicioDashboard = ({ user, companies, deals, activeDeal, hasCompany, nudges, pendingData, navigate }) => (
+const InicioDashboard = ({ user, companies, deals, activeDeal, hasCompany, nudges, pendingData, navigate }) => {
+  const activeDeals = deals.filter(d => ['published', 'shortlist', 'exclusivity', 'nda', 'evaluation'].includes(d.status));
+  const activeCompanyIds = new Set(activeDeals.map(d => d.company_id));
+  const activeCount = activeCompanyIds.size;
+  // Plan limit
+  const sub = user?.subscription?.plan_type || '';
+  const limit = sub.includes('premium') ? null : 1;
+  const limitLabel = limit === null ? 'Ilimitadas' : `${activeCount} de ${limit}`;
+
+  return (
   <>
     <div className="mb-8">
       <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>INICIO</p>
       <h1 className="text-3xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>Hola, {user?.first_name || 'Vendedor'}</h1>
-      <p className="text-sm mt-1" style={{ color: 'var(--outline)' }}>Gestiona tu compañía y proceso de venta</p>
+      <p className="text-sm mt-1" style={{ color: 'var(--outline)' }}>Gestiona tus compañías y procesos de venta</p>
     </div>
 
     {pendingData?.total_pending > 0 && (
@@ -331,18 +340,43 @@ const InicioDashboard = ({ user, companies, deals, activeDeal, hasCompany, nudge
         )}
         {hasCompany && (
           <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 flex items-center justify-center" style={{ background: 'rgba(182,33,42,0.08)' }}><Building2 size={18} style={{ color: 'var(--arroba-primary)' }} /></div>
-                <div><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{companies[0]?.trade_name || companies[0]?.legal_name}</p></div>
+            <div className="flex items-center justify-between mb-4">
+              <p className="label-arroba" style={{ color: 'var(--outline)' }}>MIS COMPAÑÍAS</p>
+              <span className="text-[10px] font-bold" style={{ color: limit !== null && activeCount >= limit ? 'var(--arroba-primary)' : 'var(--outline)' }}>
+                {limitLabel} compañía{limit !== 1 ? 's' : ''} activa{limit !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {companies.map(comp => {
+                const compDeal = deals.find(d => d.company_id === comp.company_id);
+                const isActive = compDeal && ['published', 'shortlist', 'exclusivity', 'nda', 'evaluation'].includes(compDeal.status);
+                return (
+                  <div key={comp.company_id} className="flex items-center justify-between py-3" style={{ borderBottom: '1px solid var(--surface-1)' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 flex items-center justify-center" style={{ background: isActive ? 'rgba(22,163,74,0.06)' : 'var(--surface-2)' }}>
+                        <Building2 size={14} style={{ color: isActive ? '#16a34a' : 'var(--outline)' }} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{comp.trade_name || comp.legal_name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-bold" style={{ color: isActive ? '#16a34a' : 'var(--outline)' }}>{isActive ? 'ACTIVA' : compDeal ? statusLabel(compDeal.status).toUpperCase() : 'SIN DEAL'}</span>
+                          {comp.financials?.[0]?.revenue && <span className="text-[10px]" style={{ color: 'var(--outline)' }}>· {fmtMillions(comp.financials[0].revenue)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <Link to={compDeal ? `/seller/deals/${compDeal.deal_id}/resumen` : `/seller/company/${comp.company_id}`} className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>
+                      {compDeal ? 'Gestionar' : 'Editar'}
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+            {limit !== null && activeCount >= limit && (
+              <div className="mt-3 p-3 flex items-center justify-between gap-3" style={{ background: 'rgba(182,33,42,0.03)' }}>
+                <p className="text-[10px]" style={{ color: 'var(--outline)' }}>Para activar más compañías, actualiza a <b style={{ color: 'var(--arroba-primary)' }}>Seller Premium</b></p>
+                <Link to="/planes?role=seller" className="text-[10px] font-bold shrink-0" style={{ color: 'var(--arroba-primary)' }}>VER PLANES</Link>
               </div>
-              <Link to={`/seller/company/${companies[0]?.company_id}`} className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>Editar</Link>
-            </div>
-            <div className="grid grid-cols-3 gap-4 pt-3" style={{ borderTop: '1px solid var(--surface-1)' }}>
-              <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>FACTURACIÓN</p><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{companies[0]?.financials?.[0]?.revenue ? fmtMillions(companies[0].financials[0].revenue) : '—'}</p></div>
-              <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>EBITDA</p><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{companies[0]?.financials?.[0]?.ebitda ? `${(companies[0].financials[0].ebitda / 1e3).toFixed(0)}k €` : '—'}</p></div>
-              <div><p className="label-arroba" style={{ color: 'var(--outline)' }}>VALORACIÓN</p><p className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{companies[0]?.valuation?.valuation_min ? `${fmtMillions(companies[0].valuation.valuation_min)} - ${fmtMillions(companies[0].valuation.valuation_max)}` : '—'}</p></div>
-            </div>
+            )}
           </div>
         )}
         {activeDeal && (
@@ -381,7 +415,8 @@ const InicioDashboard = ({ user, companies, deals, activeDeal, hasCompany, nudge
       </div>
     </div>
   </>
-);
+  );
+};
 
 /* ── INTERESADOS GLOBAL ── */
 const InteresadosGlobal = ({ data }) => {

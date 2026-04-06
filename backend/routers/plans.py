@@ -24,6 +24,7 @@ DEFAULT_PLANS = [
         "success_fee_pct": 2.9,
         "revenue_share_pct": None,
         "monthly_interaction_limit": 0,
+        "max_active_companies": 1,
         "badge": None,
         "is_highlighted": False,
         "features": [
@@ -32,6 +33,7 @@ DEFAULT_PLANS = [
             "Ficha inicial de venta",
             "Publicación básica en marketplace",
             "Visibilidad limitada de la operación",
+            "1 compañía activa en venta",
         ],
         "is_active": True,
         "sort_order": 1,
@@ -48,6 +50,7 @@ DEFAULT_PLANS = [
         "success_fee_pct": 2.9,
         "revenue_share_pct": None,
         "monthly_interaction_limit": 5,
+        "max_active_companies": 1,
         "badge": None,
         "is_highlighted": True,
         "features": [
@@ -59,6 +62,7 @@ DEFAULT_PLANS = [
             "Teaser e infomemo asistidos por IA",
             "Seguimiento del interés comprador",
             "Hasta 5 interacciones al mes",
+            "1 compañía activa en venta",
         ],
         "is_active": True,
         "sort_order": 2,
@@ -75,6 +79,7 @@ DEFAULT_PLANS = [
         "success_fee_pct": 2.9,
         "revenue_share_pct": None,
         "monthly_interaction_limit": -1,
+        "max_active_companies": None,
         "badge": "RECOMENDADO",
         "is_highlighted": False,
         "features": [
@@ -86,6 +91,7 @@ DEFAULT_PLANS = [
             "Herramientas avanzadas de gestión",
             "Más profundidad analítica",
             "Interacciones ilimitadas",
+            "Varias compañías activas en venta",
         ],
         "is_active": True,
         "sort_order": 3,
@@ -300,7 +306,8 @@ FAQ_ITEMS = [
 async def seed_plans(database):
     """Seed default plans if none exist. Drop and reseed if structure changed."""
     existing = await database.plans.find_one({"plan_id": "advisor_free"}, {"_id": 0})
-    if not existing:
+    needs_reseed = not existing or "max_active_companies" not in (await database.plans.find_one({"plan_id": "seller_free"}, {"_id": 0}) or {})
+    if needs_reseed:
         await database.plans.delete_many({})
         await database.transaction_fee_rules.delete_many({})
 
