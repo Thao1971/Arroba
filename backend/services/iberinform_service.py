@@ -148,10 +148,15 @@ def parse_iberinform_financials(financial_data: dict, sales_data: dict = None) -
 
             # Map to ARROBA fields
             revenue = account_map.get("4010015ES")  # Importe neto cifra de negocios
-            operating_result = account_map.get("4910015ES")  # Resultado de explotación
-            depreciation = abs(account_map.get("4080015ES", 0) or 0)  # Amortización (negative in P&L)
-            net_income = account_map.get("4950015ES")  # Resultado del ejercicio
+            supplies = account_map.get("4020015ES")  # Aprovisionamientos
+            other_income = account_map.get("4050015ES")  # Otros ingresos de explotación
+            operating_expenses = account_map.get("4070015ES")  # Otros gastos de explotación
             staff_costs = account_map.get("4060015ES")  # Gastos de personal
+            operating_result = account_map.get("4910015ES")  # Resultado de explotación
+            depreciation = abs(account_map.get("4080015ES", 0) or 0)  # Amortización
+            net_income = account_map.get("4950015ES")  # Resultado del ejercicio
+            financial_result = account_map.get("4920015ES")  # Resultado financiero
+            pre_tax_result = account_map.get("4930015ES")  # Resultado antes de impuestos
 
             # EBITDA = Resultado explotación + Amortización
             ebitda = None
@@ -162,25 +167,63 @@ def parse_iberinform_financials(financial_data: dict, sales_data: dict = None) -
             if revenue and revenue > 0 and ebitda:
                 ebitda_margin = round((ebitda / revenue) * 100, 2)
 
+            # Gross margin = revenue + supplies (supplies is negative)
+            gross_margin = None
+            if revenue is not None and supplies is not None:
+                gross_margin = (revenue or 0) + (supplies or 0)
+
+            # Balance sheet
+            balance_accounts = year_data.get("fullBalanceSheet", {}).get("accounts", [])
+            bal_map = {}
+            for acc in balance_accounts:
+                bcode = acc.get("description", {}).get("code", "")
+                bbal = acc.get("balance", "0")
+                bal_map[bcode] = _safe_float(bbal)
+
+            non_current_assets = bal_map.get("1100015ES")  # A) ACTIVO NO CORRIENTE
+            current_assets = bal_map.get("1200015ES")  # B) ACTIVO CORRIENTE
+            equity = bal_map.get("2000015ES")  # A) PATRIMONIO NETO
+            non_current_liabilities = bal_map.get("3100015ES")  # B) PASIVO NO CORRIENTE
+            current_liabilities = bal_map.get("3200015ES")  # C) PASIVO CORRIENTE
+            total_assets = (non_current_assets or 0) + (current_assets or 0) if (non_current_assets or current_assets) else None
+            total_liab_eq = (equity or 0) + (non_current_liabilities or 0) + (current_liabilities or 0) if equity else None
+
             financials.append({
                 "year": year,
-                "revenue": revenue or 0,
-                "ebitda": ebitda or 0,
+                "pnl": {
+                    "revenue": revenue or 0,
+                    "supplies": supplies,
+                    "gross_margin": gross_margin,
+                    "operating_expenses": operating_expenses,
+                    "personnel_expenses": staff_costs,
+                    "ebitda": ebitda or 0,
+                    "adjusted_ebitda": None,
+                    "net_result": net_income,
+                    "operating_result": operating_result,
+                    "depreciation": -depreciation if depreciation else None,
+                    "financial_result": financial_result,
+                    "pre_tax_result": pre_tax_result,
+                },
+                "balance": {
+                    "non_current_assets": non_current_assets,
+                    "current_assets": current_assets,
+                    "equity": equity,
+                    "non_current_liabilities": non_current_liabilities,
+                    "current_liabilities": current_liabilities,
+                },
+                "totals": {
+                    "total_assets": total_assets,
+                    "total_liabilities_and_equity": total_liab_eq,
+                    "balance_matches": abs((total_assets or 0) - (total_liab_eq or 0)) < 1 if total_assets and total_liab_eq else None,
+                },
+                "sources": {k: "IBERINFORM" for k in [
+                    "pnl.revenue", "pnl.supplies", "pnl.operating_expenses", "pnl.personnel_expenses",
+                    "pnl.ebitda", "pnl.net_result", "pnl.operating_result",
+                    "balance.non_current_assets", "balance.current_assets", "balance.equity",
+                    "balance.non_current_liabilities", "balance.current_liabilities",
+                ] if locals().get(k.split('.')[-1]) is not None},
                 "ebitda_margin": ebitda_margin,
-                "net_income": net_income,
-                "operating_result": operating_result,
-                "staff_costs": staff_costs,
-                "depreciation": -depreciation if depreciation else None,
-                "recurring_revenue_pct": None,
-                "client_concentration_top5": None,
-                "growth_rate": None,
                 "data_source": "IBERINFORM",
-                "source_details": {
-                    "balance_type": balance_info.get("balanceType", {}).get("code", ""),
-                    "close_date": balance_info.get("closeDate", ""),
-                    "period": balance_info.get("period", ""),
-                    "document_link": balance_info.get("documentLink", "")
-                }
             })
 
     except Exception as e:

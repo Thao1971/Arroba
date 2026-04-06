@@ -118,28 +118,33 @@ def _normalize_fallback_to_canonical(raw: Dict, cif: str) -> Dict:
     # Financials — normalize to canonical structure
     financials = []
     for f in financials_raw:
+        pnl_data = f.get("pnl", {})
+        # Handle both nested and flat structures from different sources
+        if not pnl_data or not isinstance(pnl_data, dict):
+            pnl_data = {}
         entry = {
             "year": f.get("year"),
             "pnl": {
-                "revenue": f.get("revenue"),
-                "supplies": None,
-                "gross_margin": None,
-                "operating_expenses": None,
-                "personnel_expenses": f.get("staff_costs"),
-                "ebitda": f.get("ebitda"),
+                "revenue": pnl_data.get("revenue") or f.get("revenue"),
+                "supplies": pnl_data.get("supplies") or f.get("supplies"),
+                "gross_margin": pnl_data.get("gross_margin") or f.get("gross_margin"),
+                "operating_expenses": pnl_data.get("operating_expenses") or f.get("operating_expenses"),
+                "personnel_expenses": pnl_data.get("personnel_expenses") or f.get("personnel_expenses") or f.get("staff_costs"),
+                "ebitda": pnl_data.get("ebitda") or f.get("ebitda"),
                 "adjusted_ebitda": None,
-                "net_result": f.get("net_income"),
-                "operating_result": f.get("operating_result"),
-                "depreciation": f.get("depreciation"),
+                "net_result": pnl_data.get("net_result") or f.get("net_income") or f.get("net_result"),
+                "operating_result": pnl_data.get("operating_result") or f.get("operating_result"),
+                "depreciation": pnl_data.get("depreciation") or f.get("depreciation"),
             },
-            "balance": {
+            "balance": f.get("balance", {}) or {
                 "non_current_assets": None,
                 "current_assets": None,
                 "equity": None,
                 "non_current_liabilities": None,
                 "current_liabilities": None,
             },
-            "sources": {},
+            "totals": f.get("totals", {}),
+            "sources": f.get("sources", {}),
             "data_source": f.get("data_source", "IBERINFORM"),
         }
         # Fill sources

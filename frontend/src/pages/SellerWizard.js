@@ -533,7 +533,7 @@ const SellerWizard = () => {
         <div className="max-w-[1200px] mx-auto px-8 pb-16">
           {/* Top step indicator */}
           <div className="flex items-center justify-between mb-12">
-            {['Compania', 'Metricas', 'Valoracion', 'Acuerdo', 'Contenido'].map((label, i) => (
+            {['Compañía', 'Financieros', 'Valoración', 'Operación', 'Contenido'].map((label, i) => (
               <React.Fragment key={i}>
                 <div className={`flex items-center ${i <= step ? 'opacity-100' : 'opacity-35'}`}>
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
@@ -563,10 +563,10 @@ const SellerWizard = () => {
             </div>
           )}
 
-          {/* 60/40 Split */}
-          <div className="flex gap-10 items-start">
-            {/* LEFT: Form (60%) */}
-            <div className="w-[60%]">
+          {/* Layout: full-width for Financieros (step 1), 60/40 for others */}
+          <div className={step === 1 ? '' : 'flex gap-10 items-start'}>
+            {/* LEFT: Form */}
+            <div className={step === 1 ? 'w-full' : 'w-[60%]'}>
               {/* STEP 0: Datos basicos */}
               {step === 0 && (
                 <div data-testid="step-basics">
@@ -884,10 +884,12 @@ const SellerWizard = () => {
               </div>
             </div>
 
-            {/* RIGHT: Live Preview (40%) */}
+            {/* RIGHT: Live Preview (40%) — hidden in step 1 (Financieros) */}
+            {step !== 1 && (
             <div className="w-[40%] sticky top-8">
               <LivePreview companyData={companyData} financials={financials} valuation={valuation} teaser={teaser} />
             </div>
+            )}
           </div>
         </div>
       </main>
