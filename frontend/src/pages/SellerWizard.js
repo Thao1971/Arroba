@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { companiesAPI, dealsAPI, infomemoAPI, cifAPI, teaserAPI } from '../services/api';
+import FinancialStatementsStep from '../components/FinancialStatementsStep';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -698,61 +699,17 @@ const SellerWizard = () => {
                 </div>
               )}
 
-              {/* STEP 1: Financieros */}
+              {/* STEP 1: Financieros — full-width financial statements */}
               {step === 1 && (
-                <div data-testid="step-financials">
-                  <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Datos financieros</h1>
-                    {financialDataSource !== 'MANUAL' && <DataSourceBadge source={financialDataSource} />}
-                  </div>
-                  <p className="text-sm text-slate-500 mb-10">Facturacion, EBITDA y metricas clave de tu agencia.</p>
-
-                  {financials.map((fin, idx) => (
-                    <div key={idx} className="mb-8 p-6" style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 2px 8px rgba(25,28,30,0.03)' }}>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-slate-900">Ano {fin.year}</p>
-                          <DataSourceBadge source={fin.data_source || 'MANUAL'} />
-                        </div>
-                        {financials.length > 1 && (
-                          <button type="button" onClick={() => removeFinancialYear(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
-                        )}
-                      </div>
-                      <div className="grid grid-cols-3 gap-6">
-                        <GhostInput label="ANO" value={fin.year} onChange={(e) => handleFinancialChange(idx, 'year', e.target.value)} type="number" testId={`input-year-${idx}`} />
-                        <GhostInput label="FACTURACION (EUR) *" value={fin.revenue} onChange={(e) => handleFinancialChange(idx, 'revenue', e.target.value)} type="number" placeholder="1500000" testId={`input-revenue-${idx}`} />
-                        <GhostInput label="EBITDA (EUR)" value={fin.ebitda} onChange={(e) => handleFinancialChange(idx, 'ebitda', e.target.value)} type="number" placeholder="300000" testId={`input-ebitda-${idx}`} />
-                        <GhostInput label="% INGRESOS RECURRENTES" value={fin.recurring_revenue_pct} onChange={(e) => handleFinancialChange(idx, 'recurring_revenue_pct', e.target.value)} type="number" placeholder="70" testId={`input-recurring-${idx}`} />
-                        <GhostInput label="% CONCENTRACION TOP 5" value={fin.client_concentration_top5} onChange={(e) => handleFinancialChange(idx, 'client_concentration_top5', e.target.value)} type="number" placeholder="40" testId={`input-concentration-${idx}`} />
-                        <GhostInput label="% CRECIMIENTO YOY" value={fin.growth_rate} onChange={(e) => handleFinancialChange(idx, 'growth_rate', e.target.value)} type="number" placeholder="15" testId={`input-growth-${idx}`} />
-                      </div>
-                    </div>
-                  ))}
-
-                  <button onClick={addFinancialYear} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 mb-8" style={{ background: 'var(--surface-2, #e2e2e2)' }} data-testid="add-year-btn">
-                    <Plus size={14} /> ANADIR ANO ANTERIOR
-                  </button>
-
-                  {/* Valuation factors */}
-                  <div className="pt-8 border-t border-slate-200">
-                    <SectionLabel label="FACTORES DE VALORACION" />
-                    <div className="grid grid-cols-2 gap-6">
-                      <GhostSelect label="DEPENDENCIA DEL FUNDADOR" value={valuationInputs.founder_dependency} onChange={(e) => setValuationInputs({...valuationInputs, founder_dependency: e.target.value})} options={[{value:'low',label:'Baja - Equipo autonomo'},{value:'medium',label:'Media - Fundador operativo'},{value:'high',label:'Alta - Fundador imprescindible'}]} testId="select-founder-dep" />
-                      <GhostSelect label="TIPO DE INGRESOS" value={valuationInputs.recurring_revenue_type} onChange={(e) => setValuationInputs({...valuationInputs, recurring_revenue_type: e.target.value})} options={[{value:'retainer',label:'Retainer / Fee mensual'},{value:'project',label:'Proyectos puntuales'},{value:'mixed',label:'Mixto'}]} testId="select-revenue-type" />
-                      <GhostInput label="N CLIENTES PRINCIPALES" value={valuationInputs.main_clients} onChange={(e) => setValuationInputs({...valuationInputs, main_clients: e.target.value})} type="number" placeholder="10" testId="input-main-clients" />
-                      <GhostInput label="% RETENCION CLIENTES" value={valuationInputs.client_retention_rate} onChange={(e) => setValuationInputs({...valuationInputs, client_retention_rate: e.target.value})} type="number" placeholder="85" testId="input-retention" />
-                    </div>
-                    <div className="flex gap-6 mt-4">
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" checked={valuationInputs.tech_assets} onChange={(e) => setValuationInputs({...valuationInputs, tech_assets: e.target.checked})} data-testid="checkbox-tech-assets" />
-                        Activos tecnologicos propios
-                      </label>
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" checked={valuationInputs.proprietary_ip} onChange={(e) => setValuationInputs({...valuationInputs, proprietary_ip: e.target.checked})} data-testid="checkbox-ip" />
-                        Propiedad intelectual registrada
-                      </label>
-                    </div>
-                  </div>
+                <div data-testid="step-financials" style={{ width: '100%', maxWidth: 'none' }}>
+                  <FinancialStatementsStep
+                    financials={financials}
+                    setFinancials={setFinancials}
+                    financialDataSource={financialDataSource}
+                    valuationInputs={valuationInputs}
+                    setValuationInputs={setValuationInputs}
+                    onRecalculate={null}
+                  />
                 </div>
               )}
 
