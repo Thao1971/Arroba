@@ -4,6 +4,8 @@ import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { companiesAPI, dealsAPI, infomemoAPI, cifAPI, teaserAPI } from '../services/api';
 import FinancialStatementsStep from '../components/FinancialStatementsStep';
+import { FinancialVisualsGallery } from '../components/FinancialVisualCard';
+import { fmtMillions } from '../utils/formatES';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -259,6 +261,8 @@ const SellerWizard = () => {
   const [generatingInfomemo, setGeneratingInfomemo] = useState(false);
   const [infomemoPreviewMode, setInfomemoPreviewMode] = useState(false);
   const [teaser, setTeaser] = useState(null);
+  const [financialVisuals, setFinancialVisuals] = useState(null);
+  const [visualsLoading, setVisualsLoading] = useState(false);
   const [generatingTeaser, setGeneratingTeaser] = useState(false);
   const [valuation, setValuation] = useState(null);
   const [taxonomyCategories, setTaxonomyCategories] = useState([]);
@@ -459,11 +463,38 @@ const SellerWizard = () => {
     finally { setLoading(false); }
   };
 
+  const handleGenerateVisuals = async () => {
+    if (!companyId) return;
+    setVisualsLoading(true);
+    try {
+      const res = await companiesAPI.generateVisuals(companyId);
+      setFinancialVisuals(res.data.visuals);
+    } catch (err) { console.error('Error generating visuals:', err); }
+    finally { setVisualsLoading(false); }
+  };
+
+  const handleVisualToggle = async (chartId, key, value) => {
+    if (!companyId || !financialVisuals) return;
+    const updated = { ...financialVisuals, [chartId]: { ...financialVisuals[chartId], [key]: value } };
+    setFinancialVisuals(updated);
+    try { await companiesAPI.updateVisualSettings(companyId, { [chartId]: { [key]: value } }); }
+    catch { /* revert silently if needed */ }
+  };
+
+  // Load existing visuals when company is loaded
+  useEffect(() => {
+    if (companyId) {
+      companiesAPI.getVisuals(companyId).then(res => {
+        if (res.data?.financial_visuals) setFinancialVisuals(res.data.financial_visuals);
+      }).catch(() => {});
+    }
+  }, [companyId]);
+
   const nextStep = async () => {
     let success = true;
     switch (step) {
       case 0: success = await saveCompanyBasics(); break;
-      case 1: success = await saveFinancials(); break;
+      case 1: success = await saveFinancials(); if (success && companyId) { handleGenerateVisuals(); } break;
       case 2: success = await calculateValuation(); break;
       case 3: success = await createDeal(); break;
       case 4:
@@ -716,39 +747,50 @@ const SellerWizard = () => {
               {/* STEP 2: Valoracion */}
               {step === 2 && (
                 <div data-testid="step-valuation">
-                  <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Valoracion estimada</h1>
-                  <p className="text-sm text-slate-500 mb-10">Haz clic en "Siguiente" para calcular la valoracion basada en tus metricas.</p>
+                  <h1 className="text-3xl font-black tracking-tight mb-2" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>Valoración y visuales</h1>
+                  <p className="text-sm mb-8" style={{ color: 'var(--outline)', maxWidth: 500 }}>Valoración estimada a partir de los datos financieros validados, junto con los gráficos reutilizables para teaser e infomemo.</p>
+
+                  {/* Valuation */}
                   {valuation ? (
-                    <div>
-                      <div className="text-center p-10 mb-8" style={{ background: 'var(--surface-lowest, #fff)', boxShadow: '0 2px 12px rgba(25,28,30,0.04)' }}>
-                        <p className="label-arroba text-slate-400 mb-3">RANGO DE VALORACION ESTIMADO</p>
-                        <p className="text-4xl font-black text-arroba-coral tracking-tight">
-                          {(valuation.valuation_min / 1e6).toFixed(1)}M - {(valuation.valuation_max / 1e6).toFixed(1)}M EUR
+                    <div className="mb-10">
+                      <div className="text-center p-8 mb-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 12px rgba(25,28,30,0.04)' }}>
+                        <p className="label-arroba mb-2" style={{ color: 'var(--outline)' }}>RANGO DE VALORACIÓN ESTIMADO</p>
+                        <p className="text-4xl font-black tracking-tight" style={{ color: 'var(--arroba-primary)', letterSpacing: '-0.03em' }}>
+                          {fmtMillions(valuation.valuation_min)} — {fmtMillions(valuation.valuation_max)}
                         </p>
-                        <p className="text-sm text-slate-500 mt-3">
-                          Multiplo EBITDA: {valuation.multiple_min?.toFixed(1)}x - {valuation.multiple_max?.toFixed(1)}x
+                        <p className="text-sm mt-2" style={{ color: 'var(--outline)' }}>
+                          Múltiplo EBITDA: {valuation.multiple_min?.toFixed(1)}x — {valuation.multiple_max?.toFixed(1)}x
                         </p>
                       </div>
                       {valuation.drivers?.length > 0 && (
-                        <div>
-                          <p className="label-arroba text-slate-500 mb-3">FACTORES CONSIDERADOS</p>
-                          <div className="space-y-2">
+                        <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 1px 4px rgba(25,28,30,0.03)' }}>
+                          <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>FACTORES CONSIDERADOS</p>
+                          <div className="space-y-1.5">
                             {valuation.drivers.map((d, i) => (
-                              <div key={i} className="flex items-start gap-2 text-sm text-slate-600">
-                                <Check size={14} className="text-green-500 mt-0.5 shrink-0" /> {d}
+                              <div key={i} className="flex items-start gap-2 text-xs" style={{ color: 'var(--outline)' }}>
+                                <Check size={12} className="mt-0.5 shrink-0" style={{ color: '#16a34a' }} /> {d}
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
-                      <p className="mt-8 text-xs text-slate-400">Esta valoracion es orientativa. La final dependera del due diligence.</p>
                     </div>
                   ) : (
-                    <div className="text-center py-16" style={{ background: 'var(--surface-1, #f3f3f3)' }}>
-                      <TrendingUp size={40} className="mx-auto mb-4 text-slate-300" />
-                      <p className="text-sm text-slate-500">Pulsa "Siguiente" para calcular la valoracion</p>
+                    <div className="text-center py-12 mb-8" style={{ background: 'var(--surface-1)' }}>
+                      <TrendingUp size={32} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
+                      <p className="text-sm" style={{ color: 'var(--outline)' }}>Pulsa "Siguiente" para calcular la valoración</p>
                     </div>
                   )}
+
+                  {/* Financial Visuals */}
+                  <div className="mt-8">
+                    <FinancialVisualsGallery
+                      visuals={financialVisuals}
+                      loading={visualsLoading}
+                      onToggle={handleVisualToggle}
+                      onRegenerate={handleGenerateVisuals}
+                    />
+                  </div>
                 </div>
               )}
 
