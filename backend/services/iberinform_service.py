@@ -18,7 +18,7 @@ async def search_organisation_by_cif(cif: str) -> Optional[dict]:
                 f"{IBERINFORM_BASE_URL}/modules/organisations/",
                 params={
                     "registeredOfficeCode": cif,
-                    "country": "ES",
+                    "country": "ESP",
                     "maxOrgs": 1,
                     "lang": "es"
                 },
@@ -33,7 +33,13 @@ async def search_organisation_by_cif(cif: str) -> Optional[dict]:
                 data = response.json()
                 organisations = data.get("organisations", [])
                 if organisations:
-                    return organisations[0]
+                    org = organisations[0]
+                    # Extract org ID from nested structure
+                    org_ident = org.get("orgIdent", {})
+                    org_id = org_ident.get("orgIdentId")
+                    if org_id:
+                        org["organisationId"] = str(org_id)
+                    return org
             else:
                 logger.warning(f"Iberinform search returned {response.status_code}: {response.text[:200]}")
 
@@ -52,7 +58,7 @@ async def get_identification_details(organisation_id: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
                 f"{IBERINFORM_BASE_URL}/modules/identificationDetails/{organisation_id}",
-                params={"language": "es"},
+                params={"language": "ES"},
                 headers={
                     "X-IBM-Client-Id": IBERINFORM_CLIENT_ID,
                     "X-IBM-Client-Secret": IBERINFORM_CLIENT_SECRET,
@@ -76,7 +82,7 @@ async def get_financial_data(organisation_id: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
                 f"{IBERINFORM_BASE_URL}/modules/ordinaryBalanceSheetAndIncomeStatement/{organisation_id}",
-                params={"language": "es"},
+                params={"language": "ES"},
                 headers={
                     "X-IBM-Client-Id": IBERINFORM_CLIENT_ID,
                     "X-IBM-Client-Secret": IBERINFORM_CLIENT_SECRET,
@@ -100,7 +106,7 @@ async def get_sales_data(organisation_id: str) -> Optional[dict]:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
                 f"{IBERINFORM_BASE_URL}/modules/sales/{organisation_id}",
-                params={"language": "es"},
+                params={"language": "ES"},
                 headers={
                     "X-IBM-Client-Id": IBERINFORM_CLIENT_ID,
                     "X-IBM-Client-Secret": IBERINFORM_CLIENT_SECRET,
@@ -122,9 +128,7 @@ def parse_iberinform_financials(financial_data: dict, sales_data: dict = None) -
     try:
         wrapper_years = financial_data.get("wrapperYears", [])
         if not wrapper_years:
-            wrapper_years = financial_data.get("notAvailable", [])
-            if wrapper_years:
-                return financials
+            return financials
 
         for year_data in wrapper_years:
             balance_info = year_data.get("balanceInformation", {})
@@ -134,11 +138,25 @@ def parse_iberinform_financials(financial_data: dict, sales_data: dict = None) -
             except (ValueError, TypeError):
                 continue
 
-            income_statement = year_data.get("incomeStatement", {})
+            # Parse fullIncomeStatement accounts by code
+            income_accounts = year_data.get("fullIncomeStatement", {}).get("accounts", [])
+            account_map = {}
+            for acc in income_accounts:
+                code = acc.get("description", {}).get("code", "")
+                balance_str = acc.get("balance", "0")
+                account_map[code] = _safe_float(balance_str)
 
-            revenue = _safe_float(income_statement.get("netTurnover") or income_statement.get("operatingIncome"))
-            ebitda = _safe_float(income_statement.get("ebitda") or income_statement.get("operatingResult"))
-            net_income = _safe_float(income_statement.get("netResult") or income_statement.get("profitBeforeTax"))
+            # Map to ARROBA fields
+            revenue = account_map.get("4010015ES")  # Importe neto cifra de negocios
+            operating_result = account_map.get("4910015ES")  # Resultado de explotación
+            depreciation = abs(account_map.get("4080015ES", 0) or 0)  # Amortización (negative in P&L)
+            net_income = account_map.get("4950015ES")  # Resultado del ejercicio
+            staff_costs = account_map.get("4060015ES")  # Gastos de personal
+
+            # EBITDA = Resultado explotación + Amortización
+            ebitda = None
+            if operating_result is not None:
+                ebitda = (operating_result or 0) + depreciation
 
             ebitda_margin = 0.0
             if revenue and revenue > 0 and ebitda:
@@ -150,14 +168,18 @@ def parse_iberinform_financials(financial_data: dict, sales_data: dict = None) -
                 "ebitda": ebitda or 0,
                 "ebitda_margin": ebitda_margin,
                 "net_income": net_income,
+                "operating_result": operating_result,
+                "staff_costs": staff_costs,
+                "depreciation": -depreciation if depreciation else None,
                 "recurring_revenue_pct": None,
                 "client_concentration_top5": None,
                 "growth_rate": None,
                 "data_source": "IBERINFORM",
                 "source_details": {
-                    "balance_type": balance_info.get("balanceType", {}).get("value", ""),
+                    "balance_type": balance_info.get("balanceType", {}).get("code", ""),
                     "close_date": balance_info.get("closeDate", ""),
-                    "period": balance_info.get("period", "")
+                    "period": balance_info.get("period", ""),
+                    "document_link": balance_info.get("documentLink", "")
                 }
             })
 
@@ -168,7 +190,7 @@ def parse_iberinform_financials(financial_data: dict, sales_data: dict = None) -
 
 
 def parse_iberinform_company_info(identification_data: dict) -> dict:
-    """Parse Iberinform identification data into company fields"""
+    """Parse Iberinform identification + search data into company fields"""
     result = {}
     try:
         result["legal_name"] = identification_data.get("companyName", "")
@@ -186,9 +208,27 @@ def parse_iberinform_company_info(identification_data: dict) -> dict:
         if isinstance(legal_form, dict):
             result["legal_form"] = legal_form.get("value", "")
 
+        acronym = identification_data.get("acronym", {})
+        if isinstance(acronym, dict):
+            result["acronym"] = acronym.get("value", "")
+
         status = identification_data.get("status", {})
         if isinstance(status, dict):
             result["company_status"] = status.get("value", "")
+
+        # Address from search data (if embedded)
+        address = identification_data.get("nameAddress", {}).get("address", {})
+        if address:
+            result["city"] = address.get("city", "")
+            result["province"] = address.get("countrySubident", "")
+            result["postal_code"] = address.get("postCode", "")
+            result["street"] = address.get("street", "")
+
+        # CNAE from search data
+        activity = identification_data.get("activity", {})
+        if activity:
+            result["cnae_code"] = activity.get("activityClassCode", "")
+            result["cnae_description"] = activity.get("activityClassDesc", "")
 
     except Exception as e:
         logger.error(f"Error parsing Iberinform company info: {e}")
@@ -197,10 +237,16 @@ def parse_iberinform_company_info(identification_data: dict) -> dict:
 
 
 def _safe_float(value) -> Optional[float]:
-    """Safely convert a value to float"""
+    """Safely convert a value to float. Handles Spanish format: 6.429.000.000,00"""
     if value is None:
         return None
     try:
-        return float(str(value).replace(",", ".").replace(" ", ""))
+        s = str(value).strip()
+        if not s or s == '0' or s == '0,00':
+            return 0.0
+        # Spanish format: dots for thousands, comma for decimal
+        # Remove dots (thousands), replace comma with period (decimal)
+        s = s.replace('.', '').replace(',', '.')
+        return float(s)
     except (ValueError, TypeError):
         return None

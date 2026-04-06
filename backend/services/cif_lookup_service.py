@@ -76,7 +76,7 @@ async def _lookup_iberinform(cif: str) -> Optional[dict]:
         if not organisation_id:
             return None
 
-        # Get details in parallel-ish (sequential for simplicity)
+        # Get details
         identification = await get_identification_details(organisation_id)
         financial = await get_financial_data(organisation_id)
 
@@ -85,8 +85,15 @@ async def _lookup_iberinform(cif: str) -> Optional[dict]:
             "financials": []
         }
 
-        if identification:
-            result["company_info"] = parse_iberinform_company_info(identification)
+        # Merge search data (org) with identification for richer company_info
+        merged_ident = {**(identification or {})}
+        # Add address and activity from search result
+        if org.get("nameAddress"):
+            merged_ident["nameAddress"] = org["nameAddress"]
+        if org.get("activity"):
+            merged_ident["activity"] = org["activity"]
+
+        result["company_info"] = parse_iberinform_company_info(merged_ident)
 
         if financial:
             result["financials"] = parse_iberinform_financials(financial)
