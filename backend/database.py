@@ -74,6 +74,9 @@ async def init_db():
     await db.valuation_multiples.create_index([("scope_type", 1), ("scope_id", 1)])
     await db.valuation_runs.create_index("lead_id")
 
+    # Financial visuals
+    await db.financial_visuals.create_index("company_id", unique=True)
+
     # NDA
     await db.nda_signatures.create_index("signature_id", unique=True)
     await db.nda_signatures.create_index([("deal_id", 1), ("buyer_user_id", 1)])

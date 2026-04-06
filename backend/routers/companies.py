@@ -223,3 +223,70 @@ async def get_valuation(
         raise HTTPException(status_code=404, detail="Valuation not calculated yet")
     
     return company["valuation"]
+
+
+
+@router.post("/{company_id}/generate-visuals")
+async def generate_company_visuals(
+    company_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Generate financial visuals from company data."""
+    company = await companies_collection.find_one({"company_id": company_id}, {"_id": 0})
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    if company["owner_id"] != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from services.financial_visuals_service import generate_financial_visuals, save_financial_visuals
+    financials = company.get("financials", [])
+    visuals = generate_financial_visuals(financials)
+    await save_financial_visuals(company_id, visuals, company.get("company_master_id"))
+    return {"visuals": visuals, "charts_count": sum(1 for v in visuals.values() if v.get("enabled"))}
+
+
+@router.get("/{company_id}/visuals")
+async def get_company_visuals(
+    company_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get stored financial visuals."""
+    from services.financial_visuals_service import get_financial_visuals
+    visuals = await get_financial_visuals(company_id)
+    if not visuals:
+        raise HTTPException(status_code=404, detail="Visuals not generated yet")
+    return visuals
+
+
+@router.put("/{company_id}/visuals/settings")
+async def update_visual_settings(
+    company_id: str,
+    settings: dict,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Update teaser/infomemo visibility settings for visuals."""
+    company = await companies_collection.find_one({"company_id": company_id}, {"_id": 0})
+    if not company or company["owner_id"] != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from services.financial_visuals_service import get_financial_visuals
+    from database import db
+    from datetime import datetime, timezone
+
+    existing = await get_financial_visuals(company_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Generate visuals first")
+
+    visuals = existing.get("financial_visuals", {})
+    for chart_id, chart_settings in settings.items():
+        if chart_id in visuals:
+            if "use_in_teaser" in chart_settings:
+                visuals[chart_id]["use_in_teaser"] = chart_settings["use_in_teaser"]
+            if "use_in_infomemo" in chart_settings:
+                visuals[chart_id]["use_in_infomemo"] = chart_settings["use_in_infomemo"]
+
+    await db.financial_visuals.update_one(
+        {"company_id": company_id},
+        {"$set": {"financial_visuals": visuals, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"updated": True, "visuals": visuals}

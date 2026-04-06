@@ -77,6 +77,9 @@ export const companiesAPI = {
   updateFinancials: (companyId, data) => api.post(`/companies/${companyId}/financials`, data),
   calculateValuation: (companyId) => api.post(`/companies/${companyId}/calculate-valuation`),
   getValuation: (companyId) => api.get(`/companies/${companyId}/valuation`),
+  generateVisuals: (companyId) => api.post(`/companies/${companyId}/generate-visuals`),
+  getVisuals: (companyId) => api.get(`/companies/${companyId}/visuals`),
+  updateVisualSettings: (companyId, settings) => api.put(`/companies/${companyId}/visuals/settings`, settings),
 };
 
 // Deals API
@@ -111,6 +114,7 @@ export const infomemoAPI = {
 // CIF Lookup API
 export const cifAPI = {
   lookup: (cif) => api.get(`/cif/${cif}/lookup`),
+  resolve: (cif) => api.post(`/cif/resolve?cif=${cif}`),
 };
 
 // Teaser API
