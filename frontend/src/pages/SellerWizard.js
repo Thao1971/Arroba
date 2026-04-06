@@ -233,9 +233,11 @@ const SellerWizard = () => {
   const [financialDataSource, setFinancialDataSource] = useState('MANUAL');
 
   const [companyData, setCompanyData] = useState({
-    legal_name: '', trade_name: '', cif: '', country: 'España', region: '', city: '',
+    legal_name: '', trade_name: '', cif: '', country: 'España', region: '', city: '', province: '',
+    street: '', postal_code: '', legal_form: '', company_status: '', cnae_code: '', cnae_label: '',
     company_type: 'digital_agency', sectors: [], specializations: [], founded_year: '',
-    employees_count: '', description: '', highlights: ['', '', ''], website: '', linkedin: ''
+    employees_count: '', description: '', highlights: ['', '', ''], website: '', linkedin: '',
+    iberinform_synced: false, iberinform_synced_at: null,
   });
 
   const [financials, setFinancials] = useState([
@@ -319,20 +321,40 @@ const SellerWizard = () => {
   /* ─── CIF Lookup ─── */
   const handleCifLookup = useCallback(async () => {
     const cif = companyData.cif?.trim();
-    if (!cif || cif.length < 5) { setError('Introduce un CIF valido (minimo 5 caracteres)'); return; }
+    if (!cif || cif.length < 5) { setError('Introduce un CIF válido (mínimo 5 caracteres)'); return; }
     setCifLookupLoading(true); setError(''); setCifLookupResult(null);
     try {
       const response = await cifAPI.lookup(cif);
       const result = response.data;
       setCifLookupResult(result);
       if (result.found) {
-        const info = result.company_info;
-        if (info.legal_name && !companyData.legal_name) setCompanyData(prev => ({ ...prev, legal_name: info.legal_name }));
-        if (info.trade_name && !companyData.trade_name) setCompanyData(prev => ({ ...prev, trade_name: info.trade_name }));
-        if (info.website && !companyData.website) setCompanyData(prev => ({ ...prev, website: info.website }));
+        const info = result.company_info || {};
+        // Autofill all verified fields (only if empty or user hasn't edited)
+        setCompanyData(prev => ({
+          ...prev,
+          legal_name: info.legal_name || prev.legal_name,
+          trade_name: info.trade_name || prev.trade_name,
+          website: info.website || prev.website,
+          city: info.city || prev.city,
+          province: info.province || prev.province,
+          region: info.province || prev.region,
+          street: info.street || prev.street,
+          postal_code: info.postal_code || prev.postal_code,
+          legal_form: info.legal_form || info.acronym || prev.legal_form,
+          company_status: info.company_status || prev.company_status,
+          cnae_code: info.cnae_code || prev.cnae_code,
+          cnae_label: info.cnae_description || prev.cnae_label,
+          iberinform_synced: true,
+          iberinform_synced_at: new Date().toISOString(),
+        }));
+        // Autofill financials with calculated EBITDA
         if (result.financials?.length) {
           setFinancials(result.financials.map(f => ({
             year: f.year, revenue: f.revenue || '', ebitda: f.ebitda || '',
+            ebitda_margin: f.ebitda_margin || '',
+            net_income: f.net_income || '',
+            operating_result: f.operating_result || '',
+            staff_costs: f.staff_costs || '',
             recurring_revenue_pct: f.recurring_revenue_pct || '', client_concentration_top5: f.client_concentration_top5 || '',
             growth_rate: f.growth_rate || '', data_source: f.data_source || result.source
           })));
@@ -341,7 +363,7 @@ const SellerWizard = () => {
       }
     } catch { setCifLookupResult({ found: false, source: 'MANUAL' }); }
     finally { setCifLookupLoading(false); }
-  }, [companyData.cif, companyData.legal_name, companyData.trade_name, companyData.website]);
+  }, [companyData.cif]);
 
   const handleCompanyChange = (field, value) => { setCompanyData(prev => ({ ...prev, [field]: value })); setError(''); };
   const handleHighlightChange = (index, value) => { const h = [...companyData.highlights]; h[index] = value; setCompanyData(prev => ({ ...prev, highlights: h })); };
@@ -547,49 +569,99 @@ const SellerWizard = () => {
               {/* STEP 0: Datos basicos */}
               {step === 0 && (
                 <div data-testid="step-basics">
-                  <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Datos de la compania</h1>
-                  <p className="text-sm text-slate-500 max-w-md mb-10">
-                    Proporciona los detalles fundamentales de tu agencia. Algunos datos permaneceran privados hasta que se firme un NDA.
+                  <h1 className="text-3xl font-black tracking-tight mb-2" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>Datos de la compañía</h1>
+                  <p className="text-sm max-w-md mb-10" style={{ color: 'var(--outline)' }}>
+                    Introduce el CIF para autocompletar datos registrales y financieros. Después completa la información cualitativa de tu agencia.
                   </p>
 
-                  {/* CIF Lookup */}
-                  <div className="mb-10">
-                    <SectionLabel label="INFORMACION LEGAL" badge="private" />
-                    <GhostInput label="DENOMINACION SOCIAL *" value={companyData.legal_name} onChange={(e) => handleCompanyChange('legal_name', e.target.value)} placeholder="Mi Agencia S.L." testId="input-legal-name" className="mb-6" />
-                    <div className="grid grid-cols-2 gap-6">
+                  {/* ── BLOQUE 1: Buscar por CIF ── */}
+                  <div className="mb-8">
+                    <SectionLabel label="BUSCAR COMPAÑÍA POR CIF" badge="private" />
+                    <div className="grid grid-cols-2 gap-6 mb-4">
                       <GhostInput label="CIF / NIF" value={companyData.cif} onChange={(e) => handleCompanyChange('cif', e.target.value.toUpperCase())} placeholder="B12345678" testId="input-cif" />
                       <div>
-                        <label className="label-arroba block mb-2 ml-0.5">BUSCAR POR CIF</label>
-                        <div className="flex gap-2">
-                          <button onClick={handleCifLookup} disabled={cifLookupLoading || !companyData.cif}
-                            className="w-full px-5 py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: 'var(--on-surface, #191c1e)', color: '#fff' }} data-testid="cif-lookup-btn">
-                            {cifLookupLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} BUSCAR EN REGISTRO
-                          </button>
-                        </div>
-                        {cifLookupResult && (
-                          <div className={`mt-2 p-2 text-xs font-semibold ${cifLookupResult.found ? 'text-green-700' : 'text-amber-600'}`} style={{ background: cifLookupResult.found ? 'rgba(22,163,74,0.06)' : 'rgba(217,119,6,0.06)' }} data-testid="cif-lookup-result">
-                            {cifLookupResult.found ? (<span className="flex items-center gap-1"><Check size={12} /> Datos encontrados — <DataSourceBadge source={cifLookupResult.source} /></span>) : 'CIF no encontrado — introduce datos manualmente'}
-                          </div>
-                        )}
+                        <label className="label-arroba block mb-2 ml-0.5">BUSCAR DATOS</label>
+                        <button onClick={handleCifLookup} disabled={cifLookupLoading || !companyData.cif}
+                          className="w-full px-5 py-3 text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: 'var(--on-surface)', color: '#fff' }} data-testid="cif-lookup-btn">
+                          {cifLookupLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} BUSCAR EN REGISTRO
+                        </button>
                       </div>
                     </div>
+                    {cifLookupResult && (
+                      <div className={`p-3 text-xs font-semibold ${cifLookupResult.found ? 'text-green-700' : 'text-amber-600'}`} style={{ background: cifLookupResult.found ? 'rgba(22,163,74,0.06)' : 'rgba(217,119,6,0.06)' }} data-testid="cif-lookup-result">
+                        {cifLookupResult.found ? (<span className="flex items-center gap-1"><Check size={12} /> Datos registrales y financieros encontrados — <DataSourceBadge source={cifLookupResult.source} /></span>) : 'CIF no encontrado — introduce los datos manualmente'}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Public info */}
-                  <div className="mb-10">
-                    <SectionLabel label="PERFIL PUBLICO" badge="public" />
-                    <div className="grid grid-cols-2 gap-6 mb-6">
-                      <GhostSelect label="PAIS" value={companyData.country} onChange={(e) => handleCompanyChange('country', e.target.value)} options={[{value: 'España', label: 'España'}, {value: 'México', label: 'México'}, {value: 'Argentina', label: 'Argentina'}, {value: 'Colombia', label: 'Colombia'}]} testId="select-country" />
-                      <GhostInput label="CIUDAD" value={companyData.city} onChange={(e) => handleCompanyChange('city', e.target.value)} placeholder="Madrid" testId="input-city" />
+                  {/* ── BLOQUE 2: Datos verificados (Iberinform) ── */}
+                  {companyData.iberinform_synced && (
+                    <div className="mb-8 p-5" style={{ background: 'rgba(22,163,74,0.03)', borderLeft: '3px solid #16a34a' }}>
+                      <div className="flex items-center gap-2 mb-4">
+                        <DataSourceBadge source="IBERINFORM" />
+                        <span className="text-[10px]" style={{ color: 'var(--outline)' }}>Datos del registro · Revisables y editables</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <GhostInput label="DENOMINACIÓN SOCIAL" value={companyData.legal_name} onChange={(e) => handleCompanyChange('legal_name', e.target.value)} placeholder="Razón social" testId="input-legal-name" />
+                        <GhostInput label="FORMA JURÍDICA" value={companyData.legal_form} onChange={(e) => handleCompanyChange('legal_form', e.target.value)} placeholder="SL" testId="input-legal-form" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <GhostInput label="CIUDAD" value={companyData.city} onChange={(e) => handleCompanyChange('city', e.target.value)} placeholder="Madrid" testId="input-city" />
+                        <GhostInput label="PROVINCIA" value={companyData.province} onChange={(e) => handleCompanyChange('province', e.target.value)} placeholder="Madrid" testId="input-province" />
+                        <GhostInput label="CP" value={companyData.postal_code} onChange={(e) => handleCompanyChange('postal_code', e.target.value)} placeholder="28001" testId="input-postal" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <GhostInput label="CNAE" value={companyData.cnae_code ? `${companyData.cnae_code} — ${companyData.cnae_label}` : ''} onChange={() => {}} placeholder="—" testId="input-cnae" className="opacity-70 pointer-events-none" />
+                        <GhostInput label="SITIO WEB" value={companyData.website} onChange={(e) => handleCompanyChange('website', e.target.value)} placeholder="https://miagencia.com" testId="input-website" />
+                      </div>
+                      {financialDataSource === 'IBERINFORM' && financials.length > 0 && (
+                        <div>
+                          <p className="label-arroba mb-2" style={{ color: 'var(--outline)' }}>FINANCIEROS ENCONTRADOS</p>
+                          <div className="grid grid-cols-3 gap-3">
+                            {financials.slice(0, 3).map(f => (
+                              <div key={f.year} className="p-3" style={{ background: 'var(--surface-lowest)' }}>
+                                <p className="text-[10px] font-bold" style={{ color: 'var(--outline)' }}>{f.year}</p>
+                                <p className="text-sm font-black" style={{ color: 'var(--on-surface)' }}>{f.revenue ? `${(f.revenue / 1e6).toFixed(1).replace('.', ',')}M€` : '—'}</p>
+                                <p className="text-[10px]" style={{ color: 'var(--outline)' }}>EBITDA: {f.ebitda ? `${(f.ebitda / 1e3).toFixed(0)}K€ (${f.ebitda_margin || '—'}%)` : '—'}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-[10px] mt-2" style={{ color: 'var(--outline)' }}>Estos datos financieros se cargarán automáticamente en el siguiente paso. Podrás revisarlos y editarlos.</p>
+                        </div>
+                      )}
                     </div>
-                    <GhostInput label="SITIO WEB (URL)" value={companyData.website} onChange={(e) => handleCompanyChange('website', e.target.value)} placeholder="https://miagencia.com" testId="input-website" className="mb-6" />
+                  )}
+
+                  {/* ── BLOQUE 2b: Info legal manual (si no hay Iberinform) ── */}
+                  {!companyData.iberinform_synced && (
+                    <div className="mb-8">
+                      <SectionLabel label="INFORMACIÓN LEGAL" badge="private" />
+                      <GhostInput label="DENOMINACIÓN SOCIAL *" value={companyData.legal_name} onChange={(e) => handleCompanyChange('legal_name', e.target.value)} placeholder="Mi Agencia S.L." testId="input-legal-name" className="mb-6" />
+                    </div>
+                  )}
+
+                  {/* ── BLOQUE 3: Datos del seller (cualitativos) ── */}
+                  <div className="mb-8">
+                    <SectionLabel label={companyData.iberinform_synced ? "COMPLETA LA INFORMACIÓN DE TU AGENCIA" : "PERFIL PÚBLICO"} badge="public" />
+                    {companyData.iberinform_synced && (
+                      <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Estos datos no pueden obtenerse del registro. Completa la información cualitativa de tu agencia.</p>
+                    )}
                     <div className="grid grid-cols-2 gap-6 mb-6">
+                      {!companyData.iberinform_synced && (
+                        <>
+                          <GhostSelect label="PAÍS" value={companyData.country} onChange={(e) => handleCompanyChange('country', e.target.value)} options={[{value: 'España', label: 'España'}]} testId="select-country" />
+                          <GhostInput label="CIUDAD" value={companyData.city} onChange={(e) => handleCompanyChange('city', e.target.value)} placeholder="Madrid" testId="input-city" />
+                        </>
+                      )}
                       <GhostInput label="NOMBRE COMERCIAL" value={companyData.trade_name} onChange={(e) => handleCompanyChange('trade_name', e.target.value)} placeholder="Nombre de marca" testId="input-trade-name" />
-                      <GhostInput label="ANO DE FUNDACION" value={companyData.founded_year} onChange={(e) => handleCompanyChange('founded_year', e.target.value)} type="number" placeholder="2015" testId="input-founded-year" />
+                      <GhostInput label="AÑO DE FUNDACIÓN" value={companyData.founded_year} onChange={(e) => handleCompanyChange('founded_year', e.target.value)} type="number" placeholder="2015" testId="input-founded-year" />
                     </div>
+                    {!companyData.iberinform_synced && (
+                      <GhostInput label="SITIO WEB (URL)" value={companyData.website} onChange={(e) => handleCompanyChange('website', e.target.value)} placeholder="https://miagencia.com" testId="input-website" className="mb-6" />
+                    )}
                     <div className="grid grid-cols-2 gap-6 mb-6">
                       <GhostInput label="EMPLEADOS" value={companyData.employees_count} onChange={(e) => handleCompanyChange('employees_count', e.target.value)} type="number" placeholder="25" testId="input-employees" />
-                      <GhostSelect label="TIPO DE AGENCIA" value={companyData.company_type} onChange={(e) => handleCompanyChange('company_type', e.target.value)} options={[{value:'digital_agency',label:'Agencia Digital'},{value:'creative_agency',label:'Agencia Creativa'},{value:'media_agency',label:'Agencia de Medios'},{value:'tech_studio',label:'Estudio Tecnologico'},{value:'consultancy',label:'Consultoria'}]} testId="select-type" />
+                      <GhostSelect label="TIPO DE AGENCIA" value={companyData.company_type} onChange={(e) => handleCompanyChange('company_type', e.target.value)} options={[{value:'digital_agency',label:'Agencia Digital'},{value:'creative_agency',label:'Agencia Creativa'},{value:'media_agency',label:'Agencia de Medios'},{value:'tech_studio',label:'Estudio Tecnológico'},{value:'consultancy',label:'Consultoría'}]} testId="select-type" />
                     </div>
 
                     {/* Taxonomy categories */}
