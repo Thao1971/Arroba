@@ -260,9 +260,6 @@ export const buyerAPI = {
 export const sellerProfilesAPI = {
   resolveAndSave: (data) => api.post('/seller-profiles/resolve-and-save', data),
   getByCif: (cif) => api.get(`/seller-profiles/by-cif/${cif}`),
-
-// Billing API
-export const billingAPI = {
   getByCompany: (companyId) => api.get(`/seller-profiles/by-company/${companyId}`),
   get: (profileId) => api.get(`/seller-profiles/${profileId}`),
   list: () => api.get('/seller-profiles/my-profiles'),
@@ -270,6 +267,9 @@ export const billingAPI = {
   updatePricing: (profileId, data) => api.put(`/seller-profiles/${profileId}/pricing`, data),
   updatePanelStatus: (profileId, data) => api.put(`/seller-profiles/${profileId}/panel-status`, data),
 };
+
+// Billing API
+export const billingAPI = {
   getSummary: () => api.get('/billing/summary'),
 };
 
