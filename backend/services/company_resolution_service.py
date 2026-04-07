@@ -15,7 +15,10 @@ from services.cif_lookup_service import lookup_cif as fallback_lookup
 
 logger = logging.getLogger(__name__)
 
-CIS_CONFIGURED = bool(os.environ.get("CIS_BASE_URL"))
+def _is_cis_configured():
+    """Check CIS config at runtime."""
+    import os
+    return bool(os.environ.get("CIS_BASE_URL"))
 
 
 async def resolve_company(
@@ -38,7 +41,7 @@ async def resolve_company(
     fallback_reason = None
 
     # 1. Try CIS
-    if CIS_CONFIGURED:
+    if _is_cis_configured():
         try:
             logger.info(f"[RESOLVE] CIS attempt for CIF {cif}")
             result = await resolve_via_cis(
@@ -51,15 +54,24 @@ async def resolve_company(
                 provider = "CIS"
                 logger.info(f"[RESOLVE] CIS hit for {cif} — company_master_id={result.get('company_master_id')}")
             else:
-                fallback_reason = "CIS returned empty or incomplete"
+                fallback_reason = "CIS returned empty or incomplete response"
                 logger.warning(f"[RESOLVE] CIS incomplete for {cif}: {fallback_reason}")
                 result = None
+        except ConnectionError as e:
+            fallback_reason = f"CIS auth/config: {str(e)[:80]}"
+            logger.warning(f"[RESOLVE] {fallback_reason}")
+            result = None
         except Exception as e:
-            fallback_reason = f"CIS error: {str(e)[:100]}"
+            error_msg = str(e)[:100]
+            if "401" in error_msg or "Not authenticated" in error_msg:
+                fallback_reason = "CIS requiere autenticación (API key pendiente)"
+            else:
+                fallback_reason = f"CIS error: {error_msg}"
             logger.warning(f"[RESOLVE] CIS failed for {cif}: {fallback_reason}")
             result = None
     else:
         fallback_reason = "CIS not configured (CIS_BASE_URL missing)"
+        logger.info(f"[RESOLVE] CIS not configured, using fallback")
 
     # 2. Fallback transitorio
     if result is None:

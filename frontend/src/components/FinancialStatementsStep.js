@@ -268,38 +268,6 @@ const FinancialStatementsStep = ({ financials, setFinancials, financialDataSourc
         </div>
       </div>
 
-      {/* Valuation factors (kept from original) */}
-      <div className="pt-6 mb-6" style={{ borderTop: '2px solid var(--surface-2)' }}>
-        <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>FACTORES CUALITATIVOS DEL SELLER</p>
-        <p className="text-xs mb-4" style={{ color: 'var(--outline)' }}>Estos datos complementan los estados financieros y mejoran la precisión de la valoración.</p>
-        <div className="grid grid-cols-2 gap-4 p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-          <div>
-            <label className="label-arroba block mb-1">% INGRESOS RECURRENTES</label>
-            <NumericInputES value={getVal(years[0], 'recurring_revenue_pct')} onChange={v => setVal(years[0], 'recurring_revenue_pct', v)} placeholder="70" className="input-arroba w-full" testId="input-recurring" />
-          </div>
-          <div>
-            <label className="label-arroba block mb-1">% CONCENTRACIÓN TOP 5 CLIENTES</label>
-            <NumericInputES value={getVal(years[0], 'client_concentration_top5')} onChange={v => setVal(years[0], 'client_concentration_top5', v)} placeholder="40" className="input-arroba w-full" testId="input-concentration" />
-          </div>
-          <div>
-            <label className="label-arroba block mb-1">DEPENDENCIA DEL FUNDADOR</label>
-            <select value={valuationInputs.founder_dependency} onChange={e => setValuationInputs({...valuationInputs, founder_dependency: e.target.value})} className="input-arroba w-full" data-testid="select-founder-dep">
-              <option value="low">Baja — Equipo autónomo</option>
-              <option value="medium">Media — Fundador operativo</option>
-              <option value="high">Alta — Fundador imprescindible</option>
-            </select>
-          </div>
-          <div>
-            <label className="label-arroba block mb-1">TIPO DE INGRESOS</label>
-            <select value={valuationInputs.recurring_revenue_type} onChange={e => setValuationInputs({...valuationInputs, recurring_revenue_type: e.target.value})} className="input-arroba w-full" data-testid="select-revenue-type">
-              <option value="retainer">Retainer / Fee mensual</option>
-              <option value="project">Proyectos puntuales</option>
-              <option value="mixed">Mixto</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
       {/* Actions */}
       {onRecalculate && (
         <div className="flex items-center gap-3">

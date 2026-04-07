@@ -13,9 +13,17 @@ from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-CIS_BASE_URL = os.environ.get("CIS_BASE_URL", "")
-CIS_API_KEY = os.environ.get("CIS_API_KEY", "")
-CIS_TIMEOUT = int(os.environ.get("CIS_TIMEOUT", "15"))
+CIS_TIMEOUT = 15
+
+
+def _get_cis_config():
+    """Read CIS config at runtime (after dotenv is loaded)."""
+    import os
+    return {
+        "base_url": os.environ.get("CIS_BASE_URL", ""),
+        "api_key": os.environ.get("CIS_API_KEY", ""),
+        "timeout": int(os.environ.get("CIS_TIMEOUT", "15")),
+    }
 
 
 async def resolve_via_cis(
@@ -28,10 +36,11 @@ async def resolve_via_cis(
     Call CIS POST /api/company-master/resolve
     Returns normalized payload or None on failure.
     """
-    if not CIS_BASE_URL:
+    cfg = _get_cis_config()
+    if not cfg["base_url"]:
         raise ConnectionError("CIS_BASE_URL not configured")
 
-    url = f"{CIS_BASE_URL}/api/company-master/resolve"
+    url = f"{cfg['base_url']}/api/company-master/resolve"
     payload = {
         "cif": cif,
         "requesting_system": "arroba",
@@ -41,13 +50,16 @@ async def resolve_via_cis(
     }
 
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    if CIS_API_KEY:
-        headers["X-API-Key"] = CIS_API_KEY
+    if cfg["api_key"]:
+        headers["X-API-Key"] = cfg["api_key"]
 
-    async with httpx.AsyncClient(timeout=CIS_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=cfg["timeout"]) as client:
         logger.info(f"[CIS] POST {url} for CIF={cif}")
         response = await client.post(url, json=payload, headers=headers)
 
+        if response.status_code == 401:
+            logger.warning(f"[CIS] Authentication failed (401) — API key may be missing or invalid")
+            return None
         if response.status_code != 200:
             logger.warning(f"[CIS] Non-200 response: {response.status_code} — {response.text[:200]}")
             return None

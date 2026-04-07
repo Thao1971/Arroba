@@ -423,7 +423,28 @@ const SellerCompanyWorkspace = () => {
           {/* ═══ PANEL: OPERACIÓN ═══ */}
           {activePanel === 'operacion' && (
             <div className="space-y-5" data-testid="panel-operacion">
-              <p className="text-sm" style={{ color: 'var(--outline)' }}>Configura los términos de la operación y genera el contenido comercial.</p>
+              <p className="text-sm" style={{ color: 'var(--outline)' }}>Configura los términos de la operación y revisa la ficha antes de publicar.</p>
+
+              {/* Company preview card */}
+              <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)', borderLeft: '3px solid var(--arroba-primary)' }}>
+                <p className="label-arroba mb-3" style={{ color: 'var(--arroba-primary)' }}>VISTA PREVIA DE LA FICHA</p>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div><span style={{ color: 'var(--outline)' }}>Empresa</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{company?.trade_name || company?.legal_name || '—'}</p></div>
+                  <div><span style={{ color: 'var(--outline)' }}>Ubicación</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{company?.city || '—'}, {company?.province || ''}</p></div>
+                  <div><span style={{ color: 'var(--outline)' }}>Sector</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{company?.cnae_label || overrides.taxonomy_category || '—'}</p></div>
+                  <div><span style={{ color: 'var(--outline)' }}>Empleados</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{overrides.employees_count || '—'}</p></div>
+                  <div><span style={{ color: 'var(--outline)' }}>Facturación</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{financials[0]?.pnl?.revenue || financials[0]?.revenue ? fmtMillions(financials[0]?.pnl?.revenue || financials[0]?.revenue) : '—'}</p></div>
+                  <div><span style={{ color: 'var(--outline)' }}>EBITDA</span><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{financials[0]?.pnl?.ebitda || financials[0]?.ebitda ? fmtMillions(financials[0]?.pnl?.ebitda || financials[0]?.ebitda) : '—'}</p></div>
+                </div>
+                {overrides.description && <p className="text-xs mt-3" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>{overrides.description.substring(0, 200)}...</p>}
+                <div className="flex gap-2 mt-3">
+                  {Object.values(panelStatus).map((s, i) => {
+                    const st = STATUS_CONFIG[s];
+                    return <span key={i} className="w-2 h-2 rounded-full" style={{ background: st.color }} />;
+                  })}
+                  <span className="text-[9px] font-bold ml-1" style={{ color: 'var(--outline)' }}>Perfil {profileReadiness}% completo</span>
+                </div>
+              </div>
               <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                 <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>CONFIGURACIÓN</p>
                 <div className="mb-4">
