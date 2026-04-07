@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class ArrobaAPITester:
-    def __init__(self, base_url="https://seller-wizard-v2.preview.emergentagent.com"):
+    def __init__(self, base_url="https://arroba-ma-platform.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0

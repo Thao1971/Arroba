@@ -1,160 +1,147 @@
 <analysis>**original_problem_statement**: 
-The user wants to build a platform called Arroba to buy and sell digital agencies. The core priority right now is strictly developing a fully functional **seller end-to-end flow** (company creation wizard, structured financials, deal creation with states, AI infomemo generation/preview/editing, NDA, and access control). 
+Construir Arroba, una plataforma M&A confidencial para comprar, vender y fusionar agencias digitales. El objetivo principal actual es la corrección estructural y cierre de la arquitectura canónica del  y su relación con el CIS (Centro de Inteligencia Sectorial), financieros, valoración, generación de visuales financieros y el gating estricto de visibilidad para compradores (buyer-facing surfaces).
 
-**User's preferred language**: Spanish (INSTRUCT next agent to respond in Spanish only)
+PRODUCT REQUIREMENTS:
+- El flujo seller debe ser un workspace modular (Compañía, Ficha, Financieros, Valoración, Operación y contenido), no un wizard antiguo.
+- Separación estricta de entidades:  (datos de CIS),  (overrides del seller y estado del panel), y  (entidad comercial).
+- Confidencialidad absoluta: Datos de contacto directo y localización exacta nunca deben exponerse al comprador.
+- Los gráficos financieros se generan una vez y se reutilizan por superficie (Teaser, Infomemo, Buyer Advanced).
+
+**User's preferred language**: Spanish (Debes responder y documentar EXCLUSIVAMENTE en español. Todos los copys de UI, commits y comunicación deben ser en español).
 
 **what currently exists?** 
-A full-stack React + FastAPI + MongoDB MVP is initialized. Base UI layout, custom navigation, and authentication (JWT) are working. The  and  pages have been created, along with their backend routers (, , ).
+Una plataforma Full-stack React + FastAPI + MongoDB. Contiene un Buyer Dashboard completo (con seguimiento, recomendados, alertas, facturación y panel de actividad), un Seller Company Workspace modular, validación real de CIF mediante un adaptador CIS/Iberinform, generación de visuales financieros mediante , un LOI Comparator integrado, y un sistema estricto de gating de acceso post-NDA.
 
 **Last working item**: 
-    - Last item agent was working: The agent was attempting to update the  file after building the Seller Wizard and Deal Management pages, and trying to capture screenshots of the wizard, but the frontend redirected to the login page because the test session wasn't authenticated.
-    - Status: IN PROGRESS
-    - Agent Testing Done: Y
-    - Which testing method agent to use? both (Testing agent was used, but screenshot testing failed due to missing auth). 
+    - Last item agent was working: Corrección de 7 fallos críticos estructurales en . El agente acaba de sobrescribir el archivo completo para solucionar: persistencia/rehidratación de datos de la compañía al volver del dashboard, falta de feedback en UI cuando el CIF no existe, hacer editable la taxonomía (categoría/subcategoría), recalcular correctamente el  (pasar a verde) para Ficha y Financieros, habilitar el trigger de cálculo de valoración y generación de gráficos, y reparar el selector de tipo de operación.
+    - Status: TESTING PENDING
+    - Agent Testing Done: N
+    - Which testing method agent to use? both (Testing agent v3 fork is highly recommended due to the massive overwrite of a core workspace file).
     - User Testing Done: N
 
-**All Pending/In progress Issue list**:
-  Issue 1: Update PRD.md failed (P0)
-  Issue 2: AI Infomemo Generation Timeout (P1)
-  Issue 3: Protected routes testing fails due to lack of auth in screenshot session (P1)
-  
-  Issues Detail:
-  - Issue 1: 
-     - Attempted fixes:  failed due to  not matching verbatim in .
-     - Next debug checklist: View the contents of  first before replacing, or use  to append/rewrite the file.
-     - Why fix this issue and what will be achieved with the fix? Keeps the documentation updated with the new strict focus on the seller flow.
-     - Status: IN PROGRESS
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? NA
-     - Blocked on other issue: None
-  - Issue 2: 
-     - Attempted fixes: The testing agent flagged a timeout during AI Infomemo generation.
-     - Next debug checklist: Check  and . You may need to optimize the prompt, add async polling, or improve frontend loading states.
-     - Why fix this issue and what will be achieved with the fix? Infomemo generation is a critical step in the seller end-to-end flow.
+**All Pending/In progress Issue list**: 
+  Issue 1: Verificar compilación y testear  (P0)
+     - Attempted fixes: El agente sobrescribió el archivo completo pero el contexto se cortó antes de poder compilar o hacer capturas de pantalla.
+     - Next debug checklist: Ejecutar  o revisar los logs de Webpack para asegurar que no hay errores de sintaxis o imports en . Verificar en UI que la rehidratación de datos funciona al salir y volver a entrar a una compañía.
+     - Why fix this issue and what will be achieved with the fix? Es el núcleo de la experiencia del vendedor. Si el workspace no persiste datos o no avanza, la plataforma está rota.
      - Status: TESTING PENDING
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: None
-  - Issue 3: 
-     - Attempted fixes: Agent tried taking screenshots of  but got redirected to login.
-     - Next debug checklist: Before using the screenshot tool on protected routes, generate a token, inject it into the frontend session via bash script or use  for API verification instead.
-     - Why fix this issue and what will be achieved with the fix? Proper visual validation of the seller wizard.
-     - Status: IN PROGRESS
+
+  Issue 2: Verificar la vinculación Backend en Rehidratación (P0)
+     - Attempted fixes: El agente diagnosticó que  no estaba seteando el  en el  cuando se crea una nueva empresa. Hay que asegurar que el backend () enlaza correctamente el ID para que  devuelva los datos guardados.
+     - Next debug checklist: Revisar  y  para asegurar que el  se guarda en el perfil del seller tras la confirmación de la empresa.
+     - Why fix this issue and what will be achieved with the fix? Permite que los datos del seller no se borren si recarga la página.
+     - Status: TESTING PENDING
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? Frontend
-     - Blocked on other issue: None
+     - Should Test frontend/backend/both after fix? backend
 
-**In progress Task List**:
-  Task 1: Seller End-to-End Flow validation & finalization (P0)
-     - Where to resume: Verify the logic inside  and . 
-     - What will be achieved with this? Fulfilling the user's explicit directive to stop all UI/UX work and focus solely on the seller process (company creation -> financials -> deal states -> infomemo -> NDA).
-     - Status: IN PROGRESS
+**In progress Task List**: 
+  Task 1: Cierre definitivo de la Arquitectura Seller
+     - Where to resume: Comprobar el código frontend sobrescrito en el último paso. Validar los 7 puntos de error mencionados por el usuario en el último prompt (persistencia, CIF not found feedback, taxonomía editable, Ficha a verde, Financieros a verde, trigger de valoración, tipo de operación).
+     - What will be achieved with this? Un seller flow robusto, persistente y listo para producción.
+     - Status: TESTING PENDING
      - Should Test frontend/backend/both after fix? both
-     - Blocked on something: Needs testing session to be authenticated.
+     - Blocked on something: None
 
-**Upcoming and Future Tasks**:
+**Upcoming and Future Tasks**
     Upcoming Tasks:
-    - Implement Infomemo preview and editing functionality (P0).
-    - Implement NDA execution and buyer access control flow (P0).
-    - Implement Deal State Management logic (Draft -> Active -> Under LOI, etc.) (P0).
-    
-    Future Tasks:
-    - Integration with Iberinform for financial data (P2 - Deferred to v2).
-    - Advanced filtering on the marketplace (P2 - User explicitly asked to halt this until the seller flow is 100% complete).
+    - Admin Console mínima (P2)
+    - Integración de SendGrid real (actualmente mockeado) (P2)
+    - PDF export del infomemo a través del Document Engine (P2)
 
-**Completed work in this session**:
-- Base Project structure, FastAPI configuration, and MongoDB setup (DONE)
-- JWT Authentication and routers setup (DONE)
-- Frontend Tailwind configuration and Design System implementation (DONE)
-- Custom Homepage and Navigation menu redesign based on user mockup (DONE)
-- Core models: Users, Companies, Deals, Transactions (DONE)
+**Completed work in this session**
+- Implementado LOI Comparator en DealManagement (DONE)
+- Implementado Buyer Activity Panel como gemelo arquitectónico del Buyer Dashboard (DONE)
+- Refactorizado onboarding de Buyer (selección de tipo a 2 niveles, 3 niveles de verificación de empresa, revisión final, privacidad de perfil) (DONE)
+- Formato numérico español () aplicado globalmente en toda la plataforma (DONE)
+- Integrado CIS como Master Data Layer con Iberinform como fallback (, ) (DONE)
+- Generación de Financial Visuals () y persistencia modular ligada al activo (DONE)
+- Implementado Buyer Deal View con sidebar izquierda y gating estricto de visibilidad (Público -> Post-NDA -> Infomemo) (DONE)
+- Consolidado Manual Maestro de Aplicación () (DONE)
 
-**Earlier issues found/mentioned but not fixed**:
-   - Issue 1: 
-   - Debug checklist: Testing agent reported that Infomemo generation timeouts.
-   - Why to solve this issue and what will be achieved with this? Ensures the seller can actually generate the memo without the app breaking.
-   - Should Test frontend/backend/both after fix: both
-   - Is recurring issue? N
+**Earlier issues found/mentioned but not fixed**
+   - Ninguno. El agente estaba resolviendo la lista de bugs finales del workspace.
 
-**Known issue recurrence from previous fork**:
-  - Issue recurrence in previous fork: N/A
-  - Recurrence count: 0
-  - Status: NOT STARTED
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: Fallos de persistencia en estados intermedios del wizard/workspace.
+  - Recurrence count: 2
+  - Status: IN PROGRESS (Atacado en el último overwrite).
 
-**Code Architecture**:
+**Code Architecture**
 
 
-**Key Technical Concepts**:
-Frontend: React, Tailwind CSS
-Backend: FastAPI, Python
-Database: MongoDB (motor_asyncio)
-Auth: JWT Authentication
+**Key Technical Concepts**
+Frontend: React, Tailwind CSS, Shadcn/UI, Recharts (para visuales financieros).
+Backend: FastAPI, MongoDB. Arquitectura de resolución delegada a CIS (API Service-to-Service con X-Service-Key).
+Design System: The Digital Artifact (0px border-radius, IBM Plex Sans, ALL CAPS labels, surfaces jerárquicas).
 
-**key DB schema**:
-  - users: {{email, role, auth_provider}}
-  - companies: {{name, legal_name, financials, sector}}
-  - deals: {{company_id, seller_id, status, valuation}}
-  - transactions: {{deal_id, buyer_id, type}}
+**key DB schema**
+  - : Referencia canónica procedente del CIS.
+  - : Entidad propia de ARROBA con auto_prefilled_data, seller_overrides y panel_status.
+  - : Entidad comercial activa (sometida a reglas de publicación y gating por planes).
+  - : Colección de gráficos generados vinculados al activo.
+  - : Firmas mutuas digitales.
 
-**changes in tech stack**:
-  - None
+**changes in tech stack**
+  - Añadido  para la generación de gráficos financieros en el frontend.
 
-**All files of reference**: 
-  -  (System Architecture)
-  -  (FastAPI main file)
-  -  (React Router config)
-  -  (Seller Wizard flow)
-  -  (Deal state/Infomemo/NDA handling)
-  -  (Product Requirements Document - Needs Update)
+**All files of reference** 
+  -  (Modificado en el último paso).
+  -  (Lógica de persistencia de perfiles del seller).
+  -  (Orquestador de CIS).
+  -  (Documento Maestro, debe ser la única fuente de la verdad para futuras implementaciones).
+  -  (Formateador numérico oficial).
 
 **Areas that need refactoring**: 
-  - The AI generation step in  may need to be handled asynchronously (background task) to avoid API timeout during testing/production.
+  - Validar que el flujo legacy () ya no sea accesible por ninguna ruta y pueda ser eliminado o marcado definitivamente como deprecated.
 
-**key api endpoints**:
-  -  & 
+**key api endpoints**
+  -  (Endpoint maestro del CIS, consumido via service-to-service).
+  -  (Endpoint que une la consulta a CIS con la creación del perfil temporal del seller).
+  -  (Hidratación del workspace).
+
+**Critical Info for New Agent** 
+- **Confidencialidad Absoluta:** Teléfono, email, dirección completa y web directa NUNCA deben exponerse en endpoints buyer-facing (Card, Teaser, Buyer Advanced). Existe una capa de sanitización en  para esto.
+- **CIS es la Fuente Maestra:** ARROBA consulta a . Iberinform solo se usa de forma transparente en el fallback interno de ARROBA si CIS falla. Usa  en el .
+- **EBITDA Ajustado:** Es EXCLUSIVAMENTE MANUAL, nunca se autocompleta por CIS/Iberinform.
+- **Formato Numérico:** Toda la UI debe usar  (puntos para miles, comas para decimales). No dejar inputs numéricos crudos.
+- **Manual Maestro:** El archivo  se debe mantener escrupulosamente actualizado. Si cambias algo estructural, actualízalo y regenera el ZIP en .
+
+**documents and test reports created in this job** 
   - 
   - 
   - 
-  - 
 
-**Critical Info for New Agent**: 
-- **STRICT DIRECTIVE FROM USER**: The user strictly commanded to STOP working on non-critical UI improvements, navigation, or discovery features (like marketplace filters). **100% of your focus must be on completing the Seller End-to-End flow** (company creation -> financials -> deal states -> infomemo preview/editing -> NDA). Do not build anything else until this works perfectly.
-- AI Generation runs via  using GPT-5.2 in . 
-- When taking screenshots of protected frontend pages (like ), remember that the headless browser session is unauthenticated by default. You will get redirected to . Ensure you mock auth or log in first if visual testing is strictly needed.
+**Last 10 User Messages and any pending HUMAN messages** 
+ - (Múltiples iteraciones de corrección sobre el Buyer Dashboard, NDA mutuo, y listado de agencias)
+ - El formato numérico debe ser transversal y la verificación desplegable debe permitir editar inputs financieros... (Implementado con )
+ - Prueba técnica sobre el proveedor Iberinform (Superada)
+ - Integración de la capa de Financial Visuals y el nuevo .
+ - El usuario detectó una mezcla de flujos legacy y nuevos, y pidió estandarizar la arquitectura seller-side al layout del buyer dashboard (sidebar izquierda fija).
+ - Implementación del CIS como Master Resolver autenticado con Service Key.
+ - **Último mensaje**: El usuario reportó 7 fallos críticos funcionales en  (no persiste datos al recargar, botones Guardar y siguiente ausentes en los paneles, falta feedback UI cuando el CIF falla, taxonomía congelada, paneles Ficha y Financieros no pasan a verde, Valoración no arranca, Tipo de operación roto). El agente hizo un rewrite total del archivo, pero el job se cortó.
 
-**documents and test reports created in this job**:
-  - /app/docs/ARQUITECTURA_ARROBA.md
-  - /app/docs/iberinform/ (Iberinform APIs extracted for future use)
-  - /app/design_guidelines.json
-  - /app/test_reports/iteration_1.json
-  - /app/test_reports/iteration_2.json
-  - /app/test_reports/seller_flow_test_results.json
+**Project Health Check:**
+- Broken: Riesgo alto de compilación rota en  debido al corte repentino de contexto post-escritura.
+- Mocked: Stripe, SendGrid.
 
-**Last 10 User Messages and any pending HUMAN messages**: 
- - La nueva navegación está bien y ayuda a estructurar el producto, pero no es la prioridad ahora mismo. Vamos a parar cualquier desarrollo adicional... El foco pasa a ser exclusivamente cerrar el flujo completo de seller end-to-end... (IN PROGRESS)
- - te dejo algunas imágenes para que veas el estilo que debe de tener y de la navegación... (DONE)
- - adelante (DONE)
- - te voy adjuntando la demo de Iberinform para cuando lo necesites (DEFERRED to V2)
- - 1 Si stipe, Iberinform apar aleugo aquen te puedo pasar la documentación... (DONE)
+**3rd Party Integrations** 
+ - CIS WeAreBUDAdvisors (Master Company Resolver) — requires 
+ - Iberinform — requires User API Key (Fallback transitorio en backend)
+ - OpenAI GPT-5.2 — uses Emergent LLM Key
+ - Emergent Object Storage — uses Emergent LLM Key 
 
-**Project Health Check**:
-- Broken: PRD.md update string replacement failing. Screenshot testing of protected routes fails due to missing auth.
-- Mocked: Iberinform data integration is planned for later, currently relying on manual form entries.
-
-**3rd Party Integrations**:
- - OpenAI GPT-5.2 (Text Generation) — uses Emergent LLM Key
- - Stripe (Payments) — requires User API Key (Test keys in env)
- - Google OAuth — uses Emergent-managed Google Auth
-
-**Testing status**:
-  - Testing agent used after significant changes: YES
+**Testing status**
+  - Testing agent used after significant changes: YES (hasta iteration 27).
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: [/app/test_reports/iteration_1.json, /app/test_reports/iteration_2.json, /app/test_reports/seller_flow_test_results.json]
-  - Known regressions: [Infomemo generation timeout]
+  - Test files created: 
+  - Known regressions: El último cambio en  no ha sido validado.
 
-**Credentials to test flow**:
-  - Test user account created in iteration 1: 
+**Credentials to test flow:**
+- Seller:  / 
+- Buyer:  / 
 
-**What agent forgot to execute**:
-- The agent failed to successfully update  to reflect the new strict constraints given by the user. 
-- The agent did not test the actual *editing* and *preview* of the Infomemo, which the user explicitly requested as part of the seller flow.</analysis>
+**What agent forgot to execute**
+El agente ejecutó un  para sobrescribir completamente  y arreglar los 7 fallos estructurales pedidos, pero el contexto alcanzó su límite antes de que pudiera ejecutar un bash para comprobar compilación, hacer screenshots o ejecutar la validación del testing agent. **El nuevo agente debe empezar inminentemente testeando el estado del frontend.**</analysis>
