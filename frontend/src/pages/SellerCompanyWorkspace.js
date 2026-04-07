@@ -175,17 +175,46 @@ const SellerCompanyWorkspace = () => {
           cnae_code: res.data.identity.cnae_code,
           cnae_label: res.data.identity.cnae_label,
           legal_form: res.data.identity.legal_form,
+          street: res.data.identity.street,
+          postal_code: res.data.identity.postal_code,
+          phone: res.data.identity.phone,
+          founded_date: res.data.identity.founded_date,
           company_master_id: res.data.company_master_id,
           iberinform_synced: true,
         }));
+        // Taxonomy from CIS
+        if (res.data.taxonomy) {
+          setOverrides(prev => ({
+            ...prev,
+            taxonomy_category: res.data.taxonomy.category || prev.taxonomy_category,
+            taxonomy_subcategory: res.data.taxonomy.subcategory || prev.taxonomy_subcategory,
+          }));
+        }
+        // Enrichment from CIS
+        if (res.data.enrichment?.description) {
+          setOverrides(prev => ({ ...prev, description: res.data.enrichment.description }));
+        }
+        // Financials — ALL years from CIS
         if (res.data.financials?.length) {
           setFinancials(res.data.financials);
           setFinancialDataSource(res.data.source || 'CIS');
         }
-        if (res.data.enrichment?.description) {
-          setOverrides(prev => ({ ...prev, description: res.data.enrichment.description }));
+        // Employees from latest financial year
+        const latestFin = res.data.financials?.find(f => f.employees);
+        if (latestFin?.employees) {
+          setOverrides(prev => ({ ...prev, employees_count: prev.employees_count || String(latestFin.employees) }));
         }
-        setPanelStatus(prev => ({ ...prev, compania: 'complete', ficha: res.data.enrichment?.description ? 'partial' : 'empty', financieros: res.data.financials?.length ? 'needs_review' : 'empty' }));
+        // Founded year from identity
+        if (res.data.identity.founded_date) {
+          const yearMatch = res.data.identity.founded_date.match(/(\d{4})/);
+          if (yearMatch) setOverrides(prev => ({ ...prev, founded_year: prev.founded_year || yearMatch[1] }));
+        }
+        setPanelStatus(prev => ({
+          ...prev,
+          compania: 'complete',
+          ficha: res.data.enrichment?.description || res.data.taxonomy?.category ? 'partial' : 'empty',
+          financieros: res.data.financials?.length ? 'needs_review' : 'empty',
+        }));
       }
     } catch {}
     finally { setCifLoading(false); }
