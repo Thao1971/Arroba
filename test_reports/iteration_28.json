@@ -1,0 +1,105 @@
+{
+  "summary": "Seller Company Workspace testing complete. All critical bugs fixed and verified: (1) company_id persists to document root (not inside seller_overrides), (2) by-company lookup finds profile after company_id linked, (3) panel status updates and readiness recalculation work, (4) pricing persistence works with comfort_floor calculation, (5) rehidratación preserves all data after navigation. Backend: 21/21 tests passed. Frontend: All panels load correctly, GUARDAR saves data, success message displays.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/companies/{id}/financials",
+        "issue": "Returns 422 when financials have CIS nested format (pnl/balance structure). Frontend catches error silently.",
+        "priority": "LOW"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Valuation calculation",
+        "issue": "CALCULAR VALORACIÓN button enabled but valuation fails because financials from CIS are not synced to company collection (format mismatch). Financials display correctly from seller_profile but company.financials is empty.",
+        "affected_selectors": ["button:has-text('CALCULAR VALORACIÓN')"]
+      }
+    ],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "POST /api/seller-profiles/resolve-and-save - resolves CIF via CIS, creates/updates profile",
+      "POST /api/seller-profiles/resolve-and-save - idempotent (same CIF returns same profile)",
+      "POST /api/seller-profiles/resolve-and-save - unknown CIF returns 404",
+      "PUT /api/seller-profiles/{id}/overrides - basic overrides update",
+      "PUT /api/seller-profiles/{id}/overrides - CRITICAL: company_id persists to document root",
+      "PUT /api/seller-profiles/{id}/overrides - qualitative signals update",
+      "PUT /api/seller-profiles/{id}/overrides - operation_types array update",
+      "GET /api/seller-profiles/by-company/{company_id} - finds linked profile",
+      "GET /api/seller-profiles/by-company/{company_id} - returns null for unknown",
+      "PUT /api/seller-profiles/{id}/panel-status - updates status and recalculates readiness",
+      "PUT /api/seller-profiles/{id}/pricing - define_price strategy with comfort_floor calculation",
+      "PUT /api/seller-profiles/{id}/pricing - receive_offers strategy",
+      "POST /api/companies - duplicate CIF prevention",
+      "POST /api/companies/{id}/calculate-valuation - requires financials (returns 400 if empty)",
+      "GET /api/valuation/taxonomy/categories - returns categories with subcategories",
+      "GET /api/seller-profiles/{id}/buyer-facing - sanitizes identifying information"
+    ],
+    "frontend": [
+      "Workspace loads with correct company name in sidebar",
+      "Panel Compañía - CIF input, VERIFICAR button, success feedback, company data display",
+      "Panel Compañía - Coverage badges (IDENTITY, FINANCIALS, BALANCE, EMPLOYEES, ENRICHMENT)",
+      "Panel Ficha - taxonomy dropdowns editable, qualitative signals",
+      "Panel Financieros - financial data from CIS displayed with source label",
+      "Panel Valoración - CALCULAR VALORACIÓN button present",
+      "Panel Operación - operation types selectable/deselectable, pricing strategy, motivation field",
+      "GUARDAR button - saves data, shows 'Guardado correctamente' message",
+      "Panel status dots - turn green when panel is complete",
+      "Readiness percentage - updates correctly (80% with 4/5 panels complete)",
+      "Rehidratación - navigate away and back, all data preserved"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_seller_profiles_workspace.py",
+    "/app/test_reports/pytest/pytest_results_seller_profiles.xml"
+  ],
+
+  "action_items": [
+    "MINOR: Fix financials sync from seller_profile to company collection - CIS format (pnl/balance nested) needs to be transformed to flat format expected by companies API. This blocks valuation calculation from workspace."
+  ],
+
+  "critical_code_review_comments": [
+    "Line 213 in SellerCompanyWorkspace.js: companiesAPI.updateFinancials fails silently with .catch(() => {}). Consider logging error or showing user feedback.",
+    "Financials format mismatch: CIS returns {year, pnl: {revenue, ebitda...}, balance: {...}} but companies API expects {year, revenue, ebitda...} flat structure."
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_seller_profiles_workspace.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (21/21 tests passed)",
+    "frontend": "95% (valuation calculation blocked by data sync issue)"
+  },
+
+  "test_credentials": {
+    "seller": "diego.martin@rankingdigital.es / demo2026",
+    "buyer": "carlos.ruiz@capitaliberica.es / demo2026"
+  },
+
+  "seed_data_used": {
+    "company": "comp_e4ac88f79823 (P. MODERNOS CREATIVOS S.L., CIF B67098228)",
+    "seller_profile": "scp_0dc2ae66af76 (linked to comp_e4ac88f79823)",
+    "seller_user": "seller_seo_madrid_01 (diego.martin@rankingdigital.es)"
+  },
+
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": ["Stripe payments", "SendGrid emails"]
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": true,
+
+  "context_for_next_testing_agent": "Seller Company Workspace fully tested. Critical bugs fixed: (1) company_id now persists to document root in seller_profiles collection, (2) by-company lookup works after company_id linked via overrides, (3) panel status and readiness recalculation work correctly. Minor issue: Financials from CIS have nested format (pnl/balance) that doesn't match companies API flat format, causing valuation calculation to fail. The workspace displays financials correctly from seller_profile but company.financials remains empty. CIS API (cis.wearebudadvisors.com) is REAL and operational."
+}

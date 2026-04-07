@@ -221,17 +221,24 @@ async def get_profile(profile_id: str, user: UserResponse = Depends(get_current_
 
 @router.put("/{profile_id}/overrides")
 async def update_overrides(profile_id: str, overrides: dict, user: UserResponse = Depends(get_current_user)):
-    """Update seller-specific overrides."""
+    """Update seller-specific overrides. Extracts company_id to document root."""
     doc = await db.seller_company_profiles.find_one({"profile_id": profile_id}, {"_id": 0})
     if not doc or doc["seller_id"] != user.user_id:
         raise HTTPException(403, "No autorizado")
 
     now = datetime.now(timezone.utc).isoformat()
+
+    # Extract company_id — must live at document root, not inside seller_overrides
+    company_id_link = overrides.pop("company_id", None)
     merged = {**doc.get("seller_overrides", {}), **{k: v for k, v in overrides.items() if v is not None}}
+
+    update_set = {"seller_overrides": merged, "updated_at": now}
+    if company_id_link:
+        update_set["company_id"] = company_id_link
 
     await db.seller_company_profiles.update_one(
         {"profile_id": profile_id},
-        {"$set": {"seller_overrides": merged, "updated_at": now}}
+        {"$set": update_set}
     )
     return {"updated": True}
 

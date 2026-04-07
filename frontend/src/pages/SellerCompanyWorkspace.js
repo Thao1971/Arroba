@@ -77,11 +77,19 @@ const SellerCompanyWorkspace = () => {
   // Load taxonomy
   useEffect(() => { taxonomyAPI.getCategories().then(r => setCategories(r.data)).catch(() => {}); }, []);
 
-  // Load subcategories when category changes
+  // Load subcategories when category changes + fix CIS/local taxonomy name mismatch
   useEffect(() => {
     if (overrides.taxonomy_category) {
       const cat = categories.find(c => c.name === overrides.taxonomy_category || c.id === overrides.taxonomy_category);
-      setSubcategories(cat?.subcategories || []);
+      const subs = cat?.subcategories || [];
+      setSubcategories(subs);
+      if (overrides.taxonomy_subcategory && subs.length > 0) {
+        const exact = subs.find(s => s.name === overrides.taxonomy_subcategory);
+        if (!exact) {
+          const partial = subs.find(s => s.name.startsWith(overrides.taxonomy_subcategory) || s.name.includes(overrides.taxonomy_subcategory));
+          if (partial) setOverrides(p => ({...p, taxonomy_subcategory: partial.name}));
+        }
+      }
     }
   }, [overrides.taxonomy_category, categories]);
 
@@ -131,17 +139,15 @@ const SellerCompanyWorkspace = () => {
     load();
   }, [companyId]);
 
-  // Panel status recalculation
-  const recalcPs = (comp, ovr, fins) => {
-    const s = { ...ps };
+  // Panel status recalculation — pure function, no closure state
+  const recalcPs = (comp, ovr, fins, val, currentPs) => {
+    const s = { ...(currentPs || ps) };
     s.compania = comp?.legal_name && comp?.cif ? 'complete' : comp?.legal_name ? 'partial' : 'empty';
-    // Ficha: needs description + at least one qualitative
     s.ficha = (ovr.description || ovr.trade_name) && (ovr.recurring_revenue_pct || ovr.founder_dependency) ? 'complete' : (ovr.description || ovr.trade_name) ? 'partial' : 'empty';
-    // Financieros: needs at least 1 year with revenue
     const hasYear = fins.some(f => (f.pnl?.revenue || f.revenue) > 0);
     s.financieros = hasYear ? 'complete' : fins.length > 0 ? 'partial' : 'empty';
-    s.valoracion = valuation ? 'complete' : 'empty';
-    s.operacion = overrides.operation_types?.length > 0 ? 'complete' : 'empty';
+    s.valoracion = val ? 'complete' : 'empty';
+    s.operacion = ovr.operation_types?.length > 0 ? 'complete' : 'empty';
     setPs(s);
     return s;
   };
@@ -167,9 +173,19 @@ const SellerCompanyWorkspace = () => {
       const latestFin = ap.financials?.find(f => f.employees);
       if (latestFin?.employees) setOverrides(prev => ({ ...prev, employees_count: prev.employees_count || String(latestFin.employees) }));
       if (ap.identity?.founded_date) { const m = ap.identity.founded_date.match(/(\d{4})/); if (m) setOverrides(prev => ({ ...prev, founded_year: prev.founded_year || m[1] })); }
+      // Merge saved overrides and pricing from profile (rehidrate on re-resolve)
+      if (p.seller_overrides && Object.keys(p.seller_overrides).length) setOverrides(prev => ({ ...prev, ...p.seller_overrides }));
+      if (p.pricing) setPricing(prev => ({ ...prev, ...p.pricing }));
+      if (p.panel_status) setPs(p.panel_status);
       setCoverage(ap.coverage || {});
       setSource(ap.source || '');
-      recalcPs({ ...ap.identity, cif }, overrides, ap.financials || []);
+      // Compute panel status with the NEW data
+      const newOverrides = { ...overrides, taxonomy_category: ap.taxonomy?.category||'', taxonomy_subcategory: ap.taxonomy?.subcategory||'', description: overrides.description || ap.enrichment?.description || '' };
+      recalcPs({ ...ap.identity, cif }, newOverrides, ap.financials || [], null, ps);
+      // If profile already linked to a company, redirect to that workspace
+      if (p.company_id && !companyId) {
+        navigate(`/seller/company/${p.company_id}`, { replace: true });
+      }
     } catch (err) {
       const detail = err.response?.data?.detail || '';
       if (detail.includes('no se encontraron') || err.response?.status === 404) {
@@ -201,7 +217,7 @@ const SellerCompanyWorkspace = () => {
         await sellerProfilesAPI.updateOverrides(profileId, { ...overrides, company_id: id }).catch(() => {});
         await sellerProfilesAPI.updatePricing(profileId, { ...pricing, asking_price: parseFloat(pricing.asking_price) || null, comfort_margin_pct: parseFloat(pricing.comfort_margin_pct) || null }).catch(() => {});
         // Update panel status
-        const newPs = recalcPs(company, overrides, financials);
+        const newPs = recalcPs(company, overrides, financials, valuation, ps);
         await sellerProfilesAPI.updatePanelStatus(profileId, newPs).catch(() => {});
       }
       setSaveMsg('Guardado correctamente');
@@ -219,7 +235,9 @@ const SellerCompanyWorkspace = () => {
       await companiesAPI.updateFinancials(companyId, { financials }).catch(() => {});
       const res = await companiesAPI.calculateValuation(companyId);
       setValuation(res.data);
-      setPs(p => ({ ...p, valoracion: 'complete' }));
+      const newPs = recalcPs(company, overrides, financials, res.data, ps);
+      setPs(newPs);
+      if (profileId) await sellerProfilesAPI.updatePanelStatus(profileId, newPs).catch(() => {});
     } catch (e) { console.error('Valuation error:', e); }
   };
 
