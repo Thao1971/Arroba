@@ -77,6 +77,11 @@ async def init_db():
     # Financial visuals
     await db.financial_visuals.create_index("company_id", unique=True)
 
+    # Seller company profiles
+    await db.seller_company_profiles.create_index("profile_id", unique=True)
+    await db.seller_company_profiles.create_index("seller_id")
+    await db.seller_company_profiles.create_index("company_master_id")
+
     # NDA
     await db.nda_signatures.create_index("signature_id", unique=True)
     await db.nda_signatures.create_index([("deal_id", 1), ("buyer_user_id", 1)])

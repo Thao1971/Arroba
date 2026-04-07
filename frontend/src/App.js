@@ -21,6 +21,7 @@ import AdvisorMandatos from './pages/AdvisorMandatos';
 import ConversationPage from './pages/ConversationPage';
 import ValuationWizard from './pages/ValuationWizard';
 import PlansPage from './pages/PlansPage';
+import BuyerDealView from './pages/BuyerDealView';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
@@ -85,6 +86,7 @@ const AppRouter = () => {
       <Route path="/buyer/onboarding" element={<ProtectedRoute allowedRoles={['buyer', 'admin']} skipOnboardingCheck><BuyerOnboarding /></ProtectedRoute>} />
       <Route path="/buyer/procesos" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><BuyerDashboard /></ProtectedRoute>} />
       <Route path="/buyer/guardados" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><SavedDeals /></ProtectedRoute>} />
+      <Route path="/buyer/deal/:dealId" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><BuyerDealView /></ProtectedRoute>} />
       <Route path="/buyer/dashboard" element={<Navigate to="/buyer/procesos" replace />} />
       <Route path="/buyer/profile" element={<Navigate to="/buyer/procesos" replace />} />
       <Route path="/buyer/processes" element={<Navigate to="/buyer/procesos" replace />} />

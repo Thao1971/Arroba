@@ -36,7 +36,7 @@ async def resolve_via_cis(
         "cif": cif,
         "requesting_system": "arroba",
         "requested_by": requesting_user,
-        "required_blocks": required_blocks or ["identity", "financials", "enrichment"],
+        "required_blocks": required_blocks or ["identity", "financials", "balance", "employees", "enrichment"],
         "force_refresh": force_refresh,
     }
 

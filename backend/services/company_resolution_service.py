@@ -31,7 +31,7 @@ async def resolve_company(
     3. Always return normalized CanonicalCompanyPayload
     """
     if required_blocks is None:
-        required_blocks = ["identity", "financials", "enrichment"]
+        required_blocks = ["identity", "financials", "balance", "employees", "enrichment"]
 
     result = None
     provider = None
