@@ -32,16 +32,13 @@ const BuyerDealView = () => {
 
   const fetchDeal = useCallback(async () => {
     try {
-      const res = await marketplaceAPI.getDealTeaser(dealId);
+      const res = await marketplaceAPI.getGatedDeal(dealId);
       setDeal(res.data);
-      // Load visuals if available
-      if (res.data?.company_id) {
-        try {
-          const vRes = await companiesAPI.getVisuals(res.data.company_id);
-          setVisuals(vRes.data?.financial_visuals);
-        } catch {}
-      }
-    } catch {}
+      if (res.data?.visuals) setVisuals(res.data.visuals);
+    } catch {
+      // Fallback to teaser
+      try { const res2 = await marketplaceAPI.getDealTeaser(dealId); setDeal(res2.data); } catch {}
+    }
     finally { setLoading(false); }
   }, [dealId]);
 
@@ -60,13 +57,11 @@ const BuyerDealView = () => {
   if (!deal) return <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--surface-0)' }}><p style={{ color: 'var(--outline)' }}>Deal no encontrado</p></div>;
 
   const teaser = deal.teaser || {};
-  const hasNda = deal.ndas_signed?.some(n => n.buyer_id === user?.user_id);
-  const buyerVisuals = visuals ? Object.fromEntries(
-    Object.entries(visuals).filter(([, v]) => v.use_in_buyer_advanced && v.enabled)
-  ) : null;
-  const teaserVisuals = visuals ? Object.fromEntries(
-    Object.entries(visuals).filter(([, v]) => v.use_in_teaser && v.enabled)
-  ) : null;
+  const hasNda = deal.nda_signed || deal.ndas_signed?.some(n => n.buyer_id === user?.user_id);
+  const accessLevel = deal.access_level || (hasNda ? 'post_nda' : 'public');
+
+  // Visuals come pre-filtered from the gated endpoint
+  const dealVisuals = visuals || {};
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--surface-0)' }} data-testid="buyer-deal-view">
@@ -194,24 +189,14 @@ const BuyerDealView = () => {
                     </div>
                   )}
 
-                  {/* Teaser visuals */}
-                  {teaserVisuals && Object.keys(teaserVisuals).length > 0 && (
+                  {/* Financial visuals (filtered by access level from backend) */}
+                  {Object.keys(dealVisuals).length > 0 && (
                     <div>
-                      <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>MÉTRICAS FINANCIERAS</p>
+                      <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>
+                        {accessLevel === 'post_nda' ? 'ANÁLISIS FINANCIERO' : 'MÉTRICAS FINANCIERAS'}
+                      </p>
                       <div className="grid md:grid-cols-2 gap-4">
-                        {Object.entries(teaserVisuals).map(([id, v]) => (
-                          <FinancialVisualCard key={id} chartId={id} visual={v} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Post-NDA: buyer advanced visuals */}
-                  {hasNda && buyerVisuals && Object.keys(buyerVisuals).length > 0 && (
-                    <div>
-                      <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>ANÁLISIS FINANCIERO AVANZADO</p>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {Object.entries(buyerVisuals).map(([id, v]) => (
+                        {Object.entries(dealVisuals).map(([id, v]) => (
                           <FinancialVisualCard key={id} chartId={id} visual={v} />
                         ))}
                       </div>

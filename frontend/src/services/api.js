@@ -63,6 +63,7 @@ export const usersAPI = {
 export const marketplaceAPI = {
   listDeals: (params) => api.get('/marketplace/deals', { params }),
   getDealTeaser: (dealId) => api.get(`/marketplace/deals/${dealId}/teaser`),
+  getGatedDeal: (dealId) => api.get(`/marketplace/deals/${dealId}/gated`),
   getSectors: () => api.get('/marketplace/sectors'),
   getStats: () => api.get('/marketplace/stats'),
   getFeaturedDeals: () => api.get('/marketplace/featured'),

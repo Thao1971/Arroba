@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -168,3 +168,89 @@ async def get_featured_deals():
         e.pop("_score", None)
 
     return enriched[:6]
+
+
+
+# ─── ACCESS LEVELS ───
+# public: teaser only, limited metrics, no visuals avanzados
+# post_nda: full teaser + infomemo + buyer_advanced visuals + Q&A
+# dataroom: everything including documents
+
+def _determine_access_level(deal: dict, user_id: str | None) -> str:
+    """Determine buyer access level for a deal."""
+    if not user_id:
+        return "public"
+    ndas = deal.get("ndas_signed", [])
+    has_nda = any(n.get("buyer_id") == user_id for n in ndas)
+    if has_nda:
+        return "post_nda"
+    return "public"
+
+
+@router.get("/deals/{deal_id}/gated")
+async def get_gated_deal(deal_id: str, request: Request):
+    """
+    Gated deal endpoint — returns data filtered by buyer access level.
+    """
+    deal = await deals_collection.find_one(
+        {"deal_id": deal_id, "status": {"$nin": ["draft", "dropped"]}},
+        {"_id": 0}
+    )
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+
+    # Extract user from token (optional — no 401 if missing)
+    user_id = None
+    try:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            from utils.security import decode_jwt_token
+            payload = decode_jwt_token(token)
+            user_id = payload.get("sub") or payload.get("user_id")
+    except Exception:
+        pass
+
+    access_level = _determine_access_level(deal, user_id)
+
+    # Base response (always visible)
+    response = {
+        "deal_id": deal["deal_id"],
+        "status": deal["status"],
+        "access_level": access_level,
+        "teaser": deal.get("teaser", {}),
+        "operation_types_allowed": deal.get("operation_types_allowed", []),
+        "asking_price": deal.get("asking_price") if access_level != "public" else None,
+        "created_at": deal.get("created_at"),
+    }
+
+    # Load visuals filtered by surface
+    company_id = deal.get("company_id")
+    if company_id:
+        from services.financial_visuals_service import get_financial_visuals
+        visuals_doc = await get_financial_visuals(company_id)
+        all_visuals = visuals_doc.get("financial_visuals", {}) if visuals_doc else {}
+
+        if access_level == "public":
+            # Only teaser visuals
+            response["visuals"] = {k: v for k, v in all_visuals.items() if v.get("use_in_teaser") and v.get("enabled")}
+            response["visuals_surface"] = "teaser"
+        elif access_level == "post_nda":
+            # Teaser + infomemo + buyer_advanced
+            response["visuals"] = {k: v for k, v in all_visuals.items() if (v.get("use_in_teaser") or v.get("use_in_infomemo") or v.get("use_in_buyer_advanced")) and v.get("enabled")}
+            response["visuals_surface"] = "full"
+            # Include infomemo content
+            response["infomemo"] = deal.get("infomemo")
+            response["asking_price"] = deal.get("asking_price")
+            # Include NDA status
+            response["nda_signed"] = True
+        else:
+            response["visuals"] = {}
+            response["visuals_surface"] = "none"
+
+    # Compute signals
+    score_data = await compute_signals_batch([deal])
+    sd = score_data.get(deal_id, {"signals": [], "score": 0})
+    response["signals"] = sd["signals"]
+
+    return response
