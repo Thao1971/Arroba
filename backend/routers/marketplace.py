@@ -215,9 +215,11 @@ async def get_gated_deal(deal_id: str, request: Request):
 
     # Sanitize teaser for buyer-facing: remove identifying data
     teaser = dict(deal.get("teaser", {}))
-    BUYER_BLOCKED_FIELDS = ["phone", "email", "street", "postal_code", "address", "contact_email", "contact_phone", "website"]
-    for field in BUYER_BLOCKED_FIELDS:
-        teaser.pop(field, None)
+    BUYER_BLOCKED = {"phone", "telefono", "email", "contact_email", "contact_phone",
+                     "street", "direccion", "postal_code", "codigo_postal", "address", "website", "web"}
+    for field in list(teaser.keys()):
+        if field in BUYER_BLOCKED:
+            del teaser[field]
 
     # Base response (always visible)
     response = {
