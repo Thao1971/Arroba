@@ -12,6 +12,7 @@ import AuthCallback from './pages/AuthCallback';
 import BuyerDashboard from './pages/BuyerDashboard';
 import SellerWorkspace from './pages/SellerWorkspace';
 import SellerWizard from './pages/SellerWizard';
+import SellerCompanyWorkspace from './pages/SellerCompanyWorkspace';
 import DealPage from './pages/DealPage';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
@@ -103,8 +104,8 @@ const AppRouter = () => {
       <Route path="/seller/dashboard" element={<Navigate to="/seller/deals" replace />} />
       {/* Seller Wizard (outside workspace shell) */}
       <Route path="/seller/onboarding" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
-      <Route path="/seller/company/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
-      <Route path="/seller/company/:companyId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
+      <Route path="/seller/company/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerCompanyWorkspace /></ProtectedRoute>} />
+      <Route path="/seller/company/:companyId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerCompanyWorkspace /></ProtectedRoute>} />
 
       {/* Q&A Workspace */}
       <Route path="/qa/:conversationId" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}><ConversationPage /></ProtectedRoute>} />
