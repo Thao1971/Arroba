@@ -213,12 +213,18 @@ async def get_gated_deal(deal_id: str, request: Request):
 
     access_level = _determine_access_level(deal, user_id)
 
+    # Sanitize teaser for buyer-facing: remove identifying data
+    teaser = dict(deal.get("teaser", {}))
+    BUYER_BLOCKED_FIELDS = ["phone", "email", "street", "postal_code", "address", "contact_email", "contact_phone", "website"]
+    for field in BUYER_BLOCKED_FIELDS:
+        teaser.pop(field, None)
+
     # Base response (always visible)
     response = {
         "deal_id": deal["deal_id"],
         "status": deal["status"],
         "access_level": access_level,
-        "teaser": deal.get("teaser", {}),
+        "teaser": teaser,
         "operation_types_allowed": deal.get("operation_types_allowed", []),
         "asking_price": deal.get("asking_price") if access_level != "public" else None,
         "created_at": deal.get("created_at"),

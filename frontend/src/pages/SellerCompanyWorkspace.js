@@ -28,6 +28,25 @@ const PANELS = [
   { id: 'operacion', label: 'Operación y contenido', icon: Briefcase },
 ];
 
+/* ─── Per-panel navigation ─── */
+const PanelNav = ({ onSave, onSaveNext, onBack, saving, canBack }) => (
+  <div className="flex items-center justify-between mt-8 pt-6" style={{ borderTop: '1px solid var(--surface-2)' }}>
+    {canBack ? (
+      <button onClick={onBack} className="flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--outline)' }}><ArrowLeft size={12} /> ANTERIOR</button>
+    ) : <div />}
+    <div className="flex gap-3">
+      <button onClick={onSave} disabled={saving} className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-2 disabled:opacity-50" style={{ background: 'var(--surface-2)', color: 'var(--on-surface)' }}>
+        {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} GUARDAR
+      </button>
+      {onSaveNext && (
+        <button onClick={onSaveNext} disabled={saving} className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-2 disabled:opacity-50" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>
+          GUARDAR Y SIGUIENTE <ArrowRight size={11} />
+        </button>
+      )}
+    </div>
+  </div>
+);
+
 /* ═══════════════════════════════════════════
    SELLER COMPANY WORKSPACE
    ═══════════════════════════════════════════ */
@@ -57,6 +76,7 @@ const SellerCompanyWorkspace = () => {
     recurring_revenue_pct: '', client_concentration_top5: '',
     founder_dependency: 'medium', sale_motivation: '',
     adjusted_ebitda_by_year: {},
+    ebitda_explanation: '',
   });
 
   // Deal config
@@ -131,6 +151,11 @@ const SellerCompanyWorkspace = () => {
 
   const profileReadiness = Math.round((Object.values(panelStatus).filter(v => v === 'complete').length / PANELS.length) * 100);
   const dealReadiness = deal?.status === 'published' ? 100 : deal ? 50 : 0;
+
+  const panelIdx = PANELS.findIndex(p => p.id === activePanel);
+  const goNext = () => { if (panelIdx < PANELS.length - 1) setActivePanel(PANELS[panelIdx + 1].id); };
+  const goPrev = () => { if (panelIdx > 0) setActivePanel(PANELS[panelIdx - 1].id); };
+  const saveAndNext = async () => { await handleSave(); goNext(); };
 
   // CIF lookup
   const handleCifLookup = async (cif) => {
@@ -258,11 +283,8 @@ const SellerCompanyWorkspace = () => {
         </nav>
 
         {/* Bottom */}
-        <div className="px-4 pb-6 space-y-2 mt-auto">
-          <button onClick={handleSave} disabled={saving} className="w-full py-2.5 text-[11px] font-bold flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>
-            {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} GUARDAR
-          </button>
-          <Link to="/seller"><button className="w-full py-2.5 text-[11px] font-bold flex items-center justify-center gap-2" style={{ background: 'var(--on-surface)', color: '#fff' }}><ArrowLeft size={11} /> VOLVER</button></Link>
+        <div className="px-4 pb-6 mt-auto">
+          <Link to="/seller"><button className="w-full py-2.5 text-[11px] font-bold flex items-center justify-center gap-2" style={{ background: 'var(--on-surface)', color: '#fff' }}><ArrowLeft size={11} /> VOLVER AL DASHBOARD</button></Link>
         </div>
       </aside>
 
@@ -319,6 +341,17 @@ const SellerCompanyWorkspace = () => {
                   ))}
                 </div>
               )}
+              {/* Source + last update */}
+              {company?.iberinform_synced && (
+                <div className="p-3 flex items-center justify-between" style={{ background: 'var(--surface-1)' }}>
+                  <div>
+                    <p className="text-[10px]" style={{ color: 'var(--outline)' }}>Fuente: <b>{cifResult?.source === 'CIS' ? 'CIS' : 'Iberinform (fallback transitorio)'}</b></p>
+                    {cifResult?.resolution_meta?.resolved_at && <p className="text-[9px]" style={{ color: 'var(--outline-variant)' }}>Última actualización: {new Date(cifResult.resolution_meta.resolved_at).toLocaleDateString('es-ES')}</p>}
+                  </div>
+                  <button onClick={() => handleCifLookup(company.cif)} className="text-[10px] font-bold" style={{ color: 'var(--arroba-primary)' }}>REFRESCAR DESDE CIS</button>
+                </div>
+              )}
+              <PanelNav onSave={handleSave} onSaveNext={saveAndNext} saving={saving} canBack={false} />
             </div>
           )}
 
@@ -347,6 +380,7 @@ const SellerCompanyWorkspace = () => {
                   <div><label className="label-arroba block mb-1">% CONCENTRACIÓN TOP 5 CLIENTES</label><NumericInputES value={overrides.client_concentration_top5} onChange={v => setOverrides(p => ({...p, client_concentration_top5: v}))} placeholder="40" className="input-arroba w-full" /></div>
                 </div>
               </div>
+              <PanelNav onSave={handleSave} onSaveNext={saveAndNext} onBack={goPrev} saving={saving} canBack={true} />
             </div>
           )}
 
@@ -354,6 +388,13 @@ const SellerCompanyWorkspace = () => {
           {activePanel === 'financieros' && (
             <div data-testid="panel-financieros" style={{ width: '100%' }}>
               <FinancialStatementsStep financials={financials} setFinancials={setFinancials} financialDataSource={financialDataSource} valuationInputs={valuationInputs} setValuationInputs={setValuationInputs} onRecalculate={null} />
+              {/* EBITDA bridge / explanation */}
+              <div className="mt-6 p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                <p className="label-arroba mb-2" style={{ color: 'var(--outline)' }}>EXPLICACIÓN DEL EBITDA AJUSTADO</p>
+                <p className="text-[10px] mb-3" style={{ color: 'var(--outline)' }}>Describe qué ajustes no recurrentes, extraordinarios o no operativos has aplicado para obtener un EBITDA más representativo.</p>
+                <textarea value={overrides.ebitda_explanation} onChange={e => setOverrides(p => ({...p, ebitda_explanation: e.target.value}))} rows={3} className="input-arroba w-full resize-none" placeholder="Ej: Se han eliminado gastos extraordinarios de mudanza (120K), bonus one-off al fundador (80K) y un litigio ya resuelto (50K)." data-testid="ebitda-explanation" />
+              </div>
+              <PanelNav onSave={handleSave} onSaveNext={saveAndNext} onBack={goPrev} saving={saving} canBack={true} />
             </div>
           )}
 
@@ -375,6 +416,7 @@ const SellerCompanyWorkspace = () => {
               )}
               {/* Visuals gallery */}
               <FinancialVisualsGallery visuals={visuals} loading={visualsLoading} onToggle={handleVisualToggle} onRegenerate={handleGenerateVisuals} />
+              <PanelNav onSave={handleSave} onSaveNext={saveAndNext} onBack={goPrev} saving={saving} canBack={true} />
             </div>
           )}
 
@@ -420,6 +462,7 @@ const SellerCompanyWorkspace = () => {
                   )}
                 </div>
               </div>
+              <PanelNav onSave={handleSave} onBack={goPrev} saving={saving} canBack={true} />
             </div>
           )}
         </div>

@@ -103,7 +103,7 @@ const AppRouter = () => {
       <Route path="/seller/deal/:dealId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
       <Route path="/seller/dashboard" element={<Navigate to="/seller/deals" replace />} />
       {/* Seller Wizard (outside workspace shell) */}
-      <Route path="/seller/onboarding" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWizard /></ProtectedRoute>} />
+      <Route path="/seller/onboarding" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerCompanyWorkspace /></ProtectedRoute>} />
       <Route path="/seller/company/new" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerCompanyWorkspace /></ProtectedRoute>} />
       <Route path="/seller/company/:companyId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerCompanyWorkspace /></ProtectedRoute>} />
 
