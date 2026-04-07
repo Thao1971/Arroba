@@ -197,6 +197,24 @@ const SellerCompanyWorkspace = () => {
     finally { setCifLoading(false); }
   };
 
+  // Flatten CIS financials to company API format
+  const flattenFinancials = (fins) => fins.map(f => {
+    if (f.pnl) {
+      return {
+        year: f.year,
+        revenue: f.pnl.revenue || 0,
+        ebitda: f.pnl.ebitda || f.pnl.adjusted_ebitda || 0,
+        ebitda_margin: f.pnl.ebitda_margin || null,
+        net_income: f.pnl.net_result || null,
+        recurring_revenue_pct: null,
+        client_concentration_top5: null,
+        growth_rate: null,
+        data_source: f.data_source || 'CIS',
+      };
+    }
+    return f;
+  });
+
   // Save — persists to BOTH companies AND seller_company_profiles
   const handleSave = async () => {
     setSaving(true); setSaveMsg('');
@@ -209,8 +227,8 @@ const SellerCompanyWorkspace = () => {
       } else if (id) {
         await companiesAPI.update(id, { trade_name: overrides.trade_name, description: overrides.description, city: company?.city, website: company?.website, founded_year: overrides.founded_year, employees_count: overrides.employees_count });
       }
-      // Save financials
-      if (id && financials.length) await companiesAPI.updateFinancials(id, { financials }).catch(() => {});
+      // Save financials (flatten CIS format to company API format)
+      if (id && financials.length) await companiesAPI.updateFinancials(id, { financials: flattenFinancials(financials) }).catch(e => console.warn('Financials sync:', e));
       // Save to seller_company_profile
       if (profileId) {
         // Link company_id if not yet linked
@@ -232,7 +250,7 @@ const SellerCompanyWorkspace = () => {
   const handleCalcValuation = async () => {
     if (!companyId) return;
     try {
-      await companiesAPI.updateFinancials(companyId, { financials }).catch(() => {});
+      await companiesAPI.updateFinancials(companyId, { financials: flattenFinancials(financials) }).catch(() => {});
       const res = await companiesAPI.calculateValuation(companyId);
       setValuation(res.data);
       const newPs = recalcPs(company, overrides, financials, res.data, ps);

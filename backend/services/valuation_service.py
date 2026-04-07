@@ -7,7 +7,7 @@ def calculate_valuation(company: dict) -> dict:
     Returns a dictionary with valuation range and explanation.
     """
     financials = company.get("financials", [])
-    valuation_inputs = company.get("valuation_inputs", {})
+    valuation_inputs = company.get("valuation_inputs") or {}
     company_type = company.get("company_type", "digital_agency")
     
     if not financials:
