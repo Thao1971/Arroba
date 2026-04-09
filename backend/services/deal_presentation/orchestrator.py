@@ -9,6 +9,7 @@ from services.deal_presentation.cta_engine import compute_cta_and_actions
 from services.deal_presentation.premium_quant import compute_premium_kpis
 from services.deal_presentation.premium_benchmark import compute_benchmark
 from services.deal_presentation.premium_intelligence import generate_premium_analysis
+from services.deal_presentation.premium_valuation import compute_premium_valuation
 
 
 async def orchestrate_presentation(deal_id: str, buyer_user_id: str) -> dict:
@@ -80,24 +81,20 @@ async def orchestrate_presentation(deal_id: str, buyer_user_id: str) -> dict:
     # --- 8. Premium layers (Pro+ with NDA only) ---
     premium_quant_data = None
     premium_benchmark_data = None
-    premium_ai_data = None
+    premium_valuation_data = None
 
     if buyer_tier == "pro+" and has_nda:
-        # Get CIS financials for premium computation
         ap = (seller_profile or {}).get("auto_prefilled", {}) if seller_profile else {}
         cis_fins = ap.get("financials") or []
         category = ap.get("taxonomy", {}).get("category") or ((company or {}).get("sectors") or [""])[0]
         employees = int(deal_summary.get("employees") or 0) if deal_summary.get("employees") else None
+        overrides = (seller_profile or {}).get("seller_overrides", {}) if seller_profile else {}
 
-        if cis_fins:
-            premium_quant_data = compute_premium_kpis(cis_fins, employees)
-            premium_benchmark_data = await compute_benchmark(cis_fins, category, employees)
-            # AI analysis loaded separately via /premium-analysis endpoint (non-blocking)
-        else:
-            company_fins = (company or {}).get("financials") or []
-            if company_fins:
-                premium_quant_data = compute_premium_kpis(company_fins, employees)
-                premium_benchmark_data = await compute_benchmark(company_fins, category, employees)
+        fins_for_premium = cis_fins if cis_fins else ((company or {}).get("financials") or [])
+        if fins_for_premium:
+            premium_quant_data = compute_premium_kpis(fins_for_premium, employees)
+            premium_benchmark_data = await compute_benchmark(fins_for_premium, category, employees)
+            premium_valuation_data = await compute_premium_valuation(fins_for_premium, category, employees, overrides)
 
     # --- 9. Compose response ---
     return {
@@ -120,7 +117,8 @@ async def orchestrate_presentation(deal_id: str, buyer_user_id: str) -> dict:
         "actions_panel": cta["actions_panel"],
         "premium_quant": premium_quant_data,
         "premium_benchmark": premium_benchmark_data,
-        "premium_ai_analysis": premium_ai_data,
+        "premium_valuation": premium_valuation_data,
+        "premium_ai_analysis": None,
     }
 
 

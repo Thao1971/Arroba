@@ -427,9 +427,31 @@ const DealPageCanonical = () => {
                   <div className="px-5 pb-5"><DataRoomBuyerView dealId={dealId} /></div>
                 ) : (
                   <div className="px-5 pb-5">
-                    <div className="p-4 text-center" style={{ background: 'var(--surface-1)' }}>
-                      <FolderOpen size={20} className="mx-auto mb-2" style={{ color: 'var(--outline-variant)' }} />
-                      <p className="text-[10px]" style={{ color: 'var(--outline)' }}>El acceso al Data Room requiere NDA firmado.</p>
+                    <div className="p-4" style={{ background: 'var(--surface-1)' }}>
+                      <FolderOpen size={18} className="mb-2" style={{ color: 'var(--outline-variant)' }} />
+                      <p className="text-xs font-bold mb-1" style={{ color: 'var(--on-surface)' }}>
+                        {mods?.dataroom?.state === 'nda_required'
+                          ? 'Disponible tras firma de NDA'
+                          : mods?.dataroom?.state === 'contact_required'
+                          ? 'Disponible tras solicitud de contacto aceptada'
+                          : mods?.dataroom?.state === 'plan_required'
+                          ? 'Disponible desde el plan Pro'
+                          : 'Todavia no tienes acceso al Data Room'}
+                      </p>
+                      <p className="text-[10px] mb-3" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>
+                        {mods?.dataroom?.state === 'nda_required'
+                          ? 'Firma el acuerdo de confidencialidad para acceder a la documentacion del proceso.'
+                          : mods?.dataroom?.state === 'contact_required'
+                          ? 'Solicita contacto con el vendedor para avanzar en el proceso.'
+                          : 'El acceso a la documentacion requiere avanzar en el proceso de contacto y confidencialidad.'}
+                      </p>
+                      <button onClick={() => {
+                        if (mods?.dataroom?.state === 'nda_required') navigate(`/explorar/${dealId}?action=nda`);
+                        else if (mods?.dataroom?.state === 'contact_required') requestContact();
+                        else navigate('/planes?role=buyer');
+                      }} className="px-4 py-2 text-[10px] font-bold" style={{ background: 'var(--on-surface)', color: '#fff' }}>
+                        {mods?.dataroom?.state === 'nda_required' ? 'FIRMAR NDA' : mods?.dataroom?.state === 'contact_required' ? 'SOLICITAR CONTACTO' : 'VER PLANES'}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -473,6 +495,95 @@ const DealPageCanonical = () => {
               </div>
             )}
 
+
+            {/* Premium Valuation & Benchmark */}
+            {p.premium_valuation?.available && (
+              <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                <div className="flex items-center gap-2 mb-4">
+                  <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>VALORACION Y BENCHMARK PREMIUM</p>
+                  <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>PRO+</span>
+                  <span className="text-[9px] ml-auto" style={{ color: 'var(--outline)' }}>Fuente: {p.premium_valuation.source}</span>
+                </div>
+
+                {/* Quality Score */}
+                <div className="flex items-center gap-4 mb-5 p-4" style={{ background: 'var(--surface-lowest)' }}>
+                  <div className="text-center">
+                    <p className="text-3xl font-black" style={{ color: p.premium_valuation.quality_score >= 70 ? '#16a34a' : p.premium_valuation.quality_score >= 40 ? '#d97706' : '#dc2626' }}>{p.premium_valuation.quality_score}</p>
+                    <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>QUALITY SCORE</p>
+                  </div>
+                  <div className="flex-1">
+                    <div className="h-2 mb-2" style={{ background: 'var(--surface-2)' }}>
+                      <div className="h-full" style={{ width: `${p.premium_valuation.quality_score}%`, background: p.premium_valuation.quality_score >= 70 ? '#16a34a' : '#d97706', transition: 'width 0.5s' }} />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {p.premium_valuation.quality_drivers?.map((d, i) => (
+                        <span key={i} className="text-[9px] font-bold px-2 py-0.5" style={{ background: d.impact === 'positivo' ? 'rgba(22,163,74,0.08)' : d.impact === 'negativo' ? 'rgba(220,38,38,0.08)' : 'var(--surface-2)', color: d.impact === 'positivo' ? '#16a34a' : d.impact === 'negativo' ? '#dc2626' : 'var(--outline)' }}>
+                          {d.factor}: {d.impact}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scenarios */}
+                <p className="text-[10px] font-bold mb-3" style={{ color: 'var(--on-surface)' }}>ESCENARIOS DE ENTERPRISE VALUE</p>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {Object.entries(p.premium_valuation.scenarios).map(([k, sc]) => (
+                    <div key={k} className="p-3 text-center" style={{ background: k === 'base' ? 'var(--on-surface)' : 'var(--surface-1)', color: k === 'base' ? '#fff' : 'var(--on-surface)' }}>
+                      <p className="text-[9px] font-bold mb-1" style={{ opacity: 0.7 }}>{sc.label?.toUpperCase()}</p>
+                      <p className="text-lg font-black">{fmtMillions(sc.ev)}</p>
+                      <p className="text-[9px]" style={{ opacity: 0.6 }}>{sc.multiple}x EBITDA</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Equity adjustment */}
+                {p.premium_valuation.equity_adjustments && (
+                  <div className="p-3 mb-4 flex items-center justify-between" style={{ background: 'var(--surface-1)' }}>
+                    <div>
+                      <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>AJUSTE EQUITY (DEUDA NETA)</p>
+                      <p className="text-[10px]" style={{ color: 'var(--outline)' }}>{p.premium_valuation.equity_adjustments.description}</p>
+                    </div>
+                    <p className="text-sm font-black" style={{ color: p.premium_valuation.equity_adjustments.net_debt < 0 ? '#16a34a' : '#dc2626' }}>
+                      {fmtES(p.premium_valuation.equity_adjustments.net_debt, 0)} EUR
+                    </p>
+                  </div>
+                )}
+
+                {/* Parameters */}
+                <div className="p-3 mb-4" style={{ background: 'var(--surface-1)' }}>
+                  <p className="text-[9px] font-bold mb-2" style={{ color: 'var(--outline)' }}>PARAMETROS UTILIZADOS</p>
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>EBITDA base</span><span className="font-bold">{fmtES(p.premium_valuation.parameters.ebitda_base, 0)} EUR</span></div>
+                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Tipo</span><span className="font-bold">{p.premium_valuation.parameters.ebitda_type}</span></div>
+                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Categoria</span><span className="font-bold">{p.premium_valuation.parameters.category}</span></div>
+                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Multiplos</span><span className="font-bold">{p.premium_valuation.parameters.multiple_range.min}x — {p.premium_valuation.parameters.multiple_range.max}x</span></div>
+                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Quality factor</span><span className="font-bold">{p.premium_valuation.parameters.quality_factor}x</span></div>
+                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Metodo</span><span className="font-bold">{p.premium_valuation.parameters.method}</span></div>
+                  </div>
+                </div>
+
+                {/* Methodology expandable */}
+                <details className="text-[10px]">
+                  <summary className="font-bold cursor-pointer py-2" style={{ color: 'var(--arroba-primary)' }}>VER METODOLOGIA Y DEFINICIONES</summary>
+                  <div className="mt-2 space-y-3">
+                    {p.premium_valuation.methodology.steps.map((s, i) => (
+                      <div key={i} className="flex gap-2">
+                        <span className="font-bold shrink-0 w-5 text-right" style={{ color: 'var(--arroba-primary)' }}>{i+1}.</span>
+                        <div><p className="font-bold">{s.step}</p><p style={{ color: 'var(--outline)', lineHeight: 1.5 }}>{s.description}</p></div>
+                      </div>
+                    ))}
+                    <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--surface-2)' }}>
+                      <p className="font-bold mb-2">DEFINICIONES</p>
+                      {Object.entries(p.premium_valuation.methodology.definitions).map(([term, def_]) => (
+                        <div key={term} className="mb-1"><span className="font-bold">{term}:</span> <span style={{ color: 'var(--outline)' }}>{def_}</span></div>
+                      ))}
+                    </div>
+                    <p className="mt-2 p-2" style={{ background: 'var(--surface-1)', color: 'var(--outline)', lineHeight: 1.5 }}>{p.premium_valuation.methodology.disclaimer}</p>
+                  </div>
+                </details>
+              </div>
+            )}
             {/* Premium AI Analysis — loaded asynchronously */}
             {(premiumAi?.available || premiumAiLoading) && (
               <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
