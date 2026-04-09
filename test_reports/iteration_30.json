@@ -1,0 +1,130 @@
+{
+  "summary": "Deal Presentation Canonical (Ficha Canonica Orquestada) testing complete. Backend: 41/41 tests passed. Frontend: All canonical page views working correctly for Free, Pro, Pro+, and Pro with NDA tiers. The new orchestrator returns per-module states (open/preview/nda_required/plan_required/contact_required/hidden_only_if_no_data) instead of binary visibility.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "API health check",
+      "modules.pnl.state = 'nda_required' for Pro buyer without NDA (iker.aguirre)",
+      "modules.infomemo.state = 'nda_required' for Pro buyer without NDA",
+      "modules.business_snapshot.state = 'open' for Pro buyer with accepted contact",
+      "modules.financial_evolution.state = 'open' for Pro buyer with accepted contact",
+      "modules.pnl.state = 'open' for Pro buyer with NDA (james.harris)",
+      "modules.premium_analysis.state = 'plan_required' for Pro buyer (Pro+ feature)",
+      "modules.infomemo.state = 'open' for Pro buyer with NDA",
+      "PnL detail included in financial_data.years post-NDA",
+      "Free buyer visibility_state = TEASER_UNLOCKED (capped by tier)",
+      "Free buyer modules show plan_required for Pro-gated content",
+      "Pro+ buyer with pending contact sees contact_required modules",
+      "Pro+ buyer premium_modules = null without NDA",
+      "financial_data.years contains multi-year data (2024, 2023)",
+      "financial_data.cagr computed correctly (revenue: 14.9%, ebitda: 22%)",
+      "financial_data.source indicates data origin (CIS/ARROBA)",
+      "deal_summary never contains phone",
+      "deal_summary never contains email",
+      "deal_summary never contains website",
+      "deal_summary never contains street/address/postal_code",
+      "deal_summary has required display fields (title, sector, city, employees, operation_types)",
+      "process_timeline has correct structure (contact, nda, interest, loi)",
+      "process_timeline contact step completed when contact_state = accepted",
+      "process_timeline NDA step available after contact accepted",
+      "process_timeline NDA step completed when has_nda = true",
+      "actions_panel has recommended/available/blocked structure",
+      "actions_panel blocked items have reason field",
+      "actions_panel sign_nda in recommended for NDA_AVAILABLE state",
+      "actions_panel OPERATIVE_ACCESS has infomemo and dataroom in available",
+      "actions_panel premium_analysis blocked for Pro with upgrade hint",
+      "primary_cta has action/label/style/description structure",
+      "primary_cta = sign_nda for NDA_AVAILABLE state",
+      "primary_cta = view_process for OPERATIVE_ACCESS state",
+      "secondary_cta = save_deal for locked states",
+      "secondary_cta = submit_questions for OPERATIVE_ACCESS",
+      "content_richness_score is 0-100 integer",
+      "visual_mode is lean/standard/rich",
+      "visual_mode consistent with content_richness_score thresholds",
+      "Presentation endpoint requires authentication (401)",
+      "Non-existent deal returns 404",
+      "Seller cannot access buyer presentation endpoint (403)"
+    ],
+    "frontend": [
+      "DealPageCanonical loads at /explorar/:dealId route",
+      "Pro buyer with NDA (james.harris) - OPERATIVE_ACCESS state displayed",
+      "Pro buyer with NDA - Hero block with title, badges (SEO, FULL SALE), location, employees, founded year",
+      "Pro buyer with NDA - Snapshot shows revenue (3,2M€), EBITDA (640K€), margin (20,0%), asking price (3,5M€)",
+      "Pro buyer with NDA - Financial Evolution table with multi-year data + CAGR (+14,9%, +22,0%)",
+      "Pro buyer with NDA - PnL and Infomemo modules open (not locked)",
+      "Pro buyer with NDA - Premium Analysis locked with 'Exclusivo Pro+' CTA",
+      "Pro buyer with NDA - Primary CTA: 'Acceder al proceso'",
+      "Pro buyer with NDA - Sidebar: process timeline, actions panel, resumen",
+      "Free buyer (carlos.ruiz) - TEASER_UNLOCKED state displayed",
+      "Free buyer - FREE tier badge displayed",
+      "Free buyer - 6 locked modules with 'Disponible desde Pro' CTA (visible, not hidden)",
+      "Free buyer - Primary CTA: 'Ver teaser completo'",
+      "Free buyer - Blocked actions show PRO upgrade hints",
+      "Free buyer - Trust footer with source and completitud",
+      "Pro buyer without NDA (iker.aguirre) - NDA_AVAILABLE state displayed",
+      "Pro buyer without NDA - PRO tier badge displayed",
+      "Pro buyer without NDA - Primary CTA: 'Firmar NDA'",
+      "Pro buyer without NDA - Executive Summary and Business Snapshot OPEN",
+      "Pro buyer without NDA - PnL and Infomemo locked with 'Firmar NDA para desbloquear'",
+      "Pro+ buyer (marta.font) - CONTACT_REQUESTED state displayed",
+      "Pro+ buyer - PRO+ tier badge with premium styling",
+      "Pro+ buyer - Primary CTA: 'Solicitud prioritaria enviada' (disabled)",
+      "Pro+ buyer - All modules locked with 'Contactar para desbloquear'"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_deal_presentation_canonical.py",
+    "/app/test_reports/pytest/pytest_results_canonical.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_deal_presentation_canonical.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (41/41 tests passed)",
+    "frontend": "100% (all canonical page views working correctly)"
+  },
+
+  "test_credentials": {
+    "free_buyer": "carlos.ruiz@capitaliberica.es / demo2026 (has accepted contact + legacy NDA for deal_hot_seo_01)",
+    "pro_buyer": "iker.aguirre@familyoffice-norte.es / demo2026 (has accepted contact, no NDA)",
+    "pro_buyer_with_nda": "james.harris@techventures.co.uk / demo2026 (has NDA signed)",
+    "proplus_buyer": "marta.font@groupdigital.cat / demo2026 (has pending contact request)",
+    "seller": "diego.martin@rankingdigital.es / demo2026 (owns deal_hot_seo_01)"
+  },
+
+  "seed_data_used": {
+    "deal": "deal_hot_seo_01 (owned by seller_seo_madrid_01)",
+    "company": "comp_ranking_digital (2 years of financials: 2024, 2023)",
+    "contact_requests": "carlos.ruiz (accepted), iker.aguirre (accepted), marta.font (pending)",
+    "nda_signatures": "carlos.ruiz (signed, legacy), james.harris (signed)"
+  },
+
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": ["Stripe payments", "SendGrid emails", "Premium Intelligence Agent (Phase 4)"]
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Deal Presentation Canonical (Ficha Canonica Orquestada) fully tested. The new orchestrator at GET /api/deals/{dealId}/presentation returns per-module states instead of binary visibility. Key response fields: modules (with state per module), deal_summary (sanitized), financial_data (multi-year + CAGR), process_timeline, actions_panel (recommended/available/blocked). Frontend route /explorar/:dealId now points to DealPageCanonical which renders all 14+ modules with appropriate lock overlays and CTAs. Module states: open, preview, preview_locked, contact_required, nda_required, plan_required, hidden_only_if_no_data. Premium Intelligence Agent (Phase 4) is placeholder - premium_modules shows available=true for Pro+ with NDA but actual analysis not implemented."
+}

@@ -1,144 +1,164 @@
 """
-Subagente 1: Analizador de Activos del Deal
-Analiza qué material real tiene el deal y calcula riqueza de contenido.
+Subagente 1: Analizador de Activos del Deal — detecta datos reales para cada bloque de la ficha.
+Devuelve has_data (bool por modulo), content_richness_score, visual_mode, financial_depth, qualitative_depth.
 """
 
 
 def analyze_assets(deal: dict, company: dict | None, seller_profile: dict | None) -> dict:
-    """Analyze real assets available for a deal presentation."""
-    modules = []
-    scores = {}
-
-    # --- Identity ---
+    """Analyze real assets for all 14 canonical blocks."""
     teaser = deal.get("teaser") or {}
-    has_logo = bool(company and company.get("logo_url"))
-    has_screenshot = bool(
-        seller_profile
-        and seller_profile.get("auto_prefilled", {}).get("enrichment", {}).get("screenshots")
-    )
-    has_description = bool(
+    overrides = (seller_profile or {}).get("seller_overrides", {}) if seller_profile else {}
+    ap = (seller_profile or {}).get("auto_prefilled", {}) if seller_profile else {}
+    enrichment = ap.get("enrichment", {})
+
+    # Collect financials from best source
+    company_fins = (company or {}).get("financials") or []
+    cis_fins = ap.get("financials") or []
+    fins = company_fins if company_fins else cis_fins
+
+    # --- Has data per module ---
+    has_data = {}
+
+    # 1. Hero — always has something
+    has_data["hero"] = True
+
+    # 2. Executive summary
+    has_data["executive_summary"] = bool(
         teaser.get("description")
-        or (company and company.get("description"))
-        or (seller_profile and seller_profile.get("seller_overrides", {}).get("description"))
-    )
-    has_taxonomy = bool(
-        (company and company.get("sectors"))
-        or (seller_profile and seller_profile.get("auto_prefilled", {}).get("taxonomy", {}).get("category"))
+        or (company or {}).get("description")
+        or overrides.get("description")
+        or enrichment.get("description")
     )
 
-    if has_description:
-        modules.append("description")
-    if has_taxonomy:
-        modules.append("taxonomy")
-    if has_logo:
-        modules.append("logo")
-    if has_screenshot:
-        modules.append("screenshot")
+    # 3. Business snapshot
+    has_revenue = any(_get_revenue(f) for f in fins)
+    has_data["business_snapshot"] = bool(
+        has_revenue
+        or (company or {}).get("employees_count")
+        or overrides.get("employees_count")
+    )
 
-    scores["identity"] = sum([has_logo, has_screenshot, has_description, has_taxonomy])
+    # 4. Financial evolution (multi-year)
+    multi_year = len([f for f in fins if _get_revenue(f)]) >= 2
+    has_data["financial_evolution"] = multi_year
 
-    # --- Financials ---
-    fins = []
-    if company:
-        fins = company.get("financials") or []
-    if not fins and seller_profile:
-        fins = seller_profile.get("auto_prefilled", {}).get("financials") or []
+    # 5. PnL
+    has_pnl = any(
+        f.get("pnl") or f.get("revenue")
+        for f in fins
+    )
+    has_data["pnl"] = has_pnl
 
-    has_revenue = any((f.get("revenue") or f.get("pnl", {}).get("revenue")) for f in fins)
-    has_ebitda = any((f.get("ebitda") or f.get("pnl", {}).get("ebitda")) for f in fins)
+    # 6. Balance
     has_balance = any(f.get("balance") for f in fins)
-    has_multi_year = len(fins) >= 2
+    has_data["balance"] = has_balance
 
-    if has_revenue:
-        modules.append("financials_revenue")
-    if has_ebitda:
-        modules.append("financials_ebitda")
-    if has_balance:
-        modules.append("financials_balance")
-    if has_multi_year:
-        modules.append("financials_multi_year")
+    # 7. Charts (visuals)
+    has_data["charts"] = multi_year  # charts make sense with 2+ years
 
-    scores["financials"] = sum([has_revenue, has_ebitda, has_balance, has_multi_year])
-
-    # --- Valuation ---
-    has_valuation = bool(company and company.get("valuation"))
-    if has_valuation:
-        modules.append("valuation")
-    scores["valuation"] = 1 if has_valuation else 0
-
-    # --- Visuals ---
-    has_visuals = bool(deal.get("financial_visuals") or (company and company.get("financial_visuals_id")))
-    if has_visuals:
-        modules.append("financial_charts")
-    scores["visuals"] = 1 if has_visuals else 0
-
-    # --- Qualitative ---
-    overrides = (seller_profile or {}).get("seller_overrides", {})
-    has_qualitative = bool(
+    # 8. Qualitative
+    has_data["qualitative"] = bool(
         overrides.get("founder_dependency")
         or overrides.get("recurring_revenue_pct")
         or overrides.get("client_diversification")
+        or enrichment.get("tags")
+        or enrichment.get("categories")
     )
-    if has_qualitative:
-        modules.append("qualitative_signals")
-    scores["qualitative"] = 1 if has_qualitative else 0
 
-    # --- Highlights IA ---
-    has_highlights = bool(teaser.get("highlights") or deal.get("infomemo", {}).get("generated"))
-    if has_highlights:
-        modules.append("highlights_ia")
-    scores["highlights"] = 1 if has_highlights else 0
+    # 9. Visual assets
+    has_logo = bool(enrichment.get("logo_url") or (company or {}).get("logo_url"))
+    has_screenshot = bool(enrichment.get("screenshots"))
+    has_data["visual_assets"] = has_logo or has_screenshot
 
-    # --- Enrichment CIS ---
-    enrichment = (seller_profile or {}).get("auto_prefilled", {}).get("enrichment", {})
-    has_enrichment = bool(enrichment.get("description") or enrichment.get("tags"))
-    if has_enrichment:
-        modules.append("enrichment_cis")
-    scores["enrichment"] = 1 if has_enrichment else 0
-
-    # --- Operation ---
-    has_operation = bool(
-        overrides.get("operation_types")
-        or deal.get("operation_types_allowed")
-    )
-    has_pricing = bool(deal.get("asking_price") or (seller_profile or {}).get("pricing", {}).get("asking_price"))
-    if has_operation:
-        modules.append("operation_types")
-    if has_pricing:
-        modules.append("pricing_reference")
-    scores["operation"] = sum([has_operation, has_pricing])
-
-    # --- Infomemo ---
+    # 10. Infomemo
     infomemo = deal.get("infomemo") or {}
-    has_infomemo = bool(infomemo.get("generated") or infomemo.get("content"))
-    if has_infomemo:
-        modules.append("infomemo")
-    scores["infomemo"] = 1 if has_infomemo else 0
+    has_data["infomemo"] = bool(infomemo.get("generated_at") or infomemo.get("content"))
 
-    # --- Dataroom ---
+    # 11. Dataroom
     dataroom = deal.get("dataroom") or {}
-    has_dataroom = bool(dataroom.get("folders") or dataroom.get("files"))
-    if has_dataroom:
-        modules.append("dataroom")
-    scores["dataroom"] = 1 if has_dataroom else 0
+    has_data["dataroom"] = bool(dataroom.get("folders") and len(dataroom.get("folders", [])) > 0)
 
-    # --- Aggregate ---
-    max_possible = 15
-    total = sum(scores.values())
-    content_richness_score = round((total / max_possible) * 100)
+    # 12. Actions panel — always
+    has_data["actions_panel"] = True
 
-    if content_richness_score >= 65:
+    # 13. Process state — always
+    has_data["process_state"] = True
+
+    # 14. Affinity — depends on matching
+    has_data["affinity"] = True
+
+    # 15. Trust footer — always
+    has_data["trust_footer"] = True
+
+    # 16. Premium analysis — always available structurally (gated by plan)
+    has_data["premium_analysis"] = True
+
+    # --- Financial depth ---
+    fin_depth_score = 0
+    if has_revenue: fin_depth_score += 1
+    if any(_get_ebitda(f) for f in fins): fin_depth_score += 1
+    if has_balance: fin_depth_score += 1
+    if multi_year: fin_depth_score += 1
+    if any(f.get("pnl", {}).get("gross_margin") for f in fins): fin_depth_score += 1
+
+    financial_depth = "deep" if fin_depth_score >= 4 else "standard" if fin_depth_score >= 2 else "basic"
+
+    # --- Qualitative depth ---
+    qual_count = sum([
+        bool(overrides.get("founder_dependency")),
+        bool(overrides.get("recurring_revenue_pct")),
+        bool(overrides.get("client_concentration_top5")),
+        bool(overrides.get("client_diversification")),
+        bool(overrides.get("margin_stability")),
+        bool(enrichment.get("description")),
+        bool(enrichment.get("tags")),
+    ])
+    qualitative_depth = "rich" if qual_count >= 5 else "standard" if qual_count >= 2 else "basic"
+
+    # --- Content richness score ---
+    data_modules = [k for k, v in has_data.items() if v and k not in ("actions_panel", "process_state", "trust_footer", "premium_analysis", "affinity")]
+    max_content = 11  # hero, exec_summary, snapshot, fin_evolution, pnl, balance, charts, qualitative, visual_assets, infomemo, dataroom
+    richness = round((len(data_modules) / max_content) * 100)
+
+    if richness >= 65:
         visual_mode = "rich"
-    elif content_richness_score >= 35:
+    elif richness >= 35:
         visual_mode = "standard"
     else:
         visual_mode = "lean"
 
-    return {
-        "content_richness_score": content_richness_score,
-        "visual_mode": visual_mode,
-        "available_modules": modules,
-        "scores_breakdown": scores,
-        "total_score": total,
-        "max_score": max_possible,
+    # --- Module headlines ---
+    headlines = {
+        "hero": teaser.get("headline") or (company or {}).get("trade_name") or "Oportunidad confidencial",
+        "executive_summary": "Resumen ejecutivo",
+        "business_snapshot": "Snapshot de negocio",
+        "financial_evolution": "Evolucion financiera",
+        "pnl": "Cuenta de resultados",
+        "balance": "Balance resumido",
+        "charts": "Graficos financieros",
+        "qualitative": "Posicionamiento y cualitativos",
+        "visual_assets": "Activos visuales",
+        "infomemo": "Information Memorandum",
+        "dataroom": "Data Room",
+        "actions_panel": "Siguientes acciones",
+        "process_state": "Estado del proceso",
+        "affinity": "Contexto de afinidad",
+        "trust_footer": "Informacion de confianza",
+        "premium_analysis": "Analisis Premium Pro+",
     }
+
+    return {
+        "has_data": has_data,
+        "content_richness_score": richness,
+        "visual_mode": visual_mode,
+        "financial_depth": financial_depth,
+        "qualitative_depth": qualitative_depth,
+        "headlines": headlines,
+    }
+
+
+def _get_revenue(f: dict) -> float:
+    return f.get("revenue") or (f.get("pnl") or {}).get("revenue") or 0
+
+def _get_ebitda(f: dict) -> float:
+    return f.get("ebitda") or (f.get("pnl") or {}).get("ebitda") or 0

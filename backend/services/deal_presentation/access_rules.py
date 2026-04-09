@@ -1,128 +1,150 @@
 """
-Subagente 2: Agente de Acceso y Reglas por Plan
-Decide qué puede ver y hacer el buyer según plan, contacto, NDA y proceso.
+Subagente 2: Acceso y Reglas por Plan — Modelo de estado por modulo.
+Cada modulo puede estar en: open, preview, preview_locked, contact_required, nda_required, plan_required, hidden_only_if_no_data
 """
 
-# Visibility states (ordered progression)
-STATES = [
-    "LOCKED_CONTACT_REQUIRED",
-    "CONTACT_REQUESTED",
-    "CONTACT_ACCEPTED",
-    "TEASER_UNLOCKED",
-    "NDA_AVAILABLE",
-    "NDA_SIGNED",
-    "OPERATIVE_ACCESS",
-]
+MODULE_STATES = ["open", "preview", "preview_locked", "contact_required", "nda_required", "plan_required", "hidden_only_if_no_data"]
+
+# Which modules exist at which gating level
+GATING = {
+    # module_id: { gate_type, min_tier_for_preview, min_tier_for_open, requires_nda_for_open }
+    "hero":              {"gate": None},
+    "executive_summary": {"gate": "contact", "preview_tier": "free", "open_tier": "pro"},
+    "business_snapshot": {"gate": "contact", "preview_tier": "free", "open_tier": "pro"},
+    "financial_evolution":{"gate": "plan",   "preview_tier": "pro",  "open_tier": "pro"},
+    "pnl":               {"gate": "nda",    "preview_tier": "pro",  "open_tier": "pro"},
+    "balance":           {"gate": "nda",    "preview_tier": "pro",  "open_tier": "pro"},
+    "charts":            {"gate": "plan",   "preview_tier": "pro",  "open_tier": "pro"},
+    "qualitative":       {"gate": "contact","preview_tier": "free", "open_tier": "pro"},
+    "visual_assets":     {"gate": "contact","preview_tier": "free", "open_tier": "free"},
+    "infomemo":          {"gate": "nda",    "preview_tier": "pro",  "open_tier": "pro"},
+    "dataroom":          {"gate": "nda",    "preview_tier": "pro",  "open_tier": "pro"},
+    "actions_panel":     {"gate": None},
+    "process_state":     {"gate": None},
+    "affinity":          {"gate": None},
+    "trust_footer":      {"gate": None},
+    "premium_analysis":  {"gate": "plan",   "preview_tier": "pro+", "open_tier": "pro+"},
+}
+
+TIER_ORDER = {"free": 0, "pro": 1, "pro+": 2}
+
+UNLOCK_COPY = {
+    "contact_required": {"label": "Contactar para desbloquear", "description": "Solicita acceso al vendedor para ver este contenido."},
+    "nda_required":     {"label": "Firmar NDA para desbloquear", "description": "Accede al detalle completo tras firmar el acuerdo de confidencialidad."},
+    "plan_required":    {"label": "Disponible desde Pro", "description": "Actualiza tu plan para acceder a este contenido."},
+    "plan_required_pro+": {"label": "Exclusivo Pro+", "description": "Contenido premium disponible con el plan Pro+."},
+}
 
 
-def compute_access(
-    buyer_plan: str,
+def compute_module_states(
+    buyer_tier: str,
     contact_state: str | None,
     has_nda: bool,
-    engagement_stage: str | None,
+    has_data: dict,
 ) -> dict:
-    """Compute visibility state and allowed/locked actions for a buyer."""
+    """Compute per-module state for the deal presentation."""
 
-    plan = buyer_plan.lower().replace(" ", "")
-    if "pro+" in plan or "proplus" in plan:
-        tier = "pro+"
-    elif "pro" in plan:
-        tier = "pro"
-    else:
-        tier = "free"
+    tier_level = TIER_ORDER.get(buyer_tier, 0)
+    contact_accepted = contact_state == "accepted"
+    contact_pending = contact_state == "pending"
 
-    # --- Determine visibility_state ---
-    # Free tier caps: never gets past TEASER_UNLOCKED
+    modules = {}
+
+    for mod_id, config in GATING.items():
+        # Skip if no data for this module
+        if not has_data.get(mod_id, False):
+            modules[mod_id] = {"state": "hidden_only_if_no_data"}
+            continue
+
+        gate = config.get("gate")
+
+        # No gate — always open
+        if gate is None:
+            modules[mod_id] = {"state": "open"}
+            continue
+
+        preview_tier = TIER_ORDER.get(config.get("preview_tier", "free"), 0)
+        open_tier = TIER_ORDER.get(config.get("open_tier", "pro"), 1)
+
+        # Determine state
+        if has_nda and tier_level >= open_tier:
+            state = "open"
+        elif has_nda and tier_level < open_tier:
+            # Has NDA but tier too low (e.g. Free with legacy NDA)
+            state = "plan_required"
+        elif contact_accepted and tier_level >= open_tier and gate == "contact":
+            state = "open"
+        elif contact_accepted and tier_level >= preview_tier:
+            if gate == "nda":
+                state = "nda_required"
+            elif gate == "plan" and tier_level < open_tier:
+                state = "plan_required"
+            else:
+                state = "preview" if tier_level < open_tier else "open"
+        elif contact_pending:
+            state = "contact_required"
+        elif tier_level >= preview_tier and gate != "nda":
+            state = "preview_locked"
+        else:
+            state = "contact_required"
+
+        # Build module entry
+        entry = {"state": state}
+
+        if state in ("preview_locked", "contact_required", "nda_required", "plan_required"):
+            if state == "nda_required":
+                copy = UNLOCK_COPY["nda_required"]
+                entry["unlock_condition"] = "signed_nda"
+                entry["cta_action"] = "sign_nda"
+            elif state == "plan_required":
+                if mod_id == "premium_analysis":
+                    copy = UNLOCK_COPY["plan_required_pro+"]
+                    entry["unlock_condition"] = "pro+"
+                    entry["cta_action"] = "upgrade_pro+"
+                else:
+                    copy = UNLOCK_COPY["plan_required"]
+                    entry["unlock_condition"] = "pro_or_higher"
+                    entry["cta_action"] = "upgrade_pro"
+            elif state == "contact_required":
+                copy = UNLOCK_COPY["contact_required"]
+                entry["unlock_condition"] = "contact_accepted"
+                entry["cta_action"] = "contact_request"
+            else:  # preview_locked
+                copy = UNLOCK_COPY["contact_required"]
+                entry["unlock_condition"] = "contact_accepted"
+                entry["cta_action"] = "contact_request"
+
+            entry["cta_label"] = copy["label"]
+            entry["cta_description"] = copy["description"]
+
+        modules[mod_id] = entry
+
+    return modules
+
+
+def compute_visibility_state(buyer_tier: str, contact_state: str | None, has_nda: bool) -> str:
+    """Compute the top-level visibility state."""
+    tier = buyer_tier
     if tier == "free":
         if contact_state == "accepted":
-            visibility_state = "TEASER_UNLOCKED"
+            return "TEASER_UNLOCKED"
         elif contact_state == "pending":
-            visibility_state = "CONTACT_REQUESTED"
-        else:
-            visibility_state = "LOCKED_CONTACT_REQUIRED"
+            return "CONTACT_REQUESTED"
+        return "LOCKED_CONTACT_REQUIRED"
     else:
-        # Pro / Pro+ progression
         if has_nda:
-            visibility_state = "OPERATIVE_ACCESS"
+            return "OPERATIVE_ACCESS"
         elif contact_state == "accepted":
-            visibility_state = "NDA_AVAILABLE"
+            return "NDA_AVAILABLE"
         elif contact_state == "pending":
-            visibility_state = "CONTACT_REQUESTED"
-        else:
-            visibility_state = "LOCKED_CONTACT_REQUIRED"
+            return "CONTACT_REQUESTED"
+        return "LOCKED_CONTACT_REQUIRED"
 
-    # --- Allowed actions per state × tier ---
-    allowed = []
-    locked = []
-    upgrade_prompts = []
 
-    if visibility_state == "LOCKED_CONTACT_REQUIRED":
-        allowed.append("contact_request")
-        allowed.append("save_deal")
-        locked.append("view_teaser")
-        locked.append("sign_nda")
-        locked.append("view_infomemo")
-        locked.append("view_dataroom")
-        if tier == "free":
-            locked.append("view_teaser_detail")
-
-    elif visibility_state == "CONTACT_REQUESTED":
-        allowed.append("save_deal")
-        locked.append("view_teaser")
-        locked.append("sign_nda")
-        locked.append("view_infomemo")
-
-    elif visibility_state == "TEASER_UNLOCKED":
-        allowed.append("view_teaser")
-        allowed.append("save_deal")
-        if tier == "free":
-            locked.append("sign_nda")
-            locked.append("view_infomemo")
-            locked.append("view_dataroom")
-            upgrade_prompts.append({
-                "action": "sign_nda",
-                "message": "Mejora a Pro para firmar NDA y acceder a documentación completa.",
-                "target_plan": "pro",
-            })
-        else:
-            allowed.append("sign_nda")
-
-    elif visibility_state == "NDA_AVAILABLE":
-        allowed.append("view_teaser")
-        allowed.append("sign_nda")
-        allowed.append("save_deal")
-        locked.append("view_infomemo")
-        locked.append("view_dataroom")
-
-    elif visibility_state in ("NDA_SIGNED", "OPERATIVE_ACCESS"):
-        allowed.append("view_teaser")
-        allowed.append("view_infomemo")
-        allowed.append("view_dataroom")
-        allowed.append("submit_questions")
-        allowed.append("save_deal")
-        if tier == "pro+" or tier == "pro":
-            allowed.append("submit_loi")
-        if tier == "pro+":
-            allowed.append("view_premium_analysis")
-        else:
-            locked.append("view_premium_analysis")
-            if tier != "pro+":
-                upgrade_prompts.append({
-                    "action": "view_premium_analysis",
-                    "message": "Accede al Anlisis Premium con Pro+: fortalezas, riesgos y encaje con tu tesis.",
-                    "target_plan": "pro+",
-                })
-
-    # --- Teaser visibility by tier ---
-    teaser_visible = tier in ("pro", "pro+") or contact_state == "accepted" or (has_nda and tier != "free")
-    card_only = tier == "free" and contact_state != "accepted"
-
-    return {
-        "visibility_state": visibility_state,
-        "buyer_tier": tier,
-        "teaser_visible": teaser_visible,
-        "card_only": card_only,
-        "allowed_actions": allowed,
-        "locked_actions": locked,
-        "upgrade_prompts": upgrade_prompts,
-    }
+def get_buyer_tier_from_plan(plan_type: str) -> str:
+    pt = (plan_type or "").lower().replace(" ", "")
+    if "proplus" in pt or "pro+" in pt:
+        return "pro+"
+    if "pro" in pt:
+        return "pro"
+    return "free"

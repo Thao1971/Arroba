@@ -13,6 +13,7 @@ import BuyerDashboard from './pages/BuyerDashboard';
 import SellerWorkspace from './pages/SellerWorkspace';
 import SellerCompanyWorkspace from './pages/SellerCompanyWorkspace';
 import DealPage from './pages/DealPage';
+import DealPageCanonical from './pages/DealPageCanonical';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
 import SellerInteresados from './pages/SellerInteresados';
@@ -71,7 +72,7 @@ const AppRouter = () => {
       <Route path="/explorar" element={<Marketplace />} />
       <Route path="/marketplace" element={<Navigate to="/explorar" replace />} />
       <Route path="/marketplace/:dealId" element={<DealPage />} />
-      <Route path="/explorar/:dealId" element={<DealPage />} />
+      <Route path="/explorar/:dealId" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin', 'advisor']} skipOnboardingCheck><DealPageCanonical /></ProtectedRoute>} />
       <Route path="/vender" element={<Register role="seller" />} />
       <Route path="/como-funciona" element={<Home />} />
       <Route path="/valoracion" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin', 'advisor']} skipOnboardingCheck><ValuationWizard /></ProtectedRoute>} />
