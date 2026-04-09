@@ -1,0 +1,116 @@
+{
+  "summary": "Deal Presentation Orchestrator testing complete. Backend: 29/29 tests passed. Frontend: All orchestrated views working correctly for Free, Pro, Pro+ tiers. Fixed bug: _get_buyer_tier function now correctly queries database for subscription data instead of relying on UserResponse model which doesn't include subscription field.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "API health check",
+      "POST /api/deals/{dealId}/contact-request - requires buyer role (seller gets 403)",
+      "POST /api/deals/{dealId}/contact-request - duplicate prevention (400 if already accepted/pending)",
+      "POST /api/deals/{dealId}/contact-request - 404 for non-existent deal",
+      "POST /api/deals/{dealId}/contact-request/{id}/accept - requires seller ownership",
+      "POST /api/deals/{dealId}/contact-request/{id}/reject - requires seller ownership",
+      "GET /api/seller/settings/contact-policy - returns current policy",
+      "PUT /api/seller/settings/contact-policy - set to auto_accept",
+      "PUT /api/seller/settings/contact-policy - set to manual_review",
+      "PUT /api/seller/settings/contact-policy - rejects invalid policy",
+      "PUT /api/seller/settings/contact-policy - buyer cannot set (403)",
+      "GET /api/deals/{dealId}/presentation - Free buyer with accepted contact → TEASER_UNLOCKED",
+      "GET /api/deals/{dealId}/presentation - deal_summary never exposes phone/email/website",
+      "GET /api/deals/{dealId}/presentation - Pro buyer with accepted contact → NDA_AVAILABLE, CTA='Firmar NDA'",
+      "GET /api/deals/{dealId}/presentation - Pro buyer with NDA → OPERATIVE_ACCESS",
+      "GET /api/deals/{dealId}/presentation - Pro+ buyer no contact → LOCKED_CONTACT_REQUIRED, teaser_visible=true",
+      "GET /api/deals/{dealId}/presentation - Pro+ buyer premium_modules=null without NDA",
+      "GET /api/deals/{dealId}/presentation - content_richness_score computed (0-100)",
+      "GET /api/deals/{dealId}/presentation - visual_mode computed (lean/standard/rich)",
+      "GET /api/deals/{dealId}/presentation - modules_visible filtered by visibility_state",
+      "GET /api/deals/{dealId}/presentation - OPERATIVE_ACCESS has full module access",
+      "GET /api/deals/{dealId}/presentation - layout.sections includes hero and cta",
+      "GET /api/deals/{dealId}/presentation - primary_cta has action/label/style/description",
+      "GET /api/deals/{dealId}/presentation - secondary_cta (save_deal) for locked state",
+      "Auto-accept policy - contact request created with status=accepted immediately",
+      "GET /api/deals/{dealId}/contact-requests - seller can list all requests",
+      "GET /api/deals/{dealId}/contact-requests - buyer cannot list (403)",
+      "GET /api/deals/{dealId}/presentation - requires authentication (401)",
+      "GET /api/deals/{dealId}/presentation - 404 for non-existent deal"
+    ],
+    "frontend": [
+      "Free buyer (carlos.ruiz) - orchestrated view loads with TEASER_UNLOCKED state",
+      "Free buyer - shows FREE tier badge, RIQUEZA score, RICH visual mode",
+      "Free buyer - shows upgrade prompt for NDA (Mejora a Pro)",
+      "Free buyer - shows locked actions: SIGN NDA, VIEW INFOMEMO, VIEW DATAROOM",
+      "Pro buyer (iker.aguirre) - orchestrated view loads with NDA_AVAILABLE state",
+      "Pro buyer - shows PRO tier badge, 'Firmar NDA' CTA",
+      "Pro buyer - shows financial metrics (Facturación, EBITDA, Precio orientativo)",
+      "Pro buyer with NDA (james.harris) - shows OPERATIVE_ACCESS state",
+      "Pro buyer with NDA - shows 'Acceder al proceso' CTA, 'Hacer preguntas' secondary",
+      "Pro buyer with NDA - shows VALORACION ESTIMADA range",
+      "Pro buyer with NDA - shows upgrade prompt for Premium Analysis (Pro+ feature)",
+      "Pro+ buyer (marta.font) - orchestrated view loads with LOCKED_CONTACT_REQUIRED state",
+      "Pro+ buyer - shows PRO+ tier badge (red premium styling)",
+      "Pro+ buyer - shows 'Contactar con prioridad' CTA with priority messaging",
+      "Pro+ buyer - contact request flow works, shows CONTACT_REQUESTED state after click",
+      "Pro+ buyer - contact request created with buyer_plan='pro+' and priority=true"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_deal_presentation_orchestrator.py",
+    "/app/test_reports/pytest/pytest_results_deal_presentation.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/routers/contact_requests.py"
+  ],
+
+  "bug_fixed": {
+    "file": "/app/backend/routers/contact_requests.py",
+    "function": "_get_buyer_tier",
+    "issue": "Function was trying to access user.subscription which doesn't exist in UserResponse model",
+    "fix": "Changed function to async and query database for subscription data directly"
+  },
+
+  "success_rate": {
+    "backend": "100% (29/29 tests passed)",
+    "frontend": "100% (all orchestrated views working correctly)"
+  },
+
+  "test_credentials": {
+    "free_buyer": "carlos.ruiz@capitaliberica.es / demo2026 (has accepted contact for deal_hot_seo_01)",
+    "pro_buyer": "iker.aguirre@familyoffice-norte.es / demo2026 (has accepted contact for deal_hot_seo_01)",
+    "pro_buyer_with_nda": "james.harris@techventures.co.uk / demo2026 (has NDA signed for deal_hot_seo_01)",
+    "proplus_buyer": "marta.font@groupdigital.cat / demo2026 (no contact request - clean for testing)",
+    "seller": "diego.martin@rankingdigital.es / demo2026 (owns deal_hot_seo_01)"
+  },
+
+  "seed_data_used": {
+    "deal": "deal_hot_seo_01 (owned by seller_seo_madrid_01)",
+    "contact_requests": "carlos.ruiz (accepted), iker.aguirre (accepted)",
+    "nda_signatures": "carlos.ruiz (signed), james.harris (signed)"
+  },
+
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": ["Stripe payments", "SendGrid emails", "Premium Intelligence Agent (Phase 4)"]
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Deal Presentation Orchestrator fully tested. All 5 subagents working: Asset Analyzer (content_richness_score, visual_mode), Access Rules (visibility_state by tier/contact/NDA), Layout Compositor (sections), CTA Engine (primary/secondary CTAs). Contact request system working with auto_accept and manual_review policies. Bug fixed: _get_buyer_tier now queries DB for subscription. Frontend route is /buyer/deal/:dealId/orchestrated. Premium Intelligence Agent (Phase 4) is placeholder - premium_modules shows available=true for Pro+ with NDA but actual analysis not implemented."
+}

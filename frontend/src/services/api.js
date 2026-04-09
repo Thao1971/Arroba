@@ -273,4 +273,15 @@ export const billingAPI = {
   getSummary: () => api.get('/billing/summary'),
 };
 
+// Deal Presentation API (Orchestrator)
+export const dealPresentationAPI = {
+  getPresentation: (dealId) => api.get(`/deals/${dealId}/presentation`),
+  requestContact: (dealId) => api.post(`/deals/${dealId}/contact-request`),
+  acceptContact: (dealId, requestId) => api.post(`/deals/${dealId}/contact-request/${requestId}/accept`),
+  rejectContact: (dealId, requestId) => api.post(`/deals/${dealId}/contact-request/${requestId}/reject`),
+  listContactRequests: (dealId) => api.get(`/deals/${dealId}/contact-requests`),
+  getContactPolicy: () => api.get('/seller/settings/contact-policy'),
+  updateContactPolicy: (data) => api.put('/seller/settings/contact-policy', data),
+};
+
 export default api;

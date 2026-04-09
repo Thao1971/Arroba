@@ -88,6 +88,14 @@ async def init_db():
     await db.nda_signatures.create_index("buyer_user_id")
     await db.nda_events.create_index("signature_id")
 
+    # Contact requests
+    await db.contact_requests.create_index("request_id", unique=True)
+    await db.contact_requests.create_index([("deal_id", 1), ("buyer_id", 1)])
+    await db.contact_requests.create_index("seller_id")
+
+    # Seller settings
+    await db.seller_settings.create_index("seller_id", unique=True)
+
 async def close_db():
     """Close database connection"""
     client.close()

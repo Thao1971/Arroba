@@ -36,6 +36,8 @@ from routers.nda import router as nda_router
 from routers.buyer_certification import router as buyer_cert_router
 from routers.billing import router as billing_router
 from routers.seller_profiles import router as seller_profiles_router
+from routers.contact_requests import router as contact_requests_router
+from routers.deal_presentation import router as deal_presentation_router
 
 # Configure logging
 logging.basicConfig(
@@ -125,6 +127,8 @@ app.include_router(nda_router, prefix="/api")
 app.include_router(buyer_cert_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")
 app.include_router(seller_profiles_router, prefix="/api")
+app.include_router(contact_requests_router, prefix="/api")
+app.include_router(deal_presentation_router, prefix="/api")
 
 
 @app.get("/api")
