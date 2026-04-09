@@ -90,12 +90,54 @@ const ProcessStep = ({ step }) => {
   );
 };
 
+/* ═══ KPI Card with tooltip ═══ */
+const KpiCard = ({ kpi }) => {
+  const [showTip, setShowTip] = useState(false);
+  const levelColors = { low: '#16a34a', medium: '#d97706', high: '#dc2626' };
+  const color = levelColors[kpi.level] || 'var(--on-surface)';
+  return (
+    <div className="relative p-3" style={{ background: 'var(--surface-lowest)' }} onMouseEnter={() => setShowTip(true)} onMouseLeave={() => setShowTip(false)}>
+      <div className="flex items-center gap-1 mb-1">
+        <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>{kpi.label?.toUpperCase()}</p>
+        <Info size={9} style={{ color: 'var(--outline-variant)' }} />
+      </div>
+      <p className="text-lg font-black" style={{ color }}>{typeof kpi.value === 'number' ? fmtES(kpi.value, kpi.unit === '%' ? 1 : kpi.unit === 'EUR' ? 0 : 2) : kpi.value}{kpi.unit === '%' ? '%' : kpi.unit === 'x' ? 'x' : ''}</p>
+      {kpi.unit === 'EUR' && <p className="text-[9px]" style={{ color: 'var(--outline)' }}>EUR</p>}
+      {kpi.level_label && <span className="text-[8px] font-bold px-1.5 py-0.5 mt-1 inline-block" style={{ background: color + '12', color }}>{kpi.level_label}</span>}
+      {showTip && (
+        <div className="absolute left-0 right-0 top-full z-20 p-3" style={{ background: 'var(--on-surface)', color: '#fff' }}>
+          <p className="text-[10px] mb-1">{kpi.description}</p>
+          <p className="text-[9px]" style={{ opacity: 0.7 }}>Formula: {kpi.formula}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══ Percentile bar ═══ */
+const PercentileBar = ({ metric, data, vsCategory }) => {
+  const metricLabels = { revenue: 'Facturacion', ebitda: 'EBITDA', ebitda_margin: 'Margen EBITDA', growth: 'Crecimiento', efficiency: 'Eficiencia', quality_score: 'Quality Score' };
+  const catLabels = { top_quartile: 'Top quartile', above_median: 'Sobre la media', below_median: 'Bajo la media', bottom_quartile: 'Cuartil inferior' };
+  const catColors = { top_quartile: '#16a34a', above_median: '#16a34a', below_median: '#d97706', bottom_quartile: '#dc2626' };
+  return (
+    <div className="flex items-center gap-3">
+      <p className="text-[10px] font-bold w-28 shrink-0" style={{ color: 'var(--on-surface)' }}>{metricLabels[metric] || metric}</p>
+      <div className="flex-1 h-2 relative" style={{ background: 'var(--surface-2)' }}>
+        <div className="h-full" style={{ width: `${data.percentile}%`, background: data.percentile >= 50 ? '#16a34a' : '#d97706', transition: 'width 0.5s' }} />
+        <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: '50%', background: 'var(--outline)' }} />
+      </div>
+      <span className="text-[10px] font-bold w-8 text-right" style={{ color: data.percentile >= 50 ? '#16a34a' : '#d97706' }}>P{data.percentile}</span>
+      {vsCategory && <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: (catColors[vsCategory] || 'var(--outline)') + '12', color: catColors[vsCategory] || 'var(--outline)' }}>{catLabels[vsCategory]}</span>}
+    </div>
+  );
+};
+
 /* ═══ MAIN PAGE ═══ */
 const DealPageCanonical = () => {
   const { dealId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { presentation: p, loading, error, contactLoading, requestContact, refresh } = useDealPresentation(dealId);
+  const { presentation: p, loading, error, contactLoading, requestContact, refresh, premiumAi, premiumAiLoading } = useDealPresentation(dealId);
   const [activeNav, setActiveNav] = useState('resumen');
   const sectionRefs = useRef({});
 
@@ -397,13 +439,86 @@ const DealPageCanonical = () => {
 
           {/* ── SECTION: PROCESO ── */}
           <div ref={el => sectionRefs.current['proceso'] = el} data-section="proceso">
-            {/* Premium analysis */}
-            <Mod id="premium_analysis" modules={mods} onNavigate={navigate}>
-              <div className="p-5" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>ANALISIS PREMIUM PRO+</p>
-                <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.6 }}>Fortalezas, riesgos, preguntas sugeridas para due diligence y encaje con tu tesis de inversion. Generado por IA.</p>
+            {/* Premium KPIs */}
+            {p.premium_quant?.available && (
+              <Mod id="premium_analysis" modules={mods} onNavigate={navigate}>
+                <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>KPIS FINANCIEROS AVANZADOS</p>
+                    <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>PRO+</span>
+                    <span className="text-[9px] ml-auto" style={{ color: 'var(--outline)' }}>Fuente: {p.premium_quant.source} · {p.premium_quant.year}</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Object.entries(p.premium_quant.kpis).map(([id, kpi]) => (
+                      <KpiCard key={id} kpi={kpi} />
+                    ))}
+                  </div>
+                </div>
+              </Mod>
+            )}
+
+            {/* Premium Benchmark */}
+            {p.premium_benchmark?.available && (
+              <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                <div className="flex items-center gap-2 mb-4">
+                  <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>POSICIONAMIENTO EN CATEGORIA</p>
+                  <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>PRO+</span>
+                  <span className="text-[9px] ml-auto" style={{ color: 'var(--outline)' }}>{p.premium_benchmark.category} · {p.premium_benchmark.peer_count} peers</span>
+                </div>
+                <div className="space-y-3">
+                  {Object.entries(p.premium_benchmark.percentiles).map(([metric, data]) => (
+                    <PercentileBar key={metric} metric={metric} data={data} vsCategory={p.premium_benchmark.vs_category?.[metric]} />
+                  ))}
+                </div>
               </div>
-            </Mod>
+            )}
+
+            {/* Premium AI Analysis — loaded asynchronously */}
+            {(premiumAi?.available || premiumAiLoading) && (
+              <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                <div className="flex items-center gap-2 mb-4">
+                  <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>INTERPRETACION PREMIUM IA</p>
+                  <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>GPT-5.2</span>
+                  {premiumAiLoading && <Loader2 size={12} className="animate-spin ml-auto" style={{ color: 'var(--arroba-primary)' }} />}
+                </div>
+                {premiumAiLoading && <p className="text-xs" style={{ color: 'var(--outline)' }}>Generando analisis premium...</p>}
+                {premiumAi?.strategic_reading && (
+                  <p className="text-sm mb-4 p-3" style={{ color: 'var(--on-surface)', lineHeight: 1.7, background: 'var(--surface-1)' }}>{premiumAi.strategic_reading}</p>
+                )}
+                {premiumAi && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {premiumAi.strengths?.length > 0 && (
+                    <div><p className="text-[10px] font-bold mb-2" style={{ color: '#16a34a' }}>FORTALEZAS</p>{premiumAi.strengths.map((s,i) => <p key={i} className="text-xs mb-1.5" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>+ {s}</p>)}</div>
+                  )}
+                  {premiumAi.risks?.length > 0 && (
+                    <div><p className="text-[10px] font-bold mb-2" style={{ color: '#dc2626' }}>RIESGOS</p>{premiumAi.risks.map((r,i) => <p key={i} className="text-xs mb-1.5" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>! {r}</p>)}</div>
+                  )}
+                </div>
+                )}
+                {premiumAi?.dd_questions?.length > 0 && (
+                  <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--surface-2)' }}>
+                    <p className="text-[10px] font-bold mb-2" style={{ color: 'var(--arroba-primary)' }}>PREGUNTAS SUGERIDAS PARA DUE DILIGENCE</p>
+                    {premiumAi.dd_questions.map((q,i) => <p key={i} className="text-xs mb-1.5" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>{i+1}. {q}</p>)}
+                  </div>
+                )}
+                {premiumAi?.buyer_fit?.ideal_profile && (
+                  <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--surface-2)' }}>
+                    <p className="text-[10px] font-bold mb-1" style={{ color: 'var(--outline)' }}>PERFIL DE COMPRADOR IDEAL</p>
+                    <p className="text-xs" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>{premiumAi.buyer_fit.ideal_profile}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Fallback for non-Pro+ */}
+            {!p.premium_quant?.available && !p.premium_ai_analysis?.available && (
+              <Mod id="premium_analysis" modules={mods} onNavigate={navigate}>
+                <div className="p-5" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                  <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>ANALISIS PREMIUM PRO+</p>
+                  <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.6 }}>KPIs avanzados, benchmark de categoria, interpretacion IA con fortalezas, riesgos y preguntas de due diligence.</p>
+                </div>
+              </Mod>
+            )}
           </div>
 
           {/* Trust footer */}

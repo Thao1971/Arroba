@@ -6,6 +6,9 @@ from database import db
 from services.deal_presentation.asset_analyzer import analyze_assets, _get_revenue, _get_ebitda
 from services.deal_presentation.access_rules import compute_module_states, compute_visibility_state, get_buyer_tier_from_plan
 from services.deal_presentation.cta_engine import compute_cta_and_actions
+from services.deal_presentation.premium_quant import compute_premium_kpis
+from services.deal_presentation.premium_benchmark import compute_benchmark
+from services.deal_presentation.premium_intelligence import generate_premium_analysis
 
 
 async def orchestrate_presentation(deal_id: str, buyer_user_id: str) -> dict:
@@ -74,7 +77,29 @@ async def orchestrate_presentation(deal_id: str, buyer_user_id: str) -> dict:
     # --- 7. Build qualitative data ---
     qualitative_data = _build_qualitative_data(seller_profile, visibility_state)
 
-    # --- 8. Compose response ---
+    # --- 8. Premium layers (Pro+ with NDA only) ---
+    premium_quant_data = None
+    premium_benchmark_data = None
+    premium_ai_data = None
+
+    if buyer_tier == "pro+" and has_nda:
+        # Get CIS financials for premium computation
+        ap = (seller_profile or {}).get("auto_prefilled", {}) if seller_profile else {}
+        cis_fins = ap.get("financials") or []
+        category = ap.get("taxonomy", {}).get("category") or ((company or {}).get("sectors") or [""])[0]
+        employees = int(deal_summary.get("employees") or 0) if deal_summary.get("employees") else None
+
+        if cis_fins:
+            premium_quant_data = compute_premium_kpis(cis_fins, employees)
+            premium_benchmark_data = await compute_benchmark(cis_fins, category, employees)
+            # AI analysis loaded separately via /premium-analysis endpoint (non-blocking)
+        else:
+            company_fins = (company or {}).get("financials") or []
+            if company_fins:
+                premium_quant_data = compute_premium_kpis(company_fins, employees)
+                premium_benchmark_data = await compute_benchmark(company_fins, category, employees)
+
+    # --- 9. Compose response ---
     return {
         "deal_id": deal_id,
         "visual_mode": assets["visual_mode"],
@@ -93,7 +118,9 @@ async def orchestrate_presentation(deal_id: str, buyer_user_id: str) -> dict:
         "secondary_cta": cta["secondary_cta"],
         "process_timeline": cta["process_timeline"],
         "actions_panel": cta["actions_panel"],
-        "premium_modules": {"available": True, "status": "phase_4"} if buyer_tier == "pro+" and has_nda else None,
+        "premium_quant": premium_quant_data,
+        "premium_benchmark": premium_benchmark_data,
+        "premium_ai_analysis": premium_ai_data,
     }
 
 

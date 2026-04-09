@@ -7,6 +7,10 @@ from database import db
 from routers.auth import get_current_user
 from models.user import UserResponse
 from services.deal_presentation.orchestrator import orchestrate_presentation
+from services.deal_presentation.premium_quant import compute_premium_kpis
+from services.deal_presentation.premium_benchmark import compute_benchmark
+from services.deal_presentation.premium_intelligence import generate_premium_analysis
+from services.deal_presentation.access_rules import get_buyer_tier_from_plan
 from datetime import datetime, timezone
 
 router = APIRouter(tags=["Deal Presentation"])
@@ -23,6 +27,68 @@ async def get_deal_presentation(deal_id: str, request: Request, user: UserRespon
         raise HTTPException(404, "Deal no encontrado")
 
     return result
+
+
+@router.get("/deals/{deal_id}/premium-analysis")
+async def get_premium_analysis(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """Separate endpoint for GPT-5.2 premium analysis (loaded async by frontend)."""
+    if user.role not in ("buyer", "admin"):
+        raise HTTPException(403, "Solo buyers")
+
+    # Verify Pro+ tier
+    buyer_doc = await db.users.find_one({"user_id": user.user_id}, {"subscription": 1})
+    sub = (buyer_doc or {}).get("subscription") or {}
+    pt = sub.get("plan_type", "") if isinstance(sub, dict) else ""
+    tier = get_buyer_tier_from_plan(pt)
+    if tier != "pro+":
+        raise HTTPException(403, "Solo disponible para Pro+")
+
+    # Verify NDA
+    nda = await db.nda_signatures.find_one(
+        {"deal_id": deal_id, "buyer_user_id": user.user_id, "status": "signed"}, {"_id": 0}
+    )
+    if not nda:
+        raise HTTPException(403, "Requiere NDA firmado")
+
+    # Get deal data
+    deal = await db.deals.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not deal:
+        raise HTTPException(404, "Deal no encontrado")
+
+    company = await db.companies.find_one({"company_id": deal.get("company_id")}, {"_id": 0}) if deal.get("company_id") else None
+    profile = await db.seller_company_profiles.find_one({"company_id": deal.get("company_id")}, {"_id": 0}) if deal.get("company_id") else None
+
+    ap = (profile or {}).get("auto_prefilled", {}) if profile else {}
+    cis_fins = ap.get("financials") or (company or {}).get("financials") or []
+    category = ap.get("taxonomy", {}).get("category") or ""
+    employees = int((profile or {}).get("seller_overrides", {}).get("employees_count") or (company or {}).get("employees_count") or 0) or None
+
+    quant = compute_premium_kpis(cis_fins, employees) if cis_fins else {"available": False}
+    benchmark = await compute_benchmark(cis_fins, category, employees) if cis_fins else {"available": False}
+
+    # Build summary for AI
+    teaser = deal.get("teaser") or {}
+    overrides = (profile or {}).get("seller_overrides", {}) if profile else {}
+    summary = {
+        "title": teaser.get("headline") or (company or {}).get("trade_name"),
+        "sector": category,
+        "city": (company or {}).get("city"),
+        "employees": employees,
+        "revenue": cis_fins[0].get("pnl", {}).get("revenue") if cis_fins and cis_fins[0].get("pnl") else (company or {}).get("financials", [{}])[0].get("revenue") if (company or {}).get("financials") else None,
+        "ebitda": cis_fins[0].get("pnl", {}).get("ebitda") if cis_fins and cis_fins[0].get("pnl") else None,
+        "asking_price": deal.get("asking_price"),
+    }
+
+    qualitative = None
+    if profile:
+        qd = {}
+        for k in ["founder_dependency", "recurring_revenue_pct", "client_concentration_top5", "client_diversification", "margin_stability"]:
+            if overrides.get(k):
+                qd[k] = overrides[k]
+        qualitative = qd if qd else None
+
+    analysis = await generate_premium_analysis(summary, quant, benchmark, qualitative)
+    return analysis
 
 
 @router.post("/deals/presentations/batch")
