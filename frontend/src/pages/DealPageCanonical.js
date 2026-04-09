@@ -517,8 +517,8 @@ const DealPageCanonical = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {p.premium_valuation.quality_drivers?.map((d, i) => (
-                        <span key={i} className="text-[9px] font-bold px-2 py-0.5" style={{ background: d.impact === 'positivo' ? 'rgba(22,163,74,0.08)' : d.impact === 'negativo' ? 'rgba(220,38,38,0.08)' : 'var(--surface-2)', color: d.impact === 'positivo' ? '#16a34a' : d.impact === 'negativo' ? '#dc2626' : 'var(--outline)' }}>
-                          {d.factor}: {d.impact}
+                        <span key={i} className="text-[9px] font-bold px-2 py-1" style={{ background: d.impact === 'positivo' ? 'rgba(22,163,74,0.08)' : d.impact === 'negativo' ? 'rgba(220,38,38,0.08)' : 'var(--surface-2)', color: d.impact === 'positivo' ? '#16a34a' : d.impact === 'negativo' ? '#dc2626' : 'var(--outline)' }}>
+                          {d.factor}: {d.description || d.impact}
                         </span>
                       ))}
                     </div>
@@ -539,13 +539,17 @@ const DealPageCanonical = () => {
 
                 {/* Equity adjustment */}
                 {p.premium_valuation.equity_adjustments && (
-                  <div className="p-3 mb-4 flex items-center justify-between" style={{ background: 'var(--surface-1)' }}>
-                    <div>
-                      <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>AJUSTE EQUITY (DEUDA NETA)</p>
-                      <p className="text-[10px]" style={{ color: 'var(--outline)' }}>{p.premium_valuation.equity_adjustments.description}</p>
+                  <div className="p-3 mb-4" style={{ background: 'var(--surface-1)' }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>AJUSTE DE EQUITY VALUE</p>
+                      <p className="text-sm font-black" style={{ color: p.premium_valuation.equity_adjustments.net_debt < 0 ? '#16a34a' : '#dc2626' }}>
+                        {p.premium_valuation.equity_adjustments.net_debt < 0 ? '+' : ''}{fmtES(Math.abs(p.premium_valuation.equity_adjustments.net_debt), 0)} EUR
+                      </p>
                     </div>
-                    <p className="text-sm font-black" style={{ color: p.premium_valuation.equity_adjustments.net_debt < 0 ? '#16a34a' : '#dc2626' }}>
-                      {fmtES(p.premium_valuation.equity_adjustments.net_debt, 0)} EUR
+                    <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>
+                      {p.premium_valuation.equity_adjustments.net_debt < 0
+                        ? `Posicion de caja neta: el activo corriente supera los pasivos en ${fmtES(Math.abs(p.premium_valuation.equity_adjustments.net_debt), 0)} EUR. Esto incrementa el Equity Value respecto al Enterprise Value.`
+                        : `Deuda neta de ${fmtES(p.premium_valuation.equity_adjustments.net_debt, 0)} EUR que se resta del Enterprise Value para obtener el Equity Value.`}
                     </p>
                   </div>
                 )}

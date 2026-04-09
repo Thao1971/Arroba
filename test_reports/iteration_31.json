@@ -1,0 +1,109 @@
+{
+  "summary": "Deal Presentation Premium Features (Ficha Canonica Pro+) testing complete. Backend: 27/27 tests passed. Frontend: All premium features working correctly for Free, Pro, Pro+NDA tiers. Tested both deals: deal_hot_seo_01 (seed, flat financials) and deal_cis_putos_modernos (CIS data with PnL+Balance). Premium valuation, KPIs, benchmark, and AI analysis cache all working.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": {
+    "backend": [
+      "API health check",
+      "Free buyer (carlos) on deal_hot_seo_01 — TEASER_UNLOCKED state",
+      "Free buyer modules show plan_required for Pro content",
+      "Pro buyer (iker) on deal_hot_seo_01 — NDA_AVAILABLE state",
+      "Pro buyer pnl.state = 'nda_required'",
+      "Pro buyer infomemo.state = 'nda_required'",
+      "Pro buyer with NDA (james) on deal_hot_seo_01 — OPERATIVE_ACCESS",
+      "Pro buyer with NDA all modules open (pnl, infomemo)",
+      "Pro+ buyer (marta) on deal_cis_putos_modernos — OPERATIVE_ACCESS",
+      "Pro+ buyer premium_quant available with 8 KPIs",
+      "Pro+ buyer premium_valuation available with quality_score, scenarios, methodology",
+      "premium_valuation.quality_score is 0-100 (100 for Putos Modernos)",
+      "premium_valuation.quality_drivers have descriptions with actual values (55.2% margen, 394K/empleado, 75% recurrencia, +48.8% crecimiento)",
+      "premium_valuation.scenarios has conservative/base/optimistic with EV and multiples",
+      "premium_valuation.parameters has ebitda_base, method, category, multiple_range, quality_factor",
+      "premium_valuation.methodology has steps and definitions",
+      "premium_quant has 8 KPIs with labels, formulas, descriptions, units, levels",
+      "premium_quant KPIs have level (low/medium/high) and level_label",
+      "GET /api/deals/{dealId}/premium-analysis returns 403 for non-Pro+ buyer",
+      "GET /api/deals/{dealId}/premium-analysis returns 403 without NDA",
+      "GET /api/deals/{dealId}/premium-analysis returns AI analysis for Pro+ with NDA",
+      "premium-analysis cache hit on second call (instant response)",
+      "deal_summary never contains phone/email/website/address",
+      "process_timeline correct for OPERATIVE_ACCESS (contact+nda completed)",
+      "actions_panel blocked items have upgrade hints (premium_analysis blocked for Pro with 'pro+' upgrade)",
+      "Quality Score drivers show actual values, not just 'positivo'"
+    ],
+    "frontend": [
+      "Free buyer (carlos) — TEASER_UNLOCKED state displayed, FREE badge, 12 locked modules with 'Disponible desde Pro' CTA",
+      "Free buyer — Sticky subnav present (Resumen, Financieros, Infomemo, Data Room, Proceso)",
+      "Pro buyer (iker) — NDA_AVAILABLE state displayed, PRO badge, 'Firmar NDA' CTA",
+      "Pro buyer — Financial data visible (FACTURACION, EBITDA, CAGR)",
+      "Pro buyer — Locked modules show 'Firmar NDA para desbloquear' with specific block reason",
+      "Pro+NDA buyer (james) — OPERATIVE_ACCESS state displayed, 'Acceder al proceso' CTA",
+      "Pro+NDA buyer — PnL module open (not locked)",
+      "Pro+ buyer (marta) on CIS deal — PRO+ badge, OPERATIVE_ACCESS state",
+      "Pro+ buyer — KPIs FINANCIEROS AVANZADOS section displayed with 8 KPIs",
+      "Pro+ buyer — QUALITY SCORE displayed (100/100 for Putos Modernos)",
+      "Pro+ buyer — Quality drivers show actual values: '55.2% de margen operativo', '394,508 EUR por empleado', '75% de ingresos recurrentes', '+48.8% interanual'",
+      "Pro+ buyer — VALORACION Y BENCHMARK PREMIUM section displayed",
+      "Pro+ buyer — Valuation scenarios: Conservador (1,7M€), Base (2,3M€), Optimista (2,8M€)",
+      "Pro+ buyer — Equity adjustment shows correct sign: '+735.670 EUR' (green for cash position)",
+      "Pro+ buyer — Methodology expandable works, shows steps and definitions",
+      "Pro+ buyer — Sidebar actions clickable: Ver infomemo, Acceder al Data Room, Hacer preguntas, Guardar oportunidad"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_deal_presentation_premium.py",
+    "/app/test_reports/pytest/pytest_results_premium.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_deal_presentation_premium.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (27/27 tests passed)",
+    "frontend": "100% (all premium features working correctly)"
+  },
+
+  "test_credentials": {
+    "free_buyer": "carlos.ruiz@capitaliberica.es / demo2026 (deal_hot_seo_01: contact=accepted, NDA=legacy)",
+    "pro_buyer": "iker.aguirre@familyoffice-norte.es / demo2026 (deal_hot_seo_01: contact=accepted, no NDA)",
+    "pro_buyer_with_nda": "james.harris@techventures.co.uk / demo2026 (deal_hot_seo_01: NDA=signed; deal_cis_putos_modernos: NDA=signed, contact=accepted)",
+    "proplus_buyer": "marta.font@groupdigital.cat / demo2026 (deal_cis_putos_modernos: NDA=signed, contact=accepted; deal_hot_seo_01: NDA=signed, contact=accepted)",
+    "seller": "diego.martin@rankingdigital.es / demo2026"
+  },
+
+  "seed_data_used": {
+    "deal_hot_seo_01": "Seed deal with flat financials (2 years: 2024, 2023), owned by seller_seo_madrid_01",
+    "deal_cis_putos_modernos": "CIS deal with PnL+Balance data (3 years: 2024, 2022, 2021), company=comp_e4ac88f79823 (Putos Modernos)",
+    "cis_financials": "Revenue: 789K, EBITDA: 435K, Employees: 2, Margin: 55.2%, Recurring: 75%"
+  },
+
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": ["Stripe payments", "SendGrid emails"],
+    "real_apis": ["Premium IA uses real GPT-5.2 via Emergent LLM Key (cached after first call in premium_analysis_cache collection)"]
+  },
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Deal Presentation Premium Features fully tested. Key findings: (1) Quality Score for Putos Modernos is 100/100 which is correct given the metrics (55% margin, 394K/emp, 75% recurrence, 49% growth). (2) Quality drivers show actual values in descriptions, not just 'positivo'. (3) Equity adjustment shows correct sign (green '+' for cash position, red for debt). (4) Premium analysis cache works - second call is instant. (5) Data Room shows specific block reason (NDA required / contact required / plan required). (6) Subnav sticky works. (7) All sidebar actions are clickable. (8) IMPORTANT: marta.font has user_id 'buyer_estrategico_bcn_01' (not 'buyer_dh_bcn_01' as in test_credentials.md). (9) james.harris has plan buyer_pro (NOT pro+).",
+
+  "note_on_user_ids": "IMPORTANT: The test_credentials.md file has incorrect user_id for marta.font. Actual user_id is 'buyer_estrategico_bcn_01', not 'buyer_dh_bcn_01'. This was discovered during testing."
+}

@@ -31,11 +31,10 @@ async def get_deal_presentation(deal_id: str, request: Request, user: UserRespon
 
 @router.get("/deals/{deal_id}/premium-analysis")
 async def get_premium_analysis(deal_id: str, user: UserResponse = Depends(get_current_user)):
-    """Separate endpoint for GPT-5.2 premium analysis (loaded async by frontend)."""
+    """Separate endpoint for GPT-5.2 premium analysis. Cached in DB, invalidated on deal update."""
     if user.role not in ("buyer", "admin"):
         raise HTTPException(403, "Solo buyers")
 
-    # Verify Pro+ tier
     buyer_doc = await db.users.find_one({"user_id": user.user_id}, {"subscription": 1})
     sub = (buyer_doc or {}).get("subscription") or {}
     pt = sub.get("plan_type", "") if isinstance(sub, dict) else ""
@@ -43,18 +42,25 @@ async def get_premium_analysis(deal_id: str, user: UserResponse = Depends(get_cu
     if tier != "pro+":
         raise HTTPException(403, "Solo disponible para Pro+")
 
-    # Verify NDA
     nda = await db.nda_signatures.find_one(
         {"deal_id": deal_id, "buyer_user_id": user.user_id, "status": "signed"}, {"_id": 0}
     )
     if not nda:
         raise HTTPException(403, "Requiere NDA firmado")
 
-    # Get deal data
+    # Check cache first
     deal = await db.deals.find_one({"deal_id": deal_id}, {"_id": 0})
     if not deal:
         raise HTTPException(404, "Deal no encontrado")
 
+    deal_updated = deal.get("updated_at", "")
+    cached = await db.premium_analysis_cache.find_one(
+        {"deal_id": deal_id}, {"_id": 0}
+    )
+    if cached and cached.get("deal_updated_at") == deal_updated and cached.get("analysis"):
+        return cached["analysis"]
+
+    # Generate fresh analysis
     company = await db.companies.find_one({"company_id": deal.get("company_id")}, {"_id": 0}) if deal.get("company_id") else None
     profile = await db.seller_company_profiles.find_one({"company_id": deal.get("company_id")}, {"_id": 0}) if deal.get("company_id") else None
 
@@ -66,7 +72,6 @@ async def get_premium_analysis(deal_id: str, user: UserResponse = Depends(get_cu
     quant = compute_premium_kpis(cis_fins, employees) if cis_fins else {"available": False}
     benchmark = await compute_benchmark(cis_fins, category, employees) if cis_fins else {"available": False}
 
-    # Build summary for AI
     teaser = deal.get("teaser") or {}
     overrides = (profile or {}).get("seller_overrides", {}) if profile else {}
     summary = {
@@ -88,6 +93,15 @@ async def get_premium_analysis(deal_id: str, user: UserResponse = Depends(get_cu
         qualitative = qd if qd else None
 
     analysis = await generate_premium_analysis(summary, quant, benchmark, qualitative)
+
+    # Cache the result
+    now = datetime.now(timezone.utc).isoformat()
+    await db.premium_analysis_cache.update_one(
+        {"deal_id": deal_id},
+        {"$set": {"deal_id": deal_id, "deal_updated_at": deal_updated, "analysis": analysis, "cached_at": now}},
+        upsert=True,
+    )
+
     return analysis
 
 
