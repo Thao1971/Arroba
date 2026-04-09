@@ -11,10 +11,11 @@ def analyze_assets(deal: dict, company: dict | None, seller_profile: dict | None
     ap = (seller_profile or {}).get("auto_prefilled", {}) if seller_profile else {}
     enrichment = ap.get("enrichment", {})
 
-    # Collect financials from best source
+    # Collect financials from best source — CIS has richer data (PnL, balance)
     company_fins = (company or {}).get("financials") or []
     cis_fins = ap.get("financials") or []
-    fins = company_fins if company_fins else cis_fins
+    cis_has_detail = any(f.get("pnl") or f.get("balance") for f in cis_fins)
+    fins = cis_fins if cis_has_detail else (company_fins if company_fins else cis_fins)
 
     # --- Has data per module ---
     has_data = {}

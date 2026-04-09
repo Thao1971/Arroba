@@ -151,7 +151,11 @@ def _build_financial_data(deal, company, profile, state, tier):
     ap = (profile or {}).get("auto_prefilled", {}) if profile else {}
     company_fins = (company or {}).get("financials") or []
     cis_fins = ap.get("financials") or []
-    fins = company_fins if company_fins else cis_fins
+
+    # CIS data is richer (PnL detail, balance) — prefer when available
+    cis_has_pnl = any(f.get("pnl") for f in cis_fins)
+    fins = cis_fins if cis_has_pnl else (company_fins if company_fins else cis_fins)
+    source = "CIS" if cis_has_pnl else "ARROBA"
 
     if not fins:
         return None
@@ -208,7 +212,7 @@ def _build_financial_data(deal, company, profile, state, tier):
         if n > 0 and first.get("ebitda") and first["ebitda"] > 0 and last.get("ebitda") and last["ebitda"] > 0:
             cagr["ebitda"] = round(((last["ebitda"] / first["ebitda"]) ** (1/n) - 1) * 100, 1)
 
-    return {"years": years, "cagr": cagr, "source": "CIS" if cis_fins and not company_fins else "ARROBA"}
+    return {"years": years, "cagr": cagr, "source": source}
 
 
 def _build_qualitative_data(profile, state):

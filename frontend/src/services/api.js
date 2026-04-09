@@ -276,6 +276,7 @@ export const billingAPI = {
 // Deal Presentation API (Orchestrator)
 export const dealPresentationAPI = {
   getPresentation: (dealId) => api.get(`/deals/${dealId}/presentation`),
+  batchPresentations: (data) => api.post('/deals/presentations/batch', data),
   requestContact: (dealId) => api.post(`/deals/${dealId}/contact-request`),
   acceptContact: (dealId, requestId) => api.post(`/deals/${dealId}/contact-request/${requestId}/accept`),
   rejectContact: (dealId, requestId) => api.post(`/deals/${dealId}/contact-request/${requestId}/reject`),

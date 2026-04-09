@@ -129,6 +129,8 @@ ARROBA es un marketplace confidencial de compraventa y fusión de agencias digit
 
 ### P1 (en progreso)
 - [x] Orquestador de Presentacion de Deals — Fases 1-3 completadas
+- [x] Ficha canonica integrada con PnL/Balance CIS reales
+- [x] Cards marketplace con logica del orquestador (CTAs por plan, badges estado)
 - [ ] Orquestador Fase 4 — Premium Intelligence Agent (GPT-5.2 para analisis IA Pro+)
 
 ### P2

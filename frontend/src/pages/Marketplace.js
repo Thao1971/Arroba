@@ -4,9 +4,9 @@ import Layout from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { marketplaceAPI, matchingAPI, engagementsAPI } from '../services/api';
+import { marketplaceAPI, matchingAPI, engagementsAPI, dealPresentationAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Zap, Sparkles, ArrowUpDown, MoreHorizontal, Copy, Share2, X, Heart } from 'lucide-react';
+import { Search, Filter, MapPin, Calendar, TrendingUp, Building2, Zap, Sparkles, ArrowUpDown, MoreHorizontal, Copy, Share2, X, Heart, Lock, ArrowRight, Shield } from 'lucide-react';
 import { SPAIN_PROVINCES } from './BuyerOnboarding';
 
 const ShareMenu = ({ dealId, title }) => {
@@ -101,6 +101,7 @@ const Marketplace = () => {
   const [sortBy, setSortBy] = useState('actividad');
   const [matchData, setMatchData] = useState({}); // deal_id -> {affinity, affinity_label}
   const [savedIds, setSavedIds] = useState(new Set());
+  const [cardPresentations, setCardPresentations] = useState({}); // deal_id -> card presentation
   const buyerProfileComplete = user?.buyer_profile?.profile_complete;
   
   const [filters, setFilters] = useState({
@@ -148,6 +149,16 @@ const Marketplace = () => {
             const savedRes = await engagementsAPI.listSaved();
             const ids = new Set((savedRes.data?.deals || []).map(d => d.deal_id));
             setSavedIds(ids);
+          } catch {}
+          // Fetch card presentations (plan-aware CTAs)
+          try {
+            const dealIds = (dealsRes.data || []).map(d => d.deal_id);
+            if (dealIds.length > 0 && user?.role === 'buyer') {
+              const presRes = await dealPresentationAPI.batchPresentations({ deal_ids: dealIds });
+              const map = {};
+              (presRes.data || []).forEach(p => { map[p.deal_id] = p; });
+              setCardPresentations(map);
+            }
           } catch {}
         }
       } catch (error) {
@@ -373,16 +384,21 @@ const Marketplace = () => {
                   const highlights = (teaser.highlights || []).slice(0, 2);
                   const dealMatch = matchData[deal.deal_id];
                   const signals = deal.signals || [];
+                  const cp = cardPresentations[deal.deal_id];
+                  const isFreeBlocked = cp?.buyer_tier === 'free' && cp?.visibility_state === 'LOCKED_CONTACT_REQUIRED';
+                  const showFins = !cp || cp.show_financials;
 
                   return (
                     <Link key={deal.deal_id} to={`/explorar/${deal.deal_id}`}
-                      className="card-arroba hover:border-slate-300 transition-all hover:shadow-sm group"
+                      className="group relative transition-all duration-200"
+                      style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}
                       data-testid={`deal-card-${deal.deal_id}`}>
+                      {cp?.is_premium && <div className="absolute top-0 right-0 px-2 py-0.5 text-[8px] font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>PRO+</div>}
+                      <div className="p-5">
                       {/* Header */}
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="badge-coral text-xs">{teaser.sector_display || 'Digital'}</span>
-                          {/* Affinity badge (only for logged in buyers with profile) */}
+                          <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: 'rgba(182,33,42,0.06)', color: 'var(--arroba-primary)' }}>{teaser.sector_display || 'Digital'}</span>
                           {dealMatch && (
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase flex items-center gap-1 ${affinityConfig[dealMatch.affinity]?.class || 'bg-slate-100 text-slate-500'}`}
                               data-testid={`affinity-${deal.deal_id}`}>
@@ -390,13 +406,13 @@ const Marketplace = () => {
                               {dealMatch.label}
                             </span>
                           )}
+                          {cp?.visibility_state === 'CONTACT_REQUESTED' && <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: '#d9770615', color: '#d97706' }}>SOLICITUD ENVIADA</span>}
+                          {cp?.has_nda && <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>NDA FIRMADO</span>}
                         </div>
                         <div className="flex items-center gap-1">
                           {opTypes.slice(0, 2).map(t => {
                             const l = opTypeLabels[t] || { text: t, color: 'bg-slate-100 text-slate-600' };
-                            return (
-                              <span key={t} className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${l.color}`}>{l.text}</span>
-                            );
+                            return <span key={t} className="text-[9px] font-bold px-2 py-0.5" style={{ background: 'var(--surface-2)', color: 'var(--outline)' }}>{l.text}</span>;
                           })}
                           <ShareMenu dealId={deal.deal_id} title={teaser.title || teaser.headline} />
                           {isAuthenticated && (
@@ -410,21 +426,19 @@ const Marketplace = () => {
                       </div>
 
                       {/* Title */}
-                      <h3 className="text-lg font-bold mb-1 group-hover:text-arroba-coral transition-colors">
-                        {teaser.title || teaser.headline || 'Oportunidad de Inversión'}
+                      <h3 className="text-base font-bold mb-1" style={{ color: 'var(--on-surface)' }}>
+                        {teaser.title || teaser.headline || 'Oportunidad de Inversion'}
                       </h3>
 
                       {/* Description */}
-                      <p className="text-sm text-slate-500 mb-3 line-clamp-2">
+                      <p className="text-xs mb-3 line-clamp-2" style={{ color: 'var(--outline)' }}>
                         {teaser.short_description || teaser.description || 'Oportunidad en el sector digital'}
                       </p>
 
                       {/* Soft Signals */}
                       {signals.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mb-3" data-testid={`signals-${deal.deal_id}`}>
-                          {signals.map((s, i) => (
-                            <SignalBadge key={i} signal={s} />
-                          ))}
+                          {signals.map((s, i) => <SignalBadge key={i} signal={s} />)}
                         </div>
                       )}
 
@@ -432,15 +446,15 @@ const Marketplace = () => {
                       {highlights.length > 0 && (
                         <div className="mb-3 space-y-1">
                           {highlights.map((h, i) => (
-                            <p key={i} className="text-xs text-slate-500 flex items-center gap-1">
-                              <span className="w-1 h-1 bg-arroba-green rounded-full flex-shrink-0" /> {h}
+                            <p key={i} className="text-[10px] flex items-center gap-1" style={{ color: 'var(--outline)' }}>
+                              <span className="w-1 h-1 flex-shrink-0" style={{ background: '#16a34a' }} /> {h}
                             </p>
                           ))}
                         </div>
                       )}
 
                       {/* Location */}
-                      <div className="flex items-center gap-4 text-xs text-slate-400 mb-3">
+                      <div className="flex items-center gap-4 text-xs mb-3" style={{ color: 'var(--outline)' }}>
                         {(teaser.location || teaser.geography_display) && (
                           <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {teaser.location || teaser.geography_display}</span>
                         )}
@@ -450,23 +464,39 @@ const Marketplace = () => {
                       </div>
 
                       {/* Financials */}
-                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+                      <div className="grid grid-cols-2 gap-4 pt-3" style={{ borderTop: '1px solid var(--surface-2)' }}>
                         <div>
-                          <p className="label-arroba">Facturación</p>
-                          <p className="font-bold text-slate-900">{teaser.revenue_range || teaser.revenue_display || 'N/D'}</p>
+                          <p className="label-arroba">FACTURACION</p>
+                          {showFins ? (
+                            <p className="font-bold" style={{ color: 'var(--on-surface)' }}>{teaser.revenue_range || teaser.revenue_display || 'N/D'}</p>
+                          ) : (
+                            <p className="text-[10px] flex items-center gap-1" style={{ color: 'var(--outline)' }}><Lock size={10} /> Contactar</p>
+                          )}
                         </div>
                         <div>
                           <p className="label-arroba">EBITDA</p>
-                          <p className="font-bold text-slate-900 flex items-center gap-1">
-                            <TrendingUp className="w-3 h-3 text-arroba-green" />
-                            {teaser.ebitda_range || teaser.ebitda_display || 'N/D'}
-                          </p>
+                          {showFins ? (
+                            <p className="font-bold flex items-center gap-1" style={{ color: 'var(--on-surface)' }}>
+                              <TrendingUp className="w-3 h-3" style={{ color: '#16a34a' }} />
+                              {teaser.ebitda_range || teaser.ebitda_display || 'N/D'}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] flex items-center gap-1" style={{ color: 'var(--outline)' }}><Lock size={10} /> Contactar</p>
+                          )}
                         </div>
                       </div>
 
-                      {/* CTA */}
-                      <div className="mt-3 pt-3 border-t border-slate-100">
-                        <span className="text-sm font-medium text-arroba-coral group-hover:underline">Ver oportunidad →</span>
+                      {/* CTA — plan-aware */}
+                      <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--surface-2)' }}>
+                        {cp?.card_cta ? (
+                          <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: cp.card_cta.action === 'wait' ? 'var(--outline)' : 'var(--arroba-primary)' }}>
+                            {cp.card_cta.action === 'wait' ? <Shield size={11} /> : null}
+                            {cp.card_cta.label} {cp.card_cta.action !== 'wait' && <ArrowRight size={11} />}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold" style={{ color: 'var(--arroba-primary)' }}>Ver oportunidad <ArrowRight size={11} className="inline" /></span>
+                        )}
+                      </div>
                       </div>
                     </Link>
                   );
