@@ -13,7 +13,7 @@
 | carlos.ruiz@capitaliberica.es | demo2026 | Free | buyer_pe_madrid_01 |
 | iker.aguirre@familyoffice-norte.es | demo2026 | Pro | buyer_fo_bilbao_01 |
 | james.harris@techventures.co.uk | demo2026 | Pro | buyer_vc_london_01 |
-| marta.font@groupdigital.cat | demo2026 | Pro+ | buyer_dh_bcn_01 |
+| marta.font@groupdigital.cat | demo2026 | Pro+ | buyer_estrategico_bcn_01 |
 
 ## Datos de Test del Orquestador
 - Deal ID: deal_hot_seo_01 (owned by diego.martin)
