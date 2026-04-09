@@ -121,7 +121,6 @@ ARROBA es un marketplace confidencial de compraventa y fusión de agencias digit
 | 26 | Buyer Dashboard F2 | 100% |
 | 27 | Buyer Dashboard F3 | 100% |
 | **28** | **Seller Workspace P0** | **100% backend (21/21), 95% frontend** |
-| **29** | **Orquestador Fases 1-3** | **Backend 29/29, Frontend 100%** |
 | **30** | **Ficha Canonica Orquestada** | **Backend 41/41, Frontend 100%** |
 
 ---
