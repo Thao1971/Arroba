@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDealPresentation } from '../hooks/useDealPresentation';
 import Layout from '../components/layout/Layout';
+import DataRoomBuyerView from '../components/DataRoomBuyerView';
 import { fmtES, fmtMillions } from '../utils/formatES';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import {
@@ -375,10 +376,21 @@ const DealPageCanonical = () => {
           {/* ── SECTION: DATAROOM ── */}
           <div ref={el => sectionRefs.current['dataroom'] = el} data-section="dataroom">
             <Mod id="dataroom" modules={mods} onNavigate={navigate}>
-              <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                <div className="flex items-center gap-2 mb-3"><FolderOpen size={14} style={{ color: 'var(--outline)' }} /><p className="label-arroba" style={{ color: 'var(--outline)' }}>DATA ROOM</p></div>
-                <p className="text-sm mb-3" style={{ color: 'var(--on-surface)' }}>Documentacion confidencial del proceso de transaccion.</p>
-                {mods?.dataroom?.state === 'open' && <button className="px-4 py-2 text-[10px] font-bold flex items-center gap-2" style={{ background: 'var(--on-surface)', color: '#fff' }}><FolderOpen size={10} /> ACCEDER AL DATA ROOM</button>}
+              <div style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+                <div className="p-5 pb-0">
+                  <div className="flex items-center gap-2 mb-1"><FolderOpen size={14} style={{ color: 'var(--outline)' }} /><p className="label-arroba" style={{ color: 'var(--outline)' }}>DATA ROOM</p></div>
+                  <p className="text-xs mb-3" style={{ color: 'var(--outline)' }}>Documentacion confidencial del proceso de transaccion.</p>
+                </div>
+                {mods?.dataroom?.state === 'open' ? (
+                  <div className="px-5 pb-5"><DataRoomBuyerView dealId={dealId} /></div>
+                ) : (
+                  <div className="px-5 pb-5">
+                    <div className="p-4 text-center" style={{ background: 'var(--surface-1)' }}>
+                      <FolderOpen size={20} className="mx-auto mb-2" style={{ color: 'var(--outline-variant)' }} />
+                      <p className="text-[10px]" style={{ color: 'var(--outline)' }}>El acceso al Data Room requiere NDA firmado.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </Mod>
           </div>

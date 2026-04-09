@@ -12,7 +12,6 @@ import AuthCallback from './pages/AuthCallback';
 import BuyerDashboard from './pages/BuyerDashboard';
 import SellerWorkspace from './pages/SellerWorkspace';
 import SellerCompanyWorkspace from './pages/SellerCompanyWorkspace';
-import DealPage from './pages/DealPage';
 import DealPageCanonical from './pages/DealPageCanonical';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
@@ -21,8 +20,6 @@ import AdvisorMandatos from './pages/AdvisorMandatos';
 import ConversationPage from './pages/ConversationPage';
 import ValuationWizard from './pages/ValuationWizard';
 import PlansPage from './pages/PlansPage';
-import BuyerDealView from './pages/BuyerDealView';
-import DealOrchestratedView from './pages/DealOrchestratedView';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles, skipOnboardingCheck }) => {
@@ -71,7 +68,7 @@ const AppRouter = () => {
       <Route path="/" element={<Home />} />
       <Route path="/explorar" element={<Marketplace />} />
       <Route path="/marketplace" element={<Navigate to="/explorar" replace />} />
-      <Route path="/marketplace/:dealId" element={<DealPage />} />
+      <Route path="/marketplace/:dealId" element={<Navigate to="/explorar/:dealId" replace />} />
       <Route path="/explorar/:dealId" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin', 'advisor']} skipOnboardingCheck><DealPageCanonical /></ProtectedRoute>} />
       <Route path="/vender" element={<Register role="seller" />} />
       <Route path="/como-funciona" element={<Home />} />
@@ -86,8 +83,7 @@ const AppRouter = () => {
       <Route path="/buyer/onboarding" element={<ProtectedRoute allowedRoles={['buyer', 'admin']} skipOnboardingCheck><BuyerOnboarding /></ProtectedRoute>} />
       <Route path="/buyer/procesos" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><BuyerDashboard /></ProtectedRoute>} />
       <Route path="/buyer/guardados" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><SavedDeals /></ProtectedRoute>} />
-      <Route path="/buyer/deal/:dealId" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><BuyerDealView /></ProtectedRoute>} />
-      <Route path="/buyer/deal/:dealId/orchestrated" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><DealOrchestratedView /></ProtectedRoute>} />
+      <Route path="/buyer/deal/:dealId" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><DealPageCanonical /></ProtectedRoute>} />
       <Route path="/buyer/dashboard" element={<Navigate to="/buyer/procesos" replace />} />
       <Route path="/buyer/profile" element={<Navigate to="/buyer/procesos" replace />} />
       <Route path="/buyer/processes" element={<Navigate to="/buyer/procesos" replace />} />
