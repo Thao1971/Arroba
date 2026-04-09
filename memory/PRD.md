@@ -80,11 +80,11 @@ ARROBA es un marketplace confidencial de compraventa y fusión de agencias digit
 ## 5. Funcionalidades Implementadas
 
 ### Completadas
-- Home Page con hero tabs + valoración
+- Home Page con hero tabs + valoracion
 - Marketplace con filtros + share menu
 - Seller Wizard V2 (legacy, reemplazado por Workspace)
 - **Seller Company Workspace** (modular, 5 paneles) — VALIDADO
-- Módulo de Valoración Pública (lead magnet)
+- Modulo de Valoracion Publica (lead magnet)
 - Planes y Precios (8 planes)
 - NDA Mutuo Digital (PDF + audit)
 - Buyer Dashboard Premium (6 tabs)
@@ -93,7 +93,14 @@ ARROBA es un marketplace confidencial de compraventa y fusión de agencias digit
 - CIS como Master Data Layer
 - Financial Visuals (recharts)
 - Buyer Deal View con gating estricto
-- Formato numérico español (formatES.js) global
+- Formato numerico espanol (formatES.js) global
+- **Orquestador de Presentacion de Deals** (Fases 1-3)
+  - Contact Request System (manual_review + auto_accept)
+  - 5 subagentes: Asset Analyzer, Access Rules, Layout Compositor, CTA Engine, Premium Intelligence (placeholder)
+  - Endpoint: `GET /api/deals/{dealId}/presentation`
+  - Frontend: DealOrchestratedView, DealActionPanel, DealTeaserPage, DealPreContactPage, DealListingCard, DealPremiumAnalysis
+  - Hook: `useDealPresentation(dealId)`
+  - Estados: LOCKED_CONTACT_REQUIRED → CONTACT_REQUESTED → TEASER_UNLOCKED / NDA_AVAILABLE → OPERATIVE_ACCESS
 
 ### MOCKEADO
 - Stripe (pagos)
@@ -119,8 +126,12 @@ ARROBA es un marketplace confidencial de compraventa y fusión de agencias digit
 
 ## 7. Backlog Pendiente
 
+### P1 (en progreso)
+- [x] Orquestador de Presentacion de Deals — Fases 1-3 completadas
+- [ ] Orquestador Fase 4 — Premium Intelligence Agent (GPT-5.2 para analisis IA Pro+)
+
 ### P2
-- [ ] Admin Console — Gestión planes, múltiplos, taxonomía
+- [ ] Admin Console — Gestion planes, multiplos, taxonomia
 - [ ] PDF export infomemo
 - [ ] Activar SendGrid real
 - [ ] Advisor dashboard real
@@ -128,8 +139,8 @@ ARROBA es un marketplace confidencial de compraventa y fusión de agencias digit
 
 ### P3
 - [ ] Response Time Score interno
-- [ ] Validación documental de empresa
+- [ ] Validacion documental de empresa
 
 ### Limpieza completada (7 abril 2026)
 - [x] Eliminado import muerto de `SellerWizard` y `SellerWizardBoceto` de App.js
-- [x] LOI Comparator y Buyer Activity Panel reclasificados como OPERATIVOS (estaban mal listados como P1 pendiente)
+- [x] LOI Comparator y Buyer Activity Panel reclasificados como OPERATIVOS
