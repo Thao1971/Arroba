@@ -119,17 +119,17 @@ ARROBA es un marketplace confidencial de compraventa y fusión de agencias digit
 
 ## 7. Backlog Pendiente
 
-### P1
-- [ ] Activity dashboard por buyer (en progreso en PRD anterior)
-
 ### P2
 - [ ] Admin Console — Gestión planes, múltiplos, taxonomía
 - [ ] PDF export infomemo
 - [ ] Activar SendGrid real
 - [ ] Advisor dashboard real
 - [ ] Deal state transitions UI
-- [ ] Eliminar/deprecar SellerWizard.js legacy
 
 ### P3
 - [ ] Response Time Score interno
 - [ ] Validación documental de empresa
+
+### Limpieza completada (7 abril 2026)
+- [x] Eliminado import muerto de `SellerWizard` y `SellerWizardBoceto` de App.js
+- [x] LOI Comparator y Buyer Activity Panel reclasificados como OPERATIVOS (estaban mal listados como P1 pendiente)

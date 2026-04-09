@@ -11,14 +11,12 @@ import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
 import BuyerDashboard from './pages/BuyerDashboard';
 import SellerWorkspace from './pages/SellerWorkspace';
-import SellerWizard from './pages/SellerWizard';
 import SellerCompanyWorkspace from './pages/SellerCompanyWorkspace';
 import DealPage from './pages/DealPage';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
 import SellerInteresados from './pages/SellerInteresados';
 import AdvisorMandatos from './pages/AdvisorMandatos';
-// SellerWizardBoceto removed - merged into SellerWizard V2
 import ConversationPage from './pages/ConversationPage';
 import ValuationWizard from './pages/ValuationWizard';
 import PlansPage from './pages/PlansPage';
@@ -75,7 +73,6 @@ const AppRouter = () => {
       <Route path="/explorar/:dealId" element={<DealPage />} />
       <Route path="/vender" element={<Register role="seller" />} />
       <Route path="/como-funciona" element={<Home />} />
-      {/* Boceto route removed - merged into SellerWizard V2 */}
       <Route path="/valoracion" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin', 'advisor']} skipOnboardingCheck><ValuationWizard /></ProtectedRoute>} />
       <Route path="/planes" element={<PlansPage />} />
       <Route path="/pricing" element={<Navigate to="/planes" replace />} />
