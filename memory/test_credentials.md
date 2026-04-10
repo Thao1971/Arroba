@@ -1,5 +1,10 @@
 ## Cuentas de Test — ARROBA Platform
 
+## Admin
+| Email | Password | User ID |
+|---|---|---|
+| admin@arroba.com | admin2026 | admin_arroba_01 |
+
 ## Sellers
 | Email | Password | User ID |
 |---|---|---|

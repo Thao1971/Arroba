@@ -13,6 +13,7 @@ import BuyerDashboard from './pages/BuyerDashboard';
 import SellerWorkspace from './pages/SellerWorkspace';
 import SellerCompanyWorkspace from './pages/SellerCompanyWorkspace';
 import DealPageCanonical from './pages/DealPageCanonical';
+import AdminConsole from './pages/AdminConsole';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
 import SellerInteresados from './pages/SellerInteresados';
@@ -112,7 +113,8 @@ const AppRouter = () => {
       <Route path="/advisor/dashboard" element={<Navigate to="/advisor/mandatos" replace />} />
 
       {/* Admin Routes */}
-      <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><BuyerDashboard /></ProtectedRoute>} />
+      <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['admin']}><AdminConsole /></ProtectedRoute>} />
+      <Route path="/admin/*" element={<ProtectedRoute allowedRoles={['admin']}><AdminConsole /></ProtectedRoute>} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
