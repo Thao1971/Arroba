@@ -240,3 +240,150 @@ async def get_platform_stats(user: UserResponse = Depends(get_current_user)):
         "users": {"total": users_total, "buyers": buyers, "sellers": sellers},
         "activity": {"ndas": ndas, "contacts": contacts, "engagements": engagements},
     }
+
+
+# ═══ PLATFORM HEALTH ═══
+
+@router.get("/health")
+async def get_platform_health(user: UserResponse = Depends(get_current_user)):
+    """Detailed platform health: stale deals, incomplete sellers, funnel, activity by plan."""
+    _require_admin(user)
+    from datetime import timedelta
+
+    now_dt = datetime.now(timezone.utc)
+    seven_days_ago = (now_dt - timedelta(days=7)).isoformat()
+    two_days_ago = (now_dt - timedelta(days=2)).isoformat()
+
+    # Stale deals (published, no activity in 7 days)
+    stale_deals = []
+    cursor = db.deals.find({"status": "published"}, {"_id": 0, "deal_id": 1, "updated_at": 1, "teaser.headline": 1})
+    async for d in cursor:
+        if d.get("updated_at", "") < seven_days_ago:
+            stale_deals.append({"deal_id": d["deal_id"], "title": d.get("teaser", {}).get("headline", "?"), "last_update": d.get("updated_at")})
+
+    # Incomplete seller workspaces
+    incomplete_sellers = []
+    cursor2 = db.seller_company_profiles.find({"profile_readiness": {"$lt": 80}}, {"_id": 0, "profile_id": 1, "seller_id": 1, "profile_readiness": 1, "panel_status": 1})
+    async for p in cursor2:
+        seller = await db.users.find_one({"user_id": p["seller_id"]}, {"_id": 0, "email": 1, "first_name": 1})
+        incomplete_sellers.append({"profile_id": p["profile_id"], "seller": (seller or {}).get("email"), "readiness": p.get("profile_readiness", 0), "panels": p.get("panel_status")})
+
+    # Free buyers never advanced
+    free_stuck = await db.users.count_documents({"role": "buyer", "$or": [{"subscription": None}, {"subscription.plan_type": "free"}, {"subscription": {"$exists": False}}]})
+    total_buyers = await db.users.count_documents({"role": "buyer"})
+
+    # Pending NDAs > 7 days (no signature after contact accepted)
+    pending_nda_deals = []
+    cursor3 = db.contact_requests.find({"status": "accepted"}, {"_id": 0, "deal_id": 1, "buyer_id": 1, "updated_at": 1})
+    async for cr in cursor3:
+        nda = await db.nda_signatures.find_one({"deal_id": cr["deal_id"], "buyer_user_id": cr["buyer_id"], "status": "signed"})
+        if not nda and cr.get("updated_at", "") < seven_days_ago:
+            pending_nda_deals.append({"deal_id": cr["deal_id"], "buyer_id": cr["buyer_id"], "accepted_at": cr.get("updated_at")})
+
+    # Unanswered contact requests > 48h
+    unanswered = []
+    cursor4 = db.contact_requests.find({"status": "pending"}, {"_id": 0, "request_id": 1, "deal_id": 1, "buyer_id": 1, "created_at": 1})
+    async for cr in cursor4:
+        if cr.get("created_at", "") < two_days_ago:
+            unanswered.append({"request_id": cr["request_id"], "deal_id": cr["deal_id"], "buyer_id": cr["buyer_id"], "waiting_since": cr.get("created_at")})
+
+    # Funnel
+    registered = await db.users.count_documents({"role": "buyer"})
+    contacted = len(set([cr["buyer_id"] async for cr in db.contact_requests.find({}, {"buyer_id": 1})]))
+    nda_signed = len(set([n["buyer_user_id"] async for n in db.nda_signatures.find({"status": "signed"}, {"buyer_user_id": 1})]))
+    loi_sent = await db.engagements.count_documents({"type": "LOI"})
+
+    # Activity by plan
+    plan_activity = {}
+    for plan_label, plan_filter in [("free", {"$or": [{"subscription": None}, {"subscription.plan_type": "free"}]}), ("pro", {"subscription.plan_type": "buyer_pro"}), ("pro+", {"subscription.plan_type": "buyer_proplus"})]:
+        count = await db.users.count_documents({"role": "buyer", **plan_filter})
+        plan_activity[plan_label] = {"users": count}
+
+    return {
+        "stale_deals": stale_deals,
+        "stale_deals_count": len(stale_deals),
+        "incomplete_sellers": incomplete_sellers,
+        "incomplete_sellers_count": len(incomplete_sellers),
+        "free_stuck": {"count": free_stuck, "total_buyers": total_buyers, "pct": round(free_stuck / max(total_buyers, 1) * 100)},
+        "pending_nda": pending_nda_deals,
+        "pending_nda_count": len(pending_nda_deals),
+        "unanswered_contacts": unanswered,
+        "unanswered_count": len(unanswered),
+        "funnel": {"registered": registered, "contacted": contacted, "nda_signed": nda_signed, "loi_sent": loi_sent},
+        "plan_distribution": plan_activity,
+    }
+
+
+# ═══ TAXONOMY & MULTIPLES ═══
+
+@router.get("/taxonomy/multiples")
+async def list_multiples(user: UserResponse = Depends(get_current_user)):
+    """List all valuation multiples by category."""
+    _require_admin(user)
+    cursor = db.valuation_multiples.find({}, {"_id": 0}).sort("scope_name", 1)
+    return await cursor.to_list(50)
+
+
+@router.put("/taxonomy/multiples/{scope_id}")
+async def update_multiple(scope_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Update multiples for a category. Returns impact preview."""
+    _require_admin(user)
+
+    existing = await db.valuation_multiples.find_one({"scope_id": scope_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Categoria no encontrada")
+
+    now = datetime.now(timezone.utc).isoformat()
+    update = {}
+    for field in ["multiple_min", "multiple_mid", "multiple_max"]:
+        if field in data:
+            update[field] = float(data[field])
+    update["updated_by"] = user.user_id
+    update["updated_at"] = now
+
+    # Impact preview: how many deals would change
+    old_mid = existing.get("multiple_mid", 4.5)
+    new_mid = update.get("multiple_mid", old_mid)
+
+    await db.valuation_multiples.update_one({"scope_id": scope_id}, {"$set": update})
+
+    # Log change
+    await db.admin_audit_log.insert_one({
+        "action": "multiple_update",
+        "scope_id": scope_id,
+        "old_values": {k: existing.get(k) for k in ["multiple_min", "multiple_mid", "multiple_max"]},
+        "new_values": {k: update.get(k) for k in ["multiple_min", "multiple_mid", "multiple_max"] if k in update},
+        "changed_by": user.user_id,
+        "changed_at": now,
+    })
+
+    return {"scope_id": scope_id, "updated": True, "old_mid": old_mid, "new_mid": new_mid}
+
+
+@router.get("/taxonomy/multiples/history")
+async def get_multiples_history(user: UserResponse = Depends(get_current_user)):
+    """Get audit log of multiple changes."""
+    _require_admin(user)
+    cursor = db.admin_audit_log.find({"action": "multiple_update"}, {"_id": 0}).sort("changed_at", -1).limit(50)
+    return await cursor.to_list(50)
+
+
+# ═══ NDA & LEGAL ═══
+
+@router.get("/ndas")
+async def list_all_ndas(user: UserResponse = Depends(get_current_user)):
+    """List all NDA signatures for governance."""
+    _require_admin(user)
+    cursor = db.nda_signatures.find({}, {"_id": 0, "rendered_text": 0}).sort("signed_at", -1)
+    return await cursor.to_list(200)
+
+
+# ═══ COMMUNICATIONS LOG ═══
+
+@router.get("/notifications/log")
+async def list_notification_log(user: UserResponse = Depends(get_current_user)):
+    """List all notifications sent (comms audit)."""
+    _require_admin(user)
+    cursor = db.notifications.find({}, {"_id": 0}).sort("created_at", -1).limit(100)
+    return await cursor.to_list(100)
+
