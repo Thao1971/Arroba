@@ -33,14 +33,14 @@ async def compute_benchmark(financials: list, category: str, employees: int | No
 
     # Get category peers from database
     peers = await _get_category_peers(category)
+    benchmark_scope = category if len(peers) >= 3 else "Mercado MadTech Espana"
 
     if len(peers) < 3:
-        # Not enough data for meaningful percentiles
         return {
             "available": False,
-            "category": category,
+            "category": benchmark_scope,
             "peer_count": len(peers),
-            "reason": "Insuficientes empresas en la categoria para benchmark robusto",
+            "reason": "Insuficientes empresas para benchmark robusto",
         }
 
     # Compute percentiles
@@ -108,7 +108,7 @@ async def compute_benchmark(financials: list, category: str, employees: int | No
 
     return {
         "available": True,
-        "category": category,
+        "category": benchmark_scope,
         "peer_count": len(peers),
         "percentiles": percentiles,
         "vs_category": vs_category,
@@ -117,59 +117,85 @@ async def compute_benchmark(financials: list, category: str, employees: int | No
 
 
 async def _get_category_peers(category: str) -> list:
-    """Get financial metrics for all companies in the same category."""
+    """Get financial metrics for peers. Falls back to all companies if category too small."""
     peers = []
 
-    # From companies collection (seed data)
+    # 1. Try exact category match in companies
     cursor = db.companies.find(
         {"sectors": {"$elemMatch": {"$regex": category, "$options": "i"}}},
         {"_id": 0, "financials": 1, "employees_count": 1}
     )
     async for comp in cursor:
-        fins = comp.get("financials") or []
-        if fins:
-            f = sorted(fins, key=lambda x: x.get("year", 0), reverse=True)[0]
-            rev = f.get("revenue") or 0
-            ebt = f.get("ebitda") or 0
-            emp = comp.get("employees_count") or 0
-            if rev > 0:
-                peers.append({
-                    "revenue": rev,
-                    "ebitda": ebt,
-                    "margin": (ebt / rev * 100) if rev > 0 else 0,
-                    "efficiency": (rev / emp) if emp > 0 else 0,
-                    "growth": None,
-                })
+        _add_company_peer(comp, peers)
 
-    # From seller profiles (CIS data, richer)
+    # 2. Try CIS profiles with same category
     cursor2 = db.seller_company_profiles.find(
         {"auto_prefilled.taxonomy.category": {"$regex": category, "$options": "i"}},
         {"_id": 0, "auto_prefilled.financials": 1}
     )
     async for prof in cursor2:
-        fins = prof.get("auto_prefilled", {}).get("financials") or []
-        if fins:
-            f = sorted(fins, key=lambda x: x.get("year", 0), reverse=True)[0]
-            pnl = f.get("pnl") or {}
-            rev = pnl.get("revenue") or 0
-            ebt = pnl.get("ebitda") or 0
-            emp = f.get("employees") or 0
-            gr = None
-            if len(fins) >= 2:
-                sf = sorted(fins, key=lambda x: x.get("year", 0))
-                r0 = (sf[0].get("pnl") or {}).get("revenue") or 0
-                r1 = (sf[-1].get("pnl") or {}).get("revenue") or 0
-                n = sf[-1].get("year", 0) - sf[0].get("year", 0)
-                if n > 0 and r0 > 0:
-                    gr = ((r1/r0)**(1/n)-1)*100
-            if rev > 0:
-                peers.append({
-                    "revenue": rev,
-                    "ebitda": ebt,
-                    "margin": (ebt / rev * 100) if rev > 0 else 0,
-                    "efficiency": (rev / emp) if emp > 0 else 0,
-                    "growth": gr,
-                })
+        _add_profile_peer(prof, peers)
+
+    # 3. Fallback: if <3 peers, use ALL companies as market benchmark
+    if len(peers) < 3:
+        peers = []
+        cursor3 = db.companies.find(
+            {"financials": {"$exists": True, "$ne": []}},
+            {"_id": 0, "financials": 1, "employees_count": 1}
+        )
+        async for comp in cursor3:
+            _add_company_peer(comp, peers)
+
+        # Also all CIS profiles
+        cursor4 = db.seller_company_profiles.find(
+            {"auto_prefilled.financials": {"$exists": True}},
+            {"_id": 0, "auto_prefilled.financials": 1}
+        )
+        async for prof in cursor4:
+            _add_profile_peer(prof, peers)
+
+    return peers
+
+
+def _add_company_peer(comp, peers):
+    fins = comp.get("financials") or []
+    if fins:
+        f = sorted(fins, key=lambda x: x.get("year", 0), reverse=True)[0]
+        rev = f.get("revenue") or 0
+        ebt = f.get("ebitda") or 0
+        emp = comp.get("employees_count") or 0
+        if rev > 0:
+            peers.append({
+                "revenue": rev, "ebitda": ebt,
+                "margin": (ebt / rev * 100) if rev > 0 else 0,
+                "efficiency": (rev / emp) if emp > 0 else 0,
+                "growth": None,
+            })
+
+
+def _add_profile_peer(prof, peers):
+    fins = prof.get("auto_prefilled", {}).get("financials") or []
+    if fins:
+        f = sorted(fins, key=lambda x: x.get("year", 0), reverse=True)[0]
+        pnl = f.get("pnl") or {}
+        rev = pnl.get("revenue") or 0
+        ebt = pnl.get("ebitda") or 0
+        emp = f.get("employees") or 0
+        gr = None
+        if len(fins) >= 2:
+            sf = sorted(fins, key=lambda x: x.get("year", 0))
+            r0 = (sf[0].get("pnl") or {}).get("revenue") or 0
+            r1 = (sf[-1].get("pnl") or {}).get("revenue") or 0
+            n = sf[-1].get("year", 0) - sf[0].get("year", 0)
+            if n > 0 and r0 > 0:
+                gr = ((r1/r0)**(1/n)-1)*100
+        if rev > 0:
+            peers.append({
+                "revenue": rev, "ebitda": ebt,
+                "margin": (ebt / rev * 100) if rev > 0 else 0,
+                "efficiency": (rev / emp) if emp > 0 else 0,
+                "growth": gr,
+            })
 
     return peers
 
