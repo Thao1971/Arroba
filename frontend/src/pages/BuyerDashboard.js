@@ -9,7 +9,7 @@ import {
   Sparkles, MapPin, Zap, ChevronRight, Send, FileSignature, Shield,
   Star, Lock, AlertCircle, MessageSquare, CheckCircle2,
   FolderOpen, Eye, User, Bell, Settings, Bookmark, ArrowLeft, Clock,
-  Award, CreditCard, Info, MoreHorizontal, Copy, Share2, X, Trash2
+  Award, CreditCard, Info, MoreHorizontal, Copy, Share2, X, Trash2, Loader2
 } from 'lucide-react';
 
 /* ─── Configs ─── */
@@ -269,6 +269,13 @@ const BuyerDashboard = () => {
         <div className="max-w-[1100px] mx-auto px-8 pb-16">
 
           {/* ─── TOP HEADER ─── */}
+          {activeDealPhase && (
+            <DealPhaseView dealId={activeDealPhase.dealId} phase={activeDealPhase.phase} companyName={processTree.find(p => p.deal_id === activeDealPhase.dealId)?.company_name} />
+          )}
+          {activeDealPhase && (
+            <DealPhaseView dealId={activeDealPhase.dealId} phase={activeDealPhase.phase} companyName={processTree.find(p => p.deal_id === activeDealPhase.dealId)?.company_name} />
+          )}
+          <div style={{ display: activeDealPhase ? 'none' : 'block' }}>
           <div className="flex items-start justify-between gap-4 mb-8">
             <div>
               <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>
@@ -751,13 +758,89 @@ const BuyerDashboard = () => {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+          </div>
       </main>
     </div>
   );
 };
 
 /* ─── Sub-components ─── */
+/* ─── DealPhaseView — renders phase content inside the main dashboard ─── */
+const DealPhaseView = ({ dealId, phase, companyName }) => {
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    setLoading(true);
+    api.get(`/deal-process/buyer-phase/${dealId}/${phase}`).then(r => setData(r.data)).catch(() => setData(null)).finally(() => setLoading(false));
+  }, [dealId, phase]);
+
+  const STATUS_LABELS = { firmado: 'Firmado', pendiente: 'Pendiente', submitted: 'Enviado', accepted: 'Aceptado', rejected: 'Rechazado', confirmed: 'Confirmada', proposed: 'Propuesta', partially_granted: 'Acceso parcial', preparing: 'En preparación', sent: 'Entregado', granted: 'Concedida', en_curso: 'En curso', completada: 'Completada', bloqueada: 'Bloqueada', no_iniciada: 'No iniciada', upgraded_to_loi: 'Formalizada como LOI', no_iniciado: 'No iniciado' };
+  const statusColor = (s) => s === 'firmado' || s === 'accepted' || s === 'confirmed' || s === 'granted' || s === 'completada' ? '#16a34a' : s === 'rejected' || s === 'bloqueada' ? '#dc2626' : s === 'submitted' || s === 'proposed' || s === 'en_curso' ? '#d97706' : 'var(--outline)';
+
+  if (loading) return <div className="py-12 text-center"><Loader2 size={16} className="animate-spin mx-auto" /></div>;
+
+  const st = data?.latest_status || data?.status;
+
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>{companyName}</p>
+          <h1 className="text-2xl font-extrabold" style={{ color: 'var(--on-surface)', letterSpacing: '-0.03em' }}>{phase.toUpperCase()}</h1>
+        </div>
+        {st && <span className="text-[9px] font-bold px-2 py-1 mt-1" style={{ background: statusColor(st) + '15', color: statusColor(st) }}>{(STATUS_LABELS[st] || st).toUpperCase()}</span>}
+      </div>
+
+      <div className="p-6" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+        {phase === 'resumen' && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>Vista general de tu participación en {companyName}. Navega por las fases en la barra lateral.</p>}
+        {phase === 'nda' && <p className="text-xs" style={{ color: 'var(--on-surface)', lineHeight: 1.7 }}>{data?.status === 'firmado' ? `NDA firmado el ${data.signed_at ? new Date(data.signed_at).toLocaleDateString('es-ES') : '—'}. Tienes acceso a la ficha completa y al infomemo.` : 'Firma el acuerdo de confidencialidad para desbloquear el acceso completo.'}</p>}
+        {phase === 'interes' && data?.expressions?.length > 0 && data.expressions.map(e => (
+          <div key={e.interest_id} className="p-3 mb-2" style={{ background: 'var(--surface-1)' }}>
+            <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: statusColor(e.status) + '15', color: statusColor(e.status) }}>{(STATUS_LABELS[e.status] || e.status).toUpperCase()}</span>
+            <span className="text-[9px] ml-2" style={{ color: 'var(--outline)' }}>{e.interest_type} · {new Date(e.created_at).toLocaleDateString('es-ES')}</span>
+            <p className="text-xs mt-1" style={{ color: 'var(--on-surface)' }}>"{e.message}"</p>
+            {e.seller_response && <p className="text-[10px] mt-1 p-2" style={{ background: 'var(--surface-lowest)', color: 'var(--outline)' }}>Respuesta: {e.seller_response.message || e.seller_response.action}</p>}
+          </div>
+        ))}
+        {phase === 'interes' && (!data?.expressions || data.expressions.length === 0) && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>Envía una expresión de interés al vendedor para iniciar la conversación.</p>}
+        {phase === 'reunion' && data?.meetings?.length > 0 && data.meetings.map(m => (
+          <div key={m.meeting_id} className="p-3 mb-2" style={{ background: 'var(--surface-1)' }}>
+            <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: statusColor(m.status) + '15', color: statusColor(m.status) }}>{(STATUS_LABELS[m.status] || m.status).toUpperCase()}</span>
+            <span className="text-[9px] ml-2" style={{ color: 'var(--outline)' }}>{m.purpose} · {m.proposed_slots?.length || 0} slots</span>
+            {m.confirmed_slot && <p className="text-xs font-bold mt-1" style={{ color: '#16a34a' }}>Confirmada: {new Date(m.confirmed_slot.datetime).toLocaleString('es-ES')}</p>}
+          </div>
+        ))}
+        {phase === 'reunion' && (!data?.meetings || data.meetings.length === 0) && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>Solicita una videoconferencia con el vendedor y ARROBA.</p>}
+        {phase === 'dataroom' && data?.granted_folders?.length > 0 && <div><p className="text-xs mb-2" style={{ color: 'var(--on-surface)' }}>Acceso a {data.granted_folders.length} carpeta(s):</p><div className="flex flex-wrap gap-2">{data.granted_folders.map(f => <span key={f} className="text-[9px] font-bold px-2 py-1" style={{ background: 'var(--surface-1)' }}>{f}</span>)}</div></div>}
+        {phase === 'dataroom' && (!data?.granted_folders || data.granted_folders.length === 0) && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>Solicita acceso al Data Room. El vendedor seleccionará las carpetas que te comparte.</p>}
+        {phase === 'oferta' && data?.offers?.length > 0 && data.offers.map(o => (
+          <div key={o.offer_id} className="p-3 mb-2" style={{ background: 'var(--surface-1)' }}>
+            <div className="flex items-center justify-between"><span className="text-[9px] font-bold px-2 py-0.5" style={{ background: statusColor(o.status) + '15', color: statusColor(o.status) }}>{(STATUS_LABELS[o.status] || o.status).toUpperCase()}</span>{o.enterprise_value && <span className="text-sm font-black" style={{ color: 'var(--arroba-primary)' }}>{fmtMillions(o.enterprise_value)}</span>}</div>
+            <p className="text-xs mt-1" style={{ color: 'var(--on-surface)' }}>{o.executive_summary?.slice(0, 120)}</p>
+          </div>
+        ))}
+        {phase === 'oferta' && (!data?.offers || data.offers.length === 0) && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>Presenta una oferta indicativa estructurada al vendedor.</p>}
+        {phase === 'loi' && data?.lois?.length > 0 && data.lois.map(l => (
+          <div key={l.loi_id} className="p-3 mb-2" style={{ background: 'var(--surface-1)' }}>
+            <div className="flex items-center justify-between"><span className="text-[9px] font-bold px-2 py-0.5" style={{ background: statusColor(l.status) + '15', color: statusColor(l.status) }}>{(STATUS_LABELS[l.status] || l.status).toUpperCase()}</span>{l.enterprise_value && <span className="text-sm font-black" style={{ color: 'var(--arroba-primary)' }}>{fmtMillions(l.enterprise_value)}</span>}</div>
+            {l.exclusivity_requested && <p className="text-[9px] font-bold mt-1" style={{ color: '#d97706' }}>Exclusividad: {l.exclusivity_days} días</p>}
+          </div>
+        ))}
+        {phase === 'loi' && (!data?.lois || data.lois.length === 0) && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>Formaliza tu propuesta como Letter of Intent.</p>}
+        {phase === 'exclusividad' && data?.granted && <div className="p-3" style={{ background: 'rgba(22,163,74,0.04)', borderLeft: '3px solid #16a34a' }}><p className="text-xs font-bold" style={{ color: '#16a34a' }}>Exclusividad concedida hasta {data.end_date ? new Date(data.end_date).toLocaleDateString('es-ES') : '—'}</p></div>}
+        {phase === 'exclusividad' && !data?.granted && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>Solicita exclusividad para avanzar con seguridad en el proceso.</p>}
+        {phase === 'dd' && data?.status !== 'no_iniciada' && <div><div className="flex items-center gap-3 mb-3"><span className="text-lg font-black">{data.completion_pct || 0}%</span><div className="flex-1 h-2" style={{ background: 'var(--surface-2)' }}><div className="h-full" style={{ width: `${data.completion_pct || 0}%`, background: data.status === 'bloqueada' ? '#dc2626' : '#16a34a' }} /></div></div>{data.sections?.map(s => <div key={s.name} className="flex items-center gap-2 py-1"><div className="w-1.5 h-1.5" style={{ background: s.resolved === s.total ? '#16a34a' : s.resolved > 0 ? '#d97706' : 'var(--surface-2)' }} /><span className="text-[10px] font-bold flex-1">{s.name}</span><span className="text-[9px]" style={{ color: 'var(--outline)' }}>{s.resolved}/{s.total}</span></div>)}</div>}
+        {phase === 'dd' && data?.status === 'no_iniciada' && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>La Due Diligence se iniciará cuando el vendedor esté preparado.</p>}
+        {phase === 'closing' && data?.data && <p className="text-xs" style={{ color: 'var(--on-surface)' }}>Estado: {data.status}. {data.data.target_close_date && `Fecha objetivo: ${new Date(data.data.target_close_date).toLocaleDateString('es-ES')}`}</p>}
+        {phase === 'closing' && !data?.data && <p className="text-xs" style={{ color: 'var(--outline)', lineHeight: 1.7 }}>El cierre lo gestiona ARROBA. Aquí verás el estado final.</p>}
+      </div>
+
+      {data?.cta && <div className="mt-4"><button className="px-5 py-2.5 text-[10px] font-bold" style={{ background: 'var(--on-surface)', color: '#fff' }}>{data.cta}</button></div>}
+    </div>
+  );
+};
+
 const ProcessCard = ({ proc, isFree, onClick }) => {
   const stage = stageConfig[proc.stage] || { label: proc.stage, color: 'text-slate-600', bg: 'var(--surface-1)', icon: FileText };
   const StageIcon = stage.icon;
