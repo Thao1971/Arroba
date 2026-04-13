@@ -1,17 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDealPresentation } from '../hooks/useDealPresentation';
 import Layout from '../components/layout/Layout';
 import DataRoomBuyerView from '../components/DataRoomBuyerView';
 import { fmtES, fmtMillions } from '../utils/formatES';
+import { KpiCard, PercentileBar, PremiumValuationBlock, PremiumAiBlock } from '../components/PremiumBlocks';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import {
   ArrowLeft, Loader2, Shield, Star, Lock, ArrowRight, Check, Clock,
   Building2, MapPin, Users, Calendar, TrendingUp, BarChart3, FileText,
   Briefcase, Eye, Target, HelpCircle, AlertTriangle, ChevronRight,
   FolderOpen, MessageSquare, Bookmark, Send, ExternalLink, Image,
-  Download, Info
+  Download
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
@@ -90,48 +91,6 @@ const ProcessStep = ({ step }) => {
   );
 };
 
-/* ═══ KPI Card with tooltip ═══ */
-const KpiCard = ({ kpi }) => {
-  const [showTip, setShowTip] = useState(false);
-  const levelColors = { low: '#16a34a', medium: '#d97706', high: '#dc2626' };
-  const color = levelColors[kpi.level] || 'var(--on-surface)';
-  return (
-    <div className="relative p-3" style={{ background: 'var(--surface-lowest)' }} onMouseEnter={() => setShowTip(true)} onMouseLeave={() => setShowTip(false)}>
-      <div className="flex items-center gap-1 mb-1">
-        <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>{kpi.label?.toUpperCase()}</p>
-        <Info size={9} style={{ color: 'var(--outline-variant)' }} />
-      </div>
-      <p className="text-lg font-black" style={{ color }}>{typeof kpi.value === 'number' ? fmtES(kpi.value, kpi.unit === '%' ? 1 : kpi.unit === 'EUR' ? 0 : 2) : kpi.value}{kpi.unit === '%' ? '%' : kpi.unit === 'x' ? 'x' : ''}</p>
-      {kpi.unit === 'EUR' && <p className="text-[9px]" style={{ color: 'var(--outline)' }}>EUR</p>}
-      {kpi.level_label && <span className="text-[8px] font-bold px-1.5 py-0.5 mt-1 inline-block" style={{ background: color + '12', color }}>{kpi.level_label}</span>}
-      {showTip && (
-        <div className="absolute left-0 right-0 top-full z-20 p-3" style={{ background: 'var(--on-surface)', color: '#fff' }}>
-          <p className="text-[10px] mb-1">{kpi.description}</p>
-          <p className="text-[9px]" style={{ opacity: 0.7 }}>Formula: {kpi.formula}</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-/* ═══ Percentile bar ═══ */
-const PercentileBar = ({ metric, data, vsCategory }) => {
-  const metricLabels = { revenue: 'Facturacion', ebitda: 'EBITDA', ebitda_margin: 'Margen EBITDA', growth: 'Crecimiento', efficiency: 'Eficiencia', quality_score: 'Quality Score' };
-  const catLabels = { top_quartile: 'Top quartile', above_median: 'Sobre la media', below_median: 'Bajo la media', bottom_quartile: 'Cuartil inferior' };
-  const catColors = { top_quartile: '#16a34a', above_median: '#16a34a', below_median: '#d97706', bottom_quartile: '#dc2626' };
-  return (
-    <div className="flex items-center gap-3">
-      <p className="text-[10px] font-bold w-28 shrink-0" style={{ color: 'var(--on-surface)' }}>{metricLabels[metric] || metric}</p>
-      <div className="flex-1 h-2 relative" style={{ background: 'var(--surface-2)' }}>
-        <div className="h-full" style={{ width: `${data.percentile}%`, background: data.percentile >= 50 ? '#16a34a' : '#d97706', transition: 'width 0.5s' }} />
-        <div className="absolute top-1/2 -translate-y-1/2 w-0.5 h-3" style={{ left: '50%', background: 'var(--outline)' }} />
-      </div>
-      <span className="text-[10px] font-bold w-8 text-right" style={{ color: data.percentile >= 50 ? '#16a34a' : '#d97706' }}>P{data.percentile}</span>
-      {vsCategory && <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: (catColors[vsCategory] || 'var(--outline)') + '12', color: catColors[vsCategory] || 'var(--outline)' }}>{catLabels[vsCategory]}</span>}
-    </div>
-  );
-};
-
 /* ═══ MAIN PAGE ═══ */
 const DealPageCanonical = () => {
   const { dealId } = useParams();
@@ -140,6 +99,18 @@ const DealPageCanonical = () => {
   const { presentation: p, loading, error, contactLoading, requestContact, refresh, premiumAi, premiumAiLoading } = useDealPresentation(dealId);
   const [activeNav, setActiveNav] = useState('resumen');
   const sectionRefs = useRef({});
+
+  // Chart data — memoized (must be before early returns per hook rules)
+  const fd = p?.financial_data;
+  const chartData = useMemo(() => {
+    if (!fd?.years) return [];
+    return [...fd.years].reverse().map(y => ({
+      year: String(y.year),
+      revenue: Math.round((y.revenue || 0) / 1000),
+      ebitda: Math.round((y.ebitda || 0) / 1000),
+      margin: y.ebitda_margin || 0,
+    }));
+  }, [fd?.years]);
 
   const scrollTo = (id) => {
     setActiveNav(id);
@@ -158,7 +129,7 @@ const DealPageCanonical = () => {
   if (loading) return <Layout><div className="min-h-[60vh] flex items-center justify-center"><Loader2 size={18} className="animate-spin" style={{ color: 'var(--outline)' }} /></div></Layout>;
   if (error || !p) return <Layout><div className="min-h-[60vh] flex items-center justify-center"><p className="text-sm" style={{ color: 'var(--outline)' }}>{error || 'Deal no encontrado'}</p></div></Layout>;
 
-  const { modules: mods, deal_summary: ds, financial_data: fd, qualitative_data: qd, actions_panel: ap, process_timeline: tl } = p;
+  const { modules: mods, deal_summary: ds, qualitative_data: qd, actions_panel: ap, process_timeline: tl } = p;
 
   const handlePrimaryCta = () => {
     const a = p.primary_cta?.action;
@@ -175,14 +146,6 @@ const DealPageCanonical = () => {
     else if (key === 'sign_nda') navigate(`/explorar/${dealId}?action=nda`);
     else if (key === 'premium_analysis') navigate('/planes?role=buyer');
   };
-
-  // Chart data
-  const chartData = fd?.years ? [...fd.years].reverse().map(y => ({
-    year: String(y.year),
-    revenue: Math.round((y.revenue || 0) / 1000),
-    ebitda: Math.round((y.ebitda || 0) / 1000),
-    margin: y.ebitda_margin || 0,
-  })) : [];
 
   return (
     <Layout showFooter={false}>
@@ -496,137 +459,14 @@ const DealPageCanonical = () => {
             )}
 
 
-            {/* Premium Valuation & Benchmark */}
-            {p.premium_valuation?.available && (
-              <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                <div className="flex items-center gap-2 mb-4">
-                  <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>VALORACION Y BENCHMARK PREMIUM</p>
-                  <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>PRO+</span>
-                  <span className="text-[9px] ml-auto" style={{ color: 'var(--outline)' }}>Fuente: {p.premium_valuation.source}</span>
-                </div>
+            {/* Premium Valuation & Benchmark — extracted component */}
+            <PremiumValuationBlock valuation={p.premium_valuation} />
 
-                {/* Quality Score */}
-                <div className="flex items-center gap-4 mb-5 p-4" style={{ background: 'var(--surface-lowest)' }}>
-                  <div className="text-center">
-                    <p className="text-3xl font-black" style={{ color: p.premium_valuation.quality_score >= 70 ? '#16a34a' : p.premium_valuation.quality_score >= 40 ? '#d97706' : '#dc2626' }}>{p.premium_valuation.quality_score}</p>
-                    <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>QUALITY SCORE</p>
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-2 mb-2" style={{ background: 'var(--surface-2)' }}>
-                      <div className="h-full" style={{ width: `${p.premium_valuation.quality_score}%`, background: p.premium_valuation.quality_score >= 70 ? '#16a34a' : '#d97706', transition: 'width 0.5s' }} />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {p.premium_valuation.quality_drivers?.map((d, i) => (
-                        <span key={i} className="text-[9px] font-bold px-2 py-1" style={{ background: d.impact === 'positivo' ? 'rgba(22,163,74,0.08)' : d.impact === 'negativo' ? 'rgba(220,38,38,0.08)' : 'var(--surface-2)', color: d.impact === 'positivo' ? '#16a34a' : d.impact === 'negativo' ? '#dc2626' : 'var(--outline)' }}>
-                          {d.factor}: {d.description || d.impact}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Scenarios */}
-                <p className="text-[10px] font-bold mb-3" style={{ color: 'var(--on-surface)' }}>ESCENARIOS DE ENTERPRISE VALUE</p>
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  {Object.entries(p.premium_valuation.scenarios).map(([k, sc]) => (
-                    <div key={k} className="p-3 text-center" style={{ background: k === 'base' ? 'var(--on-surface)' : 'var(--surface-1)', color: k === 'base' ? '#fff' : 'var(--on-surface)' }}>
-                      <p className="text-[9px] font-bold mb-1" style={{ opacity: 0.7 }}>{sc.label?.toUpperCase()}</p>
-                      <p className="text-lg font-black">{fmtMillions(sc.ev)}</p>
-                      <p className="text-[9px]" style={{ opacity: 0.6 }}>{sc.multiple}x EBITDA</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Equity adjustment */}
-                {p.premium_valuation.equity_adjustments && (
-                  <div className="p-3 mb-4" style={{ background: 'var(--surface-1)' }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>AJUSTE DE EQUITY VALUE</p>
-                      <p className="text-sm font-black" style={{ color: p.premium_valuation.equity_adjustments.net_debt < 0 ? '#16a34a' : '#dc2626' }}>
-                        {p.premium_valuation.equity_adjustments.net_debt < 0 ? '+' : ''}{fmtES(Math.abs(p.premium_valuation.equity_adjustments.net_debt), 0)} EUR
-                      </p>
-                    </div>
-                    <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>
-                      {p.premium_valuation.equity_adjustments.net_debt < 0
-                        ? `Posicion de caja neta: el activo corriente supera los pasivos en ${fmtES(Math.abs(p.premium_valuation.equity_adjustments.net_debt), 0)} EUR. Esto incrementa el Equity Value respecto al Enterprise Value.`
-                        : `Deuda neta de ${fmtES(p.premium_valuation.equity_adjustments.net_debt, 0)} EUR que se resta del Enterprise Value para obtener el Equity Value.`}
-                    </p>
-                  </div>
-                )}
-
-                {/* Parameters */}
-                <div className="p-3 mb-4" style={{ background: 'var(--surface-1)' }}>
-                  <p className="text-[9px] font-bold mb-2" style={{ color: 'var(--outline)' }}>PARAMETROS UTILIZADOS</p>
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>EBITDA base</span><span className="font-bold">{fmtES(p.premium_valuation.parameters.ebitda_base, 0)} EUR</span></div>
-                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Tipo</span><span className="font-bold">{p.premium_valuation.parameters.ebitda_type}</span></div>
-                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Categoria</span><span className="font-bold">{p.premium_valuation.parameters.category}</span></div>
-                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Multiplos</span><span className="font-bold">{p.premium_valuation.parameters.multiple_range.min}x — {p.premium_valuation.parameters.multiple_range.max}x</span></div>
-                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Quality factor</span><span className="font-bold">{p.premium_valuation.parameters.quality_factor}x</span></div>
-                    <div className="flex justify-between"><span style={{ color: 'var(--outline)' }}>Metodo</span><span className="font-bold">{p.premium_valuation.parameters.method}</span></div>
-                  </div>
-                </div>
-
-                {/* Methodology expandable */}
-                <details className="text-[10px]">
-                  <summary className="font-bold cursor-pointer py-2" style={{ color: 'var(--arroba-primary)' }}>VER METODOLOGIA Y DEFINICIONES</summary>
-                  <div className="mt-2 space-y-3">
-                    {p.premium_valuation.methodology.steps.map((s, i) => (
-                      <div key={i} className="flex gap-2">
-                        <span className="font-bold shrink-0 w-5 text-right" style={{ color: 'var(--arroba-primary)' }}>{i+1}.</span>
-                        <div><p className="font-bold">{s.step}</p><p style={{ color: 'var(--outline)', lineHeight: 1.5 }}>{s.description}</p></div>
-                      </div>
-                    ))}
-                    <div className="pt-2 mt-2" style={{ borderTop: '1px solid var(--surface-2)' }}>
-                      <p className="font-bold mb-2">DEFINICIONES</p>
-                      {Object.entries(p.premium_valuation.methodology.definitions).map(([term, def_]) => (
-                        <div key={term} className="mb-1"><span className="font-bold">{term}:</span> <span style={{ color: 'var(--outline)' }}>{def_}</span></div>
-                      ))}
-                    </div>
-                    <p className="mt-2 p-2" style={{ background: 'var(--surface-1)', color: 'var(--outline)', lineHeight: 1.5 }}>{p.premium_valuation.methodology.disclaimer}</p>
-                  </div>
-                </details>
-              </div>
-            )}
             {/* Premium AI Analysis — loaded asynchronously */}
-            {(premiumAi?.available || premiumAiLoading) && (
-              <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                <div className="flex items-center gap-2 mb-4">
-                  <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>INTERPRETACION PREMIUM IA</p>
-                  <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>GPT-5.2</span>
-                  {premiumAiLoading && <Loader2 size={12} className="animate-spin ml-auto" style={{ color: 'var(--arroba-primary)' }} />}
-                </div>
-                {premiumAiLoading && <p className="text-xs" style={{ color: 'var(--outline)' }}>Generando analisis premium...</p>}
-                {premiumAi?.strategic_reading && (
-                  <p className="text-sm mb-4 p-3" style={{ color: 'var(--on-surface)', lineHeight: 1.7, background: 'var(--surface-1)' }}>{premiumAi.strategic_reading}</p>
-                )}
-                {premiumAi && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {premiumAi.strengths?.length > 0 && (
-                    <div><p className="text-[10px] font-bold mb-2" style={{ color: '#16a34a' }}>FORTALEZAS</p>{premiumAi.strengths.map((s,i) => <p key={i} className="text-xs mb-1.5" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>+ {s}</p>)}</div>
-                  )}
-                  {premiumAi.risks?.length > 0 && (
-                    <div><p className="text-[10px] font-bold mb-2" style={{ color: '#dc2626' }}>RIESGOS</p>{premiumAi.risks.map((r,i) => <p key={i} className="text-xs mb-1.5" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>! {r}</p>)}</div>
-                  )}
-                </div>
-                )}
-                {premiumAi?.dd_questions?.length > 0 && (
-                  <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--surface-2)' }}>
-                    <p className="text-[10px] font-bold mb-2" style={{ color: 'var(--arroba-primary)' }}>PREGUNTAS SUGERIDAS PARA DUE DILIGENCE</p>
-                    {premiumAi.dd_questions.map((q,i) => <p key={i} className="text-xs mb-1.5" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>{i+1}. {q}</p>)}
-                  </div>
-                )}
-                {premiumAi?.buyer_fit?.ideal_profile && (
-                  <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--surface-2)' }}>
-                    <p className="text-[10px] font-bold mb-1" style={{ color: 'var(--outline)' }}>PERFIL DE COMPRADOR IDEAL</p>
-                    <p className="text-xs" style={{ color: 'var(--on-surface)', lineHeight: 1.5 }}>{premiumAi.buyer_fit.ideal_profile}</p>
-                  </div>
-                )}
-              </div>
-            )}
+            <PremiumAiBlock analysis={premiumAi} loading={premiumAiLoading} />
 
             {/* Fallback for non-Pro+ */}
-            {!p.premium_quant?.available && !p.premium_ai_analysis?.available && (
+            {!p.premium_quant?.available && !premiumAi?.available && !premiumAiLoading && (
               <Mod id="premium_analysis" modules={mods} onNavigate={navigate}>
                 <div className="p-5" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                   <p className="label-arroba mb-2" style={{ color: 'var(--arroba-primary)' }}>ANALISIS PREMIUM PRO+</p>

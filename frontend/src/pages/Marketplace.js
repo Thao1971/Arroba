@@ -169,7 +169,7 @@ const Marketplace = () => {
       }
     };
     fetchData();
-  }, [filters, isAuthenticated, buyerProfileComplete]);
+  }, [filters, isAuthenticated, buyerProfileComplete, user?.role]);
 
   // Sort deals
   const sortedDeals = React.useMemo(() => {

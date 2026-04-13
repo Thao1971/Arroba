@@ -1,5 +1,5 @@
 import { fmtMillions } from "../utils/formatES";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { marketplaceAPI, matchingAPI, engagementsAPI, ndaAPI, notificationsAPI, buyerAPI, billingAPI } from '../services/api';
@@ -99,6 +99,8 @@ const BuyerDashboard = () => {
     fetchAll();
   }, []);
 
+  const activeProcesses = useMemo(() => processes.filter(p => p.stage !== 'REJECTED'), [processes]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--surface-0)' }}>
@@ -106,8 +108,6 @@ const BuyerDashboard = () => {
       </div>
     );
   }
-
-  const activeProcesses = processes.filter(p => p.stage !== 'REJECTED');
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--surface-0)' }} data-testid="buyer-dashboard">

@@ -309,7 +309,7 @@ const InicioDashboard = ({ user, companies, deals, activeDeal, hasCompany, nudge
     {nudges.length > 0 && (
       <div className="mb-6 space-y-2">
         {nudges.slice(0, 3).map((n, i) => (
-          <div key={i} onClick={() => n.deal_id && navigate(`/seller/deals/${n.deal_id}/resumen`)}
+          <div key={n.nudge_id || n.notification_id || `nudge-${i}`} onClick={() => n.deal_id && navigate(`/seller/deals/${n.deal_id}/resumen`)}
             className="p-4 flex items-start gap-3 cursor-pointer transition-all duration-150 hover:-translate-y-0.5"
             style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)', borderLeft: `3px solid ${n.priority === 'ALTA' ? '#dc2626' : '#d97706'}` }}>
             <AlertTriangle size={14} style={{ color: n.priority === 'ALTA' ? '#dc2626' : '#d97706' }} />
