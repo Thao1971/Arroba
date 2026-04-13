@@ -1,0 +1,1145 @@
+{
+  "collections": {
+    "admin_audit_log": 1,
+    "cis_financial_cache": 3,
+    "companies": 14,
+    "contact_requests": 9,
+    "conversations": 1,
+    "dataroom_access_log": 62,
+    "dataroom_documents": 0,
+    "dataroom_permissions": 0,
+    "deals": 11,
+    "engagements": 19,
+    "events": 116,
+    "financial_visuals": 7,
+    "infomemos": 0,
+    "match_alerts": 33,
+    "matches": 0,
+    "nda_events": 18,
+    "nda_signatures": 12,
+    "nda_templates": 1,
+    "ndas": 26,
+    "notifications": 29,
+    "payment_transactions": 0,
+    "plans": 8,
+    "premium_analysis_cache": 3,
+    "qa_items": 10,
+    "saved_deals": 0,
+    "seller_company_profiles": 5,
+    "seller_settings": 1,
+    "teasers": 0,
+    "time_tracking": 72,
+    "transaction_fee_rules": 3,
+    "user_sessions": 751,
+    "users": 24,
+    "valuation_leads": 21,
+    "valuation_multiples": 10,
+    "valuation_premium_requests": 2,
+    "valuation_runs": 21,
+    "valuation_settings": 1
+  },
+  "total_documents": 1294,
+  "users": [
+    {
+      "user_id": "buyer_pe_madrid_01",
+      "email": "carlos.ruiz@capitaliberica.es",
+      "name": "Carlos Ruiz Martínez",
+      "role": "buyer",
+      "plan": "buyer_proplus",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_estrategico_bcn_01",
+      "email": "marta.font@groupdigital.cat",
+      "name": "Marta Font Puig",
+      "role": "buyer",
+      "plan": "buyer_proplus",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_vc_london_01",
+      "email": "james.harris@techventures.co.uk",
+      "name": "James Harris",
+      "role": "buyer",
+      "plan": "buyer_pro",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_fo_bilbao_01",
+      "email": "iker.aguirre@familyoffice-norte.es",
+      "name": "Iker Aguirre Etxebarría",
+      "role": "buyer",
+      "plan": "buyer_pro",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_holding_val_01",
+      "email": "lucia.navarro@holdingmediterraneo.es",
+      "name": "Lucía Navarro Gil",
+      "role": "buyer",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_pe_sevilla_02",
+      "email": "antonio.moreno@andaluciacapital.es",
+      "name": "Antonio Moreno López",
+      "role": "buyer",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_estrategico_mad_02",
+      "email": "pablo.garcia@nexusdigital.es",
+      "name": "Pablo García Hernández",
+      "role": "buyer",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_vc_bcn_02",
+      "email": "anna.soler@bcnventures.cat",
+      "name": "Anna Soler Mas",
+      "role": "buyer",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_fo_malaga_02",
+      "email": "carmen.delgado@costafamily.es",
+      "name": "Carmen Delgado Reyes",
+      "role": "buyer",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "buyer_holding_zar_02",
+      "email": "jorge.lazaro@aragonholding.es",
+      "name": "Jorge Lázaro Pardo",
+      "role": "buyer",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_seo_madrid_01",
+      "email": "diego.martin@rankingdigital.es",
+      "name": "Diego Martín Sánchez",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_creative_bcn_01",
+      "email": "nuria.costa@brillocreativo.cat",
+      "name": "Nuria Costa Rovira",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_consult_val_01",
+      "email": "rafael.torres@consultdigital.es",
+      "name": "Rafael Torres Blanco",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_tech_sev_01",
+      "email": "elena.romero@techstudio.es",
+      "name": "Elena Romero Vega",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_media_bil_01",
+      "email": "aitor.etxebarria@mediapais.es",
+      "name": "Aitor Etxebarría Zubiri",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_perf_mal_01",
+      "email": "rosa.jimenez@clicksur.es",
+      "name": "Rosa Jiménez Molina",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_strat_mad_01",
+      "email": "fernando.ruiz@stratconsulting.es",
+      "name": "Fernando Ruiz Ortega",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_content_zar_01",
+      "email": "silvia.marco@contenidoszgz.es",
+      "name": "Silvia Marco Serrano",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_digital_ast_01",
+      "email": "marcos.fernandez@asturdigital.es",
+      "name": "Marcos Fernández Cuesta",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "seller_mobile_can_01",
+      "email": "alba.hernandez@islasapp.es",
+      "name": "Alba Hernández Pérez",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "user_118620483476",
+      "email": "rodrigo@folch.com",
+      "name": "rodrigo García",
+      "role": "seller",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "user_6a6dc01b2342",
+      "email": "juana@foch.com",
+      "name": "juana Garcia",
+      "role": "advisor",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "user_8e4868cab9a0",
+      "email": "maria@folch.com",
+      "name": "maria García",
+      "role": "buyer",
+      "plan": "free",
+      "is_active": true
+    },
+    {
+      "user_id": "admin_arroba_01",
+      "email": "admin@arroba.com",
+      "name": "Admin ARROBA",
+      "role": "admin",
+      "plan": "free",
+      "is_active": true
+    }
+  ],
+  "companies": [
+    {
+      "company_id": "comp_ranking_digital",
+      "legal_name": "Ranking Digital S.L.",
+      "trade_name": "Ranking Digital",
+      "cif": "",
+      "city": "Madrid",
+      "owner_id": "seller_seo_madrid_01",
+      "sectors": [
+        "SEO",
+        "SEM",
+        "Performance"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_brillo_creativo",
+      "legal_name": "Brillo Creativo S.L.",
+      "trade_name": "Brillo Creativo",
+      "cif": "",
+      "city": "Barcelona",
+      "owner_id": "seller_creative_bcn_01",
+      "sectors": [
+        "Branding",
+        "Creative",
+        "UX/UI"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_consult_valencia",
+      "legal_name": "ConsultDigital Valencia S.L.",
+      "trade_name": "ConsultDigital Valencia",
+      "cif": "",
+      "city": "Valencia",
+      "owner_id": "seller_consult_val_01",
+      "sectors": [
+        "Consulting",
+        "Digital Transformation"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_tech_studio_sev",
+      "legal_name": "Tech Studio Sevilla S.L.",
+      "trade_name": "Tech Studio Sevilla",
+      "cif": "",
+      "city": "Sevilla",
+      "owner_id": "seller_tech_sev_01",
+      "sectors": [
+        "Tech",
+        "SaaS",
+        "Development"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_media_bilbao",
+      "legal_name": "Media País Vasco S.L.",
+      "trade_name": "Media País Vasco",
+      "cif": "",
+      "city": "Bilbao",
+      "owner_id": "seller_media_bil_01",
+      "sectors": [
+        "Media",
+        "Social Media",
+        "PR"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_clicksur_malaga",
+      "legal_name": "ClickSur Performance S.L.",
+      "trade_name": "ClickSur Performance",
+      "cif": "",
+      "city": "Málaga",
+      "owner_id": "seller_perf_mal_01",
+      "sectors": [
+        "Performance",
+        "SEM",
+        "Programmatic"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_strat_madrid",
+      "legal_name": "Strat Consulting Group S.L.",
+      "trade_name": "Strat Consulting Group",
+      "cif": "",
+      "city": "Madrid",
+      "owner_id": "seller_strat_mad_01",
+      "sectors": [
+        "Strategy",
+        "Consulting",
+        "M&A Advisory"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_contenidos_zgz",
+      "legal_name": "Contenidos Zaragoza S.L.",
+      "trade_name": "Contenidos Zaragoza",
+      "cif": "",
+      "city": "Zaragoza",
+      "owner_id": "seller_content_zar_01",
+      "sectors": [
+        "Content",
+        "Copywriting",
+        "Social Media"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_astur_digital",
+      "legal_name": "AsturDigital Studio S.L.",
+      "trade_name": "AsturDigital Studio",
+      "cif": "",
+      "city": "Oviedo",
+      "owner_id": "seller_digital_ast_01",
+      "sectors": [
+        "Digital",
+        "Development",
+        "Design"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_islas_app",
+      "legal_name": "Islas App Agency S.L.",
+      "trade_name": "Islas App Agency",
+      "cif": "",
+      "city": "Las Palmas",
+      "owner_id": "seller_mobile_can_01",
+      "sectors": [
+        "Mobile",
+        "App Development"
+      ],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_e4ac88f79823",
+      "legal_name": "P. MODERNOS CREATIVOS S.L.",
+      "trade_name": "TEST_Trade_1775589733",
+      "cif": "B67098228",
+      "city": "Barcelona",
+      "owner_id": "seller_seo_madrid_01",
+      "sectors": [],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_7f34b4aad10e",
+      "legal_name": "PLANTA 16 COMUNICACIO SL.",
+      "trade_name": "Planta 16",
+      "cif": "B66181637",
+      "city": "Barcelona",
+      "owner_id": "user_118620483476",
+      "sectors": [],
+      "has_valuation": true
+    },
+    {
+      "company_id": "comp_f71fd75d78b8",
+      "legal_name": "SAFFRON BRAND CONSULTANTS SA",
+      "trade_name": "Saffron Consultants",
+      "cif": "A82938614",
+      "city": "Madrid",
+      "owner_id": "seller_creative_bcn_01",
+      "sectors": [],
+      "has_valuation": false
+    },
+    {
+      "company_id": "comp_41b82859f917",
+      "legal_name": "PUBLICIS COMUNICACION ESPAÑA",
+      "trade_name": "",
+      "cif": "B28084168",
+      "city": "Madrid",
+      "owner_id": "seller_seo_madrid_01",
+      "sectors": [],
+      "has_valuation": true
+    }
+  ],
+  "deals": [
+    {
+      "deal_id": "deal_hot_seo_01",
+      "title": "Agencia SEO líder en Madrid — Alta rentabilidad",
+      "company_id": "comp_ranking_digital",
+      "owner_id": "seller_seo_madrid_01",
+      "status": "exclusivity",
+      "asking_price": 3500000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_interest_creative_02",
+      "title": "Estudio creativo boutique en Barcelona",
+      "company_id": "comp_brillo_creativo",
+      "owner_id": "seller_creative_bcn_01",
+      "status": "published",
+      "asking_price": 2000000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_ghost_consult_03",
+      "title": "Consultora digital en Valencia — Nicho pymes",
+      "company_id": "comp_consult_valencia",
+      "owner_id": "seller_consult_val_01",
+      "status": "published",
+      "asking_price": 1200000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_dead_tech_04",
+      "title": "Estudio tech con SaaS propio en Sevilla",
+      "company_id": "comp_tech_studio_sev",
+      "owner_id": "seller_tech_sev_01",
+      "status": "published",
+      "asking_price": 1800000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_loi_sin_act_05",
+      "title": "Agencia de medios líder en País Vasco",
+      "company_id": "comp_media_bilbao",
+      "owner_id": "seller_media_bil_01",
+      "status": "published",
+      "asking_price": 2500000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_alta_act_06",
+      "title": "Agencia de performance en alta trayectoria — Málaga",
+      "company_id": "comp_clicksur_malaga",
+      "owner_id": "seller_perf_mal_01",
+      "status": "published",
+      "asking_price": 2800000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_shortlist_full_07",
+      "title": "Consultora estratégica de referencia — Madrid",
+      "company_id": "comp_strat_madrid",
+      "owner_id": "seller_strat_mad_01",
+      "status": "published",
+      "asking_price": 5000000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_excl_prematura_08",
+      "title": "Agencia de contenidos corporativos — Zaragoza",
+      "company_id": "comp_contenidos_zgz",
+      "owner_id": "seller_content_zar_01",
+      "status": "exclusivity",
+      "asking_price": 700000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_dr_vacio_09",
+      "title": "Estudio digital en Asturias — Precio atractivo",
+      "company_id": "comp_astur_digital",
+      "owner_id": "seller_digital_ast_01",
+      "status": "published",
+      "asking_price": 500000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_borrador_10",
+      "title": "Agencia de apps móviles en Canarias",
+      "company_id": "comp_islas_app",
+      "owner_id": "seller_mobile_can_01",
+      "status": "draft",
+      "asking_price": 350000,
+      "operation_types": [
+        "full_sale"
+      ]
+    },
+    {
+      "deal_id": "deal_cis_putos_modernos",
+      "title": "Agencia creativa lider en Barcelona — Putos Modernos",
+      "company_id": "comp_e4ac88f79823",
+      "owner_id": "seller_seo_madrid_01",
+      "status": "published",
+      "asking_price": 4000000,
+      "operation_types": [
+        "full_sale",
+        "partial_sale"
+      ]
+    }
+  ],
+  "seller_profiles": [
+    {
+      "profile_id": "scp_a22c204b26c6",
+      "seller_id": "seller_seo_madrid_01",
+      "company_id": null,
+      "cif": "A82938614",
+      "panel_status": {
+        "compania": "complete",
+        "ficha": "empty",
+        "financieros": "complete",
+        "valoracion": "empty",
+        "operacion": "empty"
+      },
+      "profile_readiness": 40
+    },
+    {
+      "profile_id": "scp_0dc2ae66af76",
+      "seller_id": "seller_seo_madrid_01",
+      "company_id": "comp_e4ac88f79823",
+      "cif": "B67098228",
+      "panel_status": {
+        "compania": "complete",
+        "ficha": "complete",
+        "financieros": "complete",
+        "valoracion": "complete",
+        "operacion": "complete"
+      },
+      "profile_readiness": 100
+    },
+    {
+      "profile_id": "scp_c0c1632a011e",
+      "seller_id": "user_118620483476",
+      "company_id": "comp_7f34b4aad10e",
+      "cif": "B66181637",
+      "panel_status": {
+        "compania": "complete",
+        "ficha": "complete",
+        "financieros": "complete",
+        "valoracion": "complete",
+        "operacion": "complete"
+      },
+      "profile_readiness": 100
+    },
+    {
+      "profile_id": "scp_83809c1d59e6",
+      "seller_id": "seller_creative_bcn_01",
+      "company_id": "comp_f71fd75d78b8",
+      "cif": "A82938614",
+      "panel_status": {
+        "compania": "complete",
+        "ficha": "complete",
+        "financieros": "complete",
+        "valoracion": "empty",
+        "operacion": "complete"
+      },
+      "profile_readiness": 80
+    },
+    {
+      "profile_id": "scp_be956912974b",
+      "seller_id": "seller_seo_madrid_01",
+      "company_id": "comp_41b82859f917",
+      "cif": "B28084168",
+      "panel_status": {
+        "compania": "complete",
+        "ficha": "empty",
+        "financieros": "complete",
+        "valoracion": "complete",
+        "operacion": "complete"
+      },
+      "profile_readiness": 80
+    }
+  ],
+  "plans": [
+    {
+      "plan_id": "seller_free",
+      "plan_name": "Seller Free",
+      "role_type": "seller",
+      "monthly_price": 0,
+      "annual_price": 0,
+      "monthly_interaction_limit": 0,
+      "success_fee_pct": 2.9,
+      "is_active": true
+    },
+    {
+      "plan_id": "seller_plus",
+      "plan_name": "Seller Plus",
+      "role_type": "seller",
+      "monthly_price": 149,
+      "annual_price": 1609,
+      "monthly_interaction_limit": 5,
+      "success_fee_pct": 2.9,
+      "is_active": true
+    },
+    {
+      "plan_id": "seller_premium",
+      "plan_name": "Seller Premium",
+      "role_type": "seller",
+      "monthly_price": 499,
+      "annual_price": 5389,
+      "monthly_interaction_limit": -1,
+      "success_fee_pct": 2.9,
+      "is_active": true
+    },
+    {
+      "plan_id": "buyer_free",
+      "plan_name": "Buyer Free",
+      "role_type": "buyer",
+      "monthly_price": 0,
+      "annual_price": 0,
+      "monthly_interaction_limit": 0,
+      "success_fee_pct": 1.0,
+      "is_active": true
+    },
+    {
+      "plan_id": "buyer_pro",
+      "plan_name": "Buyer Pro",
+      "role_type": "buyer",
+      "monthly_price": 149,
+      "annual_price": 1609,
+      "monthly_interaction_limit": 5,
+      "success_fee_pct": 1.0,
+      "is_active": true
+    },
+    {
+      "plan_id": "buyer_proplus",
+      "plan_name": "Buyer Pro+",
+      "role_type": "buyer",
+      "monthly_price": 349,
+      "annual_price": 3769,
+      "monthly_interaction_limit": -1,
+      "success_fee_pct": 1.0,
+      "is_active": true
+    },
+    {
+      "plan_id": "advisor_free",
+      "plan_name": "Advisor Free",
+      "role_type": "advisor",
+      "monthly_price": 0,
+      "annual_price": null,
+      "monthly_interaction_limit": -1,
+      "success_fee_pct": null,
+      "is_active": true
+    },
+    {
+      "plan_id": "advisor_pro",
+      "plan_name": "Advisor Pro",
+      "role_type": "advisor",
+      "monthly_price": 250,
+      "annual_price": null,
+      "monthly_interaction_limit": -1,
+      "success_fee_pct": null,
+      "is_active": true
+    }
+  ],
+  "nda_signatures": [
+    {
+      "signature_id": "nda_sig_e0cc2cb28803",
+      "deal_id": "deal_hot_seo_01",
+      "buyer": "Carlos Ruiz Martínez",
+      "buyer_email": "carlos.ruiz@capitaliberica.es",
+      "company": "Capital Ibérica Partners",
+      "status": "signed",
+      "signed_at": "2026-03-26T21:11:23.587933+00:00"
+    },
+    {
+      "signature_id": "nda_sig_5ffab034fc53",
+      "deal_id": "deal_hot_seo_01",
+      "buyer": "James Harris",
+      "buyer_email": "james.harris@techventures.co.uk",
+      "company": "Tech Ventures UK",
+      "status": "signed",
+      "signed_at": "2026-03-26T21:18:11.084532+00:00"
+    },
+    {
+      "signature_id": "nda_sig_24fb833092d7",
+      "deal_id": "deal_excl_prematura_08",
+      "buyer": "Carlos Ruiz Martínez",
+      "buyer_email": "carlos.ruiz@capitaliberica.es",
+      "company": "Beo",
+      "status": "signed",
+      "signed_at": "2026-04-03T15:00:10.284355+00:00"
+    },
+    {
+      "signature_id": "nda_sig_af8861e51c09",
+      "deal_id": "deal_shortlist_full_07",
+      "buyer": "Carlos Ruiz Martínez",
+      "buyer_email": "carlos.ruiz@capitaliberica.es",
+      "company": "acme",
+      "status": "signed",
+      "signed_at": "2026-04-05T18:06:53.060162+00:00"
+    },
+    {
+      "signature_id": "nda_sig_4a4cc9823d5a",
+      "deal_id": "deal_shortlist_full_07",
+      "buyer": "Daniel  García",
+      "buyer_email": "daniel.garcia@acme.es",
+      "company": "ACME",
+      "status": "signed",
+      "signed_at": "2026-04-05T19:04:22.586183+00:00"
+    },
+    {
+      "signature_id": "nda_sig_c7b75b67b3f3",
+      "deal_id": "deal_dr_vacio_09",
+      "buyer": "Carlos Ruiz Martínez",
+      "buyer_email": "carlos.ruiz@capitaliberica.es",
+      "company": null,
+      "status": "signed",
+      "signed_at": "2026-04-09T17:11:42.620443+00:00"
+    },
+    {
+      "signature_id": "nda_sig_f4662e0a386a",
+      "deal_id": "deal_hot_seo_01",
+      "buyer": "maria García",
+      "buyer_email": "maria@folch.com",
+      "company": "juana",
+      "status": "signed",
+      "signed_at": "2026-04-09T17:16:37.857132+00:00"
+    },
+    {
+      "signature_id": "nda_sig_bbe8ef244ecf",
+      "deal_id": "deal_dr_vacio_09",
+      "buyer": "maria García",
+      "buyer_email": "maria@folch.com",
+      "company": "juana",
+      "status": "signed",
+      "signed_at": "2026-04-09T17:17:32.895808+00:00"
+    },
+    {
+      "signature_id": "nda_sig_cis_test",
+      "deal_id": "deal_cis_putos_modernos",
+      "buyer": "James Harris",
+      "buyer_email": "james.harris@techventures.co.uk",
+      "company": "Tech Ventures UK",
+      "status": "signed",
+      "signed_at": "2026-04-09T21:34:38.278893+00:00"
+    },
+    {
+      "signature_id": "nda_sig_marta_cis_fixed",
+      "deal_id": "deal_cis_putos_modernos",
+      "buyer": "Marta Font",
+      "buyer_email": null,
+      "company": null,
+      "status": "signed",
+      "signed_at": "2026-04-09T21:53:17.034908+00:00"
+    },
+    {
+      "signature_id": "nda_marta_deal_hot_seo_01",
+      "deal_id": "deal_hot_seo_01",
+      "buyer": "Marta Font",
+      "buyer_email": null,
+      "company": null,
+      "status": "signed",
+      "signed_at": "2026-04-09T22:02:50.489541+00:00"
+    },
+    {
+      "signature_id": "nda_marta_deal_interest_creative_02",
+      "deal_id": "deal_interest_creative_02",
+      "buyer": "Marta Font",
+      "buyer_email": null,
+      "company": null,
+      "status": "signed",
+      "signed_at": "2026-04-09T22:02:50.489541+00:00"
+    }
+  ],
+  "contact_requests": [
+    {
+      "request_id": "cr_382875d48807",
+      "deal_id": "deal_hot_seo_01",
+      "buyer_id": "buyer_pe_madrid_01",
+      "seller_id": "seller_seo_madrid_01",
+      "status": "accepted",
+      "buyer_plan": "free",
+      "priority": false
+    },
+    {
+      "request_id": "cr_b2c36d087d89",
+      "deal_id": "deal_hot_seo_01",
+      "buyer_id": "buyer_fo_bilbao_01",
+      "seller_id": "seller_seo_madrid_01",
+      "status": "accepted",
+      "buyer_plan": "free",
+      "priority": false
+    },
+    {
+      "request_id": "cr_ce3d8d1b0046",
+      "deal_id": "deal_hot_seo_01",
+      "buyer_id": "buyer_vc_bcn_02",
+      "seller_id": "seller_seo_madrid_01",
+      "status": "accepted",
+      "buyer_plan": "free",
+      "priority": false
+    },
+    {
+      "request_id": "cr_marta_deal_hot_seo_01",
+      "deal_id": "deal_hot_seo_01",
+      "buyer_id": "buyer_estrategico_bcn_01",
+      "seller_id": "seller_seo_madrid_01",
+      "status": "accepted",
+      "buyer_plan": "pro+",
+      "priority": true
+    },
+    {
+      "request_id": "cr_marta_deal_interest_creative_02",
+      "deal_id": "deal_interest_creative_02",
+      "buyer_id": "buyer_estrategico_bcn_01",
+      "seller_id": "seller_seo_madrid_01",
+      "status": "accepted",
+      "buyer_plan": "pro+",
+      "priority": true
+    },
+    {
+      "request_id": "cr_41344442a15d",
+      "deal_id": "deal_shortlist_full_07",
+      "buyer_id": "buyer_vc_london_01",
+      "seller_id": "seller_strat_mad_01",
+      "status": "pending",
+      "buyer_plan": "pro",
+      "priority": false
+    },
+    {
+      "request_id": "cr_300e59e8c470",
+      "deal_id": "deal_alta_act_06",
+      "buyer_id": "buyer_estrategico_bcn_01",
+      "seller_id": "seller_perf_mal_01",
+      "status": "pending",
+      "buyer_plan": "pro+",
+      "priority": true
+    },
+    {
+      "request_id": "cr_cis_test_james",
+      "deal_id": "deal_cis_putos_modernos",
+      "buyer_id": "buyer_vc_london_01",
+      "seller_id": "seller_seo_madrid_01",
+      "status": "accepted",
+      "buyer_plan": null,
+      "priority": null
+    },
+    {
+      "request_id": "cr_marta_cis_fixed",
+      "deal_id": "deal_cis_putos_modernos",
+      "buyer_id": "buyer_estrategico_bcn_01",
+      "seller_id": "seller_seo_madrid_01",
+      "status": "accepted",
+      "buyer_plan": null,
+      "priority": null
+    }
+  ],
+  "engagements": [
+    {
+      "engagement_id": "eng_hot_seo_pe",
+      "deal_id": "deal_hot_seo_01",
+      "buyer_id": "buyer_pe_madrid_01",
+      "type": "LOI",
+      "stage": "EXCLUSIVITY",
+      "valuation_offer": 3400000
+    },
+    {
+      "engagement_id": "eng_hot_seo_strat",
+      "deal_id": "deal_hot_seo_01",
+      "buyer_id": "buyer_estrategico_bcn_01",
+      "type": "LOI",
+      "stage": "EXCLUSIVITY",
+      "valuation_offer": 3100000
+    },
+    {
+      "engagement_id": "eng_hot_seo_vc",
+      "deal_id": "deal_hot_seo_01",
+      "buyer_id": "buyer_vc_london_01",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_creative_interest_1",
+      "deal_id": "deal_interest_creative_02",
+      "buyer_id": "buyer_estrategico_bcn_01",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_creative_interest_2",
+      "deal_id": "deal_interest_creative_02",
+      "buyer_id": "buyer_fo_bilbao_01",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_creative_interest_3",
+      "deal_id": "deal_interest_creative_02",
+      "buyer_id": "buyer_holding_val_01",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_creative_interest_4",
+      "deal_id": "deal_interest_creative_02",
+      "buyer_id": "buyer_estrategico_mad_02",
+      "type": "INTEREST",
+      "stage": "SUBMITTED"
+    },
+    {
+      "engagement_id": "eng_creative_interest_5",
+      "deal_id": "deal_interest_creative_02",
+      "buyer_id": "buyer_vc_bcn_02",
+      "type": "INTEREST",
+      "stage": "SUBMITTED"
+    },
+    {
+      "engagement_id": "eng_ghost_holding",
+      "deal_id": "deal_ghost_consult_03",
+      "buyer_id": "buyer_holding_val_01",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_loi_sin_act_pe",
+      "deal_id": "deal_loi_sin_act_05",
+      "buyer_id": "buyer_pe_madrid_01",
+      "type": "LOI",
+      "stage": "VIEWED",
+      "valuation_offer": 2300000
+    },
+    {
+      "engagement_id": "eng_alta_act_fo",
+      "deal_id": "deal_alta_act_06",
+      "buyer_id": "buyer_fo_bilbao_01",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_alta_act_holding",
+      "deal_id": "deal_alta_act_06",
+      "buyer_id": "buyer_holding_zar_02",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_short_vc_lon",
+      "deal_id": "deal_shortlist_full_07",
+      "buyer_id": "buyer_vc_london_01",
+      "type": "LOI",
+      "stage": "SHORTLISTED",
+      "valuation_offer": 4800000
+    },
+    {
+      "engagement_id": "eng_short_pe_sev",
+      "deal_id": "deal_shortlist_full_07",
+      "buyer_id": "buyer_pe_sevilla_02",
+      "type": "LOI",
+      "stage": "SHORTLISTED",
+      "valuation_offer": 4800000
+    },
+    {
+      "engagement_id": "eng_short_strat_mad",
+      "deal_id": "deal_shortlist_full_07",
+      "buyer_id": "buyer_estrategico_mad_02",
+      "type": "LOI",
+      "stage": "SHORTLISTED",
+      "valuation_offer": 4800000
+    },
+    {
+      "engagement_id": "eng_short_vc_bcn",
+      "deal_id": "deal_shortlist_full_07",
+      "buyer_id": "buyer_vc_bcn_02",
+      "type": "INTEREST",
+      "stage": "VIEWED",
+      "valuation_offer": null
+    },
+    {
+      "engagement_id": "eng_excl_prem_pe",
+      "deal_id": "deal_excl_prematura_08",
+      "buyer_id": "buyer_pe_sevilla_02",
+      "type": "LOI",
+      "stage": "EXCLUSIVITY",
+      "valuation_offer": 650000
+    },
+    {
+      "engagement_id": "eng_excl_prem_fo",
+      "deal_id": "deal_excl_prematura_08",
+      "buyer_id": "buyer_fo_malaga_02",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    },
+    {
+      "engagement_id": "eng_dr_vacio_fo",
+      "deal_id": "deal_dr_vacio_09",
+      "buyer_id": "buyer_fo_malaga_02",
+      "type": "INTEREST",
+      "stage": "VIEWED"
+    }
+  ],
+  "valuation_multiples": [
+    {
+      "scope_id": "estrategia_marca_diseno",
+      "scope_name": "Estrategia, Marca y Diseño",
+      "min": 3.5,
+      "mid": 4.5,
+      "max": 5.5
+    },
+    {
+      "scope_id": "creatividad_produccion",
+      "scope_name": "Creatividad y Producción",
+      "min": 3.0,
+      "mid": 4.0,
+      "max": 5.0
+    },
+    {
+      "scope_id": "comunicacion_pr_reputacion",
+      "scope_name": "Comunicación, PR y Reputación",
+      "min": 3.5,
+      "mid": 4.5,
+      "max": 5.5
+    },
+    {
+      "scope_id": "experiencias_activacion",
+      "scope_name": "Experiencias y Activación (BTL)",
+      "min": 2.5,
+      "mid": 3.5,
+      "max": 4.5
+    },
+    {
+      "scope_id": "influencer_creator",
+      "scope_name": "Influencer & Creator Economy",
+      "min": 3.0,
+      "mid": 4.0,
+      "max": 5.5
+    },
+    {
+      "scope_id": "medios_performance_programmatic",
+      "scope_name": "Medios, Performance y Programmatic",
+      "min": 4.0,
+      "mid": 5.0,
+      "max": 6.5
+    },
+    {
+      "scope_id": "digital_growth_commerce",
+      "scope_name": "Digital, Growth y Commerce",
+      "min": 4.0,
+      "mid": 5.5,
+      "max": 7.0
+    },
+    {
+      "scope_id": "data_adtech_martech",
+      "scope_name": "Data, AdTech y MarTech",
+      "min": 5.0,
+      "mid": 6.5,
+      "max": 8.0
+    },
+    {
+      "scope_id": "consultoria_transformacion",
+      "scope_name": "Consultoría de Transformación",
+      "min": 4.0,
+      "mid": 5.0,
+      "max": 6.5
+    },
+    {
+      "scope_id": "soportes_media_owners",
+      "scope_name": "Soportes y Media Owners",
+      "min": 3.0,
+      "mid": 4.0,
+      "max": 5.0
+    }
+  ],
+  "integrations": {
+    "CIS": {
+      "url": "",
+      "configured": false
+    },
+    "OpenAI": {
+      "configured": false
+    },
+    "SendGrid": {
+      "status": "mocked"
+    },
+    "Stripe": {
+      "status": "mocked"
+    }
+  },
+  "backend_routers": [
+    "auth",
+    "users",
+    "marketplace",
+    "companies",
+    "deals",
+    "infomemo",
+    "subscriptions",
+    "cif_lookup",
+    "teaser",
+    "taxonomy",
+    "engagements",
+    "matching",
+    "dataroom",
+    "notifications",
+    "tracking",
+    "coaching",
+    "conversations",
+    "valuation",
+    "plans",
+    "nda",
+    "buyer_certification",
+    "billing",
+    "seller_profiles",
+    "contact_requests",
+    "deal_presentation",
+    "admin"
+  ]
+}
