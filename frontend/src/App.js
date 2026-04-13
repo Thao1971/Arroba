@@ -98,6 +98,7 @@ const AppRouter = () => {
       <Route path="/seller/interesados" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
       <Route path="/seller/deals/:dealId/:section" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
       <Route path="/seller/deals/:dealId" element={<Navigate to="resumen" replace />} />
+      <Route path="/seller/deals/:dealId/process" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><DealProcessView /></ProtectedRoute>} />
       {/* Legacy redirects */}
       <Route path="/seller/deal/:dealId" element={<ProtectedRoute allowedRoles={['seller', 'admin']}><SellerWorkspace /></ProtectedRoute>} />
       <Route path="/seller/dashboard" element={<Navigate to="/seller/deals" replace />} />

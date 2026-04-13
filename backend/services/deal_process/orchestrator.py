@@ -286,14 +286,28 @@ async def execute_action(deal_id: str, actor_id: str, actor_role: str, action: s
 
 
 async def _update_state(process_id: str, new_main_state: str | None, sub_key: str, sub_value: str, actor_id: str, now: str, data: dict = None):
-    """Update process state and append to timeline."""
+    """Update process state and append normalized event to timeline."""
     update = {"updated_at": now, f"sub_states.{sub_key}": sub_value}
     if new_main_state:
         update["state"] = new_main_state
 
-    event = {"event": new_main_state or f"{sub_key}_{sub_value}".upper(), "at": now, "by": actor_id}
-    if data:
-        event["data"] = {k: str(v)[:200] for k, v in data.items() if k not in ("_id",)}
+    event_type = new_main_state or f"{sub_key}_{sub_value}".upper()
+
+    # Determine actor role
+    user = await db.users.find_one({"user_id": actor_id}, {"_id": 0, "role": 1})
+    actor_role = (user or {}).get("role", "system")
+    if actor_id == "arroba":
+        actor_role = "arroba"
+
+    event = {
+        "event": event_type,
+        "status": sub_value,
+        "actor_id": actor_id,
+        "actor_role": actor_role,
+        "at": now,
+        "by": actor_id,
+        "metadata": {k: str(v)[:200] for k, v in (data or {}).items() if k not in ("_id",)} if data else None,
+    }
 
     await db.deal_processes.update_one(
         {"process_id": process_id},
