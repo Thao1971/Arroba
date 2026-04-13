@@ -8,28 +8,32 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DataRoomSellerTab from '../components/DataRoomSellerTab';
 import LoiDetailedView from '../components/LoiDetailedView';
+import DealNegociacion from '../components/deal-process/DealNegociacion';
 import {
   BarChart3, Building2, FileText, Users, TrendingUp, ArrowRight, Eye,
   MessageSquare, FileSignature, CheckCircle2, AlertCircle, AlertTriangle,
   Plus, Search, Loader2, Star, FolderOpen, ChevronRight, Clock, Zap,
-  Bell, Settings, ChevronDown, ArrowLeft, Shield, Lock
+  Bell, Settings, ChevronDown, ArrowLeft, Shield, Lock, Handshake
 } from 'lucide-react';
 
 /* ─── General nav items ─── */
 const GENERAL_NAV = [
-  { id: 'inicio', path: '/seller', label: 'Inicio', icon: BarChart3 },
+  { id: 'dashboard', path: '/seller', label: 'Dashboard', icon: BarChart3 },
+  { id: 'deals', path: '/seller/deals', label: 'Mis deals', icon: FileText },
   { id: 'interesados', path: '/seller/interesados', label: 'Interesados', icon: Users },
-  { id: 'explorar', path: '/explorar', label: 'Listado de agencias', icon: Search },
+  { id: 'companies', path: '/seller/company/new', label: 'Companias', icon: Building2 },
 ];
 
-/* ─── Deal sub-navigation ─── */
+/* ─── Deal sub-navigation — order: vision ejecutiva → decisiones → comparacion → documentacion → config ─── */
 const DEAL_SECTIONS = [
   { id: 'resumen', label: 'Resumen', icon: Eye },
+  { id: 'negociacion', label: 'Negociacion', icon: Handshake },
   { id: 'interesados', label: 'Interesados', icon: Users },
   { id: 'lois', label: 'LOIs', icon: FileSignature },
   { id: 'qa', label: 'Q&A', icon: MessageSquare },
   { id: 'dataroom', label: 'Data Room', icon: FolderOpen },
   { id: 'infomemo', label: 'Infomemo', icon: FileText },
+  { id: 'configuracion', label: 'Configuracion', icon: Settings },
 ];
 
 const stageLabel = (s) => ({ SUBMITTED: 'Nuevo', VIEWED: 'Visto', ACCEPTED: 'Aceptado', SHORTLISTED: 'Shortlist', EXCLUSIVITY: 'Exclusividad', REJECTED: 'Descartado' }[s] || s);
@@ -263,6 +267,7 @@ const SellerWorkspace = () => {
               onActivate={handleActivate}
               actionLoading={actionLoading}
               onRefresh={async () => { const r = await dealsAPI.get(dealId); setDeal(r.data); }}
+              user={user}
             />
           )}
         </div>
@@ -458,7 +463,7 @@ const InteresadosGlobal = ({ data }) => {
 };
 
 /* ── DEAL VIEW ── */
-const DealView = ({ deal, company, section, readiness, health, engData, qaConversations, onActivate, actionLoading, onRefresh }) => {
+const DealView = ({ deal, company, section, readiness, health, engData, qaConversations, onActivate, actionLoading, onRefresh, user }) => {
   const sectionLabel = DEAL_SECTIONS.find(s => s.id === section)?.label || section;
   return (
     <>
@@ -478,11 +483,13 @@ const DealView = ({ deal, company, section, readiness, health, engData, qaConver
       <div className="flex gap-8">
         <div className="flex-1 min-w-0">
           {section === 'resumen' && <DealResumen deal={deal} readiness={readiness} health={health} company={company} />}
+          {section === 'negociacion' && <DealNegociacion dealId={deal.deal_id} sellerId={user.user_id} />}
           {section === 'interesados' && <DealInteresados deal={deal} engData={engData} onRefresh={onRefresh} />}
           {section === 'lois' && <LoiDetailedView deal={deal} onRefresh={onRefresh} />}
           {section === 'qa' && <DealQA conversations={qaConversations} />}
           {section === 'dataroom' && <DataRoomSellerTab deal={deal} />}
           {section === 'infomemo' && <DealInfomemo deal={deal} company={company} />}
+          {section === 'configuracion' && <DealConfiguracion deal={deal} />}
         </div>
         <div className="w-[260px] shrink-0 space-y-5">
           <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
@@ -556,5 +563,14 @@ const DealQA = ({ conversations }) => {
 const DealInfomemo = ({ deal, company }) => (
   <div>{deal.infomemo?.content ? (<div><div className="flex items-center justify-between mb-4"><p className="label-arroba" style={{ color: 'var(--outline)' }}>INFORMATION MEMORANDUM</p><Link to={`/seller/company/${company?.company_id}?step=4`} className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>Editar</Link></div><div className="p-6 prose prose-sm max-w-none" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}><ReactMarkdown remarkPlugins={[remarkGfm]}>{deal.infomemo.content}</ReactMarkdown></div></div>) : (<div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}><FileText size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} /><p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Infomemo no generado</p><Link to={`/seller/company/${company?.company_id}?step=4`}><button className="px-6 py-2 mt-3 text-xs font-bold" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>GENERAR INFOMEMO</button></Link></div>)}</div>
 );
+
+const DealConfiguracion = ({ deal }) => (
+  <div className="p-8 text-center" style={{ background: 'var(--surface-lowest)' }}>
+    <Settings size={24} className="mx-auto mb-3" style={{ color: 'var(--outline-variant)' }} />
+    <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Configuracion del deal</p>
+    <p className="text-xs" style={{ color: 'var(--outline)' }}>Visibilidad, politica de contacto, preferencias de operacion.</p>
+  </div>
+);
+
 
 export default SellerWorkspace;

@@ -284,3 +284,107 @@ async def api_get_available_actions(deal_id: str, user: UserResponse = Depends(g
             actions.append({"key": "respond_exclusivity", "label": f"Responder exclusividad ({pending_excl})", "microcopy": "Solicitud de exclusividad pendiente. Puedes aceptar, rechazar o contraofertar plazo."})
 
     return {"actions": actions, "state": state, "sub_states": proc.get("sub_states")}
+
+
+@router.get("/{deal_id}/seller-dashboard")
+async def api_seller_dashboard(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """Seller-oriented dashboard for a deal's negotiation processes."""
+    if user.role not in ("seller", "admin"):
+        raise HTTPException(403, "Solo sellers")
+
+    # Get all processes for this deal
+    procs = await db.deal_processes.find({"deal_id": deal_id, "seller_id": user.user_id}, {"_id": 0}).to_list(50)
+
+    # Pending decisions grouped by type
+    pending = []
+
+    interests = await db.interest_expressions.find({"deal_id": deal_id, "status": "submitted"}, {"_id": 0}).to_list(50)
+    for i in interests:
+        buyer = await db.users.find_one({"user_id": i["buyer_id"]}, {"_id": 0, "first_name": 1, "last_name": 1, "email": 1})
+        pending.append({
+            "type": "interest", "id": i["interest_id"],
+            "buyer_name": f"{(buyer or {}).get('first_name','')} {(buyer or {}).get('last_name','')}".strip(),
+            "buyer_id": i["buyer_id"],
+            "interest_type": i.get("interest_type"),
+            "message": i.get("message"),
+            "created_at": i.get("created_at"),
+            "actions": ["accept", "reject", "respond"],
+        })
+
+    meetings = await db.meetings.find({"deal_id": deal_id, "status": {"$in": ["proposed", "slot_accepted"]}}, {"_id": 0}).to_list(50)
+    for m in meetings:
+        buyer = await db.users.find_one({"user_id": m["buyer_id"]}, {"_id": 0, "first_name": 1, "last_name": 1})
+        pending.append({
+            "type": "meeting", "id": m["meeting_id"],
+            "buyer_name": f"{(buyer or {}).get('first_name','')} {(buyer or {}).get('last_name','')}".strip(),
+            "buyer_id": m["buyer_id"],
+            "purpose": m.get("purpose"),
+            "slots_count": len(m.get("proposed_slots", [])),
+            "message": m.get("message"),
+            "created_at": m.get("created_at"),
+            "actions": ["accept_slot", "counter_propose", "reject"],
+        })
+
+    dr_requests = await db.dataroom_requests.find({"deal_id": deal_id, "status": "requested"}, {"_id": 0}).to_list(50)
+    for dr in dr_requests:
+        buyer = await db.users.find_one({"user_id": dr["buyer_id"]}, {"_id": 0, "first_name": 1, "last_name": 1})
+        pending.append({
+            "type": "dataroom", "id": dr["request_id"],
+            "buyer_name": f"{(buyer or {}).get('first_name','')} {(buyer or {}).get('last_name','')}".strip(),
+            "buyer_id": dr["buyer_id"],
+            "message": dr.get("message"),
+            "created_at": dr.get("created_at"),
+            "actions": ["approve", "reject", "info_requested"],
+        })
+
+    doc_requests = await db.document_requests.find({"deal_id": deal_id, "status": "requested"}, {"_id": 0}).to_list(50)
+    for doc in doc_requests:
+        buyer = await db.users.find_one({"user_id": doc["buyer_id"]}, {"_id": 0, "first_name": 1, "last_name": 1})
+        pending.append({
+            "type": "document", "id": doc["request_id"],
+            "buyer_name": f"{(buyer or {}).get('first_name','')} {(buyer or {}).get('last_name','')}".strip(),
+            "buyer_id": doc["buyer_id"],
+            "category": doc.get("category"),
+            "description": doc.get("description"),
+            "created_at": doc.get("created_at"),
+            "actions": ["confirm", "reject", "info_requested"],
+        })
+
+    excl_requests = await db.exclusivity_requests.find({"deal_id": deal_id, "status": "requested"}, {"_id": 0}).to_list(50)
+    for ex in excl_requests:
+        buyer = await db.users.find_one({"user_id": ex["buyer_id"]}, {"_id": 0, "first_name": 1, "last_name": 1})
+        pending.append({
+            "type": "exclusivity", "id": ex["exclusivity_id"],
+            "buyer_name": f"{(buyer or {}).get('first_name','')} {(buyer or {}).get('last_name','')}".strip(),
+            "buyer_id": ex["buyer_id"],
+            "period_days": ex.get("requested_period_days"),
+            "rationale": ex.get("rationale"),
+            "created_at": ex.get("created_at"),
+            "actions": ["grant", "reject", "counter", "info_requested"],
+        })
+
+    # In-progress items
+    in_progress = []
+    responded_interests = await db.interest_expressions.find({"deal_id": deal_id, "status": {"$in": ["accepted", "responded"]}}, {"_id": 0}).to_list(20)
+    for i in responded_interests:
+        in_progress.append({"type": "interest", "id": i["interest_id"], "status": i["status"], "buyer_id": i["buyer_id"]})
+
+    confirmed_meetings = await db.meetings.find({"deal_id": deal_id, "status": "confirmed"}, {"_id": 0, "meeting_id": 1, "confirmed_slot": 1}).to_list(20)
+    for m in confirmed_meetings:
+        in_progress.append({"type": "meeting", "id": m["meeting_id"], "status": "confirmed", "slot": m.get("confirmed_slot")})
+
+    # Timeline (aggregated from all processes)
+    timeline = []
+    for p in procs:
+        for ev in p.get("timeline", []):
+            timeline.append({**ev, "buyer_id": p["buyer_id"]})
+    timeline.sort(key=lambda x: x.get("at", ""), reverse=True)
+
+    return {
+        "deal_id": deal_id,
+        "process_count": len(procs),
+        "pending_decisions": pending,
+        "pending_count": len(pending),
+        "in_progress": in_progress,
+        "timeline": timeline[:30],
+    }
