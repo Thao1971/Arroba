@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from services.deal_process.buyer_agent import validate_buyer_action, build_buyer_snapshot
 from services.deal_process.interest_agent import submit_interest, respond_to_interest
 from services.deal_process.meeting_agent import request_meeting, respond_to_meeting, confirm_meeting
+from services.deal_process.dataroom_access_agent import request_dataroom_access, respond_dataroom_request
+from services.deal_process.document_request_agent import request_document, respond_document_request
+from services.deal_process.exclusivity_agent import request_exclusivity, respond_exclusivity, respond_counter
 import uuid
 
 VALID_TRANSITIONS = {
@@ -181,6 +184,99 @@ async def execute_action(deal_id: str, actor_id: str, actor_role: str, action: s
                 await _notify(proc["buyer_id"], "MEETING_CONFIRMED", proc["deal_id"], f"Reunion confirmada por ARROBA.")
                 await _notify(proc["seller_id"], "MEETING_CONFIRMED", proc["deal_id"], f"Reunion confirmada por ARROBA.")
 
+        result = resp
+
+    # ── Buyer: DataRoom request ──
+    elif action == "request_dataroom":
+        validation = await validate_buyer_action(actor_id, "request_dataroom")
+        if not validation["ok"]:
+            return {"error": validation["message"], "detail": validation}
+
+        result = await request_dataroom_access(proc["process_id"], deal_id, actor_id, payload)
+        await _update_state(proc["process_id"], "DATA_ROOM_REQUESTED", "dataroom", "requested", actor_id, now, {"request_id": result.get("request_id")})
+        await _notify(proc["seller_id"], "DATAROOM_REQUESTED", deal_id, "Un comprador ha solicitado acceso al Data Room.")
+
+    # ── Buyer: Document request ──
+    elif action == "request_document":
+        validation = await validate_buyer_action(actor_id, "request_document")
+        if not validation["ok"]:
+            return {"error": validation["message"], "detail": validation}
+
+        result = await request_document(proc["process_id"], deal_id, actor_id, payload)
+        await _update_state(proc["process_id"], None, "documents", "requested", actor_id, now, {"request_id": result.get("request_id"), "category": payload.get("category")})
+        await _notify(proc["seller_id"], "DOCUMENT_REQUESTED", deal_id, f"Solicitud de documento: {payload.get('category', '')} — {payload.get('description', '')[:60]}")
+
+    # ── Buyer: Exclusivity request ──
+    elif action == "request_exclusivity":
+        validation = await validate_buyer_action(actor_id, "request_exclusivity")
+        if not validation["ok"]:
+            return {"error": validation["message"], "detail": validation}
+
+        result = await request_exclusivity(proc["process_id"], deal_id, actor_id, payload)
+        await _update_state(proc["process_id"], "EXCLUSIVITY_REQUESTED", "exclusivity", "requested", actor_id, now, {"period_days": payload.get("period_days")})
+        await _notify(proc["seller_id"], "EXCLUSIVITY_REQUESTED", deal_id, f"Un comprador solicita exclusividad de {payload.get('period_days', 30)} dias.")
+
+    # ── Seller: Respond DataRoom ──
+    elif action == "respond_dataroom":
+        proc = await db.deal_processes.find_one({"deal_id": deal_id, "seller_id": actor_id}, {"_id": 0})
+        if not proc:
+            return {"error": "Proceso no encontrado"}
+
+        request_id = payload.get("request_id")
+        resp = await respond_dataroom_request(request_id, actor_id, payload)
+        if not resp:
+            return {"error": "Solicitud no encontrada"}
+
+        new_main = "DATA_ROOM_PARTIALLY_GRANTED" if resp["status"] == "partially_granted" else None
+        await _update_state(proc["process_id"], new_main, "dataroom", resp["status"], actor_id, now, payload)
+        await _notify(proc["buyer_id"], f"DATAROOM_{payload.get('action','').upper()}", deal_id, "El vendedor ha respondido a tu solicitud de Data Room.")
+        result = resp
+
+    # ── Seller: Respond Document ──
+    elif action == "respond_document":
+        proc = await db.deal_processes.find_one({"deal_id": deal_id, "seller_id": actor_id}, {"_id": 0})
+        if not proc:
+            return {"error": "Proceso no encontrado"}
+
+        request_id = payload.get("request_id")
+        resp = await respond_document_request(request_id, actor_id, payload)
+        if not resp:
+            return {"error": "Solicitud no encontrada"}
+
+        await _update_state(proc["process_id"], None, "documents", resp["status"], actor_id, now, payload)
+        status_msg = {"preparing": "en preparacion", "sent": "enviado", "rejected": "rechazado"}.get(resp["status"], resp["status"])
+        await _notify(proc["buyer_id"], f"DOCUMENT_{resp['status'].upper()}", deal_id, f"Tu solicitud de documento esta {status_msg}.")
+        result = resp
+
+    # ── Seller: Respond Exclusivity ──
+    elif action == "respond_exclusivity":
+        proc = await db.deal_processes.find_one({"deal_id": deal_id, "seller_id": actor_id}, {"_id": 0})
+        if not proc:
+            return {"error": "Proceso no encontrado"}
+
+        excl_id = payload.get("exclusivity_id")
+        resp = await respond_exclusivity(excl_id, actor_id, payload)
+        if not resp:
+            return {"error": "Solicitud no encontrada"}
+
+        new_main = {"granted": "EXCLUSIVITY_GRANTED", "countered": "EXCLUSIVITY_COUNTERED", "rejected": "EXCLUSIVITY_REJECTED"}.get(resp["status"])
+        await _update_state(proc["process_id"], new_main, "exclusivity", resp["status"], actor_id, now, payload)
+
+        if resp["status"] == "granted":
+            await _notify(proc["buyer_id"], "EXCLUSIVITY_GRANTED", deal_id, "El vendedor ha concedido exclusividad.")
+        elif resp["status"] == "countered":
+            await _notify(proc["buyer_id"], "EXCLUSIVITY_COUNTERED", deal_id, f"El vendedor propone un plazo alternativo de {payload.get('counter_period_days')} dias.")
+        result = resp
+
+    # ── Buyer: Respond to exclusivity counter ──
+    elif action == "respond_exclusivity_counter":
+        excl_id = payload.get("exclusivity_id")
+        resp = await respond_counter(excl_id, actor_id, payload)
+        if not resp:
+            return {"error": "Solicitud no encontrada"}
+
+        new_main = "EXCLUSIVITY_GRANTED" if resp["status"] == "granted" else None
+        await _update_state(proc["process_id"], new_main, "exclusivity", resp["status"], actor_id, now, payload)
         result = resp
 
     else:

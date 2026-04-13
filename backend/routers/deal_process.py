@@ -117,6 +117,93 @@ async def api_confirm_meeting(deal_id: str, meeting_id: str, data: dict, user: U
     return result
 
 
+# ═══ DataRoom access ═══
+
+@router.post("/{deal_id}/dataroom-request")
+async def api_request_dataroom(deal_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Buyer requests Data Room access."""
+    if user.role != "buyer":
+        raise HTTPException(403, "Solo buyers")
+    result = await execute_action(deal_id, user.user_id, "buyer", "request_dataroom", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.post("/{deal_id}/dataroom-request/{request_id}/respond")
+async def api_respond_dataroom(deal_id: str, request_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Seller responds to Data Room request."""
+    if user.role not in ("seller", "admin"):
+        raise HTTPException(403, "Solo sellers")
+    data["request_id"] = request_id
+    result = await execute_action(deal_id, user.user_id, "seller", "respond_dataroom", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+# ═══ Document requests ═══
+
+@router.post("/{deal_id}/document-request")
+async def api_request_document(deal_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Buyer requests a specific document."""
+    if user.role != "buyer":
+        raise HTTPException(403, "Solo buyers")
+    result = await execute_action(deal_id, user.user_id, "buyer", "request_document", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.post("/{deal_id}/document-request/{request_id}/respond")
+async def api_respond_document(deal_id: str, request_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Seller responds to document request."""
+    if user.role not in ("seller", "admin"):
+        raise HTTPException(403, "Solo sellers")
+    data["request_id"] = request_id
+    result = await execute_action(deal_id, user.user_id, "seller", "respond_document", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+# ═══ Exclusivity ═══
+
+@router.post("/{deal_id}/exclusivity")
+async def api_request_exclusivity(deal_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Buyer requests exclusivity."""
+    if user.role != "buyer":
+        raise HTTPException(403, "Solo buyers")
+    result = await execute_action(deal_id, user.user_id, "buyer", "request_exclusivity", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.post("/{deal_id}/exclusivity/{excl_id}/respond")
+async def api_respond_exclusivity(deal_id: str, excl_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Seller responds to exclusivity request."""
+    if user.role not in ("seller", "admin"):
+        raise HTTPException(403, "Solo sellers")
+    data["exclusivity_id"] = excl_id
+    result = await execute_action(deal_id, user.user_id, "seller", "respond_exclusivity", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.post("/{deal_id}/exclusivity/{excl_id}/counter-respond")
+async def api_counter_respond_exclusivity(deal_id: str, excl_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Buyer responds to seller's exclusivity counter-offer."""
+    if user.role != "buyer":
+        raise HTTPException(403, "Solo buyers")
+    data["exclusivity_id"] = excl_id
+    result = await execute_action(deal_id, user.user_id, "buyer", "respond_exclusivity_counter", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
 # ═══ Data views ═══
 
 @router.get("/{deal_id}/buyer-profile")
@@ -154,7 +241,12 @@ async def api_list_meetings(deal_id: str, user: UserResponse = Depends(get_curre
 @router.get("/{deal_id}/available-actions")
 async def api_get_available_actions(deal_id: str, user: UserResponse = Depends(get_current_user)):
     """Get available actions for current user on this deal process."""
-    proc = await get_process(deal_id, user.user_id if user.role == "buyer" else None)
+    proc = None
+    if user.role == "buyer":
+        proc = await get_process(deal_id, user.user_id)
+    elif user.role in ("seller", "admin"):
+        # Seller sees aggregated pending items across all buyers
+        proc = await db.deal_processes.find_one({"deal_id": deal_id, "seller_id": user.user_id}, {"_id": 0})
     if not proc:
         return {"actions": [], "state": None}
 
@@ -174,13 +266,21 @@ async def api_get_available_actions(deal_id: str, user: UserResponse = Depends(g
             actions.append({"key": "submit_offer", "label": "Enviar oferta preliminar", "microcopy": "Presenta una oferta estructurada al vendedor con valoracion, estructura de pago y condiciones."})
 
     elif role == "seller":
-        # Check pending items
         pending_interests = await db.interest_expressions.count_documents({"deal_id": deal_id, "status": "submitted"})
         pending_meetings = await db.meetings.count_documents({"deal_id": deal_id, "status": "proposed"})
+        pending_dr = await db.dataroom_requests.count_documents({"deal_id": deal_id, "status": "requested"})
+        pending_docs = await db.document_requests.count_documents({"deal_id": deal_id, "status": "requested"})
+        pending_excl = await db.exclusivity_requests.count_documents({"deal_id": deal_id, "status": "requested"})
 
         if pending_interests > 0:
             actions.append({"key": "respond_interest", "label": f"Responder interes ({pending_interests})", "microcopy": "Tienes expresiones de interes pendientes de respuesta."})
         if pending_meetings > 0:
             actions.append({"key": "respond_meeting", "label": f"Responder reunion ({pending_meetings})", "microcopy": "Tienes solicitudes de reunion pendientes."})
+        if pending_dr > 0:
+            actions.append({"key": "respond_dataroom", "label": f"Responder Data Room ({pending_dr})", "microcopy": "Solicitudes de acceso al Data Room pendientes. Tu seleccionas las carpetas."})
+        if pending_docs > 0:
+            actions.append({"key": "respond_document", "label": f"Responder documentos ({pending_docs})", "microcopy": "Solicitudes de documentos concretos pendientes."})
+        if pending_excl > 0:
+            actions.append({"key": "respond_exclusivity", "label": f"Responder exclusividad ({pending_excl})", "microcopy": "Solicitud de exclusividad pendiente. Puedes aceptar, rechazar o contraofertar plazo."})
 
     return {"actions": actions, "state": state, "sub_states": proc.get("sub_states")}

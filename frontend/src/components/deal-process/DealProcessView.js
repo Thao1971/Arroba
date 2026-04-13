@@ -84,6 +84,12 @@ export const DealProcessView = () => {
         await api.post(`/deal-process/${dealId}/interest`, payload);
       } else if (actionKey === 'request_meeting') {
         await api.post(`/deal-process/${dealId}/meeting`, payload);
+      } else if (actionKey === 'request_dataroom') {
+        await api.post(`/deal-process/${dealId}/dataroom-request`, payload);
+      } else if (actionKey === 'request_document') {
+        await api.post(`/deal-process/${dealId}/document-request`, payload);
+      } else if (actionKey === 'request_exclusivity') {
+        await api.post(`/deal-process/${dealId}/exclusivity`, payload);
       }
       setActiveForm(null);
       setFormData({});
@@ -213,6 +219,80 @@ export const DealProcessView = () => {
               </div>
             </div>
           )}
+
+          {/* DataRoom request form */}
+          {activeForm === 'request_dataroom' && (
+            <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+              <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>SOLICITAR ACCESO AL DATA ROOM</p>
+              <MicrocopyBlock text="Esta solicitud no abre automaticamente todo el Data Room. El vendedor seleccionara las carpetas a las que te da acceso. La solicitud sera visible por el vendedor y ARROBA." />
+              <textarea value={formData.dr_message || ''} onChange={e => setFormData(d => ({ ...d, dr_message: e.target.value }))} className="input-arroba w-full resize-none mb-3" rows={3} placeholder="Explica que documentacion necesitas revisar y por que..." />
+              <p className="text-[9px] mb-3" style={{ color: 'var(--outline)' }}>Tu mensaje ayudara al vendedor a decidir que carpetas compartir contigo.</p>
+              <div className="flex gap-2">
+                <button disabled={formLoading} onClick={() => submitAction('request_dataroom', { message: formData.dr_message })} className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-2 disabled:opacity-50" style={{ background: 'var(--on-surface)', color: '#fff' }}><FolderOpen size={11} /> Solicitar acceso</button>
+                <button onClick={() => setActiveForm(null)} className="px-4 py-2.5 text-[11px] font-bold" style={{ background: 'var(--surface-2)' }}>Cancelar</button>
+              </div>
+            </div>
+          )}
+
+          {/* Document request form */}
+          {activeForm === 'request_document' && (
+            <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+              <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>SOLICITAR DOCUMENTO</p>
+              <MicrocopyBlock text="Describe el documento que necesitas. El vendedor podra enviartelo directamente o anadirlo al Data Room. La solicitud sera visible por vendedor y ARROBA." />
+              <div className="space-y-3">
+                <div>
+                  <label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>CATEGORIA</label>
+                  <select value={formData.doc_category || ''} onChange={e => setFormData(d => ({ ...d, doc_category: e.target.value }))} className="input-arroba w-full">
+                    <option value="">Selecciona...</option>
+                    <option value="financiero">Financiero</option>
+                    <option value="legal">Legal</option>
+                    <option value="fiscal">Fiscal</option>
+                    <option value="comercial">Comercial</option>
+                    <option value="operaciones">Operaciones</option>
+                    <option value="equipo">Equipo</option>
+                    <option value="tecnologia">Tecnologia</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>DESCRIPCION DEL DOCUMENTO</label>
+                  <textarea value={formData.doc_description || ''} onChange={e => setFormData(d => ({ ...d, doc_description: e.target.value }))} className="input-arroba w-full resize-none" rows={2} placeholder="Ej: Cuentas anuales depositadas 2023-2024..." />
+                </div>
+                <div>
+                  <label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>MENSAJE (OPCIONAL)</label>
+                  <textarea value={formData.doc_message || ''} onChange={e => setFormData(d => ({ ...d, doc_message: e.target.value }))} className="input-arroba w-full resize-none" rows={2} placeholder="Contexto adicional..." />
+                </div>
+                <div className="flex gap-2">
+                  <button disabled={!formData.doc_category || !formData.doc_description || formLoading} onClick={() => submitAction('request_document', { category: formData.doc_category, description: formData.doc_description, message: formData.doc_message })} className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-2 disabled:opacity-50" style={{ background: 'var(--on-surface)', color: '#fff' }}><FileText size={11} /> Solicitar documento</button>
+                  <button onClick={() => setActiveForm(null)} className="px-4 py-2.5 text-[11px] font-bold" style={{ background: 'var(--surface-2)' }}>Cancelar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Exclusivity request form */}
+          {activeForm === 'request_exclusivity' && (
+            <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+              <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>SOLICITAR EXCLUSIVIDAD</p>
+              <MicrocopyBlock text="La exclusividad bloqueara otras acciones competitivas hasta la fecha indicada. Otros compradores veran que hay un proceso exclusivo activo. El vendedor puede aceptar, rechazar o proponer un plazo alternativo." />
+              <div className="space-y-3">
+                <div>
+                  <label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>PLAZO SOLICITADO (DIAS)</label>
+                  <input type="number" value={formData.excl_days || 30} onChange={e => setFormData(d => ({ ...d, excl_days: parseInt(e.target.value) }))} className="input-arroba w-32" min={7} max={180} />
+                  <p className="text-[9px] mt-1" style={{ color: 'var(--outline)' }}>Periodo tipico: 30-60 dias. El vendedor puede proponer un plazo diferente.</p>
+                </div>
+                <div>
+                  <label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>MOTIVO / RACIONAL</label>
+                  <textarea value={formData.excl_rationale || ''} onChange={e => setFormData(d => ({ ...d, excl_rationale: e.target.value }))} className="input-arroba w-full resize-none" rows={3} placeholder="Explica por que necesitas exclusividad..." />
+                  <p className="text-[9px] mt-1" style={{ color: 'var(--outline)' }}>Solicitamos este dato para que el vendedor entienda mejor tu compromiso con la operacion.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button disabled={!formData.excl_rationale || formLoading} onClick={() => submitAction('request_exclusivity', { period_days: formData.excl_days || 30, rationale: formData.excl_rationale, message: formData.excl_message })} className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-2 disabled:opacity-50" style={{ background: 'var(--arroba-primary)', color: '#fff' }}><Shield size={11} /> Solicitar exclusividad</button>
+                  <button onClick={() => setActiveForm(null)} className="px-4 py-2.5 text-[11px] font-bold" style={{ background: 'var(--surface-2)' }}>Cancelar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Sidebar */}
