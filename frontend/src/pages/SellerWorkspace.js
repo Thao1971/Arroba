@@ -9,6 +9,7 @@ import remarkGfm from 'remark-gfm';
 import DataRoomSellerTab from '../components/DataRoomSellerTab';
 import LoiDetailedView from '../components/LoiDetailedView';
 import DealNegociacion from '../components/deal-process/DealNegociacion';
+import DealDueDiligence from '../components/deal-process/DealDueDiligence';
 import {
   BarChart3, Building2, FileText, Users, TrendingUp, ArrowRight, Eye,
   MessageSquare, FileSignature, CheckCircle2, AlertCircle, AlertTriangle,
@@ -37,6 +38,7 @@ const DEAL_SECTIONS = [
   { id: 'lois', label: 'LOIs', icon: FileSignature },
   { id: 'qa', label: 'Q&A', icon: MessageSquare },
   { id: 'dataroom', label: 'Data Room', icon: FolderOpen },
+  { id: 'duediligence', label: 'Due Diligence', icon: CheckCircle2 },
   { id: 'infomemo', label: 'Infomemo', icon: FileText },
   { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
@@ -503,6 +505,7 @@ const DealView = ({ deal, company, section, readiness, health, engData, qaConver
         <div className="flex-1 min-w-0">
           {section === 'resumen' && <DealResumen deal={deal} readiness={readiness} health={health} company={company} />}
           {section === 'negociacion' && <DealNegociacion dealId={deal.deal_id} sellerId={user.user_id} />}
+          {section === 'duediligence' && <DealDueDiligence dealId={deal.deal_id} user={user} />}
           {section === 'interesados' && <DealInteresados deal={deal} engData={engData} onRefresh={onRefresh} />}
           {section === 'lois' && <LoiDetailedView deal={deal} onRefresh={onRefresh} />}
           {section === 'qa' && <DealQA conversations={qaConversations} />}

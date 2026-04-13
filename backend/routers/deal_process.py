@@ -280,6 +280,83 @@ async def api_list_lois(deal_id: str, user: UserResponse = Depends(get_current_u
     from services.deal_process.formal_loi_agent import list_lois
     return await list_lois(deal_id)
 
+
+# ═══ Due Diligence ═══
+
+@router.post("/{deal_id}/dd/start")
+async def api_start_dd(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """Start DD checklist for a deal."""
+    if user.role not in ("seller", "admin"):
+        raise HTTPException(403, "Solo seller/admin puede iniciar DD")
+    from services.deal_process.due_diligence_agent import start_dd
+    proc = await db.deal_processes.find_one({"deal_id": deal_id, "seller_id": user.user_id}, {"_id": 0})
+    if not proc:
+        raise HTTPException(404, "Proceso no encontrado")
+    result = await start_dd(proc["process_id"], deal_id, proc["buyer_id"])
+    return result
+
+
+@router.get("/{deal_id}/dd/dashboard")
+async def api_dd_dashboard(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """Get DD dashboard with progress."""
+    from services.deal_process.due_diligence_agent import get_dd_dashboard
+    buyer_id = user.user_id if user.role == "buyer" else None
+    result = await get_dd_dashboard(deal_id, buyer_id)
+    if not result:
+        return {"status": "no_iniciada", "completion_pct": 0, "sections": [], "section_progress": [], "blockers": []}
+    return result
+
+
+@router.post("/{deal_id}/dd/checklist/{item_id}/update")
+async def api_update_dd_item(deal_id: str, item_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Update DD checklist item."""
+    from services.deal_process.due_diligence_agent import update_item
+    dd = await db.dd_checklists.find_one({"deal_id": deal_id}, {"_id": 0, "checklist_id": 1})
+    if not dd:
+        raise HTTPException(404, "Checklist no encontrada")
+    result = await update_item(dd["checklist_id"], item_id, user.user_id, user.role, data)
+    if not result:
+        raise HTTPException(404, "Ítem no encontrado")
+    return result
+
+
+# ═══ Closing ═══
+
+@router.get("/{deal_id}/closing")
+async def api_get_closing(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """Get closing record."""
+    from services.deal_process.closing_agent import get_closing
+    result = await get_closing(deal_id)
+    if not result:
+        return {"status": "no_iniciado"}
+    return result
+
+
+@router.post("/{deal_id}/closing/init")
+async def api_init_closing(deal_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Initialize closing after DD completion. Only ARROBA/admin."""
+    if user.role != "admin":
+        raise HTTPException(403, "Solo ARROBA puede iniciar el cierre")
+    from services.deal_process.closing_agent import init_closing
+    proc = await db.deal_processes.find_one({"deal_id": deal_id}, {"_id": 0})
+    if not proc:
+        raise HTTPException(404, "Proceso no encontrado")
+    result = await init_closing(deal_id, proc["buyer_id"], data)
+    return result
+
+
+@router.post("/{deal_id}/closing/update")
+async def api_update_closing(deal_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Update closing status or checklist. Only ARROBA/admin."""
+    if user.role != "admin":
+        raise HTTPException(403, "Solo ARROBA gestiona el cierre")
+    from services.deal_process.closing_agent import update_closing
+    closing = await db.closing_records.find_one({"deal_id": deal_id}, {"_id": 0, "closing_id": 1})
+    if not closing:
+        raise HTTPException(404, "Registro de cierre no encontrado")
+    result = await update_closing(closing["closing_id"], data)
+    return result
+
 # ═══ Data views ═══
 
 @router.get("/{deal_id}/buyer-profile")
