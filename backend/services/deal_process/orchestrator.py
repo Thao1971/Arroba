@@ -11,6 +11,7 @@ from services.deal_process.dataroom_access_agent import request_dataroom_access,
 from services.deal_process.document_request_agent import request_document, respond_document_request
 from services.deal_process.exclusivity_agent import request_exclusivity, respond_exclusivity, respond_counter
 from services.deal_process.preliminary_offer_agent import submit_offer, respond_to_offer
+from services.deal_process.formal_loi_agent import formalize_loi, respond_to_loi, respond_to_counter as respond_loi_counter
 import uuid
 
 VALID_TRANSITIONS = {
@@ -306,6 +307,52 @@ async def execute_action(deal_id: str, actor_id: str, actor_role: str, action: s
 
         msg = {"accepted": "aceptada", "rejected": "rechazada", "info_requested": "necesita mas informacion", "upgraded_to_loi": "invitada a LOI formal"}.get(resp["status"], resp["status"])
         await _notify(proc["buyer_id"], f"OFFER_{resp['status'].upper()}", deal_id, f"Tu oferta preliminar ha sido {msg}.")
+        result = resp
+
+    # ── Buyer: Formalize LOI ──
+    elif action == "formalize_loi":
+        validation = await validate_buyer_action(actor_id, "submit_loi")
+        if not validation["ok"]:
+            return {"error": validation["message"], "detail": validation}
+
+        result = await formalize_loi(proc["process_id"], deal_id, actor_id, payload)
+        await _update_state(proc["process_id"], "FORMAL_LOI_SUBMITTED", "formal_loi", "submitted", actor_id, now, {"loi_id": result.get("loi_id"), "ev": payload.get("enterprise_value")})
+        await _notify(proc["seller_id"], "LOI_RECEIVED", deal_id, f"Has recibido una LOI formal de {proc['buyer_profile_snapshot'].get('entity_name', 'un comprador')}.")
+
+    # ── Seller: Respond to LOI ──
+    elif action == "respond_loi":
+        proc = await db.deal_processes.find_one({"deal_id": deal_id, "seller_id": actor_id}, {"_id": 0})
+        if not proc:
+            return {"error": "Proceso no encontrado"}
+
+        loi_id = payload.get("loi_id")
+        resp = await respond_to_loi(loi_id, actor_id, payload)
+        if not resp:
+            return {"error": "LOI no encontrada"}
+
+        new_main = {"accepted": "FORMAL_LOI_ACCEPTED", "rejected": "FORMAL_LOI_REJECTED", "countered": "FORMAL_LOI_COUNTERED"}.get(resp["status"])
+        await _update_state(proc["process_id"], new_main, "formal_loi", resp["status"], actor_id, now, payload)
+
+        msg = {"accepted": "aceptada", "rejected": "rechazada", "countered": "contraofertada", "clarification_requested": "necesita aclaracion"}.get(resp["status"], resp["status"])
+        await _notify(proc["buyer_id"], f"LOI_{resp['status'].upper()}", deal_id, f"Tu LOI formal ha sido {msg}.")
+
+        # If accepted with exclusivity, transition to DD
+        if resp["status"] == "accepted":
+            await _update_state(proc["process_id"], "DD_IN_PROGRESS", "due_diligence", "started", actor_id, now, {"trigger": "loi_accepted"})
+
+        result = resp
+
+    # ── Buyer: Respond to LOI counter ──
+    elif action == "respond_loi_counter":
+        loi_id = payload.get("loi_id")
+        resp = await respond_loi_counter(loi_id, actor_id, payload)
+        if not resp:
+            return {"error": "LOI no encontrada o no en estado de contraoferta"}
+
+        if resp["status"] == "accepted":
+            await _update_state(proc["process_id"], "FORMAL_LOI_ACCEPTED", "formal_loi", "accepted", actor_id, now, payload)
+            await _update_state(proc["process_id"], "DD_IN_PROGRESS", "due_diligence", "started", actor_id, now, {"trigger": "counter_accepted"})
+        await _notify(proc["seller_id"], f"LOI_COUNTER_{resp['status'].upper()}", deal_id, f"El buyer ha respondido a tu contraoferta.")
         result = resp
 
     else:

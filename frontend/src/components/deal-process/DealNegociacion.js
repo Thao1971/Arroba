@@ -21,11 +21,12 @@ const EVENT_LABELS = {
   EXCLUSIVITY_GRANTED: 'Exclusividad concedida', EXCLUSIVITY_COUNTERED: 'Contraoferta exclusividad',
 };
 
-const TYPE_ICONS = { exclusivity: Shield, offer: Handshake, interest: Star, meeting: Calendar, dataroom: FolderOpen, document: FileText };
-const TYPE_LABELS = { exclusivity: 'Exclusividad', offer: 'Oferta preliminar', interest: 'Interes', meeting: 'Reunión', dataroom: 'Data Room', document: 'Documento' };
+const TYPE_ICONS = { exclusivity: Shield, loi: Handshake, offer: Handshake, interest: Star, meeting: Calendar, dataroom: FolderOpen, document: FileText };
+const TYPE_LABELS = { exclusivity: 'Exclusividad', loi: 'LOI formal', offer: 'Oferta preliminar', interest: 'Interes', meeting: 'Reunión', dataroom: 'Data Room', document: 'Documento' };
 
 const MICROCOPY = {
   exclusivity: 'Tu decision puede bloquear acciones competitivas de otros buyers.',
+  loi: 'LOI formal recibida. Revisa estructura economica, condiciones y exclusividad antes de decidir. Al aceptar, puedes transicionar a due diligence.',
   offer: 'Tienes una oferta preliminar pendiente. Revisa valoracion, estructura y condiciones antes de decidir.',
   interest: 'Decide si aceptar este interes. Al aceptar, se abre un canal Q&A con el buyer.',
   meeting: 'Decide si aceptar un slot de reunion. Las reuniones incluyen buyer, seller y ARROBA.',
@@ -108,6 +109,7 @@ const DealNegociacion = ({ dealId, sellerId }) => {
                           {type === 'document' && `${item.category}: ${item.description?.slice(0,50)}`}
                           {type === 'exclusivity' && `${item.period_days} dias · ${item.rationale?.slice(0,50)}`}
                           {type === 'offer' && `EV: ${item.enterprise_value ? (item.enterprise_value/1e6).toFixed(1)+'M€' : '?'} · ${item.commitment_level} · ${item.completeness}% completo`}
+                          {type === 'loi' && `EV: ${item.enterprise_value ? (item.enterprise_value/1e6).toFixed(1)+'M€' : '?'} · ${item.acquisition_pct || 100}% · ${item.exclusivity_requested ? 'Excl. '+item.exclusivity_days+'d' : 'Sin excl.'} · Validez: ${item.valid_until || '?'}`}
                         </p>
                       </div>
                       <p className="text-[9px]" style={{ color: 'var(--outline)' }}>{item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : ''}</p>

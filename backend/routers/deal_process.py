@@ -236,6 +236,50 @@ async def api_list_offers(deal_id: str, user: UserResponse = Depends(get_current
     from services.deal_process.preliminary_offer_agent import list_offers
     return await list_offers(deal_id)
 
+
+# ═══ Formal LOI ═══
+
+@router.post("/{deal_id}/loi/formalize")
+async def api_formalize_loi(deal_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Buyer formalizes LOI (optionally precloaded from offer)."""
+    if user.role != "buyer":
+        raise HTTPException(403, "Solo buyers")
+    result = await execute_action(deal_id, user.user_id, "buyer", "formalize_loi", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.post("/{deal_id}/loi/{loi_id}/respond")
+async def api_respond_loi(deal_id: str, loi_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Seller responds to LOI."""
+    if user.role not in ("seller", "admin"):
+        raise HTTPException(403, "Solo sellers")
+    data["loi_id"] = loi_id
+    result = await execute_action(deal_id, user.user_id, "seller", "respond_loi", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.post("/{deal_id}/loi/{loi_id}/counter-respond")
+async def api_counter_respond_loi(deal_id: str, loi_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Buyer responds to seller's counter-offer on LOI."""
+    if user.role != "buyer":
+        raise HTTPException(403, "Solo buyers")
+    data["loi_id"] = loi_id
+    result = await execute_action(deal_id, user.user_id, "buyer", "respond_loi_counter", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.get("/{deal_id}/lois")
+async def api_list_lois(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """List all formal LOIs for a deal."""
+    from services.deal_process.formal_loi_agent import list_lois
+    return await list_lois(deal_id)
+
 # ═══ Data views ═══
 
 @router.get("/{deal_id}/buyer-profile")
@@ -304,9 +348,12 @@ async def api_get_available_actions(deal_id: str, user: UserResponse = Depends(g
         pending_docs = await db.document_requests.count_documents({"deal_id": deal_id, "status": "requested"})
         pending_excl = await db.exclusivity_requests.count_documents({"deal_id": deal_id, "status": "requested"})
         pending_offers = await db.preliminary_offers.count_documents({"deal_id": deal_id, "status": "submitted"})
+        pending_lois = await db.formal_lois.count_documents({"deal_id": deal_id, "status": "submitted"})
 
         if pending_excl > 0:
             actions.append({"key": "respond_exclusivity", "label": f"Responder exclusividad ({pending_excl})", "microcopy": "Solicitud de exclusividad pendiente. Puedes aceptar, rechazar o contraofertar plazo."})
+        if pending_lois > 0:
+            actions.append({"key": "respond_loi", "label": f"Responder LOI formal ({pending_lois})", "microcopy": "Tienes una LOI formal pendiente. Puedes aceptar, contraofertar, pedir aclaracion o rechazar."})
         if pending_offers > 0:
             actions.append({"key": "respond_offer", "label": f"Responder oferta ({pending_offers})", "microcopy": "Tienes una oferta preliminar pendiente. Puedes aceptar, rechazar o invitar a LOI formal."})
         if pending_interests > 0:
@@ -415,6 +462,26 @@ async def api_seller_dashboard(deal_id: str, user: UserResponse = Depends(get_cu
             "actions": ["accept", "reject", "info_requested", "invite_loi"],
         })
 
+
+    loi_requests = await db.formal_lois.find({"deal_id": deal_id, "status": "submitted"}, {"_id": 0}).to_list(50)
+    for loi in loi_requests:
+        buyer = await db.users.find_one({"user_id": loi["buyer_id"]}, {"_id": 0, "first_name": 1, "last_name": 1})
+        pending.append({
+            "type": "loi", "id": loi["loi_id"],
+            "buyer_name": f"{(buyer or {}).get('first_name','')} {(buyer or {}).get('last_name','')}".strip(),
+            "buyer_id": loi["buyer_id"],
+            "enterprise_value": loi.get("enterprise_value"),
+            "cash_at_closing": loi.get("cash_at_closing"),
+            "acquisition_pct": loi.get("acquisition_pct"),
+            "exclusivity_requested": loi.get("exclusivity_requested"),
+            "exclusivity_days": loi.get("exclusivity_days"),
+            "valid_until": loi.get("valid_until"),
+            "completeness": loi.get("completeness_score"),
+            "executive_summary": loi.get("executive_summary", "")[:150],
+            "created_at": loi.get("created_at"),
+            "actions": ["accept", "counter", "clarification", "reject"],
+        })
+
     # In-progress items
     in_progress = []
     responded_interests = await db.interest_expressions.find({"deal_id": deal_id, "status": {"$in": ["accepted", "responded"]}}, {"_id": 0}).to_list(20)
@@ -433,7 +500,7 @@ async def api_seller_dashboard(deal_id: str, user: UserResponse = Depends(get_cu
     timeline.sort(key=lambda x: x.get("at", ""), reverse=True)
 
     # Sort pending by criticality: exclusivity > offer > meeting > dataroom > document > interest
-    type_order = {"exclusivity": 0, "offer": 1, "meeting": 2, "dataroom": 3, "document": 4, "interest": 5}
+    type_order = {"exclusivity": 0, "loi": 1, "offer": 2, "meeting": 3, "dataroom": 4, "document": 5, "interest": 6}
     pending.sort(key=lambda x: type_order.get(x["type"], 9))
 
     return {
