@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { marketplaceAPI, matchingAPI, engagementsAPI, ndaAPI, notificationsAPI, buyerAPI, billingAPI } from '../services/api';
+import api from '../services/api';
 import {
   Search, FileText, ArrowRight, Building2,
   Sparkles, MapPin, Zap, ChevronRight, Send, FileSignature, Shield,
@@ -33,6 +34,35 @@ const planLabels = {
   'pro+': { label: 'PRO+', color: 'var(--arroba-primary)', bg: 'rgba(182,33,42,0.06)' },
 };
 
+const SECTIONS_MAIN = [
+  { id: 'dashboard', label: 'Dashboard', icon: FolderOpen },
+  { id: 'procesos', label: 'Mis procesos', icon: FileText, expandable: true },
+  { id: 'seguimiento', label: 'Seguimiento', icon: Bookmark },
+  { id: 'recomendados', label: 'Recomendados', icon: Sparkles },
+];
+
+const SECTIONS_BOTTOM = [
+  { id: 'alertas', label: 'Alertas', icon: Bell },
+  { id: 'perfil', label: 'Perfil', icon: User },
+  { id: 'facturacion', label: 'Facturación', icon: CreditCard },
+];
+
+const CANONICAL_PHASES = [
+  { id: 'resumen', label: 'Resumen' },
+  { id: 'nda', label: 'NDA' },
+  { id: 'interes', label: 'Interés' },
+  { id: 'reunion', label: 'Reunión' },
+  { id: 'dataroom', label: 'Data Room' },
+  { id: 'oferta', label: 'Oferta indicativa' },
+  { id: 'loi', label: 'LOI' },
+  { id: 'exclusividad', label: 'Exclusividad' },
+  { id: 'dd', label: 'Due Diligence' },
+  { id: 'closing', label: 'Cierre' },
+];
+
+const PHASE_DOT_COLORS = { completed: '#16a34a', current: 'var(--arroba-primary)', pending: 'var(--surface-2)', blocked: '#dc2626' };
+
+// Keep SECTIONS for backward compat with content rendering
 const SECTIONS = [
   { id: 'dashboard', label: 'Dashboard', icon: FolderOpen },
   { id: 'procesos', label: 'Mis procesos', icon: FileText },
@@ -60,6 +90,9 @@ const BuyerDashboard = () => {
   const [profileComplete, setProfileComplete] = useState(false);
   const [certData, setCertData] = useState(null);
   const [billingData, setBillingData] = useState(null);
+  const [processTree, setProcessTree] = useState([]);
+  const [expandedDeal, setExpandedDeal] = useState(null);
+  const [activeDealPhase, setActiveDealPhase] = useState(null);
   const [notifPrefs, setNotifPrefs] = useState({
     new_opportunities: true,
     seller_responses: true,
@@ -92,6 +125,7 @@ const BuyerDashboard = () => {
           notificationsAPI.unreadCount().then(r => setUnreadCount(r.data?.count || 0)).catch(() => {}),
           buyerAPI.getCertification().then(r => setCertData(r.data)).catch(() => {}),
           billingAPI.getSummary().then(r => setBillingData(r.data)).catch(() => {}),
+          api.get('/deal-process/my-process-tree').then(r => setProcessTree(r.data || [])).catch(() => {}),
         ]);
       } catch (e) {  }
       finally { setLoading(false); }
@@ -140,28 +174,75 @@ const BuyerDashboard = () => {
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 flex flex-col gap-1 px-3">
-          {SECTIONS.map(s => {
+        {/* Navigation — main sections */}
+        <nav className="flex-1 flex flex-col gap-0.5 px-3 overflow-y-auto">
+          {SECTIONS_MAIN.map(s => {
             const Icon = s.icon;
-            const isActive = s.id === activeSection;
+            const isActive = s.id === activeSection && !activeDealPhase;
+            const isExpanded = s.id === 'procesos' && (activeSection === 'procesos' || activeDealPhase);
             return (
-              <button key={s.id} onClick={() => setActiveSection(s.id)}
-                className="flex items-center gap-3 px-4 py-3 text-left text-sm font-semibold uppercase tracking-wider transition-all"
-                style={{
-                  color: isActive ? 'var(--arroba-primary)' : 'var(--on-surface-variant)',
-                  background: isActive ? 'var(--surface-lowest)' : 'transparent',
-                  boxShadow: isActive ? '0px 4px 12px rgba(26,28,28,0.06)' : 'none',
-                }}
-                data-testid={`nav-${s.id}`}>
-                <Icon size={16} />
-                <span>{s.label}</span>
-                {s.id === 'alertas' && unreadCount > 0 && (
-                  <span className="ml-auto w-5 h-5 text-[9px] font-bold flex items-center justify-center" style={{ background: 'var(--arroba-primary)', color: '#fff', borderRadius: '50%' }}>{unreadCount}</span>
+              <React.Fragment key={s.id}>
+                <button onClick={() => { setActiveSection(s.id); setActiveDealPhase(null); setExpandedDeal(null); }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider transition-all"
+                  style={{ color: isActive ? 'var(--arroba-primary)' : 'var(--on-surface-variant)', background: isActive ? 'var(--surface-lowest)' : 'transparent', boxShadow: isActive ? '0px 4px 12px rgba(26,28,28,0.06)' : 'none' }}
+                  data-testid={`nav-${s.id}`}>
+                  <Icon size={13} /><span>{s.label}</span>
+                  {s.id === 'procesos' && processTree.length > 0 && (
+                    <span className="ml-auto text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--surface-2)' }}>{processTree.length}</span>
+                  )}
+                </button>
+                {/* Expandable process tree */}
+                {s.id === 'procesos' && isExpanded && processTree.length > 0 && (
+                  <div className="ml-4 space-y-0.5">
+                    {processTree.map(proc => (
+                      <React.Fragment key={proc.deal_id}>
+                        <button onClick={() => setExpandedDeal(expandedDeal === proc.deal_id ? null : proc.deal_id)}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-left transition-all"
+                          style={{ background: expandedDeal === proc.deal_id ? 'var(--surface-lowest)' : 'transparent' }}>
+                          <span className="text-[9px] font-bold truncate" style={{ color: expandedDeal === proc.deal_id ? 'var(--on-surface)' : 'var(--outline)' }}>{proc.company_name}</span>
+                        </button>
+                        {expandedDeal === proc.deal_id && (
+                          <div className="ml-3 space-y-0">
+                            {CANONICAL_PHASES.map(phase => {
+                              const status = proc.phases?.[phase.id] || 'pending';
+                              const isPhaseActive = activeDealPhase?.dealId === proc.deal_id && activeDealPhase?.phase === phase.id;
+                              return (
+                                <button key={phase.id} onClick={() => setActiveDealPhase({ dealId: proc.deal_id, phase: phase.id })}
+                                  className="w-full flex items-center gap-2 px-2 py-1 text-left"
+                                  style={{ background: isPhaseActive ? 'var(--surface-lowest)' : 'transparent' }}>
+                                  <div className="w-1.5 h-1.5 shrink-0" style={{ background: PHASE_DOT_COLORS[status] || 'var(--surface-2)', borderRadius: status === 'completed' ? '50%' : 0 }} />
+                                  <span className="text-[8px] font-semibold" style={{ color: isPhaseActive ? 'var(--on-surface)' : status === 'pending' ? 'var(--outline-variant)' : 'var(--outline)' }}>{phase.label}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
                 )}
-              </button>
+              </React.Fragment>
             );
           })}
+
+          {/* Bottom nav: Alertas, Perfil, Facturación */}
+          <div className="mt-auto pt-3" style={{ borderTop: '1px solid var(--surface-2)' }}>
+            {SECTIONS_BOTTOM.map(s => {
+              const Icon = s.icon;
+              const isActive = s.id === activeSection && !activeDealPhase;
+              return (
+                <button key={s.id} onClick={() => { setActiveSection(s.id); setActiveDealPhase(null); }}
+                  className="flex items-center gap-3 px-4 py-2 text-left text-[9px] font-semibold uppercase tracking-wider w-full"
+                  style={{ color: isActive ? 'var(--arroba-primary)' : 'var(--outline)' }}
+                  data-testid={`nav-${s.id}`}>
+                  <Icon size={12} /><span>{s.label}</span>
+                  {s.id === 'alertas' && unreadCount > 0 && (
+                    <span className="ml-auto w-4 h-4 text-[8px] font-bold flex items-center justify-center" style={{ background: 'var(--arroba-primary)', color: '#fff', borderRadius: '50%' }}>{unreadCount}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Sidebar bottom */}

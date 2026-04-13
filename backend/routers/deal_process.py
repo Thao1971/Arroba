@@ -11,6 +11,55 @@ from services.deal_process.buyer_agent import build_buyer_snapshot
 router = APIRouter(prefix="/deal-process", tags=["Deal Process"])
 
 
+# Static routes MUST come before /{deal_id} to avoid being caught by the catch-all
+@router.get("/my-process-tree")
+async def api_my_process_tree_static(user: UserResponse = Depends(get_current_user)):
+    """Redirect to the actual implementation."""
+    from services.deal_process.orchestrator import get_process
+    # Inline implementation to avoid circular routing
+    role = user.role
+    uid = user.user_id
+    tree = []
+    if role == "buyer":
+        procs = await db.deal_processes.find({"buyer_id": uid}, {"_id": 0, "deal_id": 1, "state": 1}).to_list(20)
+        for p in procs:
+            deal = await db.deals.find_one({"deal_id": p["deal_id"]}, {"_id": 0, "teaser.headline": 1, "company_id": 1})
+            comp = await db.companies.find_one({"company_id": (deal or {}).get("company_id")}, {"_id": 0, "trade_name": 1}) if deal else None
+            nda = await db.nda_signatures.find_one({"deal_id": p["deal_id"], "buyer_user_id": uid, "status": "signed"})
+            ints = await db.interest_expressions.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            offs = await db.preliminary_offers.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            lois_d = await db.formal_lois.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            dd = await db.dd_checklists.find_one({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1})
+            def ps(h, c): return "completed" if c else ("current" if h else "pending")
+            tree.append({
+                "deal_id": p["deal_id"],
+                "company_name": (comp or {}).get("trade_name") or (deal or {}).get("teaser", {}).get("headline", "Deal"),
+                "state": p["state"],
+                "phases": {
+                    "nda": "completed" if nda else "pending",
+                    "interes": ps(len(ints)>0, any(i["status"]=="accepted" for i in ints)),
+                    "reunion": "pending", "dataroom": "pending",
+                    "oferta": ps(len(offs)>0, any(o["status"] in ("accepted","upgraded_to_loi") for o in offs)),
+                    "loi": ps(len(lois_d)>0, any(l["status"]=="accepted" for l in lois_d)),
+                    "exclusividad": "pending",
+                    "dd": ps(bool(dd), dd and dd.get("status")=="completada"),
+                    "closing": "pending",
+                },
+            })
+    elif role in ("seller", "advisor"):
+        deals = await db.deals.find({"owner_id": uid, "status": {"$in": ["published", "exclusivity"]}}, {"_id": 0, "deal_id": 1, "teaser.headline": 1, "company_id": 1}).to_list(20)
+        for d in deals:
+            comp = await db.companies.find_one({"company_id": d.get("company_id")}, {"_id": 0, "trade_name": 1})
+            tree.append({
+                "deal_id": d["deal_id"],
+                "company_name": (comp or {}).get("trade_name") or d.get("teaser", {}).get("headline", "Deal"),
+                "state": "active",
+                "phases": {"nda": "current", "interes": "pending", "reunion": "pending", "dataroom": "pending", "oferta": "pending", "loi": "pending", "exclusividad": "pending", "dd": "pending", "closing": "pending"},
+            })
+    return tree
+
+
+
 @router.post("/{deal_id}/init")
 async def api_init_process(deal_id: str, user: UserResponse = Depends(get_current_user)):
     """Initialize deal process after NDA."""
@@ -280,6 +329,99 @@ async def api_list_lois(deal_id: str, user: UserResponse = Depends(get_current_u
     from services.deal_process.formal_loi_agent import list_lois
     return await list_lois(deal_id)
 
+
+
+# ═══ Process Tree (sidebar expandable) ═══
+
+@router.get("/my-process-tree")
+async def api_my_process_tree(user: UserResponse = Depends(get_current_user)):
+    """Get tree of active processes for sidebar — buyer or seller."""
+    role = user.role
+    uid = user.user_id
+
+    tree = []
+
+    if role == "buyer":
+        # Find all deals where buyer has a process
+        procs = await db.deal_processes.find({"buyer_id": uid}, {"_id": 0, "deal_id": 1, "state": 1, "sub_states": 1}).to_list(20)
+        for p in procs:
+            deal = await db.deals.find_one({"deal_id": p["deal_id"]}, {"_id": 0, "teaser.headline": 1, "company_id": 1})
+            comp = await db.companies.find_one({"company_id": (deal or {}).get("company_id")}, {"_id": 0, "trade_name": 1}) if deal else None
+
+            # Phase statuses from buyer perspective
+            nda = await db.nda_signatures.find_one({"deal_id": p["deal_id"], "buyer_user_id": uid, "status": "signed"})
+            ints = await db.interest_expressions.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            mtgs = await db.meetings.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            drs = await db.dataroom_requests.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            offs = await db.preliminary_offers.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            lois = await db.formal_lois.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            excls = await db.exclusivity_requests.find({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1}).to_list(5)
+            dd = await db.dd_checklists.find_one({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1})
+            cls = await db.closing_records.find_one({"deal_id": p["deal_id"], "buyer_id": uid}, {"_id": 0, "status": 1})
+
+            def ps(has, completed):
+                if completed: return "completed"
+                if has: return "current"
+                return "pending"
+
+            phases = {
+                "nda": "completed" if nda else "pending",
+                "interes": ps(len(ints)>0, any(i["status"]=="accepted" for i in ints)),
+                "reunion": ps(len(mtgs)>0, any(m["status"]=="confirmed" for m in mtgs)),
+                "dataroom": ps(len(drs)>0, any(d["status"]=="partially_granted" for d in drs)),
+                "oferta": ps(len(offs)>0, any(o["status"] in ("accepted","upgraded_to_loi") for o in offs)),
+                "loi": ps(len(lois)>0, any(l["status"]=="accepted" for l in lois)),
+                "exclusividad": ps(len(excls)>0, any(e["status"]=="granted" for e in excls)),
+                "dd": ps(bool(dd), dd and dd.get("status")=="completada"),
+                "closing": ps(bool(cls), cls and cls.get("status") in ("cerrado_exito",)),
+            }
+
+            tree.append({
+                "deal_id": p["deal_id"],
+                "company_name": (comp or {}).get("trade_name") or (deal or {}).get("teaser", {}).get("headline", "Deal"),
+                "state": p["state"],
+                "phases": phases,
+            })
+
+    elif role in ("seller", "advisor"):
+        # Find all deals owned by seller
+        deals = await db.deals.find({"owner_id": uid, "status": {"$in": ["published", "exclusivity"]}}, {"_id": 0, "deal_id": 1, "teaser.headline": 1, "company_id": 1}).to_list(20)
+        for d in deals:
+            comp = await db.companies.find_one({"company_id": d.get("company_id")}, {"_id": 0, "trade_name": 1})
+            proc_count = await db.deal_processes.count_documents({"deal_id": d["deal_id"]})
+
+            # Aggregate phase statuses across all buyers
+            nda_c = await db.nda_signatures.count_documents({"deal_id": d["deal_id"], "status": "signed"})
+            int_c = await db.interest_expressions.count_documents({"deal_id": d["deal_id"]})
+            mtg_c = await db.meetings.count_documents({"deal_id": d["deal_id"]})
+            dr_c = await db.dataroom_requests.count_documents({"deal_id": d["deal_id"]})
+            off_c = await db.preliminary_offers.count_documents({"deal_id": d["deal_id"]})
+            loi_c = await db.formal_lois.count_documents({"deal_id": d["deal_id"]})
+            excl_c = await db.exclusivity_requests.count_documents({"deal_id": d["deal_id"]})
+            dd_doc = await db.dd_checklists.find_one({"deal_id": d["deal_id"]}, {"_id": 0, "status": 1})
+            cls_doc = await db.closing_records.find_one({"deal_id": d["deal_id"]}, {"_id": 0, "status": 1})
+
+            phases = {
+                "nda": "completed" if nda_c > 0 else "pending",
+                "interes": "current" if int_c > 0 else "pending",
+                "reunion": "current" if mtg_c > 0 else "pending",
+                "dataroom": "current" if dr_c > 0 else "pending",
+                "oferta": "current" if off_c > 0 else "pending",
+                "loi": "current" if loi_c > 0 else "pending",
+                "exclusividad": "current" if excl_c > 0 else "pending",
+                "dd": dd_doc.get("status", "pending") if dd_doc else "pending",
+                "closing": cls_doc.get("status", "pending") if cls_doc else "pending",
+            }
+
+            tree.append({
+                "deal_id": d["deal_id"],
+                "company_name": (comp or {}).get("trade_name") or d.get("teaser", {}).get("headline", "Deal"),
+                "state": "active",
+                "process_count": proc_count,
+                "phases": phases,
+            })
+
+    return tree
 
 
 # ═══ Process Summary (deterministic funnel) ═══
