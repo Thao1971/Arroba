@@ -16,6 +16,7 @@ import DealPageCanonical from './pages/DealPageCanonical';
 import AdminConsole from './pages/AdminConsole';
 import AdvisorWorkspace from './pages/AdvisorWorkspace';
 import { DealProcessView } from './components/deal-process/DealProcessView';
+import BuyerDealWorkspace from './components/deal-process/BuyerDealWorkspace';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
 import SellerInteresados from './pages/SellerInteresados';
@@ -88,6 +89,8 @@ const AppRouter = () => {
       <Route path="/buyer/guardados" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><SavedDeals /></ProtectedRoute>} />
       <Route path="/buyer/deal/:dealId" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><DealPageCanonical /></ProtectedRoute>} />
       <Route path="/buyer/deal/:dealId/process" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><DealProcessView /></ProtectedRoute>} />
+      <Route path="/buyer/deal/:dealId/proceso/:section" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><BuyerDealWorkspace /></ProtectedRoute>} />
+      <Route path="/buyer/deal/:dealId/proceso" element={<ProtectedRoute allowedRoles={['buyer', 'admin']}><BuyerDealWorkspace /></ProtectedRoute>} />
       <Route path="/buyer/dashboard" element={<Navigate to="/buyer/procesos" replace />} />
       <Route path="/buyer/profile" element={<Navigate to="/buyer/procesos" replace />} />
       <Route path="/buyer/processes" element={<Navigate to="/buyer/procesos" replace />} />
