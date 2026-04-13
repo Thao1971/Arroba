@@ -384,7 +384,7 @@ const DealPage = () => {
     return <Layout><div className="container mx-auto px-4 py-12 text-center"><Loader2 className="w-8 h-8 animate-spin text-arroba-coral mx-auto" /></div></Layout>;
   }
   if (error && !deal) {
-    return <Layout><div className="container mx-auto px-4 py-12 text-center"><AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" /><p className="text-slate-600">{error}</p><Link to="/explorar"><Button variant="outline" className="mt-4">Volver al Marketplace</Button></Link></div></Layout>;
+    return <Layout><div className="container mx-auto px-4 py-12 text-center"><AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-4" /><p className="text-slate-600">{error}</p><Link to="/explorar"><Button variant="outline" className="mt-4">Volver a agencias</Button></Link></div></Layout>;
   }
 
   const teaser = deal?.teaser || {};
@@ -405,7 +405,7 @@ const DealPage = () => {
           </Link>
         ) : (
           <Link to="/explorar" className="inline-flex items-center text-sm mb-6" style={{ color: 'var(--outline)' }} data-testid="back-to-marketplace">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Volver al Marketplace
+            <ArrowLeft className="w-4 h-4 mr-1" /> Volver a agencias
           </Link>
         )}
 

@@ -51,7 +51,7 @@ export const PremiumValuationBlock = ({ valuation }) => {
   return (
     <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
       <div className="flex items-center gap-2 mb-4">
-        <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>VALORACION Y BENCHMARK PREMIUM</p>
+        <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>VALORACIÓN Y BENCHMARK PREMIUM</p>
         <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>PRO+</span>
         <span className="text-[9px] ml-auto" style={{ color: 'var(--outline)' }}>Fuente: {valuation.source}</span>
       </div>
@@ -99,7 +99,7 @@ export const PremiumValuationBlock = ({ valuation }) => {
           </div>
           <p className="text-[10px]" style={{ color: 'var(--outline)', lineHeight: 1.5 }}>
             {valuation.equity_adjustments.net_debt < 0
-              ? `Posicion de caja neta: el activo corriente supera los pasivos en ${fmtES(Math.abs(valuation.equity_adjustments.net_debt), 0)} EUR. Esto incrementa el Equity Value respecto al Enterprise Value.`
+              ? `Posición de caja neta: el activo corriente supera los pasivos en ${fmtES(Math.abs(valuation.equity_adjustments.net_debt), 0)} EUR. Esto incrementa el Equity Value respecto al Enterprise Value.`
               : `Deuda neta de ${fmtES(valuation.equity_adjustments.net_debt, 0)} EUR que se resta del Enterprise Value para obtener el Equity Value.`}
           </p>
         </div>
@@ -147,7 +147,7 @@ export const PremiumAiBlock = ({ analysis, loading }) => {
   return (
     <div className="p-5 mb-6" style={{ background: 'rgba(182,33,42,0.02)', borderLeft: '3px solid var(--arroba-primary)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
       <div className="flex items-center gap-2 mb-4">
-        <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>INTERPRETACION PREMIUM IA</p>
+        <p className="label-arroba" style={{ color: 'var(--arroba-primary)' }}>INTERPRETACIÓN PREMIUM IA</p>
         <span className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--arroba-primary)', color: '#fff' }}>GPT-5.2</span>
         {loading && <Loader2 size={12} className="animate-spin ml-auto" style={{ color: 'var(--arroba-primary)' }} />}
       </div>

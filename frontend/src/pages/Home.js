@@ -399,7 +399,7 @@ const Home = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { num: '01', title: 'Regístrate gratis', desc: 'Crea tu cuenta y define si quieres comprar, vender o fusionarte' },
-              { num: '02', title: 'Explora oportunidades', desc: 'Accede al marketplace con todas las agencias verificadas' },
+              { num: '02', title: 'Explora oportunidades', desc: 'Accede al listado con todas las agencias verificadas' },
               { num: '03', title: 'Trabaja en un entorno seguro', desc: 'Confidencialidad, NDA digital y Data Room protegido en cada operación' },
               { num: '04', title: 'Cierra tu operación', desc: 'Te acompañamos en todo el proceso hasta el cierre' },
             ].map((step, i) => (

@@ -151,7 +151,7 @@ const DealPageCanonical = () => {
     <Layout showFooter={false}>
       {/* Breadcrumb */}
       <div className="px-6 py-2 flex items-center gap-2 text-[10px]" style={{ background: 'var(--surface-1)', color: 'var(--outline)' }}>
-        <Link to="/explorar" className="hover:underline">Marketplace</Link>
+        <Link to="/explorar" className="hover:underline">Agencias</Link>
         <span>/</span>
         <span className="font-bold" style={{ color: 'var(--on-surface)' }}>{ds?.title || 'Deal'}</span>
         <span className="ml-auto text-[9px] font-bold px-2 py-0.5" style={{ background: p.buyer_tier === 'pro+' ? 'rgba(182,33,42,0.06)' : 'var(--surface-2)', color: p.buyer_tier === 'pro+' ? 'var(--arroba-primary)' : 'var(--outline)' }}>
@@ -226,12 +226,12 @@ const DealPageCanonical = () => {
               <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                 <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>SNAPSHOT DE NEGOCIO</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-                  {ds?.revenue ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>FACTURACION {ds.year}</p><p className="text-xl font-black" style={{ color: 'var(--on-surface)' }}>{fmtMillions(ds.revenue)}</p></div> : null}
+                  {ds?.revenue ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>FACTURACIÓN {ds.year}</p><p className="text-xl font-black" style={{ color: 'var(--on-surface)' }}>{fmtMillions(ds.revenue)}</p></div> : null}
                   {ds?.ebitda ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>EBITDA {ds.year}</p><p className="text-xl font-black" style={{ color: 'var(--on-surface)' }}>{fmtMillions(ds.ebitda)}</p></div> : null}
                   {ds?.ebitda_margin ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>MARGEN EBITDA</p><p className="text-xl font-black" style={{ color: 'var(--on-surface)' }}>{fmtES(ds.ebitda_margin, 1)}%</p></div> : null}
                   {ds?.asking_price ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--arroba-primary)' }}>ASKING PRICE</p><p className="text-xl font-black" style={{ color: 'var(--arroba-primary)' }}>{fmtMillions(ds.asking_price)}</p></div> : null}
                   {ds?.employees ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>EMPLEADOS</p><p className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>{ds.employees}</p></div> : null}
-                  {ds?.founded_year ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>FUNDACION</p><p className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>{ds.founded_year}</p></div> : null}
+                  {ds?.founded_year ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>FUNDACIÓN</p><p className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>{ds.founded_year}</p></div> : null}
                   {qd?.recurring_revenue_pct ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>RECURRENCIA</p><p className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>{qd.recurring_revenue_pct}%</p></div> : null}
                   {qd?.client_concentration_top5 ? <div><p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>CONCENTRACION TOP 5</p><p className="text-lg font-bold" style={{ color: 'var(--on-surface)' }}>{qd.client_concentration_top5}%</p></div> : null}
                 </div>
@@ -270,7 +270,7 @@ const DealPageCanonical = () => {
             {/* Charts */}
             <Mod id="charts" modules={mods} onNavigate={navigate}>
               <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-                <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>EVOLUCION FINANCIERA</p>
+                <p className="label-arroba mb-4" style={{ color: 'var(--outline)' }}>EVOLUCIÓN FINANCIERA</p>
                 {chartData.length >= 2 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -384,7 +384,7 @@ const DealPageCanonical = () => {
               <div style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
                 <div className="p-5 pb-0">
                   <div className="flex items-center gap-2 mb-1"><FolderOpen size={14} style={{ color: 'var(--outline)' }} /><p className="label-arroba" style={{ color: 'var(--outline)' }}>DATA ROOM</p></div>
-                  <p className="text-xs mb-3" style={{ color: 'var(--outline)' }}>Documentacion confidencial del proceso de transaccion.</p>
+                  <p className="text-xs mb-3" style={{ color: 'var(--outline)' }}>Documentación confidencial del proceso de transaccion.</p>
                 </div>
                 {mods?.dataroom?.state === 'open' ? (
                   <div className="px-5 pb-5"><DataRoomBuyerView dealId={dealId} /></div>
@@ -480,7 +480,7 @@ const DealPageCanonical = () => {
           <Mod id="trust_footer" modules={mods} onNavigate={navigate} className="mt-4">
             <div className="p-4 flex items-center justify-between" style={{ background: 'var(--surface-1)' }}>
               <div className="flex items-center gap-3 text-[9px]" style={{ color: 'var(--outline)' }}>
-                <Shield size={10} /><span>Informacion anonimizada · Fuente: {fd?.source || 'ARROBA'} · Completitud: {p.content_richness_score}%</span>
+                <Shield size={10} /><span>Información anonimizada · Fuente: {fd?.source || 'ARROBA'} · Completitud: {p.content_richness_score}%</span>
               </div>
               <span className="text-[9px]" style={{ color: 'var(--outline)' }}>BUD Advisors, S.L.</span>
             </div>

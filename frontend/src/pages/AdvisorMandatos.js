@@ -41,11 +41,11 @@ const AdvisorMandatos = () => {
           </div>
         </div>
 
-        {/* Temporary: explore marketplace */}
+        {/* Explorar agencias */}
         <div className="mt-6 flex justify-center">
           <Link to="/explorar">
             <Button variant="outline" className="gap-2">
-              Explorar marketplace <ArrowRight className="w-4 h-4" />
+              Explorar agencias <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>
         </div>

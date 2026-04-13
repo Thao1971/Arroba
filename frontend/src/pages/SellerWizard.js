@@ -842,7 +842,7 @@ const SellerWizard = () => {
                       <Eye size={16} className="text-arroba-blue" />
                       <h2 className="font-bold text-lg text-slate-900">Teaser (Publico)</h2>
                     </div>
-                    <p className="text-xs text-slate-500 mb-4">Resumen anonimizado visible en el marketplace.</p>
+                    <p className="text-xs text-slate-500 mb-4">Resumen anonimizado visible en el listado de agencias.</p>
                     {!teaser && !generatingTeaser ? (
                       <div className="text-center py-8" style={{ background: 'var(--surface-1, #f3f3f3)' }}>
                         <Eye size={32} className="mx-auto mb-3 text-slate-300" />

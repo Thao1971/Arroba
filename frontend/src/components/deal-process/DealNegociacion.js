@@ -34,6 +34,12 @@ const MICROCOPY = {
   document: 'El buyer ha solicitado un documento concreto. Puedes confirmar, preparar o rechazar.',
 };
 
+const ACTION_LABELS = {
+  accept: 'ACEPTAR', accept_slot: 'ACEPTAR SLOT', approve: 'APROBAR', confirm: 'CONFIRMAR',
+  grant: 'CONCEDER', reject: 'RECHAZAR', counter: 'CONTRAOFERTAR', counter_propose: 'ALTERNATIVA',
+  info_requested: 'PEDIR INFO', respond: 'RESPONDER', invite_loi: 'INVITAR A LOI', clarification: 'ACLARACIÓN',
+};
+
 const DealNegociacion = ({ dealId, sellerId }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,14 +82,14 @@ const DealNegociacion = ({ dealId, sellerId }) => {
     <div className="space-y-6" data-testid="deal-negociacion">
       {/* Header */}
       <div>
-        <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>NEGOCIACION</p>
+        <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>NEGOCIACIÓN</p>
         <p className="text-xs" style={{ color: 'var(--outline)' }}>{data?.process_count || 0} proceso{data?.process_count !== 1 ? 's' : ''} activo{data?.process_count !== 1 ? 's' : ''} · {pending.length} decision{pending.length !== 1 ? 'es' : ''} pendiente{pending.length !== 1 ? 's' : ''}</p>
       </div>
 
       {/* Pending decisions */}
       {pending.length > 0 ? (
         <div>
-          <p className="label-arroba mb-3" style={{ color: 'var(--on-surface)' }}>PENDIENTE DE TU DECISION</p>
+          <p className="label-arroba mb-3" style={{ color: 'var(--on-surface)' }}>PENDIENTE DE TU DECISIÓN</p>
           {Object.entries(grouped).map(([type, items]) => {
             const Icon = TYPE_ICONS[type] || Star;
             return (
@@ -124,7 +130,7 @@ const DealNegociacion = ({ dealId, sellerId }) => {
                             className="px-3 py-1.5 text-[9px] font-bold flex items-center gap-1 disabled:opacity-50"
                             style={{ background: primary ? '#16a34a' : a === 'reject' ? 'rgba(220,38,38,0.06)' : 'var(--surface-2)', color: primary ? '#fff' : a === 'reject' ? '#dc2626' : 'var(--on-surface)' }}>
                             {isLoading ? <Loader2 size={9} className="animate-spin" /> : null}
-                            {a.replace(/_/g, ' ').toUpperCase()}
+                            {ACTION_LABELS[a] || a.replace(/_/g, ' ').toUpperCase()}
                           </button>
                         );
                       })}
@@ -139,7 +145,7 @@ const DealNegociacion = ({ dealId, sellerId }) => {
         <div className="p-5 text-center" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
           <Check size={20} className="mx-auto mb-2" style={{ color: '#16a34a' }} />
           <p className="text-xs font-bold mb-1" style={{ color: 'var(--on-surface)' }}>Sin decisiones pendientes</p>
-          <p className="text-[10px]" style={{ color: 'var(--outline)' }}>Todos los procesos de negociacion estan al dia.</p>
+          <p className="text-[10px]" style={{ color: 'var(--outline)' }}>Todos los procesos de negociación están al día.</p>
         </div>
       )}
 
@@ -162,7 +168,7 @@ const DealNegociacion = ({ dealId, sellerId }) => {
       {/* Timeline */}
       {data?.timeline?.length > 0 && (
         <div>
-          <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>TIMELINE</p>
+          <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>CRONOLOGÍA</p>
           <div className="space-y-0">
             {data.timeline.slice(0, 15).map((ev, i) => (
               <div key={`${ev.event}-${i}`} className="flex items-start gap-3 py-2">

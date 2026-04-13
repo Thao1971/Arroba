@@ -228,7 +228,7 @@ export const DealProcessView = () => {
           {/* State header */}
           <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
             <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: stateCfg.color + '15', color: stateCfg.color }}>{stateCfg.label}</span>
-            <h1 className="text-xl font-extrabold mt-2 mb-1" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Proceso de negociacion</h1>
+            <h1 className="text-xl font-extrabold mt-2 mb-1" style={{ color: 'var(--on-surface)', letterSpacing: '-0.02em' }}>Proceso de negociación</h1>
             <p className="text-xs" style={{ color: 'var(--outline)' }}>Deal: {dealId}</p>
           </div>
 
@@ -370,13 +370,13 @@ export const DealProcessView = () => {
         <div className="lg:col-span-1">
           <div className="sticky top-6 space-y-4">
             <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-              <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>TIMELINE</p>
+              <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>CRONOLOGÍA</p>
               {(process.timeline || []).slice().reverse().map((e, i) => <TimelineEvent key={`${e.event}-${i}`} event={e} />)}
             </div>
             <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
-              <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>ACCESOS RAPIDOS</p>
-              <button onClick={() => navigate(`/explorar/${dealId}`)} className="w-full flex items-center gap-2 p-2 mb-1 text-left" style={{ background: 'var(--surface-1)' }}><FileText size={10} /><span className="text-[10px] font-semibold">Ver ficha del deal</span></button>
-              <button onClick={() => navigate(`/qa/${dealId}`)} className="w-full flex items-center gap-2 p-2 mb-1 text-left" style={{ background: 'var(--surface-1)' }}><MessageSquare size={10} /><span className="text-[10px] font-semibold">Abrir Q&A</span></button>
+              <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>ACCESOS RÁPIDOS</p>
+              <button onClick={() => navigate(`/explorar/${dealId}`)} className="w-full flex items-center gap-2 p-2 mb-1 text-left" style={{ background: 'var(--surface-1)' }}><FileText size={10} /><span className="text-[10px] font-semibold">Ver ficha de la agencia</span></button>
+              <button onClick={() => navigate(`/qa/${dealId}`)} className="w-full flex items-center gap-2 p-2 mb-1 text-left" style={{ background: 'var(--surface-1)' }}><MessageSquare size={10} /><span className="text-[10px] font-semibold">Abrir QAbrir Q&AA</span></button>
             </div>
           </div>
         </div>

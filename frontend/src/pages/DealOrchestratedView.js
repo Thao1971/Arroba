@@ -40,7 +40,7 @@ const DealOrchestratedView = () => {
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--surface-0)' }}>
         <div className="text-center">
           <p className="text-sm mb-4" style={{ color: 'var(--outline)' }}>{error}</p>
-          <Link to="/explorar" className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>Volver al marketplace</Link>
+          <Link to="/explorar" className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>Volver a agencias</Link>
         </div>
       </div>
     );

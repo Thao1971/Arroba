@@ -43,7 +43,7 @@ const SavedDeals = () => {
           <div className="text-center py-16 border border-dashed border-slate-300 rounded-xl" data-testid="saved-empty">
             <Bookmark className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-slate-500 font-medium">No tienes deals guardados</p>
-            <p className="text-sm text-slate-400 mt-1 mb-4">Explora el marketplace y guarda los que te interesen</p>
+            <p className="text-sm text-slate-400 mt-1 mb-4">Explora las agencias y guarda los que te interesen</p>
             <Link to="/explorar">
               <Button variant="outline" size="sm">Explorar deals</Button>
             </Link>
@@ -56,7 +56,7 @@ const SavedDeals = () => {
               return (
                 <Link
                   key={deal.deal_id}
-                  to={`/marketplace/${deal.deal_id}`}
+                  to={`/explorar/${deal.deal_id}`}
                   className="flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-xl hover:shadow-sm hover:border-slate-300 transition-all group"
                   data-testid={`saved-deal-${deal.deal_id}`}
                 >
