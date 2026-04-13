@@ -39,6 +39,7 @@ from routers.seller_profiles import router as seller_profiles_router
 from routers.contact_requests import router as contact_requests_router
 from routers.deal_presentation import router as deal_presentation_router
 from routers.admin import router as admin_router
+from routers.deal_process import router as deal_process_router
 
 # Configure logging
 logging.basicConfig(
@@ -131,6 +132,7 @@ app.include_router(seller_profiles_router, prefix="/api")
 app.include_router(contact_requests_router, prefix="/api")
 app.include_router(deal_presentation_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(deal_process_router, prefix="/api")
 
 
 @app.get("/api")
