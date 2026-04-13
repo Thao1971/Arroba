@@ -14,6 +14,7 @@ import SellerWorkspace from './pages/SellerWorkspace';
 import SellerCompanyWorkspace from './pages/SellerCompanyWorkspace';
 import DealPageCanonical from './pages/DealPageCanonical';
 import AdminConsole from './pages/AdminConsole';
+import AdvisorWorkspace from './pages/AdvisorWorkspace';
 import { DealProcessView } from './components/deal-process/DealProcessView';
 import BuyerOnboarding from './pages/BuyerOnboarding';
 import SavedDeals from './pages/SavedDeals';
@@ -111,7 +112,8 @@ const AppRouter = () => {
       <Route path="/qa/:conversationId" element={<ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}><ConversationPage /></ProtectedRoute>} />
 
       {/* Advisor Routes */}
-      <Route path="/advisor/mandatos" element={<ProtectedRoute allowedRoles={['advisor', 'admin']}><AdvisorMandatos /></ProtectedRoute>} />
+      <Route path="/advisor/mandatos" element={<ProtectedRoute allowedRoles={['advisor', 'admin']}><AdvisorWorkspace /></ProtectedRoute>} />
+      <Route path="/advisor/workspace" element={<ProtectedRoute allowedRoles={['advisor', 'admin']}><AdvisorWorkspace /></ProtectedRoute>} />
       <Route path="/advisor/interesados" element={<ProtectedRoute allowedRoles={['advisor', 'admin']}><SellerInteresados /></ProtectedRoute>} />
       <Route path="/advisor/dashboard" element={<Navigate to="/advisor/mandatos" replace />} />
 

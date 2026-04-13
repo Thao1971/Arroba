@@ -281,6 +281,71 @@ async def api_list_lois(deal_id: str, user: UserResponse = Depends(get_current_u
     return await list_lois(deal_id)
 
 
+# ═══ Advisor Dashboard ═══
+
+@router.get("/advisor/dashboard")
+async def api_advisor_dashboard(user: UserResponse = Depends(get_current_user)):
+    """Advisor transversal dashboard across all mandated deals."""
+    if user.role not in ("advisor", "admin"):
+        raise HTTPException(403, "Solo advisors")
+
+    # Get all deals (advisor sees all for now — future: filter by mandate)
+    deals = await db.deals.find({"status": {"$in": ["published", "exclusivity"]}}, {"_id": 0, "deal_id": 1, "teaser.headline": 1, "status": 1, "asking_price": 1, "owner_id": 1, "company_id": 1}).to_list(50)
+
+    active_deals = []
+    critical_alerts = []
+    total_pending = 0
+
+    for d in deals:
+        deal_id = d["deal_id"]
+
+        # Process count and pending
+        procs = await db.deal_processes.find({"deal_id": deal_id}, {"_id": 0, "state": 1, "buyer_id": 1, "updated_at": 1}).to_list(20)
+        pending_interests = await db.interest_expressions.count_documents({"deal_id": deal_id, "status": "submitted"})
+        pending_meetings = await db.meetings.count_documents({"deal_id": deal_id, "status": {"$in": ["proposed", "slot_accepted"]}})
+        pending_offers = await db.preliminary_offers.count_documents({"deal_id": deal_id, "status": "submitted"})
+        pending_lois = await db.formal_lois.count_documents({"deal_id": deal_id, "status": "submitted"})
+        dd = await db.dd_checklists.find_one({"deal_id": deal_id}, {"_id": 0, "status": 1, "completion_pct": 1})
+        closing = await db.closing_records.find_one({"deal_id": deal_id}, {"_id": 0, "status": 1, "target_close_date": 1})
+
+        deal_pending = pending_interests + pending_meetings + pending_offers + pending_lois
+        total_pending += deal_pending
+
+        seller = await db.users.find_one({"user_id": d.get("owner_id")}, {"_id": 0, "first_name": 1, "last_name": 1})
+
+        active_deals.append({
+            "deal_id": deal_id,
+            "title": d.get("teaser", {}).get("headline", "?"),
+            "status": d.get("status"),
+            "asking_price": d.get("asking_price"),
+            "seller": f"{(seller or {}).get('first_name','')} {(seller or {}).get('last_name','')}".strip(),
+            "process_count": len(procs),
+            "pending_decisions": deal_pending,
+            "dd_status": dd.get("status") if dd else None,
+            "dd_completion": dd.get("completion_pct") if dd else None,
+            "closing_status": closing.get("status") if closing else None,
+            "closing_target": closing.get("target_close_date") if closing else None,
+        })
+
+        # Critical alerts
+        if dd and dd.get("status") == "bloqueada":
+            critical_alerts.append({"type": "dd_blocked", "deal_id": deal_id, "title": d.get("teaser", {}).get("headline", "?"), "message": "DD bloqueada"})
+        if pending_lois > 0:
+            critical_alerts.append({"type": "loi_pending", "deal_id": deal_id, "title": d.get("teaser", {}).get("headline", "?"), "message": f"{pending_lois} LOI pendiente"})
+        if closing and closing.get("status") == "preparado":
+            critical_alerts.append({"type": "closing_ready", "deal_id": deal_id, "title": d.get("teaser", {}).get("headline", "?"), "message": f"Cierre previsto: {closing.get('target_close_date')}"})
+
+    # Sort by pending decisions (most urgent first)
+    active_deals.sort(key=lambda x: x["pending_decisions"], reverse=True)
+
+    return {
+        "total_deals": len(active_deals),
+        "total_pending": total_pending,
+        "critical_alerts": critical_alerts,
+        "deals": active_deals,
+    }
+
+
 # ═══ Due Diligence ═══
 
 @router.post("/{deal_id}/dd/start")
