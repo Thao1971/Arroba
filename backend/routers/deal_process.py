@@ -59,6 +59,61 @@ async def api_my_process_tree_static(user: UserResponse = Depends(get_current_us
     return tree
 
 
+@router.get("/buyer-phase/{deal_id}/{phase}")
+async def api_buyer_phase_detail(deal_id: str, phase: str, user: UserResponse = Depends(get_current_user)):
+    """Get detailed data for a specific phase from buyer perspective."""
+    if user.role not in ("buyer", "admin"):
+        raise HTTPException(403, "Solo buyers")
+    uid = user.user_id
+
+    if phase == "nda":
+        nda = await db.nda_signatures.find_one({"deal_id": deal_id, "buyer_user_id": uid, "status": "signed"}, {"_id": 0, "signed_at": 1, "signature_id": 1})
+        return {"phase": "nda", "status": "firmado" if nda else "pendiente", "signed_at": nda.get("signed_at") if nda else None, "unlocks": "Ficha completa + infomemo", "cta": "Descargar NDA" if nda else "Firmar NDA"}
+
+    elif phase == "interes":
+        ints = await db.interest_expressions.find({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(5)
+        latest = ints[0] if ints else None
+        return {"phase": "interes", "expressions": ints, "latest_status": latest.get("status") if latest else None, "cta": "Ver estado" if latest else "Enviar expresión de interés"}
+
+    elif phase == "reunion":
+        mtgs = await db.meetings.find({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(5)
+        latest = mtgs[0] if mtgs else None
+        return {"phase": "reunion", "meetings": mtgs, "latest_status": latest.get("status") if latest else None, "cta": "Ver detalles" if latest else "Solicitar reunión"}
+
+    elif phase == "dataroom":
+        drs = await db.dataroom_requests.find({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0}).to_list(5)
+        proc = await db.deal_processes.find_one({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0, "permissions": 1})
+        folders = (proc or {}).get("permissions", {}).get("dataroom_folders", [])
+        return {"phase": "dataroom", "requests": drs, "granted_folders": folders, "cta": "Explorar Data Room" if folders else "Solicitar acceso"}
+
+    elif phase == "oferta":
+        offs = await db.preliminary_offers.find({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(5)
+        latest = offs[0] if offs else None
+        return {"phase": "oferta", "offers": offs, "latest_status": latest.get("status") if latest else None, "latest_ev": latest.get("enterprise_value") if latest else None, "cta": "Ver oferta" if latest else "Enviar oferta indicativa"}
+
+    elif phase == "loi":
+        lois = await db.formal_lois.find({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(5)
+        latest = lois[0] if lois else None
+        return {"phase": "loi", "lois": lois, "latest_status": latest.get("status") if latest else None, "cta": "Ver LOI" if latest else "Formalizar LOI"}
+
+    elif phase == "exclusividad":
+        excls = await db.exclusivity_requests.find({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0}).to_list(5)
+        granted = next((e for e in excls if e.get("status") == "granted"), None)
+        return {"phase": "exclusividad", "requests": excls, "granted": bool(granted), "end_date": granted.get("granted_end") if granted else None, "cta": "Ver estado" if excls else "Solicitar exclusividad"}
+
+    elif phase == "dd":
+        dd = await db.dd_checklists.find_one({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0, "status": 1, "completion_pct": 1, "sections": 1})
+        if dd:
+            section_summary = [{"name": s["name"], "status": s["status"], "total": len(s["items"]), "resolved": sum(1 for i in s["items"] if i["status"]=="resuelto")} for s in dd.get("sections", [])]
+            return {"phase": "dd", "status": dd.get("status"), "completion_pct": dd.get("completion_pct"), "sections": section_summary, "cta": "Ver checklist"}
+        return {"phase": "dd", "status": "no_iniciada", "cta": "Pendiente de iniciar por el vendedor"}
+
+    elif phase == "closing":
+        cls = await db.closing_records.find_one({"deal_id": deal_id, "buyer_id": uid}, {"_id": 0})
+        return {"phase": "closing", "status": cls.get("status") if cls else "no_iniciado", "data": cls, "cta": "Ver estado del cierre" if cls else "Pendiente"}
+
+    return {"phase": phase, "status": "sin_datos"}
+
 
 @router.post("/{deal_id}/init")
 async def api_init_process(deal_id: str, user: UserResponse = Depends(get_current_user)):
