@@ -162,7 +162,7 @@ const Marketplace = () => {
           } catch {}
         }
       } catch (error) {
-        console.error('Error fetching marketplace data:', error);
+        
         setDeals([]);
       } finally {
         setLoading(false);

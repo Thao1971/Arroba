@@ -256,7 +256,7 @@ const Home = () => {
         ]);
         setFeaturedDeals(dealsRes.data);
       } catch (error) {
-        console.error('Error fetching home data:', error);
+        
       }
     };
     fetchData();

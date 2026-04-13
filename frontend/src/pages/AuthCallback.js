@@ -22,7 +22,7 @@ const AuthCallback = () => {
         const sessionId = params.get('session_id');
 
         if (!sessionId) {
-          console.error('No session_id found in URL');
+          
           navigate('/login?error=no_session');
           return;
         }
@@ -41,7 +41,7 @@ const AuthCallback = () => {
           navigate('/buyer/dashboard', { state: { user } });
         }
       } catch (error) {
-        console.error('Auth callback error:', error);
+        
         navigate('/login?error=auth_failed');
       }
     };

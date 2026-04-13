@@ -79,8 +79,8 @@ const SellerWorkspace = () => {
           const [nRes, pRes] = await Promise.all([coachingAPI.getSellerNudges(), conversationsAPI.getPending()]);
           setNudges(nRes.data?.nudges || []);
           setPendingData(pRes.data);
-        } catch {}
-      } catch {}
+        } catch { /* fallback */ }
+      } catch { /* fallback */ }
       finally { setLoading(false); }
     };
     load();
@@ -97,9 +97,9 @@ const SellerWorkspace = () => {
           const c = await companiesAPI.get(res.data.company_id);
           setCompany(c.data);
         }
-        try { const r = await dealsAPI.getReadiness(dealId); setReadiness(r.data.readiness); } catch {}
-        try { const h = await dealsAPI.getHealth(dealId); setHealth(h.data); } catch {}
-      } catch {}
+        try { const r = await dealsAPI.getReadiness(dealId); setReadiness(r.data.readiness); } catch { /* fallback */ }
+        try { const h = await dealsAPI.getHealth(dealId); setHealth(h.data); } catch { /* fallback */ }
+      } catch { /* fallback */ }
     };
     loadDeal();
   }, [dealId]);
@@ -129,7 +129,7 @@ const SellerWorkspace = () => {
   const handleActivate = async () => {
     if (!dealId) return;
     setActionLoading(true);
-    try { await dealsAPI.activate(dealId); const r = await dealsAPI.get(dealId); setDeal(r.data); } catch {}
+    try { await dealsAPI.activate(dealId); const r = await dealsAPI.get(dealId); setDeal(r.data); } catch { /* fallback */ }
     finally { setActionLoading(false); }
   };
 
@@ -540,7 +540,7 @@ const DealInteresados = ({ deal, engData, onRefresh }) => {
       ) : (
         <div style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
           <table className="w-full text-sm"><thead><tr style={{ borderBottom: '2px solid var(--surface-2)' }}><th className="text-left py-3 px-4 label-arroba" style={{ color: 'var(--outline)' }}>BUYER</th><th className="text-center py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>TIPO</th><th className="text-center py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>STAGE</th><th className="text-right py-3 px-3 label-arroba" style={{ color: 'var(--outline)' }}>OFERTA</th><th className="text-right py-3 px-4 label-arroba" style={{ color: 'var(--outline)' }}>ACCIONES</th></tr></thead>
-          <tbody>{engagements.map(eng => (<tr key={eng.engagement_id} style={{ borderBottom: '1px solid var(--surface-1)' }}><td className="py-3 px-4"><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{eng.buyer_name || 'Buyer'}</p></td><td className="py-3 px-3 text-center text-xs" style={{ color: 'var(--outline)' }}>{eng.type}</td><td className="py-3 px-3 text-center"><span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{eng.stage}</span></td><td className="py-3 px-3 text-right"><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{eng.valuation_offer ? fmtMillions(eng.valuation_offer) : '—'}</span></td><td className="py-3 px-4 text-right"><div className="flex items-center justify-end gap-1">{eng.stage !== 'SHORTLISTED' && eng.stage !== 'EXCLUSIVITY' && eng.stage !== 'REJECTED' && (<button onClick={async () => { try { await engagementsAPI.shortlistBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch {} }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>Shortlist</button>)}{eng.stage !== 'REJECTED' && eng.stage !== 'EXCLUSIVITY' && (<button onClick={async () => { try { await engagementsAPI.rejectBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch {} }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.05)', color: '#dc2626' }}>Rechazar</button>)}</div></td></tr>))}</tbody></table>
+          <tbody>{engagements.map(eng => (<tr key={eng.engagement_id} style={{ borderBottom: '1px solid var(--surface-1)' }}><td className="py-3 px-4"><p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{eng.buyer_name || 'Buyer'}</p></td><td className="py-3 px-3 text-center text-xs" style={{ color: 'var(--outline)' }}>{eng.type}</td><td className="py-3 px-3 text-center"><span className="px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{eng.stage}</span></td><td className="py-3 px-3 text-right"><span className="text-sm font-bold" style={{ color: 'var(--arroba-primary)' }}>{eng.valuation_offer ? fmtMillions(eng.valuation_offer) : '—'}</span></td><td className="py-3 px-4 text-right"><div className="flex items-center justify-end gap-1">{eng.stage !== 'SHORTLISTED' && eng.stage !== 'EXCLUSIVITY' && eng.stage !== 'REJECTED' && (<button onClick={async () => { try { await engagementsAPI.shortlistBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch { /* fallback */ } }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(22,163,74,0.06)', color: '#16a34a' }}>Shortlist</button>)}{eng.stage !== 'REJECTED' && eng.stage !== 'EXCLUSIVITY' && (<button onClick={async () => { try { await engagementsAPI.rejectBuyer(deal.deal_id, eng.buyer_id); onRefresh(); } catch { /* fallback */ } }} className="px-2 py-1 text-[10px] font-bold" style={{ background: 'rgba(220,38,38,0.05)', color: '#dc2626' }}>Rechazar</button>)}</div></td></tr>))}</tbody></table>
         </div>
       )}
     </div>

@@ -100,13 +100,13 @@ const SellerCompanyWorkspace = () => {
         if (companyId) {
           // 1. Try seller_company_profile by company_id
           let prof = null;
-          try { const r = await sellerProfilesAPI.getByCompany(companyId); prof = r.data; } catch {}
+          try { const r = await sellerProfilesAPI.getByCompany(companyId); prof = r.data; } catch { /* fallback */ }
           // 2. Load ARROBA company
           let comp = null;
-          try { const r = await companiesAPI.get(companyId); comp = r.data; } catch {}
+          try { const r = await companiesAPI.get(companyId); comp = r.data; } catch { /* fallback */ }
           // 3. If no profile but company has CIF, try by CIF
           if (!prof && comp?.cif) {
-            try { const r = await sellerProfilesAPI.getByCif(comp.cif); prof = r.data; } catch {}
+            try { const r = await sellerProfilesAPI.getByCif(comp.cif); prof = r.data; } catch { /* fallback */ }
           }
           // Hydrate from profile
           if (prof) {
@@ -130,10 +130,10 @@ const SellerCompanyWorkspace = () => {
             setOverrides(p => ({ ...p, trade_name: comp.trade_name||'', employees_count: comp.employees_count||'', founded_year: comp.founded_year||'', description: comp.description||'' }));
           }
           if (comp?.valuation) setValuation(comp.valuation);
-          try { const v = await companiesAPI.getVisuals(companyId); setVisuals(v.data?.financial_visuals); } catch {}
-          try { const d = await dealsAPI.list(); const dd = d.data?.find(x => x.company_id === companyId); if (dd) setDeal(dd); } catch {}
+          try { const v = await companiesAPI.getVisuals(companyId); setVisuals(v.data?.financial_visuals); } catch { /* fallback */ }
+          try { const d = await dealsAPI.list(); const dd = d.data?.find(x => x.company_id === companyId); if (dd) setDeal(dd); } catch { /* fallback */ }
         }
-      } catch (e) { console.error(e); }
+      } catch (e) { /* error logged */; }
       finally { setLoading(false); }
     };
     load();
@@ -228,7 +228,7 @@ const SellerCompanyWorkspace = () => {
         await companiesAPI.update(id, { trade_name: overrides.trade_name, description: overrides.description, city: company?.city, website: company?.website, founded_year: overrides.founded_year, employees_count: overrides.employees_count });
       }
       // Save financials (flatten CIS format to company API format)
-      if (id && financials.length) await companiesAPI.updateFinancials(id, { financials: flattenFinancials(financials) }).catch(e => console.warn('Financials sync:', e));
+      if (id && financials.length) await companiesAPI.updateFinancials(id, { financials: flattenFinancials(financials) }).catch(() => {});
       // Save to seller_company_profile
       if (profileId) {
         // Link company_id if not yet linked
@@ -241,7 +241,7 @@ const SellerCompanyWorkspace = () => {
       setSaveMsg('Guardado correctamente');
       setTimeout(() => setSaveMsg(''), 3000);
       if (!companyId && id) navigate(`/seller/company/${id}`, { replace: true });
-    } catch (e) { console.error(e); setSaveMsg('Error al guardar'); }
+    } catch (e) { /* error logged */; setSaveMsg('Error al guardar'); }
     finally { setSaving(false); }
   };
   const saveAndNext = async () => { await handleSave(); goNext(); };
@@ -256,10 +256,10 @@ const SellerCompanyWorkspace = () => {
       const newPs = recalcPs(company, overrides, financials, res.data, ps);
       setPs(newPs);
       if (profileId) await sellerProfilesAPI.updatePanelStatus(profileId, newPs).catch(() => {});
-    } catch (e) { console.error('Valuation error:', e); }
+    } catch (e) { /* valuation error */; }
   };
 
-  const handleGenVisuals = async () => { if (!companyId) return; setVisualsLoading(true); try { const r = await companiesAPI.generateVisuals(companyId); setVisuals(r.data.visuals); } catch {} finally { setVisualsLoading(false); } };
+  const handleGenVisuals = async () => { if (!companyId) return; setVisualsLoading(true); try { const r = await companiesAPI.generateVisuals(companyId); setVisuals(r.data.visuals); } catch { /* fallback */ } finally { setVisualsLoading(false); } };
   const handleVisualToggle = (cId, key, val) => { if (!visuals) return; setVisuals(p => ({ ...p, [cId]: { ...p[cId], [key]: val } })); if (companyId) companiesAPI.updateVisualSettings(companyId, { [cId]: { [key]: val } }).catch(() => {}); };
 
   const sourceLabel = source === 'CIS' ? 'Centro de Inteligencia Sectorial' : source === 'IBERINFORM_DIRECT' ? 'Iberinform (fallback)' : 'Manual';

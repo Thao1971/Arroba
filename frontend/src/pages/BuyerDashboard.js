@@ -93,7 +93,7 @@ const BuyerDashboard = () => {
           buyerAPI.getCertification().then(r => setCertData(r.data)).catch(() => {}),
           billingAPI.getSummary().then(r => setBillingData(r.data)).catch(() => {}),
         ]);
-      } catch (e) { console.error('Dashboard fetch error:', e); }
+      } catch (e) {  }
       finally { setLoading(false); }
     };
     fetchAll();

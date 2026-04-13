@@ -206,7 +206,7 @@ const ConversationPage = () => {
       setNewQuestion('');
       await loadData();
     } catch (e) {
-      console.error('Error creating question:', e);
+      
     } finally {
       setSubmitting(false);
     }
@@ -217,7 +217,7 @@ const ConversationPage = () => {
       await conversationsAPI.createAnswer(conversationId, questionId, content);
       await loadData();
     } catch (e) {
-      console.error('Error creating answer:', e);
+      
     }
   };
 
@@ -226,7 +226,7 @@ const ConversationPage = () => {
       await conversationsAPI.closeQuestion(conversationId, questionId);
       await loadData();
     } catch (e) {
-      console.error('Error closing question:', e);
+      
     }
   };
 

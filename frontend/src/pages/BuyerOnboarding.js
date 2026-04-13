@@ -202,7 +202,7 @@ const BuyerOnboarding = () => {
       if (level === 'verified') setVerifiedStatus('pending');
       if (level === 'reinforced') setReinforcedStatus('pending');
     } catch (err) {
-      console.error('Upload error:', err);
+      
     } finally {
       setUploadingLevel('');
     }

@@ -78,7 +78,7 @@ const NdaModal = ({ dealId, onSigned, onClose, loading: externalLoading, user })
       });
       onSigned(res.data);
     } catch (err) {
-      console.error('NDA sign error:', err);
+      
     } finally { setSigning(false); }
   };
 

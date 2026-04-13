@@ -15,7 +15,7 @@ const SavedDeals = () => {
         const res = await engagementsAPI.listSaved();
         setDeals(res.data?.deals || res.data || []);
       } catch (e) {
-        console.error('Error loading saved deals:', e);
+        
       } finally {
         setLoading(false);
       }

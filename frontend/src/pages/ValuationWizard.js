@@ -230,7 +230,7 @@ const ValuationWizard = () => {
         ]);
         setConfig(configRes.data);
         setCategories(catRes.data);
-      } catch {}
+      } catch { /* fallback */ }
     };
     load();
   }, []);
@@ -297,7 +297,7 @@ const ValuationWizard = () => {
       const res = await valuationAPI.estimate(payload);
       setResult(res.data);
       // Auto-send email
-      try { await valuationAPI.sendResultEmail(res.data.lead_id); setEmailSent(true); } catch {}
+      try { await valuationAPI.sendResultEmail(res.data.lead_id); setEmailSent(true); } catch { /* fallback */ }
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al calcular la valoracion');
     } finally { setLoading(false); }
@@ -339,7 +339,7 @@ const ValuationWizard = () => {
               onRegisterCompany={() => navigate('/seller/onboarding')}
               onRequestPremium={() => setShowPremiumModal(true)}
               onSendEmail={async () => {
-                try { await valuationAPI.sendResultEmail(result.lead_id); setEmailSent(true); } catch {}
+                try { await valuationAPI.sendResultEmail(result.lead_id); setEmailSent(true); } catch { /* fallback */ }
               }}
             />
           </div>

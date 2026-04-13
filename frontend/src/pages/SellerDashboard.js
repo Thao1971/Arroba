@@ -29,7 +29,7 @@ const SellerDashboard = () => {
           setNudges(nudgesRes.data?.nudges || []);
           setPendingData(pendingRes.data);
         } catch {}
-      } catch (error) { console.error('Error:', error); }
+      } catch (error) {  }
       finally { setLoading(false); }
     };
     fetchData();

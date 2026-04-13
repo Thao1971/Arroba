@@ -19,47 +19,58 @@ def _require_admin(user: UserResponse):
 
 # ═══ DEAL MODERATION ═══
 
+def _compute_deal_quality(teaser: dict, fins: list) -> tuple:
+    """Compute quality checklist and score for a deal."""
+    checklist = {
+        "has_teaser": bool(teaser.get("headline")),
+        "has_description": bool(teaser.get("description")),
+        "has_financials": len(fins) > 0,
+        "has_revenue": any(f.get("revenue", 0) > 0 for f in fins),
+        "has_ebitda": any(f.get("ebitda", 0) > 0 for f in fins),
+        "has_asking_price": False,
+        "has_operation_types": False,
+    }
+    score = sum(checklist.values()) / max(len(checklist), 1) * 100
+    return checklist, round(score)
+
+
+def _compute_deal_flags(fins: list, comp: dict) -> list:
+    """Detect suspicious data in a deal."""
+    flags = []
+    if fins:
+        latest = sorted(fins, key=lambda f: f.get("year", 0), reverse=True)[0]
+        rev = latest.get("revenue", 0)
+        ebt = latest.get("ebitda", 0)
+        if rev > 0 and ebt > 0 and (ebt / rev * 100) > 60:
+            flags.append({"type": "high_margin", "message": f"Margen EBITDA > 60% ({ebt/rev*100:.0f}%)"})
+        if rev > 0 and not (comp or {}).get("employees_count"):
+            flags.append({"type": "no_employees", "message": "Revenue sin datos de empleados"})
+    return flags
+
+
 @router.get("/deals")
 async def list_admin_deals(status: str = None, user: UserResponse = Depends(get_current_user)):
     """List all deals with moderation info."""
     _require_admin(user)
-    query = {}
-    if status:
-        query["status"] = status
+    query = {"status": status} if status else {}
 
     cursor = db.deals.find(query, {"_id": 0}).sort("created_at", -1)
     deals = await cursor.to_list(100)
 
     results = []
     for d in deals:
-        comp = await db.companies.find_one({"company_id": d.get("company_id")}, {"_id": 0, "trade_name": 1, "legal_name": 1, "financials": 1})
+        comp = await db.companies.find_one({"company_id": d.get("company_id")}, {"_id": 0, "trade_name": 1, "legal_name": 1, "financials": 1, "employees_count": 1})
         seller = await db.users.find_one({"user_id": d.get("owner_id")}, {"_id": 0, "email": 1, "first_name": 1, "last_name": 1})
 
         teaser = d.get("teaser") or {}
         fins = (comp or {}).get("financials") or []
 
-        # Quality checklist
-        checklist = {
-            "has_teaser": bool(teaser.get("headline")),
-            "has_description": bool(teaser.get("description")),
-            "has_financials": len(fins) > 0,
-            "has_revenue": any(f.get("revenue", 0) > 0 for f in fins),
-            "has_ebitda": any(f.get("ebitda", 0) > 0 for f in fins),
-            "has_asking_price": bool(d.get("asking_price")),
-            "has_operation_types": bool(d.get("operation_types_allowed")),
-        }
-        quality_score = sum(checklist.values()) / len(checklist) * 100
+        checklist, quality_score = _compute_deal_quality(teaser, fins)
+        checklist["has_asking_price"] = bool(d.get("asking_price"))
+        checklist["has_operation_types"] = bool(d.get("operation_types_allowed"))
+        quality_score = round(sum(checklist.values()) / max(len(checklist), 1) * 100)
 
-        # Flags
-        flags = []
-        if fins:
-            latest = sorted(fins, key=lambda f: f.get("year", 0), reverse=True)[0]
-            rev = latest.get("revenue", 0)
-            ebt = latest.get("ebitda", 0)
-            if rev > 0 and ebt > 0 and (ebt / rev * 100) > 60:
-                flags.append({"type": "high_margin", "message": f"Margen EBITDA > 60% ({ebt/rev*100:.0f}%)"})
-            if rev > 0 and not (comp or {}).get("employees_count"):
-                flags.append({"type": "no_employees", "message": "Revenue sin datos de empleados"})
+        flags = _compute_deal_flags(fins, comp)
 
         results.append({
             "deal_id": d["deal_id"],
@@ -72,7 +83,7 @@ async def list_admin_deals(status: str = None, user: UserResponse = Depends(get_
             "created_at": d.get("created_at"),
             "published_at": d.get("published_at"),
             "quality_checklist": checklist,
-            "quality_score": round(quality_score),
+            "quality_score": quality_score,
             "flags": flags,
             "engagement_count": len(d.get("lois", [])),
             "nda_count": len(d.get("ndas_signed", [])),

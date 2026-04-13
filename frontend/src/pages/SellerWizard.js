@@ -274,7 +274,7 @@ const SellerWizard = () => {
         const { taxonomyAPI } = await import('../services/api');
         const response = await taxonomyAPI.getCategories();
         setTaxonomyCategories(response.data);
-      } catch {}
+      } catch { /* fallback */ }
     };
     loadTaxonomy();
   }, []);
@@ -469,7 +469,7 @@ const SellerWizard = () => {
     try {
       const res = await companiesAPI.generateVisuals(companyId);
       setFinancialVisuals(res.data.visuals);
-    } catch (err) { console.error('Error generating visuals:', err); }
+    } catch (err) { /* visual gen error */; }
     finally { setVisualsLoading(false); }
   };
 

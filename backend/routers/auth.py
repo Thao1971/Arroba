@@ -16,50 +16,28 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 EMERGENT_AUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
 SESSION_EXPIRY_DAYS = 7
 
-# Helper to get current user from session
-async def get_current_user(request: Request) -> UserResponse:
-    """Get current user from session token (cookie or header) or JWT"""
-    session_token = request.cookies.get("session_token")
-    jwt_token = None
-    
-    if not session_token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
-            # Check if it's a session token or JWT
-            if token.startswith("sess_"):
-                session_token = token
-            else:
-                jwt_token = token
-    
-    # Try JWT authentication first
-    if jwt_token:
-        try:
-            payload = decode_jwt_token(jwt_token)
-            user_id = payload.get("sub")
-            user_doc = await users_collection.find_one(
-                {"user_id": user_id},
-                {"_id": 0}
-            )
-            if user_doc:
-                return UserResponse(**user_doc)
-        except ValueError:
-            pass  # JWT invalid, try session
-    
-    # Fall back to session authentication
-    if not session_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    # Check session in database
-    session_doc = await user_sessions_collection.find_one(
-        {"session_token": session_token},
-        {"_id": 0}
-    )
-    
+
+# ─── Auth helpers (extracted for testability) ───
+
+async def _resolve_jwt(token: str) -> Optional[UserResponse]:
+    """Validate JWT and return user if valid."""
+    try:
+        payload = decode_jwt_token(token)
+        user_id = payload.get("sub")
+        user_doc = await users_collection.find_one({"user_id": user_id}, {"_id": 0})
+        if user_doc:
+            return UserResponse(**user_doc)
+    except ValueError:
+        pass
+    return None
+
+
+async def _resolve_session(session_token: str) -> UserResponse:
+    """Validate session token and return user."""
+    session_doc = await user_sessions_collection.find_one({"session_token": session_token}, {"_id": 0})
     if not session_doc:
         raise HTTPException(status_code=401, detail="Invalid session")
-    
-    # Check expiry
+
     expires_at = session_doc.get("expires_at")
     if isinstance(expires_at, str):
         expires_at = datetime.fromisoformat(expires_at)
@@ -67,17 +45,110 @@ async def get_current_user(request: Request) -> UserResponse:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Session expired")
-    
-    # Get user
-    user_doc = await users_collection.find_one(
-        {"user_id": session_doc["user_id"]},
-        {"_id": 0}
-    )
-    
+
+    user_doc = await users_collection.find_one({"user_id": session_doc["user_id"]}, {"_id": 0})
     if not user_doc:
         raise HTTPException(status_code=401, detail="User not found")
-    
+
     return UserResponse(**user_doc)
+
+
+def _extract_token(request: Request) -> tuple:
+    """Extract session_token and jwt_token from request."""
+    session_token = request.cookies.get("session_token")
+    jwt_token = None
+
+    if not session_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            if token.startswith("sess_"):
+                session_token = token
+            else:
+                jwt_token = token
+
+    return session_token, jwt_token
+
+
+async def _create_session(user_id: str, response: Response, emergent_token: str = None) -> str:
+    """Create a new session and set cookie."""
+    session_token = emergent_token or f"sess_{uuid.uuid4().hex}"
+    expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
+
+    await user_sessions_collection.insert_one({
+        "session_token": session_token,
+        "user_id": user_id,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    response.set_cookie(
+        key="session_token", value=session_token,
+        httponly=True, secure=True, samesite="none", path="/",
+        max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60
+    )
+    return session_token
+
+
+async def _fetch_google_user_data(session_id: str) -> dict:
+    """Call Emergent Auth to get Google user data."""
+    async with httpx.AsyncClient() as client:
+        try:
+            auth_response = await client.get(EMERGENT_AUTH_URL, headers={"X-Session-ID": session_id})
+            if auth_response.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid session")
+            return auth_response.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=500, detail=f"Auth service error: {str(e)}")
+
+
+async def _find_or_create_google_user(auth_data: dict) -> dict:
+    """Find existing user by email or create new one from Google data."""
+    email = auth_data.get("email")
+    google_id = auth_data.get("id")
+    name = auth_data.get("name", "")
+    picture = auth_data.get("picture")
+
+    user_doc = await users_collection.find_one({"email": email}, {"_id": 0})
+
+    if user_doc:
+        await users_collection.update_one(
+            {"email": email},
+            {"$set": {"google_id": google_id, "avatar_url": picture, "last_login": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return await users_collection.find_one({"email": email}, {"_id": 0})
+
+    name_parts = name.split(" ", 1)
+    new_user = UserInDB(
+        email=email, google_id=google_id,
+        first_name=name_parts[0] if name_parts else "",
+        last_name=name_parts[1] if len(name_parts) > 1 else "",
+        avatar_url=picture, role="buyer", email_verified=True
+    )
+    new_user.buyer_profile = BuyerProfile()
+
+    user_dict = new_user.model_dump()
+    user_dict["created_at"] = user_dict["created_at"].isoformat()
+    user_dict["updated_at"] = user_dict["updated_at"].isoformat()
+    await users_collection.insert_one(user_dict)
+    return await users_collection.find_one({"email": email}, {"_id": 0})
+
+
+# ─── Main auth dependency ───
+
+async def get_current_user(request: Request) -> UserResponse:
+    """Get current user from JWT or session token."""
+    session_token, jwt_token = _extract_token(request)
+
+    if jwt_token:
+        user = await _resolve_jwt(jwt_token)
+        if user:
+            return user
+
+    if not session_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    return await _resolve_session(session_token)
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -111,32 +182,12 @@ async def register(user_data: UserCreate, response: Response):
     user_dict["updated_at"] = user_dict["updated_at"].isoformat()
     
     await users_collection.insert_one(user_dict)
-    
-    # Create session
-    session_token = f"sess_{uuid.uuid4().hex}"
-    expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
-    
-    await user_sessions_collection.insert_one({
-        "session_token": session_token,
-        "user_id": user_in_db.user_id,
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-    
-    # Set cookie
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60
-    )
-    
-    # Create JWT token as well
+
+    # Create session via helper
+    await _create_session(user_in_db.user_id, response)
+
     access_token = create_jwt_token(user_in_db.user_id, user_in_db.email, user_in_db.role)
-    
+
     return TokenResponse(
         access_token=access_token,
         user=UserResponse(**user_in_db.model_dump())
@@ -162,31 +213,10 @@ async def login(credentials: UserLogin, response: Response):
         {"user_id": user_doc["user_id"]},
         {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
     )
-    
-    # Create session
-    session_token = f"sess_{uuid.uuid4().hex}"
-    expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
-    
-    await user_sessions_collection.insert_one({
-        "session_token": session_token,
-        "user_id": user_doc["user_id"],
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-    
-    # Set cookie
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60
-    )
-    
+
+    await _create_session(user_doc["user_id"], response)
     access_token = create_jwt_token(user_doc["user_id"], user_doc["email"], user_doc["role"])
-    
+
     return TokenResponse(
         access_token=access_token,
         user=UserResponse(**user_doc)
@@ -198,95 +228,20 @@ async def process_google_session(request: Request, response: Response):
     """Process Google OAuth session from Emergent Auth"""
     body = await request.json()
     session_id = body.get("session_id")
-    
+
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id is required")
-    
-    # Call Emergent Auth to get user data
-    async with httpx.AsyncClient() as client:
-        try:
-            auth_response = await client.get(
-                EMERGENT_AUTH_URL,
-                headers={"X-Session-ID": session_id}
-            )
-            
-            if auth_response.status_code != 200:
-                raise HTTPException(status_code=401, detail="Invalid session")
-            
-            auth_data = auth_response.json()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Auth service error: {str(e)}")
-    
-    google_id = auth_data.get("id")
-    email = auth_data.get("email")
-    name = auth_data.get("name", "")
-    picture = auth_data.get("picture")
-    emergent_session_token = auth_data.get("session_token")
-    
-    # Check if user exists
-    user_doc = await users_collection.find_one({"email": email}, {"_id": 0})
-    
-    if user_doc:
-        # Update existing user
-        await users_collection.update_one(
-            {"email": email},
-            {"$set": {
-                "google_id": google_id,
-                "avatar_url": picture,
-                "last_login": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }}
-        )
-        user_doc = await users_collection.find_one({"email": email}, {"_id": 0})
-    else:
-        # Create new user
-        name_parts = name.split(" ", 1)
-        first_name = name_parts[0] if name_parts else ""
-        last_name = name_parts[1] if len(name_parts) > 1 else ""
-        
-        new_user = UserInDB(
-            email=email,
-            google_id=google_id,
-            first_name=first_name,
-            last_name=last_name,
-            avatar_url=picture,
-            role="buyer",  # Default role for Google sign-up
-            email_verified=True
-        )
-        new_user.buyer_profile = BuyerProfile()
-        
-        user_dict = new_user.model_dump()
-        user_dict["created_at"] = user_dict["created_at"].isoformat()
-        user_dict["updated_at"] = user_dict["updated_at"].isoformat()
-        
-        await users_collection.insert_one(user_dict)
-        user_doc = await users_collection.find_one({"email": email}, {"_id": 0})
-    
-    # Create session with emergent token or generate new one
-    session_token = emergent_session_token or f"sess_{uuid.uuid4().hex}"
-    expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
-    
-    # Remove old sessions for this user
+
+    auth_data = await _fetch_google_user_data(session_id)
+    user_doc = await _find_or_create_google_user(auth_data)
+
+    # Clean old sessions
     await user_sessions_collection.delete_many({"user_id": user_doc["user_id"]})
-    
-    await user_sessions_collection.insert_one({
-        "session_token": session_token,
-        "user_id": user_doc["user_id"],
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-    
-    # Set cookie
-    response.set_cookie(
-        key="session_token",
-        value=session_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        path="/",
-        max_age=SESSION_EXPIRY_DAYS * 24 * 60 * 60
-    )
-    
+
+    # Create new session
+    emergent_token = auth_data.get("session_token")
+    await _create_session(user_doc["user_id"], response, emergent_token)
+
     return UserResponse(**user_doc)
 
 
