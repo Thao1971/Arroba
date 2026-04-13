@@ -23,9 +23,6 @@ async def compute_premium_valuation(financials: list, category: str, employees: 
     if revenue <= 0:
         return {"available": False, "reason": "Sin datos de facturacion suficientes"}
 
-    ebitda_margin = (ebitda / revenue * 100) if revenue > 0 else 0
-    rev_per_emp = (revenue / emp) if emp > 0 else 0
-
     # Growth
     growth = 0
     if len(sorted_fins) >= 2:

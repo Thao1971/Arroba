@@ -164,37 +164,16 @@ async def send_result_email(db, user_id: str, lead_id: str) -> bool:
         return False
 
     settings = await get_active_settings(db)
-    subject = settings.get("email_subject", "Tu estimacion inicial de valor en ARROBA")
+    subject = settings.get("email_subject", f"Tu valoracion estimada — {lead['company_name']}")
 
-    # Build email content
     val_low = lead["valuation_low"]
     val_mid = lead["valuation_mid"]
     val_high = lead["valuation_high"]
 
-    email_body = f"""Hola {lead['name']},
-
-Gracias por utilizar la herramienta de valoracion de ARROBA.
-
-Compania: {lead['company_name']}
-
-Estimacion de valor:
-  Rango: {val_low/1e6:.1f}M EUR - {val_high/1e6:.1f}M EUR
-  Valor orientativo: {val_mid/1e6:.1f}M EUR
-  Nivel de confianza: {lead['confidence_level'].upper()}
-
-Esta es una estimacion inicial basada en criterios automaticos.
-No sustituye una valoracion experta ni una opinion independiente.
-
-Proximos pasos:
-- Da de alta tu agencia en ARROBA para acceder a compradores verificados
-- Solicita una valoracion experta por {settings.get('premium_price', '1.950')} EUR
-
-Equipo ARROBA / BUD Advisors"""
-
     # Try sending via email service
     try:
         from services.email_service import send_email
-        sent = await send_email(lead["email"], "VALUATION_RESULT", {
+        await send_email(lead["email"], "VALUATION_RESULT", {
             "name": lead["name"],
             "company_name": lead["company_name"],
             "valuation_range": f"{val_low/1e6:.1f}M - {val_high/1e6:.1f}M EUR",
@@ -203,7 +182,6 @@ Equipo ARROBA / BUD Advisors"""
             "subject": subject,
         })
     except Exception:
-        sent = False
         logger.info(f"[VALUATION EMAIL PLACEHOLDER] To: {lead['email']} | Subject: {subject}")
 
     # Always mark as sent (tracks the attempt)

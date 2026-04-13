@@ -149,7 +149,6 @@ def parse_iberinform_financials(financial_data: dict, sales_data: dict = None) -
             # Map to ARROBA fields
             revenue = account_map.get("4010015ES")  # Importe neto cifra de negocios
             supplies = account_map.get("4020015ES") or account_map.get("4040015ES")  # Aprovisionamientos
-            other_income = account_map.get("4050015ES")  # Otros ingresos de explotación
             operating_expenses = account_map.get("4070015ES")  # Otros gastos de explotación
             staff_costs = account_map.get("4060015ES")  # Gastos de personal
             operating_result = account_map.get("4910015ES")  # Resultado de explotación

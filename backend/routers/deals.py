@@ -803,11 +803,6 @@ async def get_activation_preview(
     if deal["owner_id"] != current_user.user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    company = await companies_collection.find_one(
-        {"company_id": deal["company_id"]},
-        {"_id": 0}
-    )
-
     # Real matching data
     from services.matching_service import get_compatible_buyers_for_deal
     buyer_stats = await get_compatible_buyers_for_deal(deal_id)

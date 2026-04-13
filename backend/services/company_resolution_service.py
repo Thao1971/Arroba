@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 def _is_cis_configured():
     """Check CIS config at runtime."""
-    import os
     return bool(os.environ.get("CIS_BASE_URL"))
 
 
@@ -71,7 +70,7 @@ async def resolve_company(
             result = None
     else:
         fallback_reason = "CIS not configured (CIS_BASE_URL missing)"
-        logger.info(f"[RESOLVE] CIS not configured, using fallback")
+        logger.info("[RESOLVE] CIS not configured, using fallback")
 
     # 2. Fallback transitorio
     if result is None:

@@ -96,7 +96,7 @@ def _build_context(deal_summary, quant, benchmark, qualitative):
         parts.append(f"\nBENCHMARK vs categoria ({benchmark['category']}, {benchmark['peer_count']} peers):")
         for metric, data in benchmark.get("percentiles", {}).items():
             parts.append(f"  {metric}: percentil {data['percentile']} ({data['label']})")
-        parts.append(f"\nPOSICION vs CATEGORIA:")
+        parts.append("\nPOSICION vs CATEGORIA:")
         for metric, pos in benchmark.get("vs_category", {}).items():
             parts.append(f"  {metric}: {pos}")
 

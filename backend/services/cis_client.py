@@ -18,7 +18,6 @@ CIS_TIMEOUT = 15
 
 def _get_cis_config():
     """Read CIS config at runtime (after dotenv is loaded)."""
-    import os
     return {
         "base_url": os.environ.get("CIS_BASE_URL", ""),
         "api_key": os.environ.get("CIS_API_KEY", ""),
@@ -65,7 +64,7 @@ async def resolve_via_cis(
         response = await client.post(url, json=payload, headers=headers)
 
         if response.status_code == 401:
-            logger.warning(f"[CIS] Authentication failed (401) — API key may be missing or invalid")
+            logger.warning("[CIS] Authentication failed (401) — API key may be missing or invalid")
             return None
         if response.status_code != 200:
             logger.warning(f"[CIS] Non-200 response: {response.status_code} — {response.text[:200]}")

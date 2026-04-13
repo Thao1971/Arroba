@@ -152,8 +152,8 @@ async def health_check():
 @app.get("/api/exports/documentacion")
 async def download_docs():
     """Download all documentation as ZIP — generates on demand if missing"""
+    from fastapi import HTTPException as HTTPExc
     from fastapi.responses import FileResponse
-    import os
     import zipfile
     zip_path = "/app/exports/arroba_documentacion.zip"
     sources = [
@@ -166,7 +166,7 @@ async def download_docs():
         os.makedirs("/app/exports", exist_ok=True)
         existing = [(src, name) for src, name in sources if os.path.exists(src)]
         if not existing:
-            raise HTTPException(404, "No hay documentación disponible.")
+            raise HTTPExc(status_code=404, detail="No hay documentacion disponible.")
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             for src, name in existing:
                 zf.write(src, name)
@@ -180,10 +180,9 @@ async def download_docs():
 @app.get("/api/exports/manual")
 async def download_manual():
     """Download platform manual as Markdown"""
+    from fastapi import HTTPException as HTTPExc
     from fastapi.responses import FileResponse
-    import os
     path = "/app/MANUAL_PLATAFORMA.md"
     if not os.path.exists(path):
-        from fastapi import HTTPException
-        raise HTTPException(404, "Manual no encontrado.")
+        raise HTTPExc(status_code=404, detail="Manual no encontrado.")
     return FileResponse(path, media_type="text/markdown", filename="MANUAL_PLATAFORMA.md")

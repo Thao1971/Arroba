@@ -1351,24 +1351,23 @@ async def get_loi_comparator(
     # Compute flags
     if lois:
         avg_cash = total_cash_pct / cash_count if cash_count > 0 else 0
-        max_offer = max(l["valuation_offer"] for l in lois)
-        max_cash = max(l["cash_percentage"] for l in lois)
-        max_intent = max(l["intent_score"] for l in lois)
-        max_activity = max(l["total_time_minutes"] for l in lois)
+        max_offer = max(entry["valuation_offer"] for entry in lois)
+        max_cash = max(entry["cash_percentage"] for entry in lois)
+        max_intent = max(entry["intent_score"] for entry in lois)
 
-        for l in lois:
+        for entry in lois:
             flags = []
-            if l["valuation_offer"] == max_offer and len(lois) > 1:
+            if entry["valuation_offer"] == max_offer and len(lois) > 1:
                 flags.append({"type": "best_offer", "label": "Mejor oferta"})
-            if l["cash_percentage"] == max_cash and max_cash > avg_cash and len(lois) > 1:
+            if entry["cash_percentage"] == max_cash and max_cash > avg_cash and len(lois) > 1:
                 flags.append({"type": "most_cash", "label": "Más cash"})
-            if l["intent_score"] == max_intent and max_intent > 50 and len(lois) > 1:
+            if entry["intent_score"] == max_intent and max_intent > 50 and len(lois) > 1:
                 flags.append({"type": "highest_activity", "label": "Mayor actividad"})
-            if l["total_time_minutes"] < 5 and l["stage"] not in ("EXCLUSIVITY",):
+            if entry["total_time_minutes"] < 5 and entry["stage"] not in ("EXCLUSIVITY",):
                 flags.append({"type": "low_activity", "label": "Baja actividad"})
-            if l["expires_at"]:
+            if entry["expires_at"]:
                 flags.append({"type": "expires_soon", "label": "Con vencimiento"})
-            l["flags"] = flags
+            entry["flags"] = flags
 
     # Summary
     summary = {

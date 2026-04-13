@@ -81,7 +81,6 @@ def compute_premium_kpis(financials: list, employees: int | None) -> dict:
 
     nca = bal.get("non_current_assets") or 0
     ca = bal.get("current_assets") or 0
-    eq = bal.get("equity") or 0
     ncl = bal.get("non_current_liabilities") or 0
     cl = bal.get("current_liabilities") or 0
 
