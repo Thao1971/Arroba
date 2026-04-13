@@ -10,6 +10,7 @@ import DataRoomSellerTab from '../components/DataRoomSellerTab';
 import LoiDetailedView from '../components/LoiDetailedView';
 import DealNegociacion from '../components/deal-process/DealNegociacion';
 import DealDueDiligence from '../components/deal-process/DealDueDiligence';
+import DealProcessSummary from '../components/deal-process/DealProcessSummary';
 import {
   BarChart3, Building2, FileText, Users, TrendingUp, ArrowRight, Eye,
   MessageSquare, FileSignature, CheckCircle2, AlertCircle, AlertTriangle,
@@ -503,7 +504,12 @@ const DealView = ({ deal, company, section, readiness, health, engData, qaConver
 
       <div className="flex gap-8">
         <div className="flex-1 min-w-0">
-          {section === 'resumen' && <DealResumen deal={deal} readiness={readiness} health={health} company={company} />}
+          {section === 'resumen' && (
+            <>
+              <DealProcessSummary dealId={deal.deal_id} />
+              <div className="mt-6"><DealResumen deal={deal} readiness={readiness} health={health} company={company} /></div>
+            </>
+          )}
           {section === 'negociacion' && <DealNegociacion dealId={deal.deal_id} sellerId={user.user_id} />}
           {section === 'duediligence' && <DealDueDiligence dealId={deal.deal_id} user={user} />}
           {section === 'interesados' && <DealInteresados deal={deal} engData={engData} onRefresh={onRefresh} />}

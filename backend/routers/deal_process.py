@@ -281,6 +281,124 @@ async def api_list_lois(deal_id: str, user: UserResponse = Depends(get_current_u
     return await list_lois(deal_id)
 
 
+
+# ═══ Process Summary (deterministic funnel) ═══
+
+@router.get("/{deal_id}/process-summary")
+async def api_process_summary(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """Aggregated process summary with canonical funnel status per phase."""
+
+    # Gather all real data
+    nda = await db.nda_signatures.find_one({"deal_id": deal_id, "status": "signed"}, {"_id": 0, "signed_at": 1})
+    interests = await db.interest_expressions.find({"deal_id": deal_id}, {"_id": 0, "status": 1, "created_at": 1}).to_list(20)
+    meetings = await db.meetings.find({"deal_id": deal_id}, {"_id": 0, "status": 1, "created_at": 1}).to_list(20)
+    dr_requests = await db.dataroom_requests.find({"deal_id": deal_id}, {"_id": 0, "status": 1}).to_list(20)
+    offers = await db.preliminary_offers.find({"deal_id": deal_id}, {"_id": 0, "status": 1, "enterprise_value": 1, "created_at": 1}).to_list(20)
+    lois = await db.formal_lois.find({"deal_id": deal_id}, {"_id": 0, "status": 1, "enterprise_value": 1, "created_at": 1}).to_list(20)
+    excl = await db.exclusivity_requests.find({"deal_id": deal_id}, {"_id": 0, "status": 1}).to_list(10)
+    dd = await db.dd_checklists.find_one({"deal_id": deal_id}, {"_id": 0, "status": 1, "completion_pct": 1})
+    closing = await db.closing_records.find_one({"deal_id": deal_id}, {"_id": 0, "status": 1, "target_close_date": 1})
+
+    # Build funnel phases deterministically
+    def phase_status(has_data, has_completed, has_blocked=False):
+        if has_blocked: return "blocked"
+        if has_completed: return "completed"
+        if has_data: return "current"
+        return "pending"
+
+    has_interest_accepted = any(i["status"] == "accepted" for i in interests)
+    has_meeting_confirmed = any(m["status"] == "confirmed" for m in meetings)
+    has_dr_granted = any(d["status"] == "partially_granted" for d in dr_requests)
+    has_offer_submitted = any(o["status"] in ("submitted", "accepted", "upgraded_to_loi") for o in offers)
+    has_offer_accepted = any(o["status"] in ("accepted", "upgraded_to_loi") for o in offers)
+    has_loi_submitted = any(l["status"] in ("submitted", "accepted", "countered") for l in lois)
+    has_loi_accepted = any(l["status"] == "accepted" for l in lois)
+    has_excl_granted = any(e["status"] == "granted" for e in excl)
+    dd_blocked = dd and dd.get("status") == "bloqueada"
+
+    phases = [
+        {"id": "nda", "label": "NDA", "status": "completed" if nda else "pending"},
+        {"id": "interes", "label": "Interés", "status": phase_status(len(interests) > 0, has_interest_accepted)},
+        {"id": "reunion", "label": "Reunión", "status": phase_status(len(meetings) > 0, has_meeting_confirmed)},
+        {"id": "dataroom", "label": "Data Room", "status": phase_status(len(dr_requests) > 0, has_dr_granted)},
+        {"id": "oferta", "label": "Oferta indicativa", "status": phase_status(has_offer_submitted, has_offer_accepted)},
+        {"id": "loi", "label": "LOI", "status": phase_status(has_loi_submitted, has_loi_accepted)},
+        {"id": "exclusividad", "label": "Exclusividad", "status": phase_status(len(excl) > 0, has_excl_granted)},
+        {"id": "dd", "label": "Due Diligence", "status": phase_status(bool(dd), dd and dd.get("status") == "completada", dd_blocked)},
+        {"id": "closing", "label": "Cierre", "status": phase_status(bool(closing), closing and closing.get("status") in ("cerrado_exito",))},
+    ]
+
+    # Determine current phase, last hito, next step, actor
+    current = "NDA"
+    last_hito = "NDA firmado" if nda else "Sin actividad"
+    next_step = "Expresar interés"
+    actor = "buyer"
+    blocker = None
+
+    if has_loi_accepted:
+        current = "Due Diligence"
+        last_hito = "LOI aceptada"
+        if dd and dd.get("status") == "completada":
+            current = "Cierre"
+            last_hito = "DD completada"
+            next_step = "Iniciar cierre"
+            actor = "arroba"
+        elif dd_blocked:
+            next_step = "Resolver bloqueos DD"
+            actor = "seller"
+            blocker = "DD bloqueada"
+        else:
+            next_step = "Completar due diligence"
+            actor = "seller"
+    elif has_loi_submitted:
+        current = "LOI"
+        last_hito = "LOI formal enviada"
+        next_step = "Seller debe responder LOI"
+        actor = "seller"
+    elif has_offer_accepted:
+        current = "Oferta indicativa"
+        last_hito = "Oferta aceptada"
+        next_step = "Formalizar LOI"
+        actor = "buyer"
+    elif has_offer_submitted:
+        current = "Oferta indicativa"
+        last_hito = "Oferta enviada"
+        next_step = "Seller debe responder oferta"
+        actor = "seller"
+    elif has_interest_accepted:
+        current = "Interés aceptado"
+        last_hito = "Interés aceptado"
+        next_step = "Solicitar reunión, Data Room o enviar oferta"
+        actor = "buyer"
+    elif len(interests) > 0:
+        current = "Interés"
+        last_hito = "Interés enviado"
+        next_step = "Seller debe responder interés"
+        actor = "seller"
+    elif nda:
+        current = "NDA"
+        last_hito = "NDA firmado"
+        next_step = "Expresar interés"
+        actor = "buyer"
+
+    if closing and closing.get("status") in ("cerrado_exito",):
+        current = "Cierre completado"
+        last_hito = "Operación cerrada"
+        next_step = None
+        actor = None
+
+    return {
+        "deal_id": deal_id,
+        "phases": phases,
+        "current_phase": current,
+        "last_hito": last_hito,
+        "next_step": next_step,
+        "actor": actor,
+        "blocker": blocker,
+        "dd_completion_pct": dd.get("completion_pct") if dd else None,
+        "closing_target": closing.get("target_close_date") if closing else None,
+    }
+
 # ═══ Advisor Dashboard ═══
 
 @router.get("/advisor/dashboard")
