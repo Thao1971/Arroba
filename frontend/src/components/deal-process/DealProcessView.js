@@ -184,6 +184,7 @@ export const DealProcessView = () => {
         request_dataroom: `/deal-process/${dealId}/dataroom-request`,
         request_document: `/deal-process/${dealId}/document-request`,
         request_exclusivity: `/deal-process/${dealId}/exclusivity`,
+        submit_offer: `/deal-process/${dealId}/preliminary-offer`,
       };
       await api.post(endpoints[actionKey], payload);
       setActiveForm(null);
@@ -336,6 +337,33 @@ export const DealProcessView = () => {
               </div>
             </div>
           )}
+
+          {/* Preliminary offer form */}
+          {activeForm === 'submit_offer' && (
+            <div className="p-5" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+              <p className="label-arroba mb-1" style={{ color: 'var(--arroba-primary)' }}>OFERTA PRELIMINAR</p>
+              <MicrocopyBlock text="Presenta una oferta estructurada al vendedor. No es vinculante. El vendedor podra aceptar, rechazar, pedir mas informacion o invitarte a formalizar una LOI." />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>ENTERPRISE VALUE (EUR)</label><input type="number" value={formData.ev || ''} onChange={e => setFormData(d => ({ ...d, ev: e.target.value }))} className="input-arroba w-full" placeholder="Ej: 3500000" /><p className="text-[9px] mt-1" style={{ color: 'var(--outline)' }}>Valor total de la empresa que propones.</p></div>
+                  <div><label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>TIPO DE OPERACION</label><select value={formData.op_type || 'full_sale'} onChange={e => setFormData(d => ({ ...d, op_type: e.target.value }))} className="input-arroba w-full"><option value="full_sale">Venta total (100%)</option><option value="partial_sale">Venta parcial</option><option value="investment">Inversion</option></select></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>CASH AL CIERRE (EUR)</label><input type="number" value={formData.cash || ''} onChange={e => setFormData(d => ({ ...d, cash: e.target.value }))} className="input-arroba w-full" placeholder="Importe en efectivo" /></div>
+                  <div><label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>PAGO DIFERIDO (EUR)</label><input type="number" value={formData.deferred || ''} onChange={e => setFormData(d => ({ ...d, deferred: e.target.value }))} className="input-arroba w-full" placeholder="Opcional" /></div>
+                </div>
+                <div><label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>RESUMEN EJECUTIVO</label><textarea value={formData.summary || ''} onChange={e => setFormData(d => ({ ...d, summary: e.target.value }))} className="input-arroba w-full resize-none" rows={3} placeholder="Describe brevemente tu propuesta, motivacion y encaje..." /><p className="text-[9px] mt-1" style={{ color: 'var(--outline)' }}>Este resumen sera lo primero que lea el vendedor.</p></div>
+                <div><label className="label-arroba mb-1 block" style={{ color: 'var(--outline)' }}>VALIDEZ DE LA OFERTA</label><input type="date" value={formData.validity || ''} onChange={e => setFormData(d => ({ ...d, validity: e.target.value }))} className="input-arroba w-48" /></div>
+                <div className="flex items-center gap-2"><input type="checkbox" checked={formData.subject_dd || true} onChange={e => setFormData(d => ({ ...d, subject_dd: e.target.checked }))} /><span className="text-[10px]">Sujeta a due diligence satisfactoria</span></div>
+                <div className="flex items-center gap-2"><input type="checkbox" checked={formData.legal || false} onChange={e => setFormData(d => ({ ...d, legal: e.target.checked }))} /><span className="text-[10px]">Acepto que esta oferta tiene caracter indicativo y no vinculante</span></div>
+                <div className="flex gap-2 pt-2">
+                  <button disabled={!formData.ev || !formData.summary || !formData.legal || formLoading} onClick={() => submitAction('submit_offer', { enterprise_value: parseFloat(formData.ev), operation_type: formData.op_type || 'full_sale', cash_at_closing: parseFloat(formData.cash) || null, deferred_payment: parseFloat(formData.deferred) || null, executive_summary: formData.summary, validity_date: formData.validity, subject_to_dd: formData.subject_dd !== false, legal_accepted: formData.legal, commitment_level: 'indicative' })} className="px-5 py-2.5 text-[11px] font-bold flex items-center gap-2 disabled:opacity-50" style={{ background: 'var(--arroba-primary)', color: '#fff' }}><Send size={11} /> Enviar oferta preliminar</button>
+                  <button onClick={() => setActiveForm(null)} className="px-4 py-2.5 text-[11px] font-bold" style={{ background: 'var(--surface-2)' }}>Cancelar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* ═══ SIDEBAR ═══ */}

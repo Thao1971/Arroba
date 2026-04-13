@@ -10,6 +10,7 @@ from services.deal_process.meeting_agent import request_meeting, respond_to_meet
 from services.deal_process.dataroom_access_agent import request_dataroom_access, respond_dataroom_request
 from services.deal_process.document_request_agent import request_document, respond_document_request
 from services.deal_process.exclusivity_agent import request_exclusivity, respond_exclusivity, respond_counter
+from services.deal_process.preliminary_offer_agent import submit_offer, respond_to_offer
 import uuid
 
 VALID_TRANSITIONS = {
@@ -277,6 +278,34 @@ async def execute_action(deal_id: str, actor_id: str, actor_role: str, action: s
 
         new_main = "EXCLUSIVITY_GRANTED" if resp["status"] == "granted" else None
         await _update_state(proc["process_id"], new_main, "exclusivity", resp["status"], actor_id, now, payload)
+        result = resp
+
+    # ── Buyer: Submit preliminary offer ──
+    elif action == "submit_offer":
+        validation = await validate_buyer_action(actor_id, "submit_offer")
+        if not validation["ok"]:
+            return {"error": validation["message"], "detail": validation}
+
+        result = await submit_offer(proc["process_id"], deal_id, actor_id, payload)
+        await _update_state(proc["process_id"], "PRELIMINARY_OFFER_SUBMITTED", "preliminary_offer", "submitted", actor_id, now, {"offer_id": result.get("offer_id"), "ev": payload.get("enterprise_value")})
+        await _notify(proc["seller_id"], "OFFER_RECEIVED", deal_id, f"Has recibido una oferta preliminar de {proc['buyer_profile_snapshot'].get('entity_name', 'un comprador')}.")
+
+    # ── Seller: Respond to offer ──
+    elif action == "respond_offer":
+        proc = await db.deal_processes.find_one({"deal_id": deal_id, "seller_id": actor_id}, {"_id": 0})
+        if not proc:
+            return {"error": "Proceso no encontrado"}
+
+        offer_id = payload.get("offer_id")
+        resp = await respond_to_offer(offer_id, actor_id, payload)
+        if not resp:
+            return {"error": "Oferta no encontrada"}
+
+        new_main = {"accepted": "PRELIMINARY_OFFER_ACCEPTED", "rejected": "PRELIMINARY_OFFER_REJECTED", "upgraded_to_loi": "FORMAL_LOI_SUBMITTED"}.get(resp["status"])
+        await _update_state(proc["process_id"], new_main, "preliminary_offer", resp["status"], actor_id, now, payload)
+
+        msg = {"accepted": "aceptada", "rejected": "rechazada", "info_requested": "necesita mas informacion", "upgraded_to_loi": "invitada a LOI formal"}.get(resp["status"], resp["status"])
+        await _notify(proc["buyer_id"], f"OFFER_{resp['status'].upper()}", deal_id, f"Tu oferta preliminar ha sido {msg}.")
         result = resp
 
     else:

@@ -21,19 +21,24 @@ const GENERAL_NAV = [
   { id: 'dashboard', path: '/seller', label: 'Dashboard', icon: BarChart3 },
   { id: 'deals', path: '/seller/deals', label: 'Mis deals', icon: FileText },
   { id: 'interesados', path: '/seller/interesados', label: 'Interesados', icon: Users },
-  { id: 'companies', path: '/seller/company/new', label: 'Companias', icon: Building2 },
+  { id: 'companies', path: '/seller/company/new', label: 'Compañías', icon: Building2 },
 ];
 
-/* ─── Deal sub-navigation — order: vision ejecutiva → decisiones → comparacion → documentacion → config ─── */
+const GENERAL_NAV_BOTTOM = [
+  { id: 'plan', path: '/planes?role=seller', label: 'Plan', icon: Star },
+  { id: 'settings', path: '/seller/settings', label: 'Ajustes', icon: Settings },
+];
+
+/* ─── Deal sub-navigation ─── */
 const DEAL_SECTIONS = [
   { id: 'resumen', label: 'Resumen', icon: Eye },
-  { id: 'negociacion', label: 'Negociacion', icon: Handshake },
+  { id: 'negociacion', label: 'Negociación', icon: Handshake },
   { id: 'interesados', label: 'Interesados', icon: Users },
   { id: 'lois', label: 'LOIs', icon: FileSignature },
   { id: 'qa', label: 'Q&A', icon: MessageSquare },
   { id: 'dataroom', label: 'Data Room', icon: FolderOpen },
   { id: 'infomemo', label: 'Infomemo', icon: FileText },
-  { id: 'configuracion', label: 'Configuracion', icon: Settings },
+  { id: 'configuracion', label: 'Configuración', icon: Settings },
 ];
 
 const stageLabel = (s) => ({ SUBMITTED: 'Nuevo', VIEWED: 'Visto', ACCEPTED: 'Aceptado', SHORTLISTED: 'Shortlist', EXCLUSIVITY: 'Exclusividad', REJECTED: 'Descartado' }[s] || s);
@@ -172,6 +177,20 @@ const SellerWorkspace = () => {
                 }}
                 data-testid={`nav-${n.id}`}>
                 <Icon size={14} /> {n.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Plan & Ajustes */}
+        <nav className="px-3 space-y-0.5 mt-auto mb-3">
+          {GENERAL_NAV_BOTTOM.map(n => {
+            const Icon = n.icon;
+            return (
+              <Link key={n.id} to={n.path}
+                className="flex items-center gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider"
+                style={{ color: 'var(--on-surface-variant)', textDecoration: 'none' }}>
+                <Icon size={12} /> {n.label}
               </Link>
             );
           })}

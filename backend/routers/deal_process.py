@@ -204,6 +204,38 @@ async def api_counter_respond_exclusivity(deal_id: str, excl_id: str, data: dict
     return result
 
 
+
+# ═══ Preliminary Offers ═══
+
+@router.post("/{deal_id}/preliminary-offer")
+async def api_submit_offer(deal_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Buyer submits preliminary offer."""
+    if user.role != "buyer":
+        raise HTTPException(403, "Solo buyers")
+    result = await execute_action(deal_id, user.user_id, "buyer", "submit_offer", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.post("/{deal_id}/preliminary-offer/{offer_id}/respond")
+async def api_respond_offer(deal_id: str, offer_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Seller responds to preliminary offer."""
+    if user.role not in ("seller", "admin"):
+        raise HTTPException(403, "Solo sellers")
+    data["offer_id"] = offer_id
+    result = await execute_action(deal_id, user.user_id, "seller", "respond_offer", data)
+    if "error" in result:
+        raise HTTPException(400, result["error"])
+    return result
+
+
+@router.get("/{deal_id}/offers")
+async def api_list_offers(deal_id: str, user: UserResponse = Depends(get_current_user)):
+    """List all preliminary offers for a deal."""
+    from services.deal_process.preliminary_offer_agent import list_offers
+    return await list_offers(deal_id)
+
 # ═══ Data views ═══
 
 @router.get("/{deal_id}/buyer-profile")
@@ -271,17 +303,20 @@ async def api_get_available_actions(deal_id: str, user: UserResponse = Depends(g
         pending_dr = await db.dataroom_requests.count_documents({"deal_id": deal_id, "status": "requested"})
         pending_docs = await db.document_requests.count_documents({"deal_id": deal_id, "status": "requested"})
         pending_excl = await db.exclusivity_requests.count_documents({"deal_id": deal_id, "status": "requested"})
+        pending_offers = await db.preliminary_offers.count_documents({"deal_id": deal_id, "status": "submitted"})
 
+        if pending_excl > 0:
+            actions.append({"key": "respond_exclusivity", "label": f"Responder exclusividad ({pending_excl})", "microcopy": "Solicitud de exclusividad pendiente. Puedes aceptar, rechazar o contraofertar plazo."})
+        if pending_offers > 0:
+            actions.append({"key": "respond_offer", "label": f"Responder oferta ({pending_offers})", "microcopy": "Tienes una oferta preliminar pendiente. Puedes aceptar, rechazar o invitar a LOI formal."})
         if pending_interests > 0:
             actions.append({"key": "respond_interest", "label": f"Responder interes ({pending_interests})", "microcopy": "Tienes expresiones de interes pendientes de respuesta."})
         if pending_meetings > 0:
             actions.append({"key": "respond_meeting", "label": f"Responder reunion ({pending_meetings})", "microcopy": "Tienes solicitudes de reunion pendientes."})
         if pending_dr > 0:
-            actions.append({"key": "respond_dataroom", "label": f"Responder Data Room ({pending_dr})", "microcopy": "Solicitudes de acceso al Data Room pendientes. Tu seleccionas las carpetas."})
+            actions.append({"key": "respond_dataroom", "label": f"Responder Data Room ({pending_dr})", "microcopy": "Solicitudes de acceso al Data Room pendientes."})
         if pending_docs > 0:
             actions.append({"key": "respond_document", "label": f"Responder documentos ({pending_docs})", "microcopy": "Solicitudes de documentos concretos pendientes."})
-        if pending_excl > 0:
-            actions.append({"key": "respond_exclusivity", "label": f"Responder exclusividad ({pending_excl})", "microcopy": "Solicitud de exclusividad pendiente. Puedes aceptar, rechazar o contraofertar plazo."})
 
     return {"actions": actions, "state": state, "sub_states": proc.get("sub_states")}
 
@@ -363,6 +398,23 @@ async def api_seller_dashboard(deal_id: str, user: UserResponse = Depends(get_cu
             "actions": ["grant", "reject", "counter", "info_requested"],
         })
 
+
+    offer_requests = await db.preliminary_offers.find({"deal_id": deal_id, "status": "submitted"}, {"_id": 0}).to_list(50)
+    for off in offer_requests:
+        buyer = await db.users.find_one({"user_id": off["buyer_id"]}, {"_id": 0, "first_name": 1, "last_name": 1})
+        pending.append({
+            "type": "offer", "id": off["offer_id"],
+            "buyer_name": f"{(buyer or {}).get('first_name','')} {(buyer or {}).get('last_name','')}".strip(),
+            "buyer_id": off["buyer_id"],
+            "enterprise_value": off.get("enterprise_value"),
+            "operation_type": off.get("operation_type"),
+            "commitment_level": off.get("commitment_level"),
+            "executive_summary": off.get("executive_summary", "")[:100],
+            "completeness": off.get("completeness_score"),
+            "created_at": off.get("created_at"),
+            "actions": ["accept", "reject", "info_requested", "invite_loi"],
+        })
+
     # In-progress items
     in_progress = []
     responded_interests = await db.interest_expressions.find({"deal_id": deal_id, "status": {"$in": ["accepted", "responded"]}}, {"_id": 0}).to_list(20)
@@ -379,6 +431,10 @@ async def api_seller_dashboard(deal_id: str, user: UserResponse = Depends(get_cu
         for ev in p.get("timeline", []):
             timeline.append({**ev, "buyer_id": p["buyer_id"]})
     timeline.sort(key=lambda x: x.get("at", ""), reverse=True)
+
+    # Sort pending by criticality: exclusivity > offer > meeting > dataroom > document > interest
+    type_order = {"exclusivity": 0, "offer": 1, "meeting": 2, "dataroom": 3, "document": 4, "interest": 5}
+    pending.sort(key=lambda x: type_order.get(x["type"], 9))
 
     return {
         "deal_id": deal_id,

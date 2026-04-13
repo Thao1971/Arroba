@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import {
   Loader2, Star, Calendar, FolderOpen, FileText, Shield, Users,
-  Check, Clock, HelpCircle, ArrowRight, MessageSquare
+  Check, Clock, HelpCircle, ArrowRight, MessageSquare, Handshake
 } from 'lucide-react';
 
 const EVENT_COLORS = {
@@ -21,15 +21,16 @@ const EVENT_LABELS = {
   EXCLUSIVITY_GRANTED: 'Exclusividad concedida', EXCLUSIVITY_COUNTERED: 'Contraoferta exclusividad',
 };
 
-const TYPE_ICONS = { interest: Star, meeting: Calendar, dataroom: FolderOpen, document: FileText, exclusivity: Shield };
-const TYPE_LABELS = { interest: 'Interes', meeting: 'Reunion', dataroom: 'Data Room', document: 'Documento', exclusivity: 'Exclusividad' };
+const TYPE_ICONS = { exclusivity: Shield, offer: Handshake, interest: Star, meeting: Calendar, dataroom: FolderOpen, document: FileText };
+const TYPE_LABELS = { exclusivity: 'Exclusividad', offer: 'Oferta preliminar', interest: 'Interes', meeting: 'Reunión', dataroom: 'Data Room', document: 'Documento' };
 
 const MICROCOPY = {
+  exclusivity: 'Tu decision puede bloquear acciones competitivas de otros buyers.',
+  offer: 'Tienes una oferta preliminar pendiente. Revisa valoracion, estructura y condiciones antes de decidir.',
   interest: 'Decide si aceptar este interes. Al aceptar, se abre un canal Q&A con el buyer.',
   meeting: 'Decide si aceptar un slot de reunion. Las reuniones incluyen buyer, seller y ARROBA.',
   dataroom: 'Selecciona que carpetas compartir. Esta solicitud no abre todo el Data Room.',
   document: 'El buyer ha solicitado un documento concreto. Puedes confirmar, preparar o rechazar.',
-  exclusivity: 'Tu decision puede bloquear acciones competitivas de otros buyers.',
 };
 
 const DealNegociacion = ({ dealId, sellerId }) => {
@@ -106,6 +107,7 @@ const DealNegociacion = ({ dealId, sellerId }) => {
                           {type === 'dataroom' && 'Solicitud de acceso'}
                           {type === 'document' && `${item.category}: ${item.description?.slice(0,50)}`}
                           {type === 'exclusivity' && `${item.period_days} dias · ${item.rationale?.slice(0,50)}`}
+                          {type === 'offer' && `EV: ${item.enterprise_value ? (item.enterprise_value/1e6).toFixed(1)+'M€' : '?'} · ${item.commitment_level} · ${item.completeness}% completo`}
                         </p>
                       </div>
                       <p className="text-[9px]" style={{ color: 'var(--outline)' }}>{item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : ''}</p>
