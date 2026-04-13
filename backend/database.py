@@ -1,29 +1,29 @@
-from motor.motor_asyncio import AsyncIOMotorClient
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
 from config import MONGO_URL, DB_NAME
 
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+client: AsyncIOMotorClient = AsyncIOMotorClient(MONGO_URL)
+db: AsyncIOMotorDatabase = client[DB_NAME]
 
-# Collections
-users_collection = db.users
-companies_collection = db.companies
-deals_collection = db.deals
-mandates_collection = db.mandates
-subscriptions_collection = db.subscriptions
-lois_collection = db.lois
-ndas_collection = db.ndas
-matches_collection = db.matches
-notifications_collection = db.notifications
-events_collection = db.events
-user_sessions_collection = db.user_sessions
-payment_transactions_collection = db.payment_transactions
-infomemos_collection = db.infomemos
-cis_collection = db.cis_financial_cache
-teasers_collection = db.teasers
-engagements_collection = db.engagements
-saved_deals_collection = db.saved_deals
+# Collections — typed for IDE support
+users_collection: AsyncIOMotorCollection = db.users
+companies_collection: AsyncIOMotorCollection = db.companies
+deals_collection: AsyncIOMotorCollection = db.deals
+mandates_collection: AsyncIOMotorCollection = db.mandates
+subscriptions_collection: AsyncIOMotorCollection = db.subscriptions
+lois_collection: AsyncIOMotorCollection = db.lois
+ndas_collection: AsyncIOMotorCollection = db.ndas
+matches_collection: AsyncIOMotorCollection = db.matches
+notifications_collection: AsyncIOMotorCollection = db.notifications
+events_collection: AsyncIOMotorCollection = db.events
+user_sessions_collection: AsyncIOMotorCollection = db.user_sessions
+payment_transactions_collection: AsyncIOMotorCollection = db.payment_transactions
+infomemos_collection: AsyncIOMotorCollection = db.infomemos
+cis_collection: AsyncIOMotorCollection = db.cis_financial_cache
+teasers_collection: AsyncIOMotorCollection = db.teasers
+engagements_collection: AsyncIOMotorCollection = db.engagements
+saved_deals_collection: AsyncIOMotorCollection = db.saved_deals
 
-async def init_db():
+async def init_db() -> None:
     """Initialize database indexes"""
     # Users indexes
     await users_collection.create_index("email", unique=True)
@@ -96,6 +96,6 @@ async def init_db():
     # Seller settings
     await db.seller_settings.create_index("seller_id", unique=True)
 
-async def close_db():
+async def close_db() -> None:
     """Close database connection"""
     client.close()
