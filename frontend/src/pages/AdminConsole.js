@@ -367,6 +367,137 @@ const CommsSection = () => {
 };
 
 /* ═══════════════════════════════════════════════════════════════
+   PLANS & PRICING
+   ═══════════════════════════════════════════════════════════════ */
+const PricingSection = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);
+  const [editVals, setEditVals] = useState({});
+
+  useEffect(() => { api.get('/admin/plans').then(r => setData(r.data)).finally(() => setLoading(false)); }, []);
+
+  const startEdit = (p) => { setEditing(p.plan_id); setEditVals({ monthly_price: p.monthly_price, annual_price: p.annual_price, monthly_interaction_limit: p.monthly_interaction_limit, is_active: p.is_active }); };
+  const saveEdit = async (planId) => {
+    await api.put(`/admin/plans/${planId}`, editVals);
+    setData(prev => ({ ...prev, plans: prev.plans.map(p => p.plan_id === planId ? { ...p, ...editVals } : p) }));
+    setEditing(null);
+  };
+
+  if (loading) return <Loader2 size={16} className="animate-spin mx-auto mt-12" />;
+
+  const plans = data?.plans || [];
+  const fees = data?.fee_rules || [];
+  const byRole = { seller: plans.filter(p => p.role_type === 'seller'), buyer: plans.filter(p => p.role_type === 'buyer'), advisor: plans.filter(p => p.role_type === 'advisor') };
+
+  return (
+    <div className="space-y-6">
+      {Object.entries(byRole).map(([role, rolePlans]) => (
+        <div key={role}>
+          <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>{role.toUpperCase()}</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs"><thead><tr style={{ borderBottom: '2px solid var(--surface-2)' }}>
+              <th className="text-left py-2 font-bold" style={{ color: 'var(--outline)' }}>PLAN</th>
+              <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>PRECIO/MES</th>
+              <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>PRECIO/AÑO</th>
+              <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>INTERACCIONES</th>
+              <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>COMISION</th>
+              <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>ACTIVO</th>
+              <th className="text-right py-2 font-bold" style={{ color: 'var(--outline)' }}>ACCIONES</th>
+            </tr></thead><tbody>
+              {rolePlans.map(p => (
+                <tr key={p.plan_id} style={{ borderBottom: '1px solid var(--surface-2)', opacity: p.is_active ? 1 : 0.5 }}>
+                  <td className="py-3"><p className="font-bold" style={{ color: 'var(--on-surface)' }}>{p.plan_name}</p><p className="text-[9px]" style={{ color: 'var(--outline)' }}>{p.plan_id}</p></td>
+                  {editing === p.plan_id ? (
+                    <>
+                      <td className="text-center"><input type="number" value={editVals.monthly_price || ''} onChange={e => setEditVals(v => ({ ...v, monthly_price: parseFloat(e.target.value) || 0 }))} className="input-arroba w-20 text-center" /></td>
+                      <td className="text-center"><input type="number" value={editVals.annual_price || ''} onChange={e => setEditVals(v => ({ ...v, annual_price: parseFloat(e.target.value) || 0 }))} className="input-arroba w-20 text-center" /></td>
+                      <td className="text-center"><input type="number" value={editVals.monthly_interaction_limit ?? ''} onChange={e => setEditVals(v => ({ ...v, monthly_interaction_limit: parseInt(e.target.value) || 0 }))} className="input-arroba w-16 text-center" /></td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="text-center font-bold">{p.monthly_price ? `${p.monthly_price}€` : 'Gratis'}</td>
+                      <td className="text-center">{p.annual_price ? `${p.annual_price}€` : '—'}</td>
+                      <td className="text-center">{p.monthly_interaction_limit === -1 ? 'Ilimitadas' : p.monthly_interaction_limit || '0'}</td>
+                    </>
+                  )}
+                  <td className="text-center" style={{ color: 'var(--outline)' }}>{p.success_fee_pct ? `${p.success_fee_pct}%` : p.revenue_share_pct ? `${p.revenue_share_pct}%` : '—'}</td>
+                  <td className="text-center">{p.is_active ? <span style={{ color: '#16a34a' }}>SI</span> : <span style={{ color: '#dc2626' }}>NO</span>}</td>
+                  <td className="text-right">
+                    {editing === p.plan_id ? (
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => saveEdit(p.plan_id)} className="px-2 py-1 text-[9px] font-bold" style={{ background: '#16a34a', color: '#fff' }}>GUARDAR</button>
+                        <button onClick={() => setEditing(null)} className="px-2 py-1 text-[9px] font-bold" style={{ background: 'var(--surface-2)' }}>CANCELAR</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => startEdit(p)} className="px-2 py-1 text-[9px] font-bold" style={{ background: 'var(--surface-2)' }}>EDITAR</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody></table>
+          </div>
+        </div>
+      ))}
+
+      {fees.length > 0 && (
+        <div>
+          <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>COMISIONES DE EXITO</p>
+          {fees.map((f, i) => (
+            <div key={f.rule_id || i} className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+              <span className="text-xs">{f.role_type || f.role || '?'}: {f.description}</span>
+              <span className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>{f.fee_percentage || f.success_fee_pct || '?'}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   INTEGRATIONS STATUS
+   ═══════════════════════════════════════════════════════════════ */
+const IntegrationsSection = () => {
+  const [integrations, setIntegrations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { api.get('/admin/integrations/status').then(r => setIntegrations(r.data)).finally(() => setLoading(false)); }, []);
+
+  if (loading) return <Loader2 size={16} className="animate-spin mx-auto mt-12" />;
+
+  const statusColors = { healthy: '#16a34a', configured: '#16a34a', mocked: '#d97706', not_configured: '#dc2626', unreachable: '#dc2626', error: '#dc2626' };
+  const statusLabels = { healthy: 'Activo', configured: 'Configurado', mocked: 'Mockeado', not_configured: 'Sin configurar', unreachable: 'Inalcanzable', error: 'Error' };
+
+  return (
+    <div className="space-y-4">
+      {integrations.map(int_ => (
+        <div key={int_.id} className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full" style={{ background: statusColors[int_.status] || 'var(--outline)' }} />
+              <p className="text-sm font-bold" style={{ color: 'var(--on-surface)' }}>{int_.name}</p>
+            </div>
+            <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: (statusColors[int_.status] || 'var(--outline)') + '15', color: statusColors[int_.status] || 'var(--outline)' }}>
+              {statusLabels[int_.status] || int_.status}
+            </span>
+          </div>
+          {int_.url && <p className="text-[10px] mb-1" style={{ color: 'var(--outline)' }}>{int_.url}</p>}
+          {int_.note && <p className="text-[10px]" style={{ color: 'var(--outline)' }}>{int_.note}</p>}
+          {int_.stats && (
+            <div className="flex gap-4 mt-2">
+              {Object.entries(int_.stats).map(([k, v]) => (
+                <div key={k}><span className="text-[9px]" style={{ color: 'var(--outline)' }}>{k.replace(/_/g, ' ')}: </span><span className="text-[9px] font-bold">{v}</span></div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
    PLACEHOLDER
    ═══════════════════════════════════════════════════════════════ */
 const PlaceholderSection = ({ title }) => (
@@ -385,8 +516,8 @@ const SECTION_MAP = {
   'deals': { title: 'Moderacion de Deals', component: DealsSection },
   'users': { title: 'Gestion de Usuarios', component: UsersSection },
   'taxonomy': { title: 'Taxonomia y multiplos', component: TaxonomySection },
-  'pricing': { title: 'Planes y pricing', component: () => <PlaceholderSection title="Planes y pricing" /> },
-  'integrations': { title: 'Integraciones CIS', component: () => <PlaceholderSection title="Integraciones" /> },
+  'pricing': { title: 'Planes y pricing', component: PricingSection },
+  'integrations': { title: 'Integraciones', component: IntegrationsSection },
   'comms': { title: 'Emails y logs', component: CommsSection },
   'tickets': { title: 'Soporte', component: () => <PlaceholderSection title="Soporte e incidencias" /> },
   'data-audit': { title: 'Integridad de datos', component: () => <PlaceholderSection title="Auditoria de datos" /> },

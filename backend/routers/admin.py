@@ -398,3 +398,104 @@ async def list_notification_log(user: UserResponse = Depends(get_current_user)):
     cursor = db.notifications.find({}, {"_id": 0}).sort("created_at", -1).limit(100)
     return await cursor.to_list(100)
 
+
+# ═══ PLANS & PRICING ═══
+
+@router.get("/plans")
+async def list_plans(user: UserResponse = Depends(get_current_user)):
+    """List all plans with pricing."""
+    _require_admin(user)
+    cursor = db.plans.find({}, {"_id": 0}).sort("sort_order", 1)
+    plans = await cursor.to_list(20)
+    fees = await db.transaction_fee_rules.find({}, {"_id": 0}).to_list(10)
+    return {"plans": plans, "fee_rules": fees}
+
+
+@router.put("/plans/{plan_id}")
+async def update_plan(plan_id: str, data: dict, user: UserResponse = Depends(get_current_user)):
+    """Update plan pricing or features."""
+    _require_admin(user)
+    existing = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(404, "Plan no encontrado")
+
+    now = datetime.now(timezone.utc).isoformat()
+    allowed = ["monthly_price", "annual_price", "annual_discount_pct", "success_fee_pct",
+               "monthly_interaction_limit", "is_active", "is_highlighted", "features", "plan_tagline"]
+    update = {k: data[k] for k in allowed if k in data}
+    update["updated_at"] = now
+    update["updated_by"] = user.user_id
+
+    await db.plans.update_one({"plan_id": plan_id}, {"$set": update})
+
+    await db.admin_audit_log.insert_one({
+        "action": "plan_update", "plan_id": plan_id,
+        "changes": update, "changed_by": user.user_id, "changed_at": now,
+    })
+
+    return {"plan_id": plan_id, "updated": True}
+
+
+# ═══ INTEGRATIONS STATUS ═══
+
+@router.get("/integrations/status")
+async def get_integrations_status(user: UserResponse = Depends(get_current_user)):
+    """Get status of all third-party integrations."""
+    _require_admin(user)
+    import os
+    import httpx
+
+    integrations = []
+
+    # CIS
+    cis_url = os.environ.get("CIS_BASE_URL", "")
+    cis_key = os.environ.get("CIS_SERVICE_KEY", "")
+    cis_status = "configured" if cis_url and cis_key else "not_configured"
+    cis_cache_count = await db.cis_financial_cache.count_documents({})
+    cis_profiles = await db.seller_company_profiles.count_documents({"auto_prefilled.source": "CIS"})
+
+    # Quick health check
+    if cis_url and cis_key:
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(f"{cis_url}/health", headers={"X-Service-Key": cis_key})
+                cis_status = "healthy" if r.status_code == 200 else "error"
+        except Exception:
+            cis_status = "unreachable"
+
+    integrations.append({
+        "id": "cis", "name": "Centro de Inteligencia Sectorial",
+        "status": cis_status, "url": cis_url,
+        "stats": {"cache_entries": cis_cache_count, "profiles_resolved": cis_profiles},
+    })
+
+    # OpenAI / Emergent LLM
+    llm_key = os.environ.get("EMERGENT_LLM_KEY", "")
+    premium_cached = await db.premium_analysis_cache.count_documents({})
+    integrations.append({
+        "id": "openai", "name": "OpenAI GPT-5.2 (Emergent LLM Key)",
+        "status": "configured" if llm_key else "not_configured",
+        "stats": {"analyses_cached": premium_cached},
+    })
+
+    # Object Storage
+    storage_key = os.environ.get("EMERGENT_LLM_KEY", "")
+    integrations.append({
+        "id": "storage", "name": "Emergent Object Storage",
+        "status": "configured" if storage_key else "not_configured",
+    })
+
+    # SendGrid
+    integrations.append({
+        "id": "sendgrid", "name": "SendGrid Email",
+        "status": "mocked", "note": "7 templates preparados, envio logueado",
+    })
+
+    # Stripe
+    integrations.append({
+        "id": "stripe", "name": "Stripe Payments",
+        "status": "mocked", "note": "Checkout scaffolded, sin pagos reales",
+    })
+
+    return integrations
+
