@@ -498,15 +498,168 @@ const IntegrationsSection = () => {
 };
 
 /* ═══════════════════════════════════════════════════════════════
-   PLACEHOLDER
+   SUPPORT / Q&A SUPERVISION
    ═══════════════════════════════════════════════════════════════ */
-const PlaceholderSection = ({ title }) => (
-  <div className="text-center py-16">
-    <Settings size={32} className="mx-auto mb-4" style={{ color: 'var(--outline-variant)' }} />
-    <p className="text-sm font-bold mb-1" style={{ color: 'var(--on-surface)' }}>{title}</p>
-    <p className="text-xs" style={{ color: 'var(--outline)' }}>Esta seccion esta en desarrollo.</p>
-  </div>
-);
+const SupportSection = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { api.get('/admin/support/qa').then(r => setData(r.data)).finally(() => setLoading(false)); }, []);
+  if (loading) return <Loader2 size={16} className="animate-spin mx-auto mt-12" />;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>CONVERSACIONES</p>
+          <p className="text-2xl font-black">{data?.total_conversations || 0}</p>
+        </div>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>PREGUNTAS TOTAL</p>
+          <p className="text-2xl font-black">{data?.items?.length || 0}</p>
+        </div>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="text-[9px] font-bold" style={{ color: '#d97706' }}>PENDIENTES</p>
+          <p className="text-2xl font-black" style={{ color: data?.pending_count > 0 ? '#d97706' : 'var(--on-surface)' }}>{data?.pending_count || 0}</p>
+        </div>
+      </div>
+      {(data?.items || []).length > 0 ? (
+        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr style={{ borderBottom: '2px solid var(--surface-2)' }}>
+          <th className="text-left py-2 font-bold" style={{ color: 'var(--outline)' }}>PREGUNTA</th>
+          <th className="text-left py-2 font-bold" style={{ color: 'var(--outline)' }}>DEAL</th>
+          <th className="text-left py-2 font-bold" style={{ color: 'var(--outline)' }}>AUTOR</th>
+          <th className="text-left py-2 font-bold" style={{ color: 'var(--outline)' }}>ESTADO</th>
+        </tr></thead><tbody>
+          {data.items.map((q, i) => (
+            <tr key={q.question_id || i} style={{ borderBottom: '1px solid var(--surface-2)' }}>
+              <td className="py-2 max-w-xs truncate">{q.question || q.text || '?'}</td>
+              <td className="py-2 text-[10px]" style={{ color: 'var(--outline)' }}>{q.deal_title}</td>
+              <td className="py-2"><span className="text-[10px]">{q.author_name}</span> <span className="text-[9px] font-bold px-1 py-0.5" style={{ background: 'var(--surface-2)' }}>{q.author_role}</span></td>
+              <td><span className="text-[9px] font-bold px-2 py-0.5" style={{ background: q.status === 'open' ? 'rgba(217,119,6,0.06)' : 'rgba(22,163,74,0.06)', color: q.status === 'open' ? '#d97706' : '#16a34a' }}>{(q.status || 'open').toUpperCase()}</span></td>
+            </tr>
+          ))}
+        </tbody></table></div>
+      ) : (
+        <p className="text-xs text-center py-8" style={{ color: 'var(--outline)' }}>No hay preguntas Q&A registradas.</p>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   DATA INTEGRITY AUDIT
+   ═══════════════════════════════════════════════════════════════ */
+const DataAuditSection = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { api.get('/admin/data-audit').then(r => setData(r.data)).finally(() => setLoading(false)); }, []);
+  if (loading) return <Loader2 size={16} className="animate-spin mx-auto mt-12" />;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>DEALS SIN COMPANIA</p>
+          <p className="text-2xl font-black" style={{ color: data?.orphans?.deals_without_company > 0 ? '#dc2626' : '#16a34a' }}>{data?.orphans?.deals_without_company || 0}</p>
+        </div>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>PERFILES HUERFANOS</p>
+          <p className="text-2xl font-black" style={{ color: data?.orphans?.profiles_without_company > 0 ? '#d97706' : '#16a34a' }}>{data?.orphans?.profiles_without_company || 0}</p>
+        </div>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>SESIONES ACTIVAS</p>
+          <p className="text-2xl font-black">{data?.sessions?.total || 0}</p>
+        </div>
+      </div>
+
+      <div>
+        <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>INTEGRIDAD POR COLECCION</p>
+        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr style={{ borderBottom: '2px solid var(--surface-2)' }}>
+          <th className="text-left py-2 font-bold" style={{ color: 'var(--outline)' }}>COLECCION</th>
+          <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>DOCS</th>
+          <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>PK FALTANTES</th>
+          <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>REF FALTANTES</th>
+          <th className="text-center py-2 font-bold" style={{ color: 'var(--outline)' }}>ESTADO</th>
+        </tr></thead><tbody>
+          {(data?.collections || []).map(c => (
+            <tr key={c.collection} style={{ borderBottom: '1px solid var(--surface-2)' }}>
+              <td className="py-2 font-bold">{c.collection}</td>
+              <td className="text-center">{c.total_docs}</td>
+              <td className="text-center" style={{ color: c.missing_pk > 0 ? '#dc2626' : 'var(--outline)' }}>{c.missing_pk}</td>
+              <td className="text-center" style={{ color: c.missing_ref > 0 ? '#d97706' : 'var(--outline)' }}>{c.missing_ref}</td>
+              <td className="text-center"><span className="text-[9px] font-bold px-2 py-0.5" style={{ background: c.status === 'ok' ? 'rgba(22,163,74,0.06)' : 'rgba(220,38,38,0.06)', color: c.status === 'ok' ? '#16a34a' : '#dc2626' }}>{c.status.toUpperCase()}</span></td>
+            </tr>
+          ))}
+        </tbody></table></div>
+      </div>
+
+      <div className="p-3" style={{ background: 'var(--surface-1)' }}>
+        <p className="text-[9px] font-bold" style={{ color: 'var(--outline)' }}>AUDIT LOG: {data?.audit_log_entries || 0} entradas</p>
+      </div>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   PERMISSIONS OVERVIEW
+   ═══════════════════════════════════════════════════════════════ */
+const PermissionsSection = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { api.get('/admin/permissions/overview').then(r => setData(r.data)).finally(() => setLoading(false)); }, []);
+  if (loading) return <Loader2 size={16} className="animate-spin mx-auto mt-12" />;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>DISTRIBUCION POR ROL</p>
+          {Object.entries(data?.role_distribution || {}).map(([role, count]) => (
+            <div key={role} className="flex items-center justify-between py-1">
+              <span className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{role.toUpperCase()}</span>
+              <span className="text-xs font-bold" style={{ color: 'var(--arroba-primary)' }}>{count}</span>
+            </div>
+          ))}
+        </div>
+        <div className="p-4" style={{ background: 'var(--surface-lowest)', boxShadow: '0 2px 8px rgba(25,28,30,0.04)' }}>
+          <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>DISTRIBUCION POR PLAN (BUYERS)</p>
+          {Object.entries(data?.plan_distribution || {}).map(([plan, count]) => (
+            <div key={plan} className="flex items-center justify-between py-1">
+              <span className="text-xs" style={{ color: 'var(--on-surface)' }}>{plan || 'free'}</span>
+              <span className="text-xs font-bold">{count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>RUTAS PROTEGIDAS</p>
+        <div className="space-y-1">
+          {(data?.protected_routes || []).map((r, i) => (
+            <div key={i} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+              <code className="text-[10px] font-bold px-2 py-0.5" style={{ background: 'var(--surface-1)', color: 'var(--on-surface)' }}>{r.path}</code>
+              <div className="flex gap-1">{r.roles.map(role => <span key={role} className="text-[8px] font-bold px-1.5 py-0.5" style={{ background: 'var(--surface-2)', color: 'var(--outline)' }}>{role}</span>)}</div>
+              <span className="text-[10px] ml-auto" style={{ color: 'var(--outline)' }}>{r.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="label-arroba mb-3" style={{ color: 'var(--outline)' }}>FEATURE GATES</p>
+        <div className="space-y-1">
+          {(data?.feature_gates || []).map((g, i) => (
+            <div key={i} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+              <span className="text-xs font-bold" style={{ color: 'var(--on-surface)' }}>{g.feature}</span>
+              <span className="text-[9px] font-bold px-2 py-0.5" style={{ background: 'rgba(182,33,42,0.06)', color: 'var(--arroba-primary)' }}>{g.gate}</span>
+              {g.min_plan && <span className="text-[9px]" style={{ color: 'var(--outline)' }}>Min: {g.min_plan}</span>}
+              <span className="text-[10px] ml-auto" style={{ color: 'var(--outline)' }}>{g.description}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /* ═══════════════════════════════════════════════════════════════
    MAIN CONSOLE WITH SIDEBAR
@@ -519,9 +672,9 @@ const SECTION_MAP = {
   'pricing': { title: 'Planes y pricing', component: PricingSection },
   'integrations': { title: 'Integraciones', component: IntegrationsSection },
   'comms': { title: 'Emails y logs', component: CommsSection },
-  'tickets': { title: 'Soporte', component: () => <PlaceholderSection title="Soporte e incidencias" /> },
-  'data-audit': { title: 'Integridad de datos', component: () => <PlaceholderSection title="Auditoria de datos" /> },
-  'permissions': { title: 'Permisos y accesos', component: () => <PlaceholderSection title="Permisos" /> },
+  'tickets': { title: 'Soporte y Q&A', component: SupportSection },
+  'data-audit': { title: 'Integridad de datos', component: DataAuditSection },
+  'permissions': { title: 'Permisos y accesos', component: PermissionsSection },
   'legal': { title: 'NDAs y Data Room', component: LegalSection },
 };
 

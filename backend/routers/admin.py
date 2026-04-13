@@ -499,3 +499,143 @@ async def get_integrations_status(user: UserResponse = Depends(get_current_user)
 
     return integrations
 
+
+# ═══ SUPPORT / Q&A ═══
+
+@router.get("/support/qa")
+async def list_qa_items(user: UserResponse = Depends(get_current_user)):
+    """List all Q&A items across deals for admin supervision."""
+    _require_admin(user)
+
+    items = []
+    cursor = db.qa_items.find({}, {"_id": 0}).sort("created_at", -1).limit(100)
+    async for q in cursor:
+        # Enrich with deal + user info
+        deal = await db.deals.find_one({"deal_id": q.get("deal_id")}, {"_id": 0, "teaser.headline": 1})
+        author = await db.users.find_one({"user_id": q.get("author_id")}, {"_id": 0, "email": 1, "first_name": 1, "role": 1})
+        items.append({
+            **q,
+            "deal_title": (deal or {}).get("teaser", {}).get("headline", "?"),
+            "author_email": (author or {}).get("email"),
+            "author_name": (author or {}).get("first_name"),
+            "author_role": (author or {}).get("role"),
+        })
+
+    conversations = await db.conversations.count_documents({})
+    pending = await db.qa_items.count_documents({"status": "open"})
+
+    return {"items": items, "total_conversations": conversations, "pending_count": pending}
+
+
+# ═══ DATA INTEGRITY ═══
+
+@router.get("/data-audit")
+async def get_data_audit(user: UserResponse = Depends(get_current_user)):
+    """Audit data integrity across collections."""
+    _require_admin(user)
+
+    results = []
+    checks = [
+        ("users", "user_id", "email"),
+        ("companies", "company_id", "legal_name"),
+        ("deals", "deal_id", "company_id"),
+        ("engagements", "engagement_id", "deal_id"),
+        ("nda_signatures", "signature_id", "deal_id"),
+        ("seller_company_profiles", "profile_id", "seller_id"),
+        ("contact_requests", "request_id", "deal_id"),
+        ("plans", "plan_id", "plan_name"),
+        ("valuation_multiples", "scope_id", "scope_name"),
+        ("notifications", "notification_id", "user_id"),
+    ]
+
+    for coll_name, pk_field, ref_field in checks:
+        coll = db[coll_name]
+        total = await coll.count_documents({})
+        missing_pk = await coll.count_documents({pk_field: {"$exists": False}})
+        missing_ref = await coll.count_documents({ref_field: {"$exists": False}})
+        nulls = await coll.count_documents({pk_field: None})
+
+        results.append({
+            "collection": coll_name,
+            "total_docs": total,
+            "primary_key": pk_field,
+            "missing_pk": missing_pk + nulls,
+            "ref_field": ref_field,
+            "missing_ref": missing_ref,
+            "status": "ok" if missing_pk == 0 and nulls == 0 else "warning",
+        })
+
+    # Orphan checks
+    orphan_deals = 0
+    async for d in db.deals.find({}, {"company_id": 1}):
+        comp = await db.companies.find_one({"company_id": d.get("company_id")}, {"_id": 1})
+        if not comp:
+            orphan_deals += 1
+
+    orphan_profiles = 0
+    async for p in db.seller_company_profiles.find({"company_id": {"$ne": None}}, {"company_id": 1}):
+        comp = await db.companies.find_one({"company_id": p.get("company_id")}, {"_id": 1})
+        if not comp:
+            orphan_profiles += 1
+
+    # Session cleanup
+    stale_sessions = await db.user_sessions.count_documents({})
+
+    # Audit log
+    audit_entries = await db.admin_audit_log.count_documents({})
+
+    return {
+        "collections": results,
+        "orphans": {"deals_without_company": orphan_deals, "profiles_without_company": orphan_profiles},
+        "sessions": {"total": stale_sessions},
+        "audit_log_entries": audit_entries,
+    }
+
+
+# ═══ PERMISSIONS ═══
+
+@router.get("/permissions/overview")
+async def get_permissions_overview(user: UserResponse = Depends(get_current_user)):
+    """Overview of role-based access and feature gates."""
+    _require_admin(user)
+
+    # Count users by role
+    pipeline = [{"$group": {"_id": "$role", "count": {"$sum": 1}}}]
+    role_counts = {}
+    async for r in db.users.aggregate(pipeline):
+        role_counts[r["_id"]] = r["count"]
+
+    # Count by plan
+    plan_counts = {}
+    async for u in db.users.find({"role": "buyer"}, {"subscription": 1}):
+        sub = u.get("subscription") or {}
+        pt = sub.get("plan_type", "free") if isinstance(sub, dict) else "free"
+        plan_counts[pt] = plan_counts.get(pt, 0) + 1
+
+    # Protected routes
+    routes = [
+        {"path": "/admin/*", "roles": ["admin"], "description": "Consola de administracion"},
+        {"path": "/buyer/*", "roles": ["buyer", "admin"], "description": "Dashboard y procesos buyer"},
+        {"path": "/seller/*", "roles": ["seller", "admin"], "description": "Dashboard y workspace seller"},
+        {"path": "/advisor/*", "roles": ["advisor", "admin"], "description": "Panel advisor"},
+        {"path": "/explorar/:dealId", "roles": ["buyer", "seller", "admin", "advisor"], "description": "Ficha canonica de deal"},
+        {"path": "/valoracion", "roles": ["buyer", "seller", "admin", "advisor"], "description": "Valoracion publica"},
+    ]
+
+    # Feature gates
+    gates = [
+        {"feature": "Firmar NDA", "gate": "plan", "min_plan": "buyer_pro", "description": "Free no puede firmar NDA"},
+        {"feature": "Acceso operativo", "gate": "nda", "description": "Requiere NDA firmado"},
+        {"feature": "Premium Analysis", "gate": "plan", "min_plan": "buyer_proplus", "description": "Solo Pro+"},
+        {"feature": "KPIs avanzados", "gate": "plan+nda", "min_plan": "buyer_proplus", "description": "Pro+ con NDA"},
+        {"feature": "Contact request", "gate": "role", "roles": ["buyer"], "description": "Solo buyers"},
+        {"feature": "Aprobar deals", "gate": "role", "roles": ["admin"], "description": "Solo admin"},
+    ]
+
+    return {
+        "role_distribution": role_counts,
+        "plan_distribution": plan_counts,
+        "protected_routes": routes,
+        "feature_gates": gates,
+    }
+
