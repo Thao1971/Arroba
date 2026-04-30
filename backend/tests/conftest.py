@@ -12,7 +12,7 @@ if _test_env.exists():
     load_dotenv(_test_env)
 
 # API URL
-API_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://arroba-ma-platform.preview.emergentagent.com')
+API_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://musing-hellman-9.preview.emergentagent.com')
 API_BASE = f"{API_URL}/api"
 
 # Test accounts
