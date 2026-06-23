@@ -1,0 +1,47 @@
+{
+  "landing": {
+    "title": "[EN] From data to decision.",
+    "subtitle": "[EN] Analyse · Value · Buy or sell. Private, conversational platform for M&A in the Madtech ecosystem.",
+    "stage": "[EN] Stage 0 · Foundation",
+    "ctaDesignSystem": "[EN] View Design System"
+  },
+  "nav": {
+    "home": "[EN] Home",
+    "designSystem": "[EN] Design System",
+    "locale": "[EN] Language"
+  },
+  "theme": {
+    "light": "[EN] Light",
+    "dark": "[EN] Dark",
+    "toggle": "[EN] Toggle theme"
+  },
+  "monochrome": {
+    "on": "[EN] Enable monochrome",
+    "off": "[EN] Disable monochrome"
+  },
+  "ds": {
+    "title": "[EN] Design System",
+    "subtitle": "[EN] Tokens, primitives and WCAG check. Stage 0.",
+    "sectionBrand": "[EN] Brand colours",
+    "sectionSemantic": "[EN] Semantic colours",
+    "sectionFeedback": "[EN] Feedback colours",
+    "sectionTypography": "[EN] Typography",
+    "sectionFormat": "[EN] es-ES format",
+    "sectionSpacing": "[EN] Spacing",
+    "sectionRadii": "[EN] Radii",
+    "sectionPrimitives": "[EN] Primitives",
+    "sectionContrast": "[EN] WCAG AA contrast",
+    "sectionQA": "[EN] Visual QA",
+    "contrastPair": "[EN] Pair",
+    "contrastRatio": "[EN] Ratio",
+    "contrastResult": "[EN] Result",
+    "contrastPass": "[EN] AA pass",
+    "contrastFail": "[EN] AA fail"
+  },
+  "confidence": {
+    "label": "[EN] Confidence",
+    "high": "[EN] High",
+    "med": "[EN] Medium",
+    "low": "[EN] Low"
+  }
+}

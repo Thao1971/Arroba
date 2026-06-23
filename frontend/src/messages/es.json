@@ -1,0 +1,47 @@
+{
+  "landing": {
+    "title": "Del dato a la decisión.",
+    "subtitle": "Analízar · Valorar · Comprar o vender. Una plataforma privada, conversacional, para operaciones de M&A en el ecosistema Madtech.",
+    "stage": "Etapa 0 · Fundación",
+    "ctaDesignSystem": "Ver Design System"
+  },
+  "nav": {
+    "home": "Inicio",
+    "designSystem": "Design System",
+    "locale": "Idioma"
+  },
+  "theme": {
+    "light": "Claro",
+    "dark": "Oscuro",
+    "toggle": "Cambiar tema"
+  },
+  "monochrome": {
+    "on": "Activar monocromo",
+    "off": "Desactivar monocromo"
+  },
+  "ds": {
+    "title": "Design System",
+    "subtitle": "Tokens, primitives y verificación WCAG. Etapa 0.",
+    "sectionBrand": "Colores — Brand",
+    "sectionSemantic": "Colores — Semantic",
+    "sectionFeedback": "Colores — Feedback",
+    "sectionTypography": "Tipografía",
+    "sectionFormat": "Formato es-ES",
+    "sectionSpacing": "Spacing",
+    "sectionRadii": "Radios",
+    "sectionPrimitives": "Primitives",
+    "sectionContrast": "Contraste WCAG AA",
+    "sectionQA": "QA visual",
+    "contrastPair": "Par",
+    "contrastRatio": "Ratio",
+    "contrastResult": "Resultado",
+    "contrastPass": "AA pasa",
+    "contrastFail": "AA falla"
+  },
+  "confidence": {
+    "label": "Confianza",
+    "high": "Alta",
+    "med": "Media",
+    "low": "Baja"
+  }
+}
