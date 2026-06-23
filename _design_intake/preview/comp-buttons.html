@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { background: var(--bg); padding: 20px; font-family: var(--font-body); }
+  .section-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .divider { border: none; border-top: 1px solid var(--border-subtle); margin: 14px 0; }
+
+  /* Base button */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    font-family: var(--font-body); font-size: 13px; font-weight: 500;
+    border-radius: var(--radius-md); border: none; cursor: pointer;
+    padding: 0 14px; height: 34px; transition: all 120ms ease-out;
+    letter-spacing: -0.01em; white-space: nowrap;
+  }
+
+  /* Variants */
+  .btn-primary   { background: oklch(0.76 0.12 52); color: #0a0a0a; }
+  .btn-secondary { background: var(--surface-3); color: var(--text-1); border: 1px solid var(--border-default); }
+  .btn-ghost     { background: transparent; color: var(--text-2); }
+  .btn-danger    { background: oklch(0.61 0.17 22 / 0.15); color: oklch(0.61 0.17 22); border: 1px solid oklch(0.61 0.17 22 / 0.3); }
+  .btn-outline   { background: transparent; color: oklch(0.76 0.12 52); border: 1px solid oklch(0.76 0.12 52 / 0.4); }
+
+  /* Sizes */
+  .btn-sm { height: 28px; font-size: 12px; padding: 0 10px; }
+  .btn-lg { height: 42px; font-size: 15px; padding: 0 20px; }
+
+  /* States */
+  .btn-disabled { opacity: 0.35; pointer-events: none; }
+  .btn-loading  { opacity: 0.7; }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 2px; }
+</style>
+</head>
+<body>
+  <div class="section-title">Variantes</div>
+  <div class="row">
+    <button class="btn btn-primary">Solicitar NDA</button>
+    <button class="btn btn-secondary">Ver deal</button>
+    <button class="btn btn-outline">Hacer oferta</button>
+    <button class="btn btn-ghost">Cancelar</button>
+    <button class="btn btn-danger">Rechazar</button>
+  </div>
+
+  <hr class="divider">
+  <div class="section-title">Tamaños</div>
+  <div class="row">
+    <button class="btn btn-primary btn-sm">Pequeño</button>
+    <button class="btn btn-primary">Default</button>
+    <button class="btn btn-primary btn-lg">Grande</button>
+  </div>
+
+  <hr class="divider">
+  <div class="section-title">Estados</div>
+  <div class="row">
+    <button class="btn btn-primary">Normal</button>
+    <button class="btn btn-primary btn-disabled">Desactivado</button>
+    <button class="btn btn-primary btn-loading">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="animation:spin 1s linear infinite">
+        <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="20" stroke-dashoffset="10" opacity=".4"/>
+      </svg>
+      Cargando...
+    </button>
+    <button class="btn btn-secondary">
+      <span class="dot" style="background:oklch(0.67 0.13 150)"></span>En proceso
+    </button>
+  </div>
+  <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+</body>
+</html>

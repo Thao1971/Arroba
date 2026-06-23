@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bloques · Scores y Signals — arroba.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#FAFAF8;--surface:#FFFFFF;--surface-2:#F4F4F0;--border:#E8E8E2;--border-strong:#D4D4CC;
+    --text:#0C0C0E;--muted:#636360;--subtle:#ADADAA;--red:#E8001D;--success:#1A8A4A;--warning:#D97708;--info:#2164E3;
+    --font-display:'Space Grotesk',system-ui,sans-serif;--font-body:'DM Sans',system-ui,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  [data-dark]{--bg:#0C0C0E;--surface:#1A1A18;--surface-2:#242422;--border:#2E2E2C;--border-strong:#4A4A47;--text:#FAFAF8;--muted:#ADADAA;--subtle:#636360}
+  html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+  a{color:inherit;text-decoration:none}
+  .spark{color:var(--red);font-weight:700}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .tb{position:sticky;top:0;z-index:300;height:60px;display:flex;align-items:center;gap:24px;padding:0 28px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+  .tb nav{display:flex;gap:2px}.tb nav a{font-size:14px;font-weight:500;color:var(--muted);padding:7px 14px;border-radius:8px}.tb nav a.on{color:var(--text);font-weight:700}
+  .tb .sp{flex:1}.tb .ic{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px}
+  .wrap{max-width:min(1180px,94vw);margin:0 auto;padding:30px 28px 160px}
+  .lead h1{font-family:var(--font-display);font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+  .lead p{font-size:15px;color:var(--muted);max-width:680px;line-height:1.6}
+  .sec{font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--subtle);margin:38px 0 14px;display:flex;align-items:center;gap:9px}
+  .grid{display:grid;gap:16px}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr 1fr}
+  @media(max-width:900px){.g3,.g4,.g2{grid-template-columns:1fr 1fr}}@media(max-width:560px){.g3,.g4,.g2{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .ct{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--subtle);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+  /* score ring */
+  .ring{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .rv{font-family:var(--font-mono);font-size:22px;font-weight:600}
+  .ring .rl{font-size:13px;color:var(--muted);font-weight:500}
+  .conf{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px}
+  .conf .cd{width:7px;height:7px;border-radius:50%}
+  .conf.alta{color:var(--success);background:rgba(26,138,74,.1)}.conf.alta .cd{background:var(--success)}
+  .conf.media{color:var(--warning);background:rgba(217,119,8,.1)}.conf.media .cd{background:var(--warning)}
+  .conf.baja{color:var(--muted);background:var(--surface-2)}.conf.baja .cd{background:var(--subtle)}
+  /* signal */
+  .sig{display:flex;gap:11px;padding:12px 0;border-top:1px solid var(--border)}.sig:first-of-type{border-top:0}
+  .sig .sd{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
+  .sig .st{font-size:13.5px;line-height:1.45}.sig .ss{font-size:12px;color:var(--muted);margin-top:2px}
+  /* states */
+  .skel{background:linear-gradient(90deg,var(--surface-2) 25%,var(--border) 50%,var(--surface-2) 75%);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:7px}
+  @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .empty{text-align:center;padding:14px 6px}
+  .empty .ei{width:42px;height:42px;border-radius:11px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;color:var(--red)}
+  .empty .et{font-size:13.5px;font-weight:600;margin-bottom:4px}.empty .ed{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit}
+  .btn.primary{background:var(--red);color:#fff;border-color:transparent}
+  .err{border-color:rgba(232,0,29,.25)!important;background:rgba(232,0,29,.03)}
+  .nd{color:var(--subtle);font-style:italic}
+  .note{font-size:12px;color:var(--subtle);margin-top:10px;line-height:1.5}
+  .anatomy{font-family:var(--font-mono);font-size:12px;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;line-height:1.7;overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="tb">
+  <a href="Home.html" style="display:flex;align-items:center"><img src="uploads/logo.png" alt="arroba" style="height:55px"/></a>
+  <nav><a href="Design System.html">Design System</a><a class="on">Bloques</a></nav>
+  <div class="sp"></div>
+  <button class="ic" id="theme" title="Tema">◑</button>
+</div>
+
+<div class="wrap">
+  <div class="lead">
+    <h1>Bloques · Scores &amp; Signals</h1>
+    <p>Bloques reutilizables del sistema arroba. Los <b>Scores</b> resumen una dimensión en un anillo de 0–100 con su nivel de <b>confianza</b>; las <b>Signals</b> comunican hallazgos en <b>lenguaje condicional</b>. Todo lo generado por inteligencia se marca con <span class="spark">✦</span>. Cada bloque define cuatro estados: <b>con datos</b>, <b>cargando</b>, <b>vacío</b> y <b>error / dato no disponible</b>.</p>
+  </div>
+
+  <!-- SCORES -->
+  <div class="sec"><span class="spark">✦</span> Bloque · Score (anillo + confianza)</div>
+  <div class="grid g4">
+    <div class="card"><div class="ct">Con datos · alta</div>
+      <div class="ring" id="r1"></div>
+    </div>
+    <div class="card"><div class="ct">Con datos · media</div>
+      <div class="ring" id="r2"></div>
+    </div>
+    <div class="card"><div class="ct">Cargando</div>
+      <div class="ring"><div class="skel" style="width:74px;height:74px;border-radius:50%"></div><div class="skel" style="width:60px;height:13px;margin-top:4px"></div><div class="skel" style="width:80px;height:18px;border-radius:999px"></div></div>
+    </div>
+    <div class="card err"><div class="ct" style="color:var(--red)">Dato no disponible</div>
+      <div class="ring">
+        <svg width="74" height="74"><circle cx="37" cy="37" r="31" fill="none" stroke="var(--surface-2)" stroke-width="7"/><circle cx="37" cy="37" r="31" fill="none" stroke="var(--border-strong)" stroke-width="7" stroke-dasharray="4 6"/></svg>
+        <div class="rv nd" style="font-size:15px">s/d</div><div class="rl">Calidad</div>
+        <span class="conf baja"><span class="cd"></span> Sin datos suficientes</span>
+      </div>
+      <div class="note">No calculamos el score sin fuentes fiables. Nunca se inventan cifras.</div>
+    </div>
+  </div>
+  <div class="note">Color del anillo por dimensión: Calidad/positivo <b style="color:var(--success)">verde</b>, neutro <b style="color:var(--info)">azul</b>, oportunidad/marca <b style="color:var(--red)">rojo</b>, riesgo <b style="color:var(--warning)">ámbar</b>. La confianza (Alta/Media/Baja + %) acompaña SIEMPRE al valor.</div>
+
+  <!-- SIGNALS -->
+  <div class="sec"><span class="spark">✦</span> Bloque · Signals (lenguaje condicional)</div>
+  <div class="grid g2">
+    <div class="card"><div class="ct">Con datos</div>
+      <div class="sig"><span class="sd" style="background:var(--success)"></span><div><div class="st">Márgenes sólidos y crecientes en los últimos 3 ejercicios.</div><div class="ss">Podría presentar un perfil atractivo para capital de expansión. · Confianza alta</div></div></div>
+      <div class="sig"><span class="sd" style="background:var(--info)"></span><div><div class="st">Estructura de balance saneada, con deuda neta negativa.</div><div class="ss">Tendría capacidad de apalancamiento para adquisiciones. · Confianza alta</div></div></div>
+      <div class="sig"><span class="sd" style="background:var(--warning)"></span><div><div class="st">Concentración en un único territorio.</div><div class="ss">La expansión geográfica podría reducir el riesgo. · Confianza media</div></div></div>
+    </div>
+    <div class="card"><div class="ct">Cargando</div>
+      <div class="sig"><span class="skel" style="width:8px;height:8px;border-radius:50%;margin-top:6px"></span><div style="flex:1"><div class="skel" style="width:80%;height:13px;margin-bottom:7px"></div><div class="skel" style="width:55%;height:11px"></div></div></div>
+      <div class="sig"><span class="skel" style="width:8px;height:8px;border-radius:50%;margin-top:6px"></span><div style="flex:1"><div class="skel" style="width:70%;height:13px;margin-bottom:7px"></div><div class="skel" style="width:48%;height:11px"></div></div></div>
+      <div class="sig"><span class="skel" style="width:8px;height:8px;border-radius:50%;margin-top:6px"></span><div style="flex:1"><div class="skel" style="width:75%;height:13px;margin-bottom:7px"></div><div class="skel" style="width:52%;height:11px"></div></div></div>
+    </div>
+    <div class="card"><div class="ct">Vacío</div>
+      <div class="empty">
+        <div class="ei"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l3 8 4-16 3 8h4"/></svg></div>
+        <div class="et">Aún no hay señales</div>
+        <div class="ed">No he detectado señales relevantes todavía. Puedo analizar la compañía para buscarlas.</div>
+        <button class="btn primary"><span class="spark" style="color:#fff">✦</span> Buscar señales</button>
+      </div>
+    </div>
+    <div class="card err"><div class="ct" style="color:var(--red)">Error</div>
+      <div class="empty">
+        <div class="ei" style="background:rgba(232,0,29,.08)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+        <div class="et">No se pudieron cargar las señales</div>
+        <div class="ed">Ha ocurrido un problema al consultar las fuentes. Inténtalo de nuevo.</div>
+        <button class="btn">Reintentar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANATOMÍA / USO -->
+  <div class="sec">Anatomía y uso</div>
+  <div class="grid g2">
+    <div class="card">
+      <div class="ct">Score</div>
+      <div class="anatomy">Score {<br/>&nbsp;&nbsp;label: "Calidad",<br/>&nbsp;&nbsp;value: 82,            // 0–100<br/>&nbsp;&nbsp;tone: "success|info|red|warning",<br/>&nbsp;&nbsp;confidence: "alta|media|baja",<br/>&nbsp;&nbsp;confidencePct: 88,<br/>&nbsp;&nbsp;state: "data|loading|empty|nd"<br/>}</div>
+      <div class="note">Si <b>state ≠ data</b>, el anillo NO muestra número: pasa a skeleton (loading) o a trama discontinua + "s/d" (no disponible). La confianza siempre visible.</div>
+    </div>
+    <div class="card">
+      <div class="ct">Signal</div>
+      <div class="anatomy">Signal {<br/>&nbsp;&nbsp;tone: "success|info|warning|red",<br/>&nbsp;&nbsp;text: "Hecho observado (afirmación neutra).",<br/>&nbsp;&nbsp;implication: "Podría / tendría… (condicional)",<br/>&nbsp;&nbsp;confidence: "alta|media|baja"<br/>}</div>
+      <div class="note">La <b>implicación</b> usa siempre lenguaje condicional ("podría", "tendría"), nunca afirmaciones tajantes. Acompañada de su confianza.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var dark=localStorage.getItem('arr-dark')==='true';
+  function apply(){document.documentElement.toggleAttribute('data-dark',dark);document.getElementById('theme').textContent=dark?'☀':'◑';}
+  apply();
+  document.getElementById('theme').onclick=function(){dark=!dark;localStorage.setItem('arr-dark',dark);apply();};
+  function ring(id,val,tone,label,conf,pct){
+    var colors={success:'#1A8A4A',info:'#2164E3',red:'#E8001D',warning:'#D97708'};
+    var c=colors[tone], circ=194.8, off=circ*(1-val/100);
+    var html='<svg width="74" height="74"><circle cx="37" cy="37" r="31" fill="none" stroke="var(--surface-2)" stroke-width="7"/>'+
+      '<circle cx="37" cy="37" r="31" fill="none" stroke="'+c+'" stroke-width="7" stroke-linecap="round" stroke-dasharray="'+circ+'" stroke-dashoffset="'+off+'"/></svg>'+
+      '<div class="rv">'+val+'</div><div class="rl">'+label+'</div>'+
+      '<span class="conf '+conf+'"><span class="cd"></span> Confianza '+conf+' · '+pct+'%</span>';
+    document.getElementById(id).innerHTML=html;
+  }
+  ring('r1',82,'success','Calidad','alta',88);
+  ring('r2',64,'info','Crecimiento','media',71);
+</script>
+<script src="assets/arroba-composer.js"></script>
+</body>
+</html>

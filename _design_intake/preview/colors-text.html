@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { background: var(--bg); padding: 20px; font-family: var(--font-body); }
+  .row { display: flex; gap: 6px; margin-bottom: 10px; align-items: center; }
+  .swatch { width: 36px; height: 36px; border-radius: var(--radius-md); flex-shrink: 0; }
+  .info { display: flex; flex-direction: column; gap: 1px; }
+  .name { font-size: 12px; color: var(--text-1); font-family: var(--font-display); font-weight: 500; }
+  .hex  { font-size: 10px; color: var(--text-3); font-family: var(--font-mono); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .section-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; font-family: var(--font-display); }
+</style>
+</head>
+<body>
+  <div class="section-title">Textos</div>
+  <div class="cols">
+    <div class="row"><div class="swatch" style="background:#f0ede8"></div><div class="info"><span class="name">Primary</span><span class="hex">--text-1 / #f0ede8</span></div></div>
+    <div class="row"><div class="swatch" style="background:#9b9895"></div><div class="info"><span class="name">Secondary</span><span class="hex">--text-2 / #9b9895</span></div></div>
+    <div class="row"><div class="swatch" style="background:#5e5c5a"></div><div class="info"><span class="name">Tertiary</span><span class="hex">--text-3 / #5e5c5a</span></div></div>
+    <div class="row"><div class="swatch" style="background:#363432; border:1px solid #2c2c2c"></div><div class="info"><span class="name">Disabled</span><span class="hex">--text-4 / #363432</span></div></div>
+  </div>
+
+  <div style="margin-top:16px">
+    <div class="section-title" style="margin-bottom:8px">Texto en uso</div>
+    <div style="line-height:1.6">
+      <div style="font-size:15px; color:#f0ede8; font-family:'Space Grotesk',sans-serif; font-weight:500">Gestiona tus operaciones</div>
+      <div style="font-size:13px; color:#9b9895">Acceso privado al mercado Madtech</div>
+      <div style="font-size:11px; color:#5e5c5a; letter-spacing:0.08em; text-transform:uppercase; font-weight:600">Deal Flow · En curso</div>
+    </div>
+  </div>
+</body>
+</html>

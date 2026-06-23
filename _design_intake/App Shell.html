@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>App Shell — arroba.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --red:#E8001D; --red-light:#FF1A35; --red-dark:#B5001A;
+    --bg:#FAFAF8; --surface:#FFFFFF; --surface-2:#F4F4F0;
+    --border:#E8E8E2; --border-strong:#D8D8D2;
+    --text:#0C0C0E; --muted:#858580; --subtle:#ADADAA;
+    --success:#1A8A4A; --warning:#D97708; --info:#2164E3;
+    --focus:rgba(232,0,29,.18);
+    --font-display:'Space Grotesk',system-ui,sans-serif;
+    --font-body:'DM Sans',system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,monospace;
+    --shadow-sm:0 1px 2px rgba(12,12,14,.04),0 1px 3px rgba(12,12,14,.06);
+    --shadow-md:0 4px 12px rgba(12,12,14,.06),0 2px 4px rgba(12,12,14,.04);
+    --shadow-lg:0 16px 48px rgba(12,12,14,.14),0 4px 12px rgba(12,12,14,.08);
+  }
+  [data-dark]{
+    --bg:#0C0C0E; --surface:#16161A; --surface-2:#1F1F23;
+    --border:#2A2A2E; --border-strong:#3A3A40;
+    --text:#FAFAF8; --muted:#9A9A96; --subtle:#6B6B68;
+    --shadow-lg:0 16px 48px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);
+  }
+  html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:5px}
+  button{font-family:inherit;cursor:pointer}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .disp{font-family:var(--font-display)}
+
+  /* ===== TOP BAR ===== */
+  .topbar{position:fixed;top:0;left:0;right:0;height:60px;z-index:100;display:flex;align-items:center;gap:24px;padding:0 24px;
+    background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+  .logo{font-family:var(--font-display);font-weight:700;font-size:21px;letter-spacing:-.02em;color:var(--text);text-decoration:none;white-space:nowrap}
+  .logo .b{color:var(--red)}
+  .nav{display:flex;gap:2px}
+  .nav a{position:relative;font-weight:600;font-size:14.5px;color:var(--muted);padding:8px 14px;border-radius:8px;text-decoration:none;transition:color .12s,background .12s}
+  .nav a:hover{color:var(--text);background:var(--surface-2)}
+  .nav a.active{color:var(--text)}
+  .nav a.active::after{content:"";position:absolute;left:14px;right:14px;bottom:-19px;height:2px;background:var(--red);border-radius:2px}
+  .search{flex:1;max-width:440px;margin:0 auto;position:relative}
+  .search input{width:100%;height:38px;border-radius:10px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);
+    padding:0 12px 0 36px;font-family:inherit;font-size:14px;outline:none;transition:border-color .12s,box-shadow .12s}
+  .search input:focus{border-color:var(--red);box-shadow:0 0 0 3px var(--focus)}
+  .search .si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--subtle);pointer-events:none}
+  .search kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-size:11px;color:var(--subtle);
+    border:1px solid var(--border);border-radius:5px;padding:2px 6px;background:var(--surface-2)}
+  .tb-right{display:flex;align-items:center;gap:10px}
+  .icon-btn{width:38px;height:38px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+  .icon-btn:hover{background:var(--surface-2);color:var(--text)}
+  .avatar{width:34px;height:34px;border-radius:50%;background:#A8C03E;color:#0C0C0E;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+
+  /* ===== CANVAS ===== */
+  .canvas{padding:60px 0 220px;min-height:100vh;display:flex;flex-direction:column}
+  .welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px 40px;gap:0}
+  .welcome .eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:6px 13px;border-radius:999px;margin-bottom:28px}
+  .welcome h1{font-family:var(--font-display);font-size:clamp(30px,4.4vw,46px);font-weight:700;letter-spacing:-.025em;line-height:1.08;margin-bottom:14px;max-width:680px}
+  .welcome h1 .nm{color:var(--red)}
+  .welcome p{font-size:16.5px;color:var(--muted);max-width:520px;line-height:1.55}
+  .empty-blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:720px;width:100%;margin:44px auto 0;padding:0 24px}
+  @media(max-width:720px){.empty-blocks{grid-template-columns:1fr}}
+  .eb{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;text-align:left;transition:border-color .14s,transform .14s,box-shadow .14s;text-decoration:none;color:inherit;display:block}
+  .eb:hover{border-color:var(--red);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .eb .ei{width:38px;height:38px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--red);margin-bottom:13px}
+  .eb h3{font-family:var(--font-display);font-size:15px;font-weight:700;margin-bottom:4px}
+  .eb span{font-size:13px;color:var(--muted);line-height:1.45}
+
+  /* ===== COPILOT COMPOSER ===== */
+  .cop-wrap{position:fixed;left:0;right:0;bottom:0;z-index:90;display:flex;flex-direction:column;align-items:center;padding:0 20px 24px;pointer-events:none}
+  .cop-wrap::before{content:"";position:absolute;left:0;right:0;bottom:0;height:170px;background:linear-gradient(to top,var(--bg) 38%,transparent);pointer-events:none}
+  .cop{position:relative;pointer-events:auto;width:100%;max-width:720px;background:var(--surface);border:1px solid var(--border-strong);border-radius:18px;box-shadow:var(--shadow-lg);transition:max-width .24s ease}
+  .cop.central{max-width:720px}
+  .cop.bar{max-width:560px}
+
+  /* panel expandido (mensajes) */
+  .cop-panel{max-height:0;overflow:hidden;transition:max-height .26s ease;border-bottom:0 solid var(--border)}
+  .cop.open .cop-panel{max-height:340px;overflow-y:auto;border-bottom:1px solid var(--border)}
+  .cop-msgs{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+  .msg{display:flex;gap:10px;max-width:92%}
+  .msg.user{align-self:flex-end;flex-direction:row-reverse}
+  .msg .mav{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+  .msg.bot .mav{background:var(--red);color:#fff}
+  .msg.user .mav{background:#A8C03E;color:#0C0C0E}
+  .msg .mtxt{font-size:14px;line-height:1.6;padding:9px 13px;border-radius:13px}
+  .msg.bot .mtxt{background:var(--surface-2);border:1px solid var(--border);border-bottom-left-radius:4px}
+  .msg.user .mtxt{background:var(--red);color:#fff;border-bottom-right-radius:4px}
+
+  /* chips próxima mejor acción */
+  .cop-chips{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px 0}
+  .cop-chips .lbl{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--subtle);width:100%;display:flex;align-items:center;gap:6px;margin-bottom:2px}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--text);background:var(--surface-2);border:1px solid var(--border);padding:7px 12px;border-radius:999px;transition:all .12s}
+  .chip:hover{border-color:var(--red);color:var(--red)}
+  .chip svg{color:var(--red)}
+
+  /* input row */
+  .cop-input{display:flex;align-items:flex-end;gap:10px;padding:14px 16px 12px}
+  .cop-input textarea{flex:1;border:none;outline:none;background:transparent;color:var(--text);font-family:inherit;font-size:15.5px;line-height:1.5;resize:none;max-height:120px;padding:7px 2px}
+  .cop-input textarea::placeholder{color:var(--subtle)}
+  .ci-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s}
+  .ci-btn:hover{background:var(--surface-2);color:var(--text)}
+  .ci-btn.adv.on{background:rgba(232,0,29,.08);border-color:var(--red);color:var(--red)}
+  .ci-send{width:38px;height:38px;border-radius:10px;border:none;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:filter .12s,opacity .12s}
+  .ci-send:hover{filter:brightness(1.08)}
+  .ci-left{display:flex;gap:6px;flex-shrink:0}
+
+  /* footer bordes */
+  .cop-foot{display:flex;align-items:center;gap:14px;padding:9px 18px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted)}
+  .cop-foot button{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);font-size:12.5px;font-weight:500;padding:4px 6px;border-radius:6px;transition:color .12s,background .12s}
+  .cop-foot button:hover{color:var(--text);background:var(--surface-2)}
+  .cop-foot .sp{flex:1}
+  .cop-foot .credits{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:12px}
+  .cop-foot .credits b{color:var(--text);font-weight:600}
+  .cop-foot .recargar{color:var(--red);font-weight:600}
+  .spark{color:var(--red);font-weight:700}
+
+  /* minimizado a icono @ (mosaico barrido diagonal) */
+  .cop-min{position:fixed;right:24px;bottom:24px;z-index:95;pointer-events:auto;width:52px;height:52px;border-radius:50%;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-lg);display:none;align-items:center;justify-content:center;transition:transform .15s,box-shadow .15s,max-width .24s}
+  .cop-min:hover{transform:translateY(-2px)}
+  body.cop-mini .cop-wrap{display:none}
+  body.cop-mini .cop-min{display:flex}
+  .cop-min svg{display:block}
+  .cm-px{fill:rgba(232,0,29,.22);animation:cmSweep 3.4s ease-in-out infinite;animation-delay:calc(var(--o)*.12s)}
+  @keyframes cmSweep{0%,82%,100%{fill:rgba(232,0,29,.22)}18%,55%{fill:var(--red)}}
+  .cop-min:hover .cm-px{animation:none;fill:var(--red)}
+
+  /* state switcher (demo) */
+  .demo{position:fixed;top:72px;right:24px;z-index:120;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;box-shadow:var(--shadow-md)}
+  .demo button{font-size:12.5px;font-weight:600;color:var(--muted);background:none;border:none;padding:7px 12px;border-radius:7px}
+  .demo button.on{background:var(--red);color:#fff}
+  .hint-conn{display:none;align-items:center;gap:8px;justify-content:center;font-size:13px;color:var(--warning);background:rgba(217,119,8,.08);border:1px solid rgba(217,119,8,.2);border-radius:10px;padding:9px 14px;margin:0 auto 12px;max-width:560px;pointer-events:auto}
+  .cop-wrap.offline .hint-conn{display:flex}
+
+  /* search suggestions */
+  .sug{position:absolute;top:46px;left:0;right:0;background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;display:none}
+  .search.show .sug{display:block}
+  .sug a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:8px;text-decoration:none;color:var(--text);font-size:14px}
+  .sug a:hover{background:var(--surface-2)}
+  .sug .sty{font-size:11px;color:var(--subtle);margin-left:auto;font-weight:600}
+  .sug .sh{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--subtle);padding:8px 11px 4px}
+</style>
+</head>
+<body>
+
+<!-- DEMO state switcher -->
+<div class="demo" id="demo">
+  <button data-st="central" class="on">Central (Home)</button>
+  <button data-st="open">Expandido</button>
+  <button data-st="bar">Barra</button>
+  <button data-st="offline">Sin conexión</button>
+</div>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <a href="#" class="logo">/.rrob<span class="b">.</span>\</a>
+  <nav class="nav">
+    <a href="#" class="active">Analizar</a>
+    <a href="#">Valorar</a>
+    <a href="#">Comprar-Vender</a>
+  </nav>
+  <div style="flex:1"></div>
+  <div class="tb-right">
+    <button class="icon-btn" id="theme" title="Tema">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <button class="icon-btn" title="Notificaciones">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    </button>
+    <div class="avatar">D</div>
+  </div>
+</header>
+
+<!-- CANVAS -->
+<main class="canvas">
+  <div class="welcome">
+    <span class="eyebrow"><span class="spark">✦</span> Inteligencia económica y transaccional · España</span>
+    <h1>Me alegro de volver a verte, <span class="nm">Daniel</span>.<br/>¿Qué quieres conseguir hoy?</h1>
+    <p>Analiza una empresa, valora un negocio o pon en marcha una operación. Dímelo en lenguaje natural y lo construyo contigo.</p>
+
+    <div class="empty-blocks">
+      <a class="eb" href="#">
+        <span class="ei"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M16.5 16.5 21 21"/></svg></span>
+        <h3>Analizar una empresa</h3>
+        <span>Busca por nombre o CIF y abre su workspace.</span>
+      </a>
+      <a class="eb" href="#">
+        <span class="ei"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span>
+        <h3>Valorar un negocio</h3>
+        <span>Estimación orientativa por múltiplos comparables.</span>
+      </a>
+      <a class="eb" href="#">
+        <span class="ei"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg></span>
+        <h3>Iniciar una operación</h3>
+        <span>Comprar, vender o levantar capital con tu Copilot.</span>
+      </a>
+    </div>
+  </div>
+</main>
+
+<!-- COPILOT COMPOSER -->
+<div class="cop-wrap" id="copWrap">
+  <div class="hint-conn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M1 1l22 22"/><path d="M16.7 11.7A5 5 0 0 0 5.3 15"/><path d="M5 12.5a10 10 0 0 1 4-2.4"/><path d="M12 20h.01"/></svg>
+    Sin conexión — el Copilot reintentará en cuanto vuelvas a estar en línea.
+  </div>
+
+  <div class="cop central" id="cop">
+    <!-- panel de conversación (expandido) -->
+    <div class="cop-panel">
+      <div class="cop-msgs">
+        <div class="msg bot"><span class="mav">✦</span><div class="mtxt">Hola, Daniel. Tienes <b>3 oportunidades activas</b> y una pregunta de due diligence esperando respuesta. ¿Quieres que las repasemos o prefieres empezar algo nuevo?</div></div>
+        <div class="msg user"><span class="mav">D</span><div class="mtxt">Valora Grupo Olmedo Hoteles</div></div>
+        <div class="msg bot"><span class="mav">✦</span><div class="mtxt">Voy a estimar su valor por múltiplos comparables del sector hotelero. Abro el workspace de la compañía con la valoración cuando esté lista. <span class="spark">✦</span> <i>Estimación orientativa, no una valoración formal.</i></div></div>
+      </div>
+    </div>
+
+    <!-- chips próxima mejor acción -->
+    <div class="cop-chips" id="chips">
+      <span class="lbl"><span class="spark">✦</span> Próxima mejor acción</span>
+      <button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg> Valorar una empresa</button>
+      <button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M16.5 16.5 21 21"/></svg> Analizar un sector</button>
+      <button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg> Buscar oportunidades</button>
+      <button class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg> Activar un caso</button>
+    </div>
+
+    <!-- input -->
+    <div class="cop-input">
+      <div class="ci-left">
+        <button class="ci-btn" title="Adjuntar cuentas, CIF o documentos">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 11.05 12.25 20.2a5 5 0 0 1-7.07-7.07l8.49-8.49a3 3 0 0 1 4.24 4.24l-8.49 8.49a1 1 0 0 1-1.41-1.41l7.78-7.78"/></svg>
+        </button>
+        <button class="ci-btn" title="Traer una entidad al contexto">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>
+        </button>
+        <button class="ci-btn adv" id="adv" title="Modo avanzado · razonamiento profundo (consume créditos)">
+          <span class="spark" style="font-size:15px">✦</span>
+        </button>
+        <button class="ci-btn" title="Dictar por voz">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg>
+        </button>
+      </div>
+      <textarea id="ta" rows="1" placeholder="Pídeme analizar, valorar o iniciar una operación…"></textarea>
+      <button class="ci-send" title="Enviar">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+      </button>
+    </div>
+
+    <!-- footer bordes -->
+    <div class="cop-foot">
+      <button title="Histórico de conversaciones"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> Histórico</button>
+      <button title="Empezar una intención nueva"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Nueva intención</button>
+      <span class="sp"></span>
+      <span class="credits"><b>100</b> créditos</span>
+      <button class="recargar">Recargar</button>
+      <button id="expand" title="Expandir / colapsar"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" id="expIco"><path d="M7 14 4 17l3 3"/><path d="M17 10l3-3-3-3"/><path d="M4 17h11a4 4 0 0 0 4-4V7"/></svg></button>
+      <button id="minBtn" title="Minimizar el Copilot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- COPILOT MINIMIZADO (icono @) -->
+<button class="cop-min" id="copMin" title="Abrir arroba copilot">
+  <svg width="32" height="32" viewBox="0 0 36 36" id="copMinSvg"></svg>
+</button>
+
+<script>
+  var cop=document.getElementById('cop'), wrap=document.getElementById('copWrap');
+  // icono @ del minimizado (mosaico, barrido diagonal)
+  (function(){
+    var G=["..XXXX..",".X....X.","X..XX..X","X.X..X.X","X.X..X.X","X..XXXXX",".X......","..XXXX.."];
+    var cell=3.4,ox=5,oy=5,s='';
+    for(var y=0;y<G.length;y++)for(var x=0;x<8;x++){if(G[y][x]==='X'){s+='<rect class="cm-px" style="--o:'+(x+y)+'" x="'+(ox+x*cell).toFixed(1)+'" y="'+(oy+y*cell).toFixed(1)+'" width="'+(cell-0.7)+'" height="'+(cell-0.7)+'" rx="0.7"/>';}}
+    document.getElementById('copMinSvg').innerHTML=s;
+  })();
+  // minimizar / restaurar
+  document.getElementById('minBtn').onclick=function(){document.body.classList.add('cop-mini');};
+  document.getElementById('copMin').onclick=function(){document.body.classList.remove('cop-mini');};
+  // tema
+  document.getElementById('theme').onclick=function(){document.documentElement.toggleAttribute('data-dark');};
+  // modo avanzado
+  document.getElementById('adv').onclick=function(){this.classList.toggle('on');};
+  // expandir/colapsar
+  document.getElementById('expand').onclick=function(){cop.classList.toggle('open');};
+  // textarea auto-grow
+  var ta=document.getElementById('ta');
+  ta.addEventListener('input',function(){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';});
+  // búsqueda eliminada (Intent-First: el Copilot es el punto de entrada)
+  // demo switcher
+  document.querySelectorAll('#demo button').forEach(function(b){
+    b.onclick=function(){
+      document.querySelectorAll('#demo button').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+      var st=b.dataset.st;
+      cop.classList.remove('central','bar','open'); wrap.classList.remove('offline');
+      document.getElementById('chips').style.display='flex';
+      if(st==='central'){cop.classList.add('central');}
+      else if(st==='open'){cop.classList.add('central','open');}
+      else if(st==='bar'){cop.classList.add('bar');document.getElementById('chips').style.display='none';}
+      else if(st==='offline'){cop.classList.add('bar');document.getElementById('chips').style.display='none';wrap.classList.add('offline');}
+    };
+  });
+</script>
+</body>
+</html>

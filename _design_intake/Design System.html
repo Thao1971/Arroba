@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arroba — Design System</title>
+
+  <!-- Google Fonts: all three type pairs -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@300;400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Barlow+Condensed:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Brand */
+      --brand-red:       #E8001D;
+      --brand-red-light: #FF1A35;
+      --brand-red-dark:  #B5001A;
+      --brand-black:     #0C0C0E;
+
+      /* Light mode surfaces */
+      --bg:            #FAFAF8;
+      --surface:       #FFFFFF;
+      --surface-2:     #F4F4F0;
+      --border:        #E8E8E2;
+      --border-strong: #D4D4CC;
+      --text:          #0C0C0E;
+      --text-muted:    #636360;
+      --text-subtle:   #ADADAA;
+      --primary:       #E8001D;
+      --primary-hover: #C50019;
+
+      /* Sidebar always dark */
+      --sidebar-bg:   #0C0C0E;
+      --sidebar-text: #FAFAF8;
+
+      /* Typography (defaults to Editorial, overridden via JS) */
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-body:    'DM Sans', system-ui, sans-serif;
+
+      /* Spacing */
+      --space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+      --space-4: 16px;  --space-5: 20px;  --space-6: 24px;
+      --space-8: 32px;  --space-10: 40px; --space-12: 48px;
+      --space-16: 64px; --space-20: 80px;
+
+      /* Radius */
+      --radius-sm: 4px; --radius-md: 8px; --radius-lg: 12px;
+      --radius-xl: 16px; --radius-2xl: 24px; --radius-full: 9999px;
+
+      /* Shadows */
+      --shadow-sm: 0 1px 2px rgba(12,12,14,.06), 0 1px 3px rgba(12,12,14,.04);
+      --shadow-md: 0 4px 6px rgba(12,12,14,.04), 0 2px 4px rgba(12,12,14,.06);
+      --shadow-lg: 0 10px 15px rgba(12,12,14,.06), 0 4px 6px rgba(12,12,14,.04);
+      --shadow-xl: 0 20px 25px rgba(12,12,14,.08), 0 10px 10px rgba(12,12,14,.04);
+      --focus-ring: 0 0 0 3px rgba(232,0,29,.22);
+    }
+
+    [data-dark="true"] {
+      --bg:            #0C0C0E;
+      --surface:       #1A1A18;
+      --surface-2:     #242422;
+      --border:        #2E2E2C;
+      --border-strong: #4A4A47;
+      --text:          #FAFAF8;
+      --text-muted:    #ADADAA;
+      --text-subtle:   #636360;
+      --primary:       #FF1A35;
+      --primary-hover: #FF3348;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body, 'DM Sans', system-ui, sans-serif);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      transition: background .2s, color .2s;
+    }
+
+    #root { min-height: 100vh; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+    /* Sidebar scrollbar */
+    aside::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); }
+
+    a { color: inherit; }
+
+    /* Smooth transitions on mode change */
+    *, *::before, *::after {
+      transition: background-color .15s, border-color .15s, color .1s;
+    }
+    /* But not transforms/opacity (would make hover feel laggy) */
+    button, [role="button"] {
+      transition: background-color .15s, border-color .15s, box-shadow .15s, transform .08s, opacity .15s;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Tokens (plain JS, no Babel needed) -->
+  <script src="ds/tokens.js"></script>
+
+  <!-- Components (Babel/JSX) -->
+  <script type="text/babel" src="ds/foundations.jsx"></script>
+  <script type="text/babel" src="ds/components-ui.jsx"></script>
+  <script type="text/babel" src="ds/app.jsx"></script>
+</body>
+</html>

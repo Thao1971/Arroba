@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Valoración avanzada — arroba.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#FAFAF8;--surface:#FFFFFF;--surface-2:#F4F4F0;--border:#E8E8E2;--border-strong:#D4D4CC;
+    --text:#0C0C0E;--muted:#636360;--subtle:#ADADAA;--red:#E8001D;--success:#1A8A4A;--warning:#D97708;--info:#2164E3;
+    --font-display:'Space Grotesk',system-ui,sans-serif;--font-body:'DM Sans',system-ui,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  [data-dark]{--bg:#0C0C0E;--surface:#1A1A18;--surface-2:#242422;--border:#2E2E2C;--border-strong:#4A4A47;--text:#FAFAF8;--muted:#ADADAA;--subtle:#636360}
+  html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .spark{color:var(--red);font-weight:700}
+  .tb{position:sticky;top:0;z-index:300;height:60px;display:flex;align-items:center;gap:24px;padding:0 28px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+  .tb .logo{height:55px;display:flex;align-items:center}
+  .tb nav{display:flex;gap:2px}
+  .tb nav a{font-size:14px;font-weight:500;color:var(--muted);padding:7px 14px;border-radius:8px}
+  .tb nav a.on{color:var(--text);font-weight:700}
+  .tb .sp{flex:1}
+  .tb .ic{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px}
+  .tb .av{width:32px;height:32px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .eh{background:var(--surface-2);border-bottom:1px solid var(--border)}
+  .eh .in{max-width:min(1180px,94vw);margin:0 auto;padding:18px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .eh .lg{width:50px;height:50px;border-radius:13px;background:linear-gradient(135deg,#0C0C0E,#2E2E2C);color:var(--red);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:20px;flex-shrink:0}
+  .eh h1{font-family:var(--font-display);font-size:21px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid rgba(232,0,29,.22);color:var(--red);background:rgba(232,0,29,.06)}
+  .eh .sub{font-size:13px;color:var(--muted);margin-top:3px}
+  .eh .act{display:flex;gap:9px;margin-left:auto}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;padding:10px 16px;border-radius:10px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;min-height:40px}
+  .btn:hover{background:var(--surface-2)}
+  .btn.primary{background:var(--red);color:#fff;border-color:transparent}.btn.primary:hover{filter:brightness(1.08)}
+  main{max-width:min(1180px,94vw);margin:0 auto;padding:24px 28px 170px}
+  .grid{display:grid;gap:16px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g23{grid-template-columns:1.6fr 1fr}
+  @media(max-width:880px){.g2,.g3,.g23{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .bh{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+  .bh .bt{font-family:var(--font-display);font-size:14px;font-weight:700}
+  .bh .bm{margin-left:auto;font-size:11.5px;color:var(--subtle)}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}
+  .row:first-of-type{border-top:0}
+  .row .l{font-size:13.5px;color:var(--muted)}
+  .row .v{font-family:var(--font-mono);font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  /* hero */
+  .hero{background:linear-gradient(120deg,#0C0C0E,#20202a);color:#fff;border-radius:18px;padding:30px 32px;position:relative;overflow:hidden;margin-bottom:16px}
+  .hero .bs{position:absolute;right:-15px;top:-35px;font-size:210px;color:rgba(232,0,29,.1);font-weight:800;line-height:1;pointer-events:none}
+  .hero .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55);display:flex;align-items:center;gap:7px;position:relative}
+  .hero .rng{display:flex;align-items:flex-end;gap:16px;margin:16px 0 4px;flex-wrap:wrap;position:relative}
+  .hero .rng .v{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .hero .lo .v,.hero .hi .v{font-size:21px;color:rgba(255,255,255,.66)}
+  .hero .lo .t,.hero .hi .t,.hero .ba .t{font-size:11px;color:rgba(255,255,255,.5);margin-bottom:2px}
+  .hero .ba .v{font-family:var(--font-display);font-size:46px;font-weight:700;letter-spacing:-.02em}
+  .hero .sep{flex:1;min-width:24px;height:1px;background:rgba(255,255,255,.16);margin-bottom:24px}
+  .hero .bar{height:8px;border-radius:5px;background:rgba(255,255,255,.12);position:relative;margin:16px 0 10px}
+  .hero .bar .fl{position:absolute;left:14%;right:16%;top:0;bottom:0;background:linear-gradient(90deg,rgba(232,0,29,.45),var(--red),rgba(26,138,74,.6));border-radius:5px}
+  .hero .bar .mk{position:absolute;left:50%;top:-4px;width:3px;height:16px;background:#fff;border-radius:2px}
+  .hero .conf{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:rgba(255,255,255,.8);position:relative}
+  .hero .cd{width:8px;height:8px;border-radius:50%;background:var(--warning)}
+  .hero .dis{font-size:11.5px;color:rgba(255,255,255,.45);margin-top:12px;position:relative}
+  /* method cards */
+  .meth{display:flex;flex-direction:column;gap:7px}
+  .meth .mtop{display:flex;align-items:center;justify-content:space-between}
+  .meth .mn{font-size:13px;font-weight:600}
+  .meth .mw{font-size:11px;color:var(--subtle)}
+  .meth .mv{font-family:var(--font-mono);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+  .meth .mbar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+  .meth .mbar i{display:block;height:100%;border-radius:3px}
+  .badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
+  /* scenarios table */
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:right;padding:11px 16px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--subtle);background:var(--surface-2)}
+  th:first-child{text-align:left}
+  td{padding:11px 16px;text-align:right;border-top:1px solid var(--border);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  td:first-child{text-align:left;font-family:var(--font-body)}
+  /* sensitivity heatmap */
+  .heat{border-collapse:collapse;width:100%;font-size:12.5px}
+  .heat th{background:transparent;text-align:center;padding:7px 4px;color:var(--muted);font-family:var(--font-mono);text-transform:none;letter-spacing:0;font-size:12px}
+  .heat td{text-align:center;border:1px solid var(--bg);padding:11px 4px;font-family:var(--font-mono);font-weight:600;color:#0C0C0E}
+  .heat .rh{background:var(--surface-2);color:var(--muted);font-weight:600}
+  .live{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:26px;font-size:12.5px;color:var(--muted)}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 0 0 rgba(26,138,74,.5);animation:pp 1.8s infinite}
+  @keyframes pp{0%{box-shadow:0 0 0 0 rgba(26,138,74,.5)}70%{box-shadow:0 0 0 8px rgba(26,138,74,0)}100%{box-shadow:0 0 0 0 rgba(26,138,74,0)}}
+  /* layout 2 columnas + sidebar acciones */
+  .layout{max-width:min(1320px,95vw);margin:0 auto;padding:24px 28px 170px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+  .col-main{min-width:0;display:flex;flex-direction:column;gap:16px}
+  .col-side{position:sticky;top:76px}
+  .side{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:8px;box-shadow:var(--shadow-md)}
+  .side .sh{display:flex;align-items:center;gap:8px;padding:12px 12px 10px;font-family:var(--font-display);font-size:13px;font-weight:700}
+  .side .sgrp{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--subtle);padding:10px 12px 6px}
+  .side a.sa{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;transition:background .12s}
+  .side a.sa:hover{background:var(--surface-2)}
+  .side a.sa svg{color:var(--muted);flex-shrink:0}
+  .side a.sa.primary{background:var(--red);color:#fff;margin:2px 0}.side a.sa.primary svg{color:#fff}.side a.sa.primary:hover{filter:brightness(1.08);background:var(--red)}
+  .side a.sa .cr{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--subtle)}
+  .side a.sa.primary .cr{color:rgba(255,255,255,.8)}
+  .side .div{height:1px;background:var(--border);margin:6px 8px}
+  /* factores */
+  .fac{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-top:1px solid var(--border);font-size:13.5px;line-height:1.4}
+  .fac:first-of-type{border-top:0}
+  .fac .fi{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700}
+  .fac .up{background:rgba(26,138,74,.12);color:var(--success)}
+  .fac .dn{background:rgba(217,119,8,.12);color:var(--warning)}
+  /* reco copilot */
+  .reco{display:flex;gap:11px;padding:13px 0;border-top:1px solid var(--border)}
+  .reco:first-of-type{border-top:0}
+  .reco .ri{width:30px;height:30px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--red)}
+  .reco .rt{font-size:13.5px;font-weight:600;margin-bottom:2px}
+  .reco .rd{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .reco .rc{margin-left:auto;flex-shrink:0;font-size:12px;font-weight:600;color:var(--red);align-self:center}
+  /* why cards */
+  .why{display:grid;grid-template-columns:repeat(3,1fr);gap:12}
+  .why .wc{border:1px solid var(--border);border-radius:11px;padding:14px 15px}
+  .why .wc .wl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--subtle);display:flex;align-items:center;justify-content:space-between}
+  .why .wc .wv{font-family:var(--font-mono);font-size:19px;font-weight:600;margin:5px 0 3px}
+  .why .wc .wd{font-size:11.5px;color:var(--muted);line-height:1.4}
+  @media(max-width:1040px){.layout{grid-template-columns:1fr}.col-side{position:static}.why{grid-template-columns:1fr 1fr}}
+  @media(max-width:600px){.why{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<!-- TOP BAR -->
+<div class="tb">
+  <a href="Home.html" class="logo"><img src="uploads/logo.png" alt="arroba" style="height:55px" id="logoImg"/></a>
+  <nav>
+    <a href="Analiza.html">Analiza</a>
+    <a href="Valora.html" class="on">Valora</a>
+    <a href="Compra-Vende.html">Compra/Vende</a>
+  </nav>
+  <div class="sp"></div>
+  <button class="ic" id="theme" title="Tema">◑</button>
+  <div class="av">D</div>
+</div>
+
+<!-- ENTITY HEADER -->
+<div class="eh">
+  <div class="in">
+    <div class="lg">G</div>
+    <div>
+      <h1>Grupo Olmedo Hoteles <span class="pill"><span class="spark">✦</span> Valoración avanzada</span></h1>
+      <div class="sub">Castilla Termal · Hoteles y alojamientos · Olmedo (Valladolid) · Informe generado 21/06/2026</div>
+    </div>
+    <div class="act">
+      <a href="Workspace Empresa.html" class="btn">← Ficha</a>
+      <button class="btn primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Descargar informe</button>
+    </div>
+  </div>
+</div>
+
+<main class="layout">
+<div class="col-main">
+  <!-- HERO · rango de valor -->
+  <div class="hero">
+    <span class="bs">✦</span>
+    <div class="lbl"><span class="spark">✦</span> Equity Value · rango de valoración</div>
+    <div class="rng">
+      <div class="lo"><div class="t">Conservador</div><div class="v">14,7 M€</div></div>
+      <div class="sep"></div>
+      <div class="ba"><div class="t">Valor central</div><div class="v">17,6 M€</div></div>
+      <div class="sep"></div>
+      <div class="hi"><div class="t">Optimista</div><div class="v">21,0 M€</div></div>
+    </div>
+    <div class="bar"><div class="fl"></div><div class="mk"></div></div>
+    <div class="conf"><span class="cd"></span> Confianza media · 68 % · ponderación de 4 metodologías &nbsp;·&nbsp; Actualizado 21/06/2026</div>
+    <div class="dis">Estimación orientativa generada por arroba, no constituye una valoración formal ni asesoramiento de inversión.</div>
+  </div>
+
+  <!-- MÉTODOS -->
+  <div class="card" style="margin-bottom:0" id="porque">
+    <div class="bh"><span class="bt">¿Por qué vale eso?</span><span class="bm">factores que explican el valor ✦</span></div>
+    <div class="why">
+      <div class="wc"><div class="wl">Múltiplo aplicado <span class="spark">✦</span></div><div class="wv">7,9x</div><div class="wd">EV/EBITDA, mediana del sector ajustada</div></div>
+      <div class="wc"><div class="wl">Sector</div><div class="wv" style="font-family:var(--font-body);font-size:15px">Hotelero termal</div><div class="wd">Múltiplos por encima de la media nacional</div></div>
+      <div class="wc"><div class="wl">Rentabilidad</div><div class="wv">29 %</div><div class="wd">Margen EBITDA · percentil 88 del sector</div></div>
+      <div class="wc"><div class="wl">Crecimiento</div><div class="wv">+6 %</div><div class="wd">CAGR de ventas a 3 años</div></div>
+      <div class="wc"><div class="wl">Tamaño</div><div class="wv">6,41 M€</div><div class="wd">Ventas 2024 · descuento por iliquidez aplicado</div></div>
+      <div class="wc"><div class="wl">Calidad del negocio</div><div class="wv">82/100</div><div class="wd">Quality Score · balance saneado y recurrencia</div></div>
+    </div>
+  </div>
+
+  <!-- METODOLOGÍAS -->
+  <div class="card" style="margin-bottom:0">
+    <div class="bh"><span class="bt">Metodologías aplicadas</span><span class="bm">Equity Value por método · cada uno aporta su peso al valor central ✦</span></div>
+    <div class="grid g2" style="gap:22px">
+      <div class="meth">
+        <div class="mtop"><span class="mn">Múltiplos de cotizadas</span><span class="mw">peso 25 %</span></div>
+        <div class="mv">16,9 M€</div>
+        <div class="mbar"><i style="width:92%;background:var(--info)"></i></div>
+        <div class="mw">EV/EBITDA 7,9x + caja neta · prima/descuento por tamaño</div>
+      </div>
+      <div class="meth">
+        <div class="mtop"><span class="mn">Transacciones comparables</span><span class="mw">peso 30 %</span></div>
+        <div class="mv">18,4 M€</div>
+        <div class="mbar"><i style="width:100%;background:var(--red)"></i></div>
+        <div class="mw">14 operaciones del sector · múltiplo mediano 8,6x</div>
+      </div>
+      <div class="meth">
+        <div class="mtop"><span class="mn">Descuento de flujos (DCF)</span><span class="mw">peso 30 %</span></div>
+        <div class="mv">18,0 M€</div>
+        <div class="mbar"><i style="width:98%;background:var(--success)"></i></div>
+        <div class="mw">WACC 9,2 % · g 2,0 % · proyección 5 años</div>
+      </div>
+      <div class="meth">
+        <div class="mtop"><span class="mn">Valor de activos (NAV)</span><span class="mw">peso 15 %</span></div>
+        <div class="mv">16,5 M€</div>
+        <div class="mbar"><i style="width:90%;background:var(--warning)"></i></div>
+        <div class="mw">Inmuebles termales revalorizados · neto de deuda</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g23" style="margin-bottom:16px">
+    <!-- ESCENARIOS -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="bh" style="padding:18px 20px 0"><span class="bt">Escenarios</span><span class="bm">Equity Value por hipótesis</span></div>
+      <table style="margin-top:10px">
+        <thead><tr><th>Escenario</th><th>Crec. ventas</th><th>Margen EBITDA</th><th>Múltiplo</th><th>Equity Value</th></tr></thead>
+        <tbody>
+          <tr><td><span style="display:inline-flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:var(--warning)"></span>Conservador</span></td><td>+3 %</td><td>27 %</td><td>6,8x</td><td style="font-weight:700">14,7 M€</td></tr>
+          <tr><td><span style="display:inline-flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:var(--red)"></span>Base</span></td><td>+6 %</td><td>29 %</td><td>7,9x</td><td style="font-weight:700">17,6 M€</td></tr>
+          <tr><td><span style="display:inline-flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:50%;background:var(--success)"></span>Optimista</span></td><td>+10 %</td><td>31 %</td><td>9,1x</td><td style="font-weight:700">21,0 M€</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- DRIVERS -->
+    <div class="card">
+      <div class="bh"><span class="bt">Drivers del valor <span class="spark">✦</span></span></div>
+      <div class="row"><span class="l">Margen EBITDA (29 %)</span><span class="v" style="color:var(--success)">+ Alto</span></div>
+      <div class="row"><span class="l">Balance saneado</span><span class="v" style="color:var(--success)">+ Alto</span></div>
+      <div class="row"><span class="l">Activos inmobiliarios</span><span class="v" style="color:var(--success)">+ Medio</span></div>
+      <div class="row"><span class="l">Concentración territorial</span><span class="v" style="color:var(--warning)">− Medio</span></div>
+      <div class="row"><span class="l">Tamaño / liquidez</span><span class="v" style="color:var(--warning)">− Bajo</span></div>
+    </div>
+  </div>
+
+  <!-- SENSIBILIDAD -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="bh"><span class="bt">Sensibilidad</span><span class="bm">Equity Value (M€) · múltiplo EV/EBITDA × margen EBITDA</span></div>
+    <div style="overflow-x:auto">
+      <table class="heat">
+        <thead><tr><th class="rh">×</th><th>6,5x</th><th>7,2x</th><th>7,9x</th><th>8,6x</th><th>9,3x</th></tr></thead>
+        <tbody id="heatBody"></tbody>
+      </table>
+    </div>
+    <p style="font-size:11.5px;color:var(--subtle);margin-top:12px">El sombreado indica mayor (verde) o menor (rojo) valor. La celda central corresponde al escenario base.</p>
+  </div>
+
+  <!-- METODOLOGÍA / SUPUESTOS -->
+  <div class="grid g2">
+    <div class="card">
+      <div class="bh"><span class="bt">Supuestos del DCF</span></div>
+      <div class="row"><span class="l">WACC</span><span class="v">9,2 %</span></div>
+      <div class="row"><span class="l">Tasa de crecimiento perpetuo (g)</span><span class="v">2,0 %</span></div>
+      <div class="row"><span class="l">Horizonte de proyección</span><span class="v">5 años</span></div>
+      <div class="row"><span class="l">Capex / ventas medio</span><span class="v">6,5 %</span></div>
+      <div class="row"><span class="l">Tasa impositiva</span><span class="v">25 %</span></div>
+    </div>
+    <div class="card">
+      <div class="bh"><span class="bt">Fuentes y base de cálculo</span></div>
+      <div class="row"><span class="l">Cuentas</span><span class="v" style="font-family:var(--font-body)">Auditadas 2024 · Deloitte</span></div>
+      <div class="row"><span class="l">Comparables</span><span class="v" style="font-family:var(--font-body)">1.002 empresas del sector</span></div>
+      <div class="row"><span class="l">Transacciones</span><span class="v" style="font-family:var(--font-body)">14 operaciones · 24 meses</span></div>
+      <div class="row"><span class="l">Deuda financiera neta</span><span class="v">−2,90 M€</span></div>
+      <div class="row"><span class="l">Coste de la valoración</span><span class="v" style="color:var(--red)">75 créditos</span></div>
+    </div>
+  </div>
+
+  <!-- FACTORES QUE INCREMENTAN / REDUCEN EL VALOR -->
+  <div class="grid g2">
+    <div class="card">
+      <div class="bh"><span class="bt" style="color:var(--success)">Incrementan el valor</span></div>
+      <div class="fac"><span class="fi up">✓</span><div><b>Crecimiento superior al sector.</b> Ventas +6 % anual frente al +3 % de la media sectorial.</div></div>
+      <div class="fac"><span class="fi up">✓</span><div><b>Alta rentabilidad.</b> Margen EBITDA del 29 %, en el percentil 88 del sector.</div></div>
+      <div class="fac"><span class="fi up">✓</span><div><b>Recurrencia y activos singulares.</b> Inmuebles termales propios y demanda estable.</div></div>
+    </div>
+    <div class="card">
+      <div class="bh"><span class="bt" style="color:var(--warning)">Reducen el valor</span></div>
+      <div class="fac"><span class="fi dn">!</span><div><b>Concentración territorial.</b> Actividad muy ligada a una única provincia.</div></div>
+      <div class="fac"><span class="fi dn">!</span><div><b>Dependencia del fundador.</b> Rol clave en la gestión y las relaciones.</div></div>
+      <div class="fac"><span class="fi dn">!</span><div><b>Tamaño reducido.</b> Descuento por iliquidez frente a compañías mayores.</div></div>
+    </div>
+  </div>
+
+  <!-- RECOMENDACIONES DE ARROBA COPILOT -->
+  <div class="card">
+    <div class="bh"><span class="bt">Recomendaciones de arroba copilot <span class="spark">✦</span></span><span class="bm">generadas con inteligencia</span></div>
+    <div class="reco"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span><div><div class="rt">Riesgos detectados</div><div class="rd">La concentración territorial y la dependencia del fundador podrían penalizar la valoración en una due diligence. Documentar la continuidad del equipo directivo reduciría el descuento aplicado.</div></div></div>
+    <div class="reco"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span><div><div class="rt">Acciones para aumentar el valor</div><div class="rd">Diversificar geográficamente y formalizar contratos recurrentes podría elevar el múltiplo aplicable hacia 8,6x, situando el valor central por encima de 19 M€.</div></div></div>
+    <div class="reco"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg></span><div><div class="rt">Posibles compradores estratégicos</div><div class="rd">Grupos hoteleros patrimoniales y cadenas de bienestar con interés en activos termales singulares (encaje estimado 88 %).</div></div><a href="Compra-Vende.html" class="rc">Ver →</a></div>
+    <div class="reco"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><div><div class="rt">Posibles inversores</div><div class="rd">Fondos de infraestructura turística y family offices con tesis de activos reales y flujos estables.</div></div><a href="Compra-Vende.html" class="rc">Ver →</a></div>
+    <div class="reco"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></span><div><div class="rt">Oportunidades de consolidación</div><div class="rd">Existen balnearios independientes en Castilla y León candidatos a una estrategia de buy &amp; build que aumentaría la escala y el múltiplo de salida.</div></div></div>
+  </div>
+
+  <div class="live"><span class="dot"></span> Valoración recalculada con los últimos datos disponibles · 21/06/2026</div>
+</div><!-- /col-main -->
+
+<!-- ACCIONES SIGUIENTES (sticky) -->
+<aside class="col-side">
+  <div class="side">
+    <div class="sh"><span class="spark">✦</span> Acciones siguientes</div>
+    <a class="sa primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Generar informe PDF <span class="cr">15 cr.</span></a>
+    <div class="sgrp">Valoración</div>
+    <a class="sa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Guardar valoración</a>
+    <a class="sa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.7 9.7 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/></svg> Actualizar valoración <span class="cr">5 cr.</span></a>
+    <a class="sa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg> Compartir valoración</a>
+    <div class="div"></div>
+    <div class="sgrp">Operación</div>
+    <a class="sa" href="Compra-Vende.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M21 3l-9 9M8 21H3v-5M3 21l9-9"/></svg> Preparar proceso de venta</a>
+    <a class="sa" href="Compra-Vende.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="M16.5 16.5 21 21"/></svg> Buscar compradores</a>
+    <a class="sa" href="Compra-Vende.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Buscar inversores</a>
+    <a class="sa" href="Oportunidad.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg> Iniciar operación</a>
+    <a class="sa" href="Mis Oportunidades.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg> Añadir a oportunidades</a>
+    <div class="div"></div>
+    <a class="sa" onclick="document.body.classList.remove('cop-mini');var t=document.getElementById('arrTa');if(t)t.focus();return false;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Abrir en arroba copilot</a>
+  </div>
+</aside>
+</main>
+
+<script>
+  // tema
+  var dark=localStorage.getItem('arr-dark')==='true';
+  function applyTheme(){document.documentElement.toggleAttribute('data-dark',dark);document.getElementById('theme').textContent=dark?'☀':'◑';var l=document.getElementById('logoImg');if(l)l.style.filter=dark?'brightness(0) invert(1)':'none';}
+  applyTheme();
+  document.getElementById('theme').onclick=function(){dark=!dark;localStorage.setItem('arr-dark',dark);applyTheme();};
+  // heatmap sensibilidad
+  (function(){
+    var mults=[6.5,7.2,7.9,8.6,9.3], margins=[27,29,31], rows=[31,29,27]; // filas de mayor a menor margen
+    var EBITDAbase=6.41, DFN=-2.90; // ventas*margen aprox
+    var body=document.getElementById('heatBody');
+    var vals=[];
+    rows.forEach(function(mg){ mults.forEach(function(mu){ var ebitda=6.41*(mg/100); vals.push(ebitda*mu - DFN); }); });
+    var min=Math.min.apply(null,vals), max=Math.max.apply(null,vals);
+    function col(v){ var t=(v-min)/(max-min); // 0 rojo -> 1 verde
+      var r=Math.round(232+(26-232)*t), g=Math.round(0+(138-0)*t), b=Math.round(29+(74-29)*t);
+      return 'rgba('+r+','+g+','+b+',0.16)';
+    }
+    rows.forEach(function(mg){
+      var tr='<tr><td class="rh">'+mg+'%</td>';
+      mults.forEach(function(mu){
+        var ebitda=6.41*(mg/100); var v=ebitda*mu - DFN;
+        var isBase=(mg===29&&mu===7.9);
+        tr+='<td style="background:'+col(v)+';'+(isBase?'outline:2px solid var(--red);outline-offset:-2px;':'')+'">'+v.toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})+'</td>';
+      });
+      tr+='</tr>'; body.insertAdjacentHTML('beforeend',tr);
+    });
+  })();
+</script>
+<script src="assets/arroba-composer.js"></script>
+</body>
+</html>

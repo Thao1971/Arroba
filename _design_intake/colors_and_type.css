@@ -1,0 +1,171 @@
+/* ============================================================
+   ARROBA — Design Tokens
+   M&A Platform for Digital Agencies / Madtech Ecosystem
+   Logo: /.rrob.\ — código, monospace, rojo carmesí
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+
+  /* ── Backgrounds ── */
+  --bg:           #080808;
+  --bg-subtle:    #0d0d0d;
+  --surface-1:    #111111;
+  --surface-2:    #181818;
+  --surface-3:    #202020;
+  --surface-4:    #282828;
+  --overlay:      rgba(0, 0, 0, 0.75);
+
+  /* ── Borders ── */
+  --border-subtle:  #1c1c1c;
+  --border-default: #282828;
+  --border-strong:  #3c3c3c;
+  --border-accent:  oklch(0.58 0.20 22 / 0.45);
+
+  /* ── Text ── */
+  --text-1:    #f0ede8;   /* Primary */
+  --text-2:    #9a9895;   /* Secondary */
+  --text-3:    #5c5a58;   /* Tertiary */
+  --text-4:    #343230;   /* Disabled */
+  --text-inv:  #0a0a0a;   /* On accent bg */
+
+  /* ── Accent — Rojo carmesí (del logo) ── */
+  --accent:          oklch(0.58 0.20 22);
+  --accent-hover:    oklch(0.63 0.18 22);
+  --accent-active:   oklch(0.52 0.22 22);
+  --accent-dim:      oklch(0.58 0.20 22 / 0.12);
+  --accent-border:   oklch(0.58 0.20 22 / 0.35);
+
+  /* ── Blue — datos, info ── */
+  --blue:        oklch(0.64 0.11 232);
+  --blue-hover:  oklch(0.70 0.09 232);
+  --blue-dim:    oklch(0.64 0.11 232 / 0.12);
+
+  /* ── Semantic ── */
+  --green:       oklch(0.67 0.13 150);
+  --green-dim:   oklch(0.67 0.13 150 / 0.12);
+  --red:         var(--accent);
+  --red-dim:     var(--accent-dim);
+  --yellow:      oklch(0.78 0.13 85);
+  --yellow-dim:  oklch(0.78 0.13 85 / 0.12);
+
+  /* ── Typography — Families ── */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Typography — Scale ── */
+  --text-2xs:  10px;
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  30px;
+  --text-4xl:  38px;
+  --text-5xl:  48px;
+  --text-6xl:  60px;
+
+  /* ── Typography — Line Heights ── */
+  --leading-tight:   1.15;
+  --leading-snug:    1.30;
+  --leading-normal:  1.50;
+  --leading-relaxed: 1.65;
+
+  /* ── Typography — Letter Spacing ── */
+  --tracking-tight:   -0.02em;
+  --tracking-normal:  -0.01em;
+  --tracking-wide:     0.04em;
+  --tracking-wider:    0.08em;
+  --tracking-widest:   0.12em;
+
+  /* ── Spacing Scale (base 4px) ── */
+  --sp-1:   4px;
+  --sp-2:   8px;
+  --sp-3:   12px;
+  --sp-4:   16px;
+  --sp-5:   20px;
+  --sp-6:   24px;
+  --sp-8:   32px;
+  --sp-10:  40px;
+  --sp-12:  48px;
+  --sp-16:  64px;
+  --sp-20:  80px;
+  --sp-24:  96px;
+
+  /* ── Border Radius ── */
+  --radius-xs:   3px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-xs:     0 1px 2px rgba(0,0,0,0.5);
+  --shadow-sm:     0 1px 4px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+  --shadow-lg:     0 8px 32px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-xl:     0 16px 48px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.07);
+  --shadow-accent: 0 0 0 1px var(--accent-border), 0 4px 20px oklch(0.58 0.20 22 / 0.20);
+
+  /* ── Transitions ── */
+  --duration-fast:   120ms;
+  --duration-base:   180ms;
+  --duration-slow:   240ms;
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:   cubic-bezier(0.4, 0, 1, 1);
+
+  /* ── Z-index ── */
+  --z-base:    0;
+  --z-raised:  10;
+  --z-overlay: 100;
+  --z-modal:   200;
+  --z-toast:   300;
+}
+
+/* ── Semantic Type Aliases ── */
+:root {
+  --h1: var(--text-5xl);
+  --h2: var(--text-4xl);
+  --h3: var(--text-3xl);
+  --h4: var(--text-2xl);
+  --h5: var(--text-xl);
+  --h6: var(--text-lg);
+
+  --body-lg: var(--text-lg);
+  --body:    var(--text-base);
+  --body-sm: var(--text-sm);
+  --caption: var(--text-xs);
+  --label:   var(--text-sm);
+}
+
+/* ── Base Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Utility Classes ── */
+.display  { font-family: var(--font-display); font-weight: 600; letter-spacing: var(--tracking-tight); }
+.mono     { font-family: var(--font-mono); }
+.label-ui { font-size: var(--text-xs); letter-spacing: var(--tracking-widest); text-transform: uppercase; font-weight: 600; color: var(--text-3); }
+
+/* ── Logo Mark ── */
+.logo-mark {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+}
+.logo-mark .slash { color: var(--accent); }

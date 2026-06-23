@@ -1,0 +1,226 @@
+// arroba.com — Home de Analiza · app
+
+function ANApp() {
+  const D = window.AN_DATA;
+  const [dark, setDark] = React.useState(() => localStorage.getItem('arr-dark') === 'true');
+  const [query, setQuery] = React.useState('');
+  const [focus, setFocus] = React.useState(false);
+
+  React.useEffect(() => {
+    if (dark) document.documentElement.setAttribute('data-dark', '');
+    else document.documentElement.removeAttribute('data-dark');
+    localStorage.setItem('arr-dark', dark);
+  }, [dark]);
+
+  const go = (q) => {
+    const text = (typeof q === 'string' ? q : query).trim();
+    if (window.arrobaCopilot) { if (text) { window.arrobaCopilot.ask(text); setQuery(''); } else window.arrobaCopilot.focus(); }
+    else window.location.href = 'Universal Search.html';
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      <style>{`
+        * { transition: background-color .15s, border-color .12s, color .1s; }
+        input::placeholder { color: var(--text-subtle); }
+        .an-chip:hover { border-color: var(--border-strong) !important; transform: translateY(-1px); }
+        .an-opp:hover { border-color: #E8001D !important; transform: translateY(-2px); }
+        .an-row:hover { background: var(--surface-2) !important; }
+        @media (max-width: 880px) {
+          .an-kpis, .an-opps, .an-panels { grid-template-columns: 1fr !important; }
+          .an-nav-links { display: none !important; }
+        }
+      `}</style>
+
+      {/* ── Top nav ── */}
+      <nav style={{ position: 'sticky', top: 0, zIndex: 300, background: 'color-mix(in srgb, var(--bg) 88%, transparent)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderBottom: '1px solid var(--border)', height: 60, display: 'flex', alignItems: 'center', padding: '0 28px', gap: 28 }}>
+        <a href="Home.html" style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="uploads/logo.png" alt="arroba" style={{ height: 55, filter: dark ? 'brightness(0) invert(1)' : 'none' }}/>
+        </a>
+        <div className="an-nav-links" style={{ display: 'flex', gap: 4 }}>
+          {[['Analiza', 'Analiza.html'], ['Valora', 'Valora.html'], ['Compra/Vende', 'Compra-Vende.html']].map(([l, href]) => {
+            const active = l === 'Analiza';
+            return (
+              <a key={l} href={active ? '#' : href} style={{ position: 'relative', fontSize: 14, fontWeight: active ? 700 : 500, color: active ? '#E8001D' : 'var(--text-muted)', padding: '7px 14px', borderRadius: 8, textDecoration: 'none' }}>
+                {l}
+                {active && <span style={{ position: 'absolute', left: 14, right: 14, bottom: -19, height: 2, background: '#E8001D', borderRadius: 2 }}></span>}
+              </a>
+            );
+          })}
+        </div>
+        <div style={{ flex: 1 }}></div>
+        <button title="Ayuda" style={{ width: 34, height: 34, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>?</button>
+        <button onClick={() => setDark(!dark)} title="Tema" style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {dark ? '☀' : '◑'}
+        </button>
+        <button title="Notificaciones" style={{ position: 'relative', width: 34, height: 34, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <HIcon name="document" size={0} color="transparent"/>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span style={{ position: 'absolute', top: 6, right: 7, width: 7, height: 7, borderRadius: '50%', background: '#E8001D', border: '1.5px solid var(--bg)' }}></span>
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', paddingLeft: 4 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#A8C03E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#0C0C0E' }}>D</div>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)' }}>Hola, Daniel</span>
+          <span style={{ fontSize: 11, color: 'var(--text-subtle)' }}>▾</span>
+        </div>
+      </nav>
+
+      <div style={{ maxWidth: 1020, margin: '0 auto', padding: '0 28px 64px' }}>
+
+        {/* ── HERO ── */}
+        <div style={{ textAlign: 'center', paddingTop: 56, marginBottom: 36 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 26 }}>
+            <span style={{ color: '#E8001D', fontSize: 12 }}>✦</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-muted)' }}>Inteligencia económica · España</span>
+          </div>
+          <h1 style={{ fontSize: 'clamp(34px, 5vw, 50px)', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text)', letterSpacing: '-.025em', lineHeight: 1.08, marginBottom: 18 }}>
+            Hola, <span style={{ color: '#E8001D' }}>{D.user}</span><br/>¿Qué quieres analizar hoy?
+          </h1>
+          <p style={{ fontSize: 16.5, color: 'var(--text-muted)', lineHeight: 1.55, maxWidth: 560, margin: '0 auto' }}>
+            Analiza mercados, sectores y empresas y descubre oportunidades para crecer, comprar, vender o atraer inversión desde una única plataforma.
+          </p>
+        </div>
+
+        {/* ── UNIVERSAL SEARCH ── */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 8px 8px 20px', background: 'var(--surface)', border: `1.5px solid ${focus ? '#E8001D' : 'var(--border-strong)'}`, borderRadius: 16, boxShadow: focus ? '0 6px 28px rgba(232,0,29,.12)' : '0 6px 28px rgba(12,12,14,.06)' }}>
+            <HIcon name="search" size={21} color="var(--text-subtle)" sw={2}/>
+            <input value={query} onChange={e => setQuery(e.target.value)} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)}
+              onKeyDown={e => { if (e.key === 'Enter') go(); }}
+              placeholder="Buscar empresas, sectores, mercados o tendencias…"
+              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 16.5, color: 'var(--text)', padding: '15px 0', fontFamily: 'var(--font-body)' }}/>
+            <button onClick={go} style={{ padding: '14px 28px', borderRadius: 12, border: 'none', background: '#E8001D', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>Explorar</button>
+          </div>
+        </div>
+
+        {/* Chips de sugerencias */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, justifyContent: 'center', marginBottom: 22 }}>
+          {D.chips.map(c => (
+            <button key={c.label} className="an-chip" onClick={() => go(c.label)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--text)', transition: 'border-color .12s, transform .12s' }}>
+              <HIcon name={c.icon} size={14} color="var(--text-subtle)" sw={1.75}/> {c.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Últimas búsquedas */}
+        <div style={{ marginBottom: 44 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-subtle)', marginBottom: 11, paddingLeft: 2 }}>Tus últimas búsquedas</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
+            {D.recent.map(r => (
+              <button key={r} className="an-chip" onClick={() => go(r)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 15px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', transition: 'border-color .12s, transform .12s' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── KPIs DEL MERCADO ── */}
+        <div className="an-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 18 }}>
+          {D.kpis.map(k => (
+            <div key={k.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', background: k.good ? '#E8F5EE' : '#FDE8EA', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <HIcon name={k.icon} size={23} color={k.good ? '#1A8A4A' : '#E8001D'} sw={1.75}/>
+                </div>
+                <div>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--text)', fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.05, letterSpacing: '-.02em' }}>{k.value}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text)', marginTop: 4 }}>{k.label}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--text-subtle)' }}>{k.sub}</div>
+                </div>
+              </div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: k.good ? '#1A8A4A' : '#E8001D', background: k.good ? '#E8F5EE' : '#FDE8EA', padding: '5px 11px', borderRadius: 7 }}>
+                <span style={{ fontSize: 11 }}>{k.dir === 'up' ? '↑' : '↓'}</span> {k.delta} vs. mes anterior
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* ── OPORTUNIDADES DETECTADAS ── */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px', marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
+            <span style={{ color: '#E8001D', fontSize: 15, marginRight: 9 }}>✦</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-display)' }}>Oportunidades detectadas</span>
+            <a href="Universal Search.html" style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: '#E8001D', textDecoration: 'none' }}>Ver todas →</a>
+          </div>
+          <div className="an-opps" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0 }}>
+            {D.opportunities.map((o, i) => (
+              <a key={o.title} href="Universal Search.html" className="an-opp" style={{ display: 'block', textDecoration: 'none', padding: '4px 18px', borderLeft: i ? '1px solid var(--border)' : 'none', borderRadius: 8, transition: 'border-color .12s' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: o.bg, border: `1px solid ${o.bd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                  <HIcon name={o.icon} size={18} color={o.tint} sw={1.75}/>
+                </div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3, marginBottom: 6 }}>{o.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-subtle)', lineHeight: 1.45 }}>{o.desc}</div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* ── PANELES INFERIORES ── */}
+        <div className="an-panels" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+
+          {/* Sectores más dinámicos */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
+              <HIcon name="trending" size={17} color="#E8001D" sw={1.75}/>
+              <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-display)', marginLeft: 9 }}>Sectores más dinámicos</span>
+              <a href="Ficha Sectorial.html" style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#E8001D', textDecoration: 'none' }}>Ver todos →</a>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--text-subtle)', paddingBottom: 10, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+              <span>Sector</span>
+              <span>Índice de dinamismo</span>
+            </div>
+            {D.sectors.map((s, i) => (
+              <a key={s.name} href="Ficha Sectorial.html" className="an-row" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 8px', margin: '0 -8px', borderRadius: 9, textDecoration: 'none', transition: 'background .12s' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-subtle)', width: 14, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{s.name}</span>
+                <div style={{ width: 130, height: 6, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: s.value + '%', background: '#1A8A4A', borderRadius: 3 }}></div>
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', width: 26, textAlign: 'right' }}>{s.value}</span>
+              </a>
+            ))}
+            <div style={{ fontSize: 11, color: 'var(--text-subtle)', lineHeight: 1.5, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              Índice calculado en base a creación de empresas, crecimiento, financiación y actividad de M&A.
+            </div>
+          </div>
+
+          {/* Últimas empresas consultadas */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
+              <HIcon name="search" size={16} color="#E8001D" sw={1.75}/>
+              <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-display)', marginLeft: 9 }}>Últimas empresas consultadas</span>
+              <a href="Universal Search.html" style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 600, color: '#E8001D', textDecoration: 'none' }}>Ver historial →</a>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--text-subtle)', paddingBottom: 10, borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+              <span>Empresa</span>
+              <span>Última consulta</span>
+            </div>
+            {D.companies.map(c => (
+              <a key={c.name} href="Company Profile.html" className="an-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', margin: '0 -8px', borderRadius: 9, textDecoration: 'none', transition: 'background .12s' }}>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: 'var(--font-display)', flexShrink: 0 }}>{c.initial}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)' }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{c.sector}</div>
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--text-subtle)', whiteSpace: 'nowrap' }}>{c.when}</span>
+                <span style={{ fontSize: 14, color: 'var(--text-subtle)' }}>›</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* ── FOOTER WORKSPACE ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 36, fontSize: 12.5, color: 'var(--text-muted)' }}>
+          <span style={{ position: 'relative', display: 'inline-flex', width: 8, height: 8 }}>
+            <span style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#1A8A4A', animation: 'anLive 1.8s ease-out infinite' }}></span>
+            <span style={{ position: 'relative', width: 8, height: 8, borderRadius: '50%', background: '#1A8A4A' }}></span>
+          </span>
+          <span><strong style={{ color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>{D.footerCount}</strong> empresas con inteligencia activa, cruzadas con 5 capas de datos</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<ANApp/>);

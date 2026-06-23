@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Data Room — arroba.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#FAFAF8;--surface:#FFFFFF;--surface-2:#F4F4F0;--border:#E8E8E2;--border-strong:#D4D4CC;
+    --text:#0C0C0E;--muted:#636360;--subtle:#ADADAA;--red:#E8001D;--success:#1A8A4A;--warning:#D97708;--info:#2164E3;
+    --font-display:'Space Grotesk',system-ui,sans-serif;--font-body:'DM Sans',system-ui,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+    --shadow-md:0 4px 16px rgba(12,12,14,.06);--shadow-lg:0 18px 56px rgba(12,12,14,.16);
+  }
+  [data-dark]{--bg:#0C0C0E;--surface:#1A1A18;--surface-2:#242422;--border:#2E2E2C;--border-strong:#4A4A47;--text:#FAFAF8;--muted:#ADADAA;--subtle:#636360}
+  html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+  a{color:inherit;text-decoration:none}
+  .spark{color:var(--red);font-weight:700}.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .tb{position:sticky;top:0;z-index:300;height:60px;display:flex;align-items:center;gap:24px;padding:0 28px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+  .tb nav{display:flex;gap:2px}.tb nav a{font-size:14px;font-weight:500;color:var(--muted);padding:7px 14px;border-radius:8px}.tb nav a.on{color:var(--text);font-weight:700}
+  .tb .sp{flex:1}.tb .ic{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px}.tb .av{width:32px;height:32px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  /* entity header */
+  .eh{background:var(--surface-2);border-bottom:1px solid var(--border)}
+  .eh .in{max-width:min(1320px,95vw);margin:0 auto;padding:18px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .eh .lg{width:50px;height:50px;border-radius:13px;background:linear-gradient(135deg,#0C0C0E,#2E2E2C);color:var(--red);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:20px;flex-shrink:0}
+  .eh h1{font-family:var(--font-display);font-size:21px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid rgba(232,0,29,.22);color:var(--red);background:rgba(232,0,29,.06)}
+  .eh .sub{font-size:13px;color:var(--muted);margin-top:3px}
+  .eh .act{display:flex;gap:9px;margin-left:auto}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;padding:10px 15px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;min-height:40px}
+  .btn:hover{background:var(--surface-2)}
+  .btn.primary{background:var(--red);color:#fff;border-color:transparent}.btn.primary:hover{filter:brightness(1.08)}
+  /* layout */
+  .layout{max-width:min(1320px,95vw);margin:0 auto;padding:22px 28px 170px;display:grid;grid-template-columns:240px minmax(0,1fr) 320px;gap:20px;align-items:start}
+  @media(max-width:1080px){.layout{grid-template-columns:1fr}.rail,.side{position:static!important}}
+  .rail{position:sticky;top:76px;display:flex;flex-direction:column;gap:14px}
+  .col-side{position:sticky;top:76px;display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+  .ct{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--subtle);margin-bottom:13px;display:flex;align-items:center;gap:7px}
+  /* KPI strip */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+  @media(max-width:680px){.kpis{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:15px 17px}
+  .kpi .l{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--subtle)}
+  .kpi .v{font-family:var(--font-mono);font-size:23px;font-weight:600;letter-spacing:-.02em;margin-top:5px}
+  .kpi .d{font-size:11.5px;color:var(--muted);margin-top:2px}
+  /* folder tree (rail) */
+  .fold{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;font-size:13.5px;font-weight:500;cursor:pointer}
+  .fold:hover{background:var(--surface-2)}
+  .fold.on{background:rgba(232,0,29,.07);color:var(--red);font-weight:600}
+  .fold .cnt{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--subtle)}
+  .fold.on .cnt{color:var(--red)}
+  /* doc rows */
+  .doc{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border)}
+  .doc:first-of-type{border-top:0}
+  .doc .di{width:36px;height:36px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--muted)}
+  .doc .dn{font-size:13.5px;font-weight:600}
+  .doc .dm{font-size:11.5px;color:var(--subtle)}
+  .doc .lock{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--warning);background:rgba(217,119,8,.1);padding:4px 9px;border-radius:6px}
+  .doc .open{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--red);cursor:pointer;background:none;border:none;font-family:inherit}
+  .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
+  /* Q&A */
+  .qa{padding:13px 0;border-top:1px solid var(--border)}.qa:first-of-type{border-top:0}
+  .qa .qq{display:flex;gap:9px;font-size:13.5px;font-weight:600;line-height:1.45}
+  .qa .qmeta{font-size:11.5px;color:var(--subtle);margin:4px 0 0 26px}
+  .qa .ans{margin:9px 0 0 26px;font-size:13px;color:var(--muted);line-height:1.55;background:var(--surface-2);border-radius:9px;padding:10px 12px}
+  .qa .ans .draft{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+  .qbadge{margin-left:auto;flex-shrink:0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px}
+  /* activity */
+  .act-row{display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--border)}.act-row:first-of-type{border-top:0}
+  .act-row .aav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+  .act-row .at{font-size:12.5px;line-height:1.45}.act-row .as{font-size:11px;color:var(--subtle)}
+  /* access list */
+  .acc{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)}.acc:first-of-type{border-top:0}
+  .acc .ai{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+  .acc .an{font-size:13px;font-weight:600}.acc .ad{font-size:11px;color:var(--subtle)}
+  .acc .st{margin-left:auto;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:5px}
+  /* modal */
+  .ov{position:fixed;inset:0;background:rgba(12,12,14,.5);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+  .ov.show{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:460px;width:100%;padding:24px;box-shadow:var(--shadow-lg)}
+  .modal h3{font-family:var(--font-display);font-size:18px;font-weight:700;margin-bottom:8px}
+  .modal p{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:18px}
+  .modal .warn{display:flex;gap:10px;align-items:flex-start;background:rgba(217,119,8,.08);border:1px solid rgba(217,119,8,.25);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;color:#92540A;line-height:1.5}
+  [data-dark] .modal .warn{color:#F0B968}
+  .modal .row{display:flex;gap:10px;justify-content:flex-end}
+  .toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:600;background:#0C0C0E;color:#fff;font-size:13.5px;font-weight:600;padding:12px 18px;border-radius:10px;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+</style>
+</head>
+<body>
+<div class="tb">
+  <a href="Home.html" style="display:flex;align-items:center"><img src="uploads/logo.png" alt="arroba" style="height:55px" id="logoImg"/></a>
+  <nav><a href="Analiza.html">Analiza</a><a href="Valora.html">Valora</a><a href="Compra-Vende.html" class="on">Compra/Vende</a></nav>
+  <div class="sp"></div>
+  <button class="ic" id="theme" title="Tema">◑</button>
+  <div class="av">D</div>
+</div>
+
+<!-- ENTITY HEADER -->
+<div class="eh">
+  <div class="in">
+    <div class="lg">K</div>
+    <div>
+      <h1>Kitchen · Sell-Side <span class="pill"><span class="spark">✦</span> Data Room</span></h1>
+      <div class="sub">Proceso de venta · 5 documentos pendientes de revisión · acceso controlado por NDA</div>
+    </div>
+    <div class="act">
+      <a href="Oportunidad.html" class="btn">← Oportunidad</a>
+      <button class="btn" id="inviteBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg> Invitar</button>
+      <button class="btn primary" id="ndaBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg> Enviar NDA</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- RAIL · carpetas -->
+  <aside class="rail">
+    <div class="card" style="padding:10px">
+      <div class="ct" style="padding:8px 10px 4px">Carpetas</div>
+      <div class="fold on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg> <span>Todos</span><span class="cnt">42</span></div>
+      <div class="fold"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg> <span>Financiero</span><span class="cnt">14</span></div>
+      <div class="fold"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7l7-4 7 4M4 7h16l-2 6a4 4 0 0 1-6 0 4 4 0 0 1-6 0z"/></svg> <span>Legal</span><span class="cnt">9</span></div>
+      <div class="fold"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg> <span>Comercial</span><span class="cnt">7</span></div>
+      <div class="fold"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg> <span>Operaciones</span><span class="cnt">6</span></div>
+      <div class="fold"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> <span>Confidencial</span><span class="cnt">6</span></div>
+    </div>
+    <div class="card">
+      <div class="ct">Acceso al Data Room</div>
+      <div class="acc"><span class="ai" style="background:#2164E3">VP</span><div><div class="an">Grupo VetPartners</div><div class="ad">Comprador · NDA firmado</div></div><span class="st" style="color:var(--success);background:rgba(26,138,74,.1)">Acceso total</span></div>
+      <div class="acc"><span class="ai" style="background:#7C3AED">MC</span><div><div class="an">Meridia Capital</div><div class="ad">Fondo · NDA firmado</div></div><span class="st" style="color:var(--success);background:rgba(26,138,74,.1)">Acceso total</span></div>
+      <div class="acc"><span class="ai" style="background:#D97708">FN</span><div><div class="an">Family Office Norte</div><div class="ad">Inversor · NDA pendiente</div></div><span class="st" style="color:var(--warning);background:rgba(217,119,8,.1)">Solo teaser</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN · documentos + Q&A -->
+  <main style="min-width:0;display:flex;flex-direction:column;gap:16px">
+    <div class="kpis">
+      <div class="kpi"><div class="l">Documentos</div><div class="v">42</div><div class="d">en 5 carpetas</div></div>
+      <div class="kpi"><div class="l">Preguntas abiertas</div><div class="v" style="color:var(--info)">7</div><div class="d">2 posibles riesgos</div></div>
+      <div class="kpi"><div class="l">Borradores listos <span class="spark">✦</span></div><div class="v" style="color:var(--success)">5</div><div class="d">por revisar y enviar</div></div>
+      <div class="kpi"><div class="l">Accesos activos</div><div class="v">3</div><div class="d">2 con NDA firmado</div></div>
+    </div>
+
+    <!-- documentos -->
+    <div class="card">
+      <div class="ct">Documentos <span style="margin-left:auto;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0">Carpeta: Todos</span></div>
+      <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div><div class="dn">Cuentas anuales 2024 (auditadas)</div><div class="dm">Financiero · PDF · 2,4 MB · v2</div></div><button class="open">Abrir →</button></div>
+      <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span><div><div class="dn">Plan de negocio 2025–2028</div><div class="dm">Financiero · XLSX · 1,1 MB</div></div><button class="open">Abrir →</button></div>
+      <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div><div class="dn">Contratos con clientes clave</div><div class="dm">Comercial · PDF · 3,8 MB <span class="tag" style="color:var(--warning);background:rgba(217,119,8,.1)">Riesgo señalado ✦</span></div></div><button class="open">Abrir →</button></div>
+      <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><div><div class="dn">Due diligence legal</div><div class="dm">Legal · Carpeta · 9 archivos</div></div><span class="lock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requiere NDA</span></div>
+      <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></span><div><div class="dn">Cap table y pactos de socios</div><div class="dm">Confidencial · PDF · 0,6 MB</div></div><span class="lock"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Requiere NDA</span></div>
+    </div>
+
+    <!-- Q&A -->
+    <div class="card">
+      <div class="ct">Preguntas y respuestas (Q&amp;A) <span class="spark" style="margin-left:6px">✦</span></div>
+      <div class="qa">
+        <div class="qq"><span>“¿Cuál es la concentración de los cinco principales clientes?”</span><span class="qbadge" style="color:var(--warning);background:rgba(217,119,8,.1)">Riesgo</span></div>
+        <div class="qmeta">Grupo VetPartners · hace 25 min</div>
+        <div class="ans"><span class="draft"><span class="spark">✦</span> Borrador sugerido · confianza alta</span>La concentración de los cinco principales clientes representa aproximadamente un 31 % de los ingresos, con el primer cliente por debajo del 9 %. Cartera con baja rotación y contratos recurrentes anuales.
+          <div style="display:flex;gap:9px;margin-top:11px"><button class="btn primary" style="padding:8px 13px" data-send="respuesta">Revisar y enviar</button><button class="btn" style="padding:8px 13px">Editar</button></div>
+        </div>
+      </div>
+      <div class="qa">
+        <div class="qq"><span>“¿Existen contingencias laborales o litigios abiertos?”</span><span class="qbadge" style="color:var(--info);background:rgba(33,100,227,.1)">Abierta</span></div>
+        <div class="qmeta">Meridia Capital · hace 2 h</div>
+        <div class="ans"><span class="draft"><span class="spark">✦</span> Borrador sugerido · confianza media</span>No constan litigios laborales relevantes en los registros disponibles. Se recomienda adjuntar certificado de la Seguridad Social para confirmarlo.
+          <div style="display:flex;gap:9px;margin-top:11px"><button class="btn primary" style="padding:8px 13px" data-send="respuesta">Revisar y enviar</button><button class="btn" style="padding:8px 13px">Editar</button></div>
+        </div>
+      </div>
+      <div class="qa">
+        <div class="qq"><span>“¿Cuál es el CAPEX previsto para los próximos 3 años?”</span><span class="qbadge" style="color:var(--success);background:rgba(26,138,74,.1)">Respondida</span></div>
+        <div class="qmeta">Grupo VetPartners · ayer · respondida por Fernando</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SIDE · actividad + acciones -->
+  <aside class="col-side">
+    <div class="card">
+      <div class="ct">Acciones del Data Room</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn primary" id="ndaBtn2" style="justify-content:flex-start"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Enviar NDA a contraparte</button>
+        <button class="btn" id="upBtn" style="justify-content:flex-start"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Subir documento</button>
+        <button class="btn" id="shareBtn" style="justify-content:flex-start"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg> Compartir documentos</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">Actividad reciente</div>
+      <div class="act-row"><span class="aav" style="background:#2164E3">VP</span><div><div class="at"><b>Grupo VetPartners</b> abrió «Cuentas anuales 2024»</div><div class="as">hace 12 min</div></div></div>
+      <div class="act-row"><span class="aav" style="background:#1A8A4A">J</span><div><div class="at"><b>Juan</b> respondió una pregunta del Q&amp;A</div><div class="as">hace 1 h</div></div></div>
+      <div class="act-row"><span class="aav" style="background:#7C3AED">MC</span><div><div class="at"><b>Meridia Capital</b> firmó el NDA</div><div class="as">hace 3 h</div></div></div>
+      <div class="act-row"><span class="aav" style="background:#E8001D">D</span><div><div class="at"><b>Tú</b> subiste «Plan de negocio 2025–2028»</div><div class="as">ayer</div></div></div>
+    </div>
+  </aside>
+</div>
+
+<!-- MODAL confirmación NDA -->
+<div class="ov" id="ov">
+  <div class="modal">
+    <h3 id="mTitle">Enviar NDA a la contraparte</h3>
+    <p id="mBody">Vas a enviar el acuerdo de confidencialidad a <b>Family Office Norte</b>. Al firmarlo, obtendrá acceso a las carpetas protegidas del Data Room.</p>
+    <div class="warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg> <span id="mWarn">Esta acción comparte información sensible y queda registrada. Requiere tu confirmación.</span></div>
+    <div class="row">
+      <button class="btn" id="mCancel">Cancelar</button>
+      <button class="btn primary" id="mConfirm">Confirmar y enviar</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A8A4A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span id="toastMsg">Hecho</span></div>
+
+<script>
+  var dark=localStorage.getItem('arr-dark')==='true';
+  function apply(){document.documentElement.toggleAttribute('data-dark',dark);document.getElementById('theme').textContent=dark?'☀':'◑';var l=document.getElementById('logoImg');if(l)l.style.filter=dark?'brightness(0) invert(1)':'none';}
+  apply();
+  document.getElementById('theme').onclick=function(){dark=!dark;localStorage.setItem('arr-dark',dark);apply();};
+  // carpetas
+  document.querySelectorAll('.fold').forEach(function(f){f.onclick=function(){document.querySelectorAll('.fold').forEach(function(x){x.classList.remove('on');});f.classList.add('on');};});
+  // modal de confirmación (acciones sensibles)
+  var ov=document.getElementById('ov');
+  function openModal(title,body,warn){document.getElementById('mTitle').textContent=title;document.getElementById('mBody').innerHTML=body;document.getElementById('mWarn').textContent=warn;ov.classList.add('show');}
+  function closeModal(){ov.classList.remove('show');}
+  document.getElementById('mCancel').onclick=closeModal;
+  ov.onclick=function(e){if(e.target===ov)closeModal();};
+  function toast(msg){var t=document.getElementById('toast');document.getElementById('toastMsg').textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2600);}
+  document.getElementById('mConfirm').onclick=function(){closeModal();toast(window.__act||'Acción confirmada');};
+  function bindSensitive(id,title,body,warn,done){var el=document.getElementById(id);if(el)el.onclick=function(){window.__act=done;openModal(title,body,warn);};}
+  bindSensitive('ndaBtn','Enviar NDA a la contraparte','Vas a enviar el acuerdo de confidencialidad a <b>Family Office Norte</b>. Al firmarlo, obtendrá acceso a las carpetas protegidas del Data Room.','Esta acción comparte información sensible y queda registrada. Requiere tu confirmación.','NDA enviado a Family Office Norte');
+  bindSensitive('ndaBtn2','Enviar NDA a la contraparte','Vas a enviar el acuerdo de confidencialidad a <b>Family Office Norte</b>. Al firmarlo, obtendrá acceso a las carpetas protegidas del Data Room.','Esta acción comparte información sensible y queda registrada. Requiere tu confirmación.','NDA enviado a Family Office Norte');
+  bindSensitive('shareBtn','Compartir documentos','Vas a compartir documentos del Data Room con las contrapartes con NDA firmado.','Compartir documentación es una acción sensible y queda registrada en la actividad. Requiere tu confirmación.','Documentos compartidos');
+  bindSensitive('inviteBtn','Invitar al Data Room','Vas a invitar a una nueva contraparte al Data Room. Recibirá primero el teaser y el NDA.','La invitación da acceso a información del proceso y queda registrada. Requiere tu confirmación.','Invitación enviada');
+  document.getElementById('upBtn').onclick=function(){toast('Selecciona un archivo para subir');};
+  document.querySelectorAll('[data-send]').forEach(function(b){b.onclick=function(){openModal('Enviar respuesta a la contraparte','Vas a enviar la respuesta del Q&amp;A a la contraparte. Revisa el contenido antes de confirmar.','El envío queda registrado y es visible para la contraparte. Requiere tu confirmación.');window.__act='Respuesta enviada';};});
+</script>
+<script src="assets/arroba-composer.js"></script>
+</body>
+</html>

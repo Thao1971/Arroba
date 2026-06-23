@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { background: var(--bg); padding: 20px; font-family: var(--font-body); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .block { border-radius: var(--radius-lg); padding: 12px 14px; }
+  .block-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; font-family: var(--font-display); }
+  .block-val { font-size: 10px; font-family: var(--font-mono); opacity: 0.55; }
+  .section-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; font-family: var(--font-display); }
+  .swatch-row { display: flex; gap: 3px; margin-bottom: 8px; }
+  .swatch { height: 28px; flex: 1; border-radius: var(--radius-sm); }
+</style>
+</head>
+<body>
+  <!-- Accent scale -->
+  <div class="section-title">Rojo Carmesí — Acento principal</div>
+  <div class="swatch-row">
+    <div class="swatch" style="background: oklch(0.52 0.22 22)"></div>
+    <div class="swatch" style="background: oklch(0.58 0.20 22)"></div>
+    <div class="swatch" style="background: oklch(0.63 0.18 22)"></div>
+    <div class="swatch" style="background: oklch(0.58 0.20 22 / 0.35)"></div>
+    <div class="swatch" style="background: oklch(0.58 0.20 22 / 0.12)"></div>
+  </div>
+
+  <div class="grid" style="margin-top:12px">
+    <div class="block" style="background:oklch(0.58 0.20 22 / 0.12); border:1px solid oklch(0.58 0.20 22 / 0.3)">
+      <div class="block-label" style="color:oklch(0.58 0.20 22)">Crimson — Acento</div>
+      <div class="block-val" style="color:oklch(0.58 0.20 22)">--accent · oklch(.58 .20 22)</div>
+    </div>
+    <div class="block" style="background:oklch(0.64 0.11 232 / 0.12); border:1px solid oklch(0.64 0.11 232 / 0.3)">
+      <div class="block-label" style="color:oklch(0.64 0.11 232)">Blue — Datos / Info</div>
+      <div class="block-val" style="color:oklch(0.64 0.11 232)">--blue · oklch(.64 .11 232)</div>
+    </div>
+    <div class="block" style="background:oklch(0.67 0.13 150 / 0.12); border:1px solid oklch(0.67 0.13 150 / 0.3)">
+      <div class="block-label" style="color:oklch(0.67 0.13 150)">Green — Éxito / Positivo</div>
+      <div class="block-val" style="color:oklch(0.67 0.13 150)">--green · oklch(.67 .13 150)</div>
+    </div>
+    <div class="block" style="background:oklch(0.78 0.13 85 / 0.12); border:1px solid oklch(0.78 0.13 85 / 0.3)">
+      <div class="block-label" style="color:oklch(0.78 0.13 85)">Yellow — Atención</div>
+      <div class="block-val" style="color:oklch(0.78 0.13 85)">--yellow · oklch(.78 .13 85)</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { background: var(--bg); padding: 20px; font-family: var(--font-body); }
+  .row { display: flex; gap: 4px; margin-bottom: 12px; }
+  .swatch { flex: 1; height: 56px; border-radius: var(--radius-md); position: relative; display: flex; align-items: flex-end; padding: 6px 8px; }
+  .swatch span { font-size: 10px; font-family: var(--font-mono); color: rgba(255,255,255,0.5); }
+  .swatch.light span { color: rgba(0,0,0,0.4); }
+  .label-row { display: flex; gap: 4px; margin-bottom: 4px; }
+  .lbl { flex: 1; font-size: 10px; color: var(--text-3); text-align: center; letter-spacing: 0.04em; }
+  .section-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; font-family: var(--font-display); }
+</style>
+</head>
+<body>
+  <div style="margin-bottom:16px">
+    <div class="section-title">Fondos & Superficies</div>
+    <div class="row">
+      <div class="swatch" style="background:#080808; border:1px solid #2c2c2c"><span>--bg</span></div>
+      <div class="swatch" style="background:#0d0d0d; border:1px solid #2c2c2c"><span>--bg-subtle</span></div>
+      <div class="swatch" style="background:#121212"><span>--surface-1</span></div>
+      <div class="swatch" style="background:#1a1a1a"><span>--surface-2</span></div>
+      <div class="swatch" style="background:#222222"><span>--surface-3</span></div>
+      <div class="swatch" style="background:#2a2a2a"><span>--surface-4</span></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">Bordes</div>
+    <div class="row">
+      <div class="swatch" style="background:#1e1e1e"><span>--border-subtle</span></div>
+      <div class="swatch" style="background:#2c2c2c"><span>--border-default</span></div>
+      <div class="swatch" style="background:#404040"><span>--border-strong</span></div>
+      <div class="swatch" style="background: oklch(0.76 0.12 52 / 0.4)"><span>--border-accent</span></div>
+    </div>
+  </div>
+</body>
+</html>

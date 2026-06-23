@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mandato · Kitchen — arroba.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#FAFAF8;--surface:#FFFFFF;--surface-2:#F4F4F0;--border:#E8E8E2;--border-strong:#D4D4CC;
+    --text:#0C0C0E;--muted:#636360;--subtle:#ADADAA;--red:#E8001D;--success:#1A8A4A;--warning:#D97708;--info:#2164E3;--violet:#7C3AED;
+    --font-display:'Space Grotesk',system-ui,sans-serif;--font-body:'DM Sans',system-ui,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace;
+    --shadow-md:0 4px 16px rgba(12,12,14,.06);--shadow-lg:0 18px 56px rgba(12,12,14,.16);
+  }
+  [data-dark]{--bg:#0C0C0E;--surface:#1A1A18;--surface-2:#242422;--border:#2E2E2C;--border-strong:#4A4A47;--text:#FAFAF8;--muted:#ADADAA;--subtle:#636360}
+  html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+  a{color:inherit;text-decoration:none}
+  .spark{color:var(--red);font-weight:700}.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .tb{position:sticky;top:0;z-index:300;height:60px;display:flex;align-items:center;gap:24px;padding:0 28px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border)}
+  .tb nav{display:flex;gap:2px}.tb nav a{font-size:14px;font-weight:500;color:var(--muted);padding:7px 14px;border-radius:8px}.tb nav a.on{color:var(--text);font-weight:700}
+  .tb .sp{flex:1}.tb .ic{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px}.tb .av{width:32px;height:32px;border-radius:50%;background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  /* entity header */
+  .eh{background:var(--surface-2);border-bottom:1px solid var(--border)}
+  .eh .in{max-width:min(1240px,95vw);margin:0 auto;padding:18px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .eh .lg{width:50px;height:50px;border-radius:13px;background:linear-gradient(135deg,#0C0C0E,#2E2E2C);color:var(--red);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:20px;flex-shrink:0}
+  .eh h1{font-family:var(--font-display);font-size:21px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid rgba(232,0,29,.22);color:var(--red);background:rgba(232,0,29,.06)}
+  .pill.v{color:var(--violet);border-color:rgba(124,58,237,.25);background:rgba(124,58,237,.07)}
+  .eh .sub{font-size:13px;color:var(--muted);margin-top:3px}
+  .eh .act{display:flex;gap:9px;margin-left:auto}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;padding:10px 15px;border-radius:9px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);cursor:pointer;font-family:inherit;min-height:40px}
+  .btn:hover{background:var(--surface-2)}.btn.primary{background:var(--red);color:#fff;border-color:transparent}.btn.primary:hover{filter:brightness(1.08)}
+  .btn.sm{padding:8px 13px;font-size:12.5px;min-height:34px}
+  /* tabs */
+  .tabs{position:sticky;top:60px;z-index:200;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .tabs .in{max-width:min(1240px,95vw);margin:0 auto;padding:0 28px;display:flex;gap:2px;overflow-x:auto}
+  .tabs button{white-space:nowrap;position:relative;font-size:14px;font-weight:600;color:var(--muted);background:none;border:none;padding:13px 14px;cursor:pointer;font-family:inherit}
+  .tabs button:hover{color:var(--text)}.tabs button.on{color:var(--text)}
+  .tabs button.on::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--red);border-radius:2px}
+  /* layout */
+  .layout{max-width:min(1240px,95vw);margin:0 auto;padding:22px 28px 170px;display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:22px;align-items:start}
+  @media(max-width:1040px){.layout{grid-template-columns:1fr}.side{position:static!important}}
+  .side{position:sticky;top:120px;display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+  .ct{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--subtle);margin-bottom:13px;display:flex;align-items:center;gap:7px}
+  .tabpanel{display:none}.tabpanel.on{display:flex;flex-direction:column;gap:16px;animation:fi .2s ease}
+  @keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:680px){.kpis{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 15px}
+  .kpi .l{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--subtle)}
+  .kpi .v{font-family:var(--font-mono);font-size:21px;font-weight:600;margin-top:5px}
+  .kpi .d{font-size:11px;color:var(--muted);margin-top:2px}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)}.row:first-of-type{border-top:0}
+  .row .l{font-size:13.5px;color:var(--muted)}.row .v{font-family:var(--font-mono);font-size:13.5px;font-weight:600}
+  /* timeline */
+  .tl{position:relative;padding-left:26px}
+  .tl::before{content:"";position:absolute;left:7px;top:6px;bottom:6px;width:2px;background:var(--border)}
+  .tl .ti{position:relative;padding:10px 0}
+  .tl .ti::before{content:"";position:absolute;left:-23px;top:14px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--border-strong)}
+  .tl .ti.done::before{background:var(--success);border-color:var(--success)}
+  .tl .ti.now::before{background:var(--red);border-color:var(--red);box-shadow:0 0 0 4px rgba(232,0,29,.15)}
+  .tl .ti .tt{font-size:14px;font-weight:600}.tl .ti .ts{font-size:12.5px;color:var(--muted)}
+  .tl .ti.future .tt{color:var(--muted);font-weight:500}
+  /* buyer rows */
+  .br{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--border)}.br:first-of-type{border-top:0}
+  .br .ba{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+  .br .bn{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .br .bm{font-size:11.5px;color:var(--subtle)}
+  .fit{font-family:var(--font-mono);font-size:13px;font-weight:600;padding:3px 8px;border-radius:6px}
+  .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px}
+  .doc{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--border)}.doc:first-of-type{border-top:0}
+  .doc .di{width:34px;height:34px;border-radius:9px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--muted);flex-shrink:0}
+  .doc .dn{font-size:13.5px;font-weight:600}.doc .dm{font-size:11.5px;color:var(--subtle)}
+  .person{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--border)}.person:first-of-type{border-top:0}
+  .person .pa{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+  .person .pn{font-size:13.5px;font-weight:600}.person .ps{font-size:11.5px;color:var(--subtle)}
+  .person .role{margin-left:auto;font-size:11px;font-weight:600;color:var(--muted);background:var(--surface-2);padding:3px 9px;border-radius:999px}
+  .act-row{display:flex;gap:11px;padding:10px 0;border-top:1px solid var(--border)}.act-row:first-of-type{border-top:0}
+  .act-row .aav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+  .act-row .at{font-size:12.5px;line-height:1.45}.act-row .as{font-size:11px;color:var(--subtle)}
+  /* sidebar acciones */
+  .sa{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:background .12s}
+  .sa:hover{background:var(--surface-2)}.sa svg{color:var(--muted);flex-shrink:0}
+  .sa.primary{background:var(--red);color:#fff;margin-bottom:4px}.sa.primary svg{color:#fff}.sa.primary:hover{filter:brightness(1.08);background:var(--red)}
+  .side .divd{height:1px;background:var(--border);margin:6px 4px}
+  .prog .pl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .prog .pb{height:7px;background:var(--surface-2);border-radius:4px;overflow:hidden}.prog .pb i{display:block;height:100%;border-radius:4px;background:var(--warning)}
+  /* modal */
+  .ov{position:fixed;inset:0;background:rgba(12,12,14,.5);backdrop-filter:blur(3px);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}.ov.show{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:460px;width:100%;padding:24px;box-shadow:var(--shadow-lg)}
+  .modal h3{font-family:var(--font-display);font-size:18px;font-weight:700;margin-bottom:8px}.modal p{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:18px}
+  .modal .warn{display:flex;gap:10px;align-items:flex-start;background:rgba(217,119,8,.08);border:1px solid rgba(217,119,8,.25);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12.5px;color:#92540A;line-height:1.5}
+  [data-dark] .modal .warn{color:#F0B968}
+  .modal .row2{display:flex;gap:10px;justify-content:flex-end}
+  .toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:600;background:#0C0C0E;color:#fff;font-size:13.5px;font-weight:600;padding:12px 18px;border-radius:10px;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:9px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+</style>
+</head>
+<body>
+<div class="tb">
+  <a href="Home.html" style="display:flex;align-items:center"><img src="uploads/logo.png" alt="arroba" style="height:55px" id="logoImg"/></a>
+  <nav><a href="Analiza.html">Analiza</a><a href="Valora.html">Valora</a><a href="Compra-Vende.html">Compra/Vende</a><a href="Advisor Mandatos.html" class="on">Advisor</a></nav>
+  <div class="sp"></div>
+  <button class="ic" id="theme" title="Tema">◑</button>
+  <div class="av">AM</div>
+</div>
+
+<!-- ENTITY HEADER -->
+<div class="eh">
+  <div class="in">
+    <div class="lg">K</div>
+    <div>
+      <h1>Kitchen <span class="pill v">Mandato de venta</span> <span class="pill"><span class="spark">✦</span> Due diligence</span></h1>
+      <div class="sub">Cliente: Kitchen, S.L. · Sell-side · Asesor: Ana Moreno · Mandato firmado 14/04/2026</div>
+    </div>
+    <div class="act">
+      <a href="Advisor Mandatos.html" class="btn">← Mandatos</a>
+      <a href="Data Room.html" class="btn">Data Room</a>
+      <button class="btn primary" id="advanceBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg> Avanzar fase</button>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs"><div class="in" id="tabnav">
+  <button data-t="resumen" class="on">Resumen</button>
+  <button data-t="proceso">Proceso</button>
+  <button data-t="compradores">Compradores</button>
+  <button data-t="documentos">Documentos</button>
+  <button data-t="equipo">Equipo</button>
+  <button data-t="actividad">Actividad</button>
+</div></div>
+
+<div class="layout">
+  <main style="min-width:0">
+    <!-- RESUMEN -->
+    <div class="tabpanel on" data-panel="resumen">
+      <div class="kpis">
+        <div class="kpi"><div class="l">Valor estimado <span class="spark">✦</span></div><div class="v">8,2 M€</div><div class="d">por múltiplos</div></div>
+        <div class="kpi"><div class="l">Compradores</div><div class="v">5</div><div class="d">2 con NDA firmado</div></div>
+        <div class="kpi"><div class="l">Oferta recibida</div><div class="v" style="color:var(--success)">8,2 M€</div><div class="d">indicativa · aceptada</div></div>
+        <div class="kpi"><div class="l">Success fee <span class="spark">✦</span></div><div class="v">0,21 M€</div><div class="d">estimado al cierre</div></div>
+      </div>
+      <div class="card">
+        <div class="ct">Resumen del mandato <span class="spark">✦</span></div>
+        <p style="font-size:14px;line-height:1.6;color:var(--text)">Mandato de venta de <b>Kitchen, S.L.</b>, plataforma SaaS de gestión para hostelería. Proceso en fase de <b>due diligence</b> tras aceptar una oferta indicativa de 8,2 M€ de un fondo mid-market. Quedan por resolver dos preguntas del Data Room señaladas como posibles riesgos. El cierre estimado es a 6–8 semanas.</p>
+      </div>
+      <div class="card">
+        <div class="ct">Datos del mandato</div>
+        <div class="row"><span class="l">Tipo</span><span class="v" style="font-family:var(--font-body)">Venta (sell-side)</span></div>
+        <div class="row"><span class="l">Participación en venta</span><span class="v">100 %</span></div>
+        <div class="row"><span class="l">Exclusividad</span><span class="v" style="font-family:var(--font-body)">Sí · hasta 14/10/2026</span></div>
+        <div class="row"><span class="l">Honorarios</span><span class="v" style="font-family:var(--font-body)">Retainer + 2,5 % success</span></div>
+        <div class="row"><span class="l">Rango objetivo</span><span class="v">7,5 – 9,0 M€</span></div>
+      </div>
+    </div>
+
+    <!-- PROCESO -->
+    <div class="tabpanel" data-panel="proceso">
+      <div class="card">
+        <div class="ct">Proceso de venta</div>
+        <div class="tl">
+          <div class="ti done"><div class="tt">Mandato firmado</div><div class="ts">14/04/2026 · exclusividad 6 meses</div></div>
+          <div class="ti done"><div class="tt">Preparación · cuaderno de venta</div><div class="ts">Teaser y cuaderno publicados</div></div>
+          <div class="ti done"><div class="tt">Difusión a compradores</div><div class="ts">12 contactados · 5 interesados</div></div>
+          <div class="ti done"><div class="tt">Firma de NDAs</div><div class="ts">2 compradores con acceso al Data Room</div></div>
+          <div class="ti done"><div class="tt">Oferta indicativa (IOI)</div><div class="ts">8,2 M€ · aceptada por el cliente</div></div>
+          <div class="ti now"><div class="tt">Due diligence</div><div class="ts">En curso · 2 preguntas con riesgo pendientes</div></div>
+          <div class="ti future"><div class="tt">Oferta vinculante (SPA)</div><div class="ts">—</div></div>
+          <div class="ti future"><div class="tt">Cierre</div><div class="ts">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPRADORES -->
+    <div class="tabpanel" data-panel="compradores">
+      <div class="card">
+        <div class="ct">Compradores en proceso <span class="spark">✦</span> <a href="Matching.html" style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--red);text-transform:none;letter-spacing:0">Ver matching →</a></div>
+        <div class="br"><span class="ba" style="background:#7C3AED">MC</span><div style="flex:1"><div class="bn">Meridia Capital <span class="tag" style="color:var(--success);background:rgba(26,138,74,.1)">Oferta aceptada</span></div><div class="bm">Private Equity · en due diligence</div></div><span class="fit" style="color:var(--success);background:rgba(26,138,74,.1)">88</span></div>
+        <div class="br"><span class="ba" style="background:#2164E3">GL</span><div style="flex:1"><div class="bn">Grupo Industrial Levante <span class="tag" style="color:var(--red);background:rgba(232,0,29,.1)">Interesado</span></div><div class="bm">Estratégico · NDA firmado</div></div><span class="fit" style="color:var(--success);background:rgba(26,138,74,.1)">92</span></div>
+        <div class="br"><span class="ba" style="background:#D97708">FN</span><div style="flex:1"><div class="bn">Family Office Norte <span class="tag" style="color:var(--warning);background:rgba(217,119,8,.1)">NDA pendiente</span></div><div class="bm">Family office · solo teaser</div></div><span class="fit" style="color:var(--warning);background:rgba(217,119,8,.1)">81</span></div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTOS -->
+    <div class="tabpanel" data-panel="documentos">
+      <div class="card">
+        <div class="ct">Documentos del mandato <a href="Data Room.html" style="margin-left:auto;font-size:12.5px;font-weight:600;color:var(--red);text-transform:none;letter-spacing:0">Abrir Data Room →</a></div>
+        <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div style="flex:1"><div class="dn">Cuaderno de venta</div><div class="dm">v3 · 28 págs · confidencial</div></div><button class="btn sm">Ver</button></div>
+        <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><div style="flex:1"><div class="dn">Teaser anónimo</div><div class="dm">Documento de difusión</div></div><button class="btn sm">Ver</button></div>
+        <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><div style="flex:1"><div class="dn">NDA tipo del proceso</div><div class="dm">Plantilla firmada por 2 compradores</div></div><button class="btn sm">Ver</button></div>
+        <div class="doc"><span class="di"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><div style="flex:1"><div class="dn">Oferta indicativa (IOI)</div><div class="dm">Meridia Capital · 8,2 M€</div></div><button class="btn sm">Ver</button></div>
+      </div>
+    </div>
+
+    <!-- EQUIPO -->
+    <div class="tabpanel" data-panel="equipo">
+      <div class="card">
+        <div class="ct">Equipo del mandato</div>
+        <div class="person"><span class="pa" style="background:#E8001D">AM</span><div><div class="pn">Ana Moreno</div><div class="ps">Asesora principal</div></div><span class="role">Lead</span></div>
+        <div class="person"><span class="pa" style="background:#2164E3">F</span><div><div class="pn">Fernando Ruiz</div><div class="ps">Valoración y modelización</div></div><span class="role">Analista</span></div>
+        <div class="person"><span class="pa" style="background:#1A8A4A">J</span><div><div class="pn">Juan Vidal</div><div class="ps">Data Room y Q&amp;A</div></div><span class="role">Asociado</span></div>
+        <div class="person"><span class="pa" style="background:#0C0C0E">KT</span><div><div class="pn">Dirección de Kitchen</div><div class="ps">Cliente · contacto</div></div><span class="role">Cliente</span></div>
+      </div>
+    </div>
+
+    <!-- ACTIVIDAD -->
+    <div class="tabpanel" data-panel="actividad">
+      <div class="card">
+        <div class="ct">Actividad reciente</div>
+        <div class="act-row"><span class="aav" style="background:#7C3AED">MC</span><div><div class="at"><b>Meridia Capital</b> formuló 2 preguntas en el Data Room</div><div class="as">hace 25 min</div></div></div>
+        <div class="act-row"><span class="aav" style="background:#1A8A4A">J</span><div><div class="at"><b>Juan</b> preparó borradores de respuesta ✦</div><div class="as">hace 1 h</div></div></div>
+        <div class="act-row"><span class="aav" style="background:#E8001D">AM</span><div><div class="at"><b>Ana</b> aceptó la oferta indicativa en nombre del cliente</div><div class="as">ayer</div></div></div>
+        <div class="act-row"><span class="aav" style="background:#2164E3">F</span><div><div class="at"><b>Fernando</b> actualizó la valoración a 8,2 M€</div><div class="as">hace 2 días</div></div></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SIDEBAR · acciones del mandato -->
+  <aside class="side">
+    <div class="card" style="padding:8px">
+      <div class="ct" style="padding:10px 10px 4px">Acciones del mandato</div>
+      <div class="sa primary" id="advanceBtn2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg> Avanzar a oferta vinculante</div>
+      <a class="sa" href="Data Room.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Responder Q&amp;A del Data Room</a>
+      <a class="sa" href="Matching.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg> Gestionar compradores</a>
+      <div class="sa" id="reportBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg> Informe para el cliente</div>
+      <div class="divd"></div>
+      <div class="sa" id="shareBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg> Compartir con el cliente</div>
+    </div>
+    <div class="card">
+      <div class="ct">Progreso del proceso</div>
+      <div class="prog"><div class="pl"><span>Due diligence</span><span class="mono">80%</span></div><div class="pb"><i style="width:80%"></i></div></div>
+      <p style="font-size:11.5px;color:var(--subtle);margin-top:11px;line-height:1.5">Cierre estimado: 6–8 semanas. Quedan 2 preguntas con riesgo por resolver.</p>
+    </div>
+  </aside>
+</div>
+
+<div class="ov" id="ov"><div class="modal">
+  <h3 id="mTitle">Confirmar acción</h3><p id="mBody"></p>
+  <div class="warn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg> <span id="mWarn"></span></div>
+  <div class="row2"><button class="btn" id="mCancel">Cancelar</button><button class="btn primary" id="mConfirm">Confirmar</button></div>
+</div></div>
+<div class="toast" id="toast"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A8A4A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> <span id="toastMsg">Hecho</span></div>
+
+<script>
+  var dark=localStorage.getItem('arr-dark')==='true';
+  function apply(){document.documentElement.toggleAttribute('data-dark',dark);document.getElementById('theme').textContent=dark?'☀':'◑';var l=document.getElementById('logoImg');if(l)l.style.filter=dark?'brightness(0) invert(1)':'none';}
+  apply();
+  document.getElementById('theme').onclick=function(){dark=!dark;localStorage.setItem('arr-dark',dark);apply();};
+  // tabs
+  function showTab(t){
+    document.querySelectorAll('#tabnav button').forEach(function(x){x.classList.toggle('on',x.dataset.t===t);});
+    document.querySelectorAll('.tabpanel').forEach(function(p){p.classList.toggle('on',p.dataset.panel===t);});
+  }
+  document.querySelectorAll('#tabnav button').forEach(function(b){b.onclick=function(){
+    showTab(b.dataset.t);
+    window.scrollTo({top:0,behavior:'smooth'});
+  };});
+  // deep-link: abrir en la pestaña indicada (?tab= o #tab)
+  (function(){
+    var t=(new URLSearchParams(location.search).get('tab'))||location.hash.replace('#','');
+    if(t&&document.querySelector('#tabnav button[data-t="'+t+'"]')) showTab(t);
+  })();
+  // modales confirmación
+  var ov=document.getElementById('ov');
+  function closeModal(){ov.classList.remove('show');}
+  document.getElementById('mCancel').onclick=closeModal;ov.onclick=function(e){if(e.target===ov)closeModal();};
+  function toast(m){var t=document.getElementById('toast');document.getElementById('toastMsg').textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},2600);}
+  document.getElementById('mConfirm').onclick=function(){closeModal();toast(window.__done);};
+  function bind(id,title,body,warn,done){var el=document.getElementById(id);if(el)el.onclick=function(){window.__done=done;document.getElementById('mTitle').textContent=title;document.getElementById('mBody').innerHTML=body;document.getElementById('mWarn').textContent=warn;ov.classList.add('show');};}
+  bind('advanceBtn','Avanzar a oferta vinculante','Vas a marcar el proceso como listo para solicitar la <b>oferta vinculante (SPA)</b> a Meridia Capital.','Este cambio de fase notifica a las partes y queda registrado. Requiere tu confirmación.','Proceso avanzado a oferta vinculante');
+  bind('advanceBtn2','Avanzar a oferta vinculante','Vas a marcar el proceso como listo para solicitar la <b>oferta vinculante (SPA)</b> a Meridia Capital.','Este cambio de fase notifica a las partes y queda registrado. Requiere tu confirmación.','Proceso avanzado a oferta vinculante');
+  bind('shareBtn','Compartir con el cliente','Vas a compartir el estado del mandato y los documentos con <b>Kitchen, S.L.</b>','Compartir información del proceso queda registrado en la actividad. Requiere tu confirmación.','Compartido con el cliente');
+  bind('reportBtn','Generar informe para el cliente','Vas a generar un informe de estado del mandato para el cliente.','El informe recoge datos confidenciales del proceso. Requiere tu confirmación.','Informe generado');
+</script>
+<script src="assets/arroba-composer.js"></script>
+</body>
+</html>

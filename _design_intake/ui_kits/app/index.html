@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arroba — Plataforma M&A</title>
+<link href="../../colors_and_type.css" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { overflow: hidden; background: var(--bg); }
+  button { cursor: pointer; font-family: inherit; background: none; border: none; color: inherit; }
+  input, select { font-family: inherit; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-4); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- ── Shared: Icons, Data, Primitives ── -->
+<script type="text/babel">
+const ACCENT = 'oklch(0.58 0.20 22)';
+const BLUE   = 'oklch(0.64 0.11 232)';
+const GREEN  = 'oklch(0.67 0.13 150)';
+const YELLOW = 'oklch(0.78 0.13 85)';
+
+const IP = {
+  grid:      '<rect x="2" y="2" width="5" height="5" rx="0.5"/><rect x="9" y="2" width="5" height="5" rx="0.5"/><rect x="2" y="9" width="5" height="5" rx="0.5"/><rect x="9" y="9" width="5" height="5" rx="0.5"/>',
+  activity:  '<polyline points="1,11 5,6.5 8,9.5 11.5,4 15,7.5"/>',
+  building:  '<path d="M3 14V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v9M1 14h14M6 8h.01M6 11h.01M10 8h.01M10 11h.01M6 14v-2h4v2"/>',
+  users:     '<circle cx="6" cy="6" r="3"/><path d="M1 14a5 5 0 0 1 10 0"/><path d="M12 5a2 2 0 0 1 0 4M15 14a4 4 0 0 0-4-4"/>',
+  message:   '<path d="M13 2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h4l2 3 2-3h3a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>',
+  folder:    '<path d="M2 5h3.5l2-2h6.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/>',
+  settings:  '<circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"/>',
+  search:    '<circle cx="7" cy="7" r="5"/><path d="M13.5 13.5l-3-3"/>',
+  plus:      '<path d="M8 2v12M2 8h12"/>',
+  chevron:   '<polyline points="5,3 11,8 5,13"/>',
+  arrowL:    '<path d="M14 8H2M7 3L2 8l5 5"/>',
+  fileText:  '<path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6L9 2zM9 2v4h4M5 9h6M5 12h4"/>',
+  check:     '<circle cx="8" cy="8" r="7"/><polyline points="5,8 7.5,10.5 12,6"/>',
+  clock:     '<circle cx="8" cy="8" r="7"/><polyline points="8,5 8,8 10.5,10"/>',
+  lock:      '<rect x="3" y="8" width="10" height="7" rx="1"/><path d="M5 8V6a3 3 0 0 1 6 0v2"/>',
+  bell:      '<path d="M8 2a5 5 0 0 1 5 5v3l2 2H1l2-2V7a5 5 0 0 1 5-5zM6 14a2 2 0 0 0 4 0"/>',
+  download:  '<path d="M8 2v9M4 8l4 4 4-4M2 14h12"/>',
+  user:      '<circle cx="8" cy="6" r="3"/><path d="M2 14a6 6 0 0 1 12 0"/>',
+  barChart:  '<path d="M2 13V9h3v4M7 13V5h3v8M12 13V2h3v11M1 14h15"/>',
+  trendUp:   '<polyline points="1,13 5,9 8,12 12,6 15,9"/><polyline points="11,6 15,6 15,10"/>',
+  xmark:     '<path d="M12 4L4 12M4 4l8 8"/>',
+};
+
+const Icon = ({ name, size=16, color='currentColor', sw=1.5, style={} }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="none"
+    stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"
+    style={style} dangerouslySetInnerHTML={{ __html: IP[name] || '' }} />
+);
+
+const Badge = ({ estado, label }) => {
+  const cfg = {
+    'nuevo':         { c: BLUE,   bg: `${BLUE}/0.12`.replace('/','/ ') },
+    'nda':           { c: YELLOW, bg: `${YELLOW}/0.14`.replace('/','/ ') },
+    'due-diligence': { c: YELLOW, bg: `${YELLOW}/0.14`.replace('/','/ ') },
+    'loi':           { c: GREEN,  bg: `${GREEN}/0.12`.replace('/','/ ') },
+    'cerrado':       { c: GREEN,  bg: `${GREEN}/0.15`.replace('/','/ ') },
+    'pausado':       { c: 'var(--text-3)', bg: 'var(--surface-3)' },
+    'rechazado':     { c: ACCENT, bg: `${ACCENT}/0.12`.replace('/','/ ') },
+  }[estado] || { c: 'var(--text-3)', bg: 'var(--surface-3)' };
+
+  return (
+    <span style={{
+      display:'inline-flex', alignItems:'center', gap:5,
+      fontSize:10, fontWeight:600, letterSpacing:'0.04em',
+      padding:'3px 9px', borderRadius:'var(--radius-full)',
+      color: cfg.c,
+      background: estado === 'nuevo' ? 'oklch(0.64 0.11 232 / 0.12)'
+        : estado === 'nda' ? 'oklch(0.78 0.13 85 / 0.14)'
+        : estado === 'due-diligence' ? 'oklch(0.78 0.13 85 / 0.14)'
+        : estado === 'loi' ? 'oklch(0.67 0.13 150 / 0.12)'
+        : estado === 'cerrado' ? 'oklch(0.67 0.13 150 / 0.15)'
+        : estado === 'rechazado' ? 'oklch(0.58 0.20 22 / 0.12)'
+        : 'var(--surface-3)',
+    }}>
+      <span style={{ width:5, height:5, borderRadius:'50%', background:'currentColor', display:'inline-block', flexShrink:0 }} />
+      {label}
+    </span>
+  );
+};
+
+const DEALS = [
+  { id:1, nombre:'Agencia Nómada',  tipo:['Performance','SEO'],           valoracion:'€2.4M', valoracionNum:2400000, mrr:'€120k', ebitda:'+38%', equipo:14, nps:72,  estado:'due-diligence', estadoLabel:'Due Diligence', ciudad:'Madrid',    fundacion:2015, descripcion:'Agencia de performance con fuerte especialización en SEO técnico y Paid Search. Cartera diversificada de 40+ clientes recurrentes con ticket medio de €3k/mes.',
+    docs:[{nombre:'NDA',estado:'firmado',fecha:'15 abr 2026'},{nombre:'Info Memo',estado:'disponible',fecha:'22 abr 2026'},{nombre:'Modelo Financiero',estado:'pendiente',fecha:'—'},{nombre:'LOI',estado:'pendiente',fecha:'—'}] },
+  { id:2, nombre:'Studio 44',       tipo:['Creative','Branding'],         valoracion:'€1.8M', valoracionNum:1800000, mrr:'€78k',  ebitda:'+29%', equipo:9,  nps:81,  estado:'nda',           estadoLabel:'NDA firmada',   ciudad:'Barcelona', fundacion:2018, descripcion:'Estudio creativo boutique especializado en branding para startups y tech. Portfolio con 80+ marcas lanzadas en España y Latam.',
+    docs:[{nombre:'NDA',estado:'firmado',fecha:'8 may 2026'},{nombre:'Info Memo',estado:'pendiente',fecha:'—'},{nombre:'Modelo Financiero',estado:'pendiente',fecha:'—'}] },
+  { id:3, nombre:'DataFirst',        tipo:['Data & Analytics','MarTech'],  valoracion:'€4.2M', valoracionNum:4200000, mrr:'€215k', ebitda:'+44%', equipo:22, nps:68,  estado:'loi',           estadoLabel:'LOI enviada',   ciudad:'Madrid',    fundacion:2013, descripcion:'Consultora de datos con CDP propio y modelos de atribución. Clientes en banca y retail. Crecimiento YoY 35%. Equipo senior en datos y tecnología.',
+    docs:[{nombre:'NDA',estado:'firmado',fecha:'2 mar 2026'},{nombre:'Info Memo',estado:'disponible',fecha:'15 mar 2026'},{nombre:'Modelo Financiero',estado:'disponible',fecha:'28 mar 2026'},{nombre:'LOI',estado:'enviado',fecha:'10 may 2026'}] },
+  { id:4, nombre:'Mediacloud',       tipo:['Paid Media','Programática'],   valoracion:'€890k', valoracionNum:890000,  mrr:'€48k',  ebitda:'+21%', equipo:6,  nps:59,  estado:'nuevo',         estadoLabel:'Nuevo',         ciudad:'Valencia',  fundacion:2020, descripcion:'Especialistas en compra programática, display y video. Equipo de 6 personas con alta capacidad de escala técnica.',
+    docs:[{nombre:'NDA',estado:'pendiente',fecha:'—'}] },
+  { id:5, nombre:'Kreativa',         tipo:['Social','Content'],            valoracion:'€1.1M', valoracionNum:1100000, mrr:'€55k',  ebitda:'+18%', equipo:11, nps:75,  estado:'pausado',       estadoLabel:'En pausa',      ciudad:'Sevilla',   fundacion:2017, descripcion:'Agencia de contenidos y social con comunidades de 5M+ seguidores. Alta retención de clientes y modelo retainer estable.',
+    docs:[{nombre:'NDA',estado:'firmado',fecha:'14 ene 2026'},{nombre:'Info Memo',estado:'disponible',fecha:'28 ene 2026'}] },
+];
+
+Object.assign(window, { Icon, Badge, DEALS, ACCENT, BLUE, GREEN, YELLOW });
+</script>
+
+<script type="text/babel" src="Sidebar.jsx"></script>
+<script type="text/babel" src="Dashboard.jsx"></script>
+<script type="text/babel" src="DealFlow.jsx"></script>
+<script type="text/babel" src="DealDetail.jsx"></script>
+
+<script type="text/babel">
+const App = () => {
+  const [screen, setScreen] = React.useState('dashboard');
+  const [deal, setDeal] = React.useState(null);
+
+  const go = (s, d=null) => { setScreen(s); if (d) setDeal(d); };
+
+  const screens = {
+    dashboard: <Dashboard go={go} />,
+    dealflow:  <DealFlow go={go} />,
+    'deal-detail': <DealDetail deal={deal} go={go} />,
+  };
+
+  const placeholder = (label) => (
+    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-3)', fontFamily:'var(--font-mono)', fontSize:13 }}>
+      {label} — próximamente
+    </div>
+  );
+
+  return (
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <Sidebar screen={screen} go={go} />
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        {screens[screen] || placeholder(screen)}
+      </div>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

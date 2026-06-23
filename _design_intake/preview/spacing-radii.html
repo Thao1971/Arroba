@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { background: var(--bg); padding: 20px; font-family: var(--font-body); }
+  .section-title { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+  .sp-row { display: flex; align-items: flex-end; gap: 0; margin-bottom: 4px; }
+  .sp-bar { background: oklch(0.76 0.12 52 / 0.25); border-top: 2px solid oklch(0.76 0.12 52 / 0.6); margin-right: 3px; }
+  .sp-label { font-size: 9px; font-family: var(--font-mono); color: var(--text-3); text-align: center; margin-top: 4px; }
+  .sp-col { display: flex; flex-direction: column; align-items: center; }
+  .radius-row { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+  .r-box { background: var(--surface-2); border: 1px solid var(--border-default); width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+  .r-lbl { font-size: 9px; font-family: var(--font-mono); color: var(--text-3); text-align: center; margin-top: 4px; }
+  .r-col { display: flex; flex-direction: column; align-items: center; }
+  .divider { border: none; border-top: 1px solid var(--border-subtle); margin: 14px 0; }
+</style>
+</head>
+<body>
+  <div class="section-title">Espaciado — Escala 4px</div>
+  <div class="sp-row">
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:4px"></div><div class="sp-label">4<br>sp-1</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:8px"></div><div class="sp-label">8<br>sp-2</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:12px"></div><div class="sp-label">12<br>sp-3</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:16px"></div><div class="sp-label">16<br>sp-4</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:20px"></div><div class="sp-label">20<br>sp-5</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:24px"></div><div class="sp-label">24<br>sp-6</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:32px"></div><div class="sp-label">32<br>sp-8</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:40px"></div><div class="sp-label">40<br>sp-10</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:48px"></div><div class="sp-label">48<br>sp-12</div></div>
+    <div class="sp-col"><div class="sp-bar" style="width:12px;height:64px"></div><div class="sp-label">64<br>sp-16</div></div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section-title">Radios</div>
+  <div class="radius-row">
+    <div class="r-col"><div class="r-box" style="border-radius:3px"></div><div class="r-lbl">3px<br>xs</div></div>
+    <div class="r-col"><div class="r-box" style="border-radius:4px"></div><div class="r-lbl">4px<br>sm</div></div>
+    <div class="r-col"><div class="r-box" style="border-radius:6px"></div><div class="r-lbl">6px<br>md</div></div>
+    <div class="r-col"><div class="r-box" style="border-radius:8px"></div><div class="r-lbl">8px<br>lg</div></div>
+    <div class="r-col"><div class="r-box" style="border-radius:12px"></div><div class="r-lbl">12px<br>xl</div></div>
+    <div class="r-col"><div class="r-box" style="border-radius:16px"></div><div class="r-lbl">16px<br>2xl</div></div>
+    <div class="r-col"><div class="r-box" style="border-radius:9999px;width:52px;height:24px"></div><div class="r-lbl">full<br>pill</div></div>
+  </div>
+</body>
+</html>
