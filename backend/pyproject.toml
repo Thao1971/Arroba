@@ -1,0 +1,30 @@
+[project]
+name = "arroba-backend"
+version = "0.0.1"
+description = "arroba.com backend — FastAPI monolito modular (Etapa 0)."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+exclude = [
+  ".venv",
+  "__pycache__",
+  ".ruff_cache",
+  ".pytest_cache",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N"]
+ignore = ["E501", "N818", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B011"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning",
+]

@@ -1,0 +1,136 @@
+import uuid
+from contextlib import asynccontextmanager
+
+import structlog
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from src.core.config import get_settings
+from src.core.database import close_client, get_db, init_indexes
+from src.core.exceptions import register_exception_handlers
+from src.core.logging import configure_logging, get_logger
+from src.modules.auth.router import router as auth_router
+from src.modules.billing.router import router as billing_router
+from src.modules.organizations.router import (
+    inv_router as invitations_router,
+)
+from src.modules.organizations.router import (
+    orgs_router as organizations_router,
+)
+from src.modules.users.router import router as users_router
+
+configure_logging()
+log = get_logger("main")
+settings = get_settings()
+
+
+OPENAPI_TAGS = [
+    {"name": "health", "description": "Service health & component env presence."},
+    {"name": "auth", "description": "Register, login, OAuth session exchange, me, logout."},
+    {"name": "users", "description": "Authenticated user profile."},
+    {"name": "organizations", "description": "Orgs, memberships, invitations."},
+    {"name": "billing", "description": "Stripe health check (E0 stub)."},
+]
+
+
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    """Attaches a request_id to structlog contextvars for the duration of the request."""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+        token = structlog.contextvars.bind_contextvars(
+            request_id=request_id, path=request.url.path, method=request.method
+        )
+        try:
+            response: Response = await call_next(request)
+        finally:
+            structlog.contextvars.unbind_contextvars("request_id", "path", "method")
+            del token  # explicit
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    log.info("startup.begin", env=settings.env, db=settings.db_name)
+    try:
+        await init_indexes()
+        log.info("startup.indexes_ready")
+    except Exception as e:  # pragma: no cover
+        log.error("startup.index_failure", error=str(e))
+    log.info("startup.ready")
+    yield
+    await close_client()
+    log.info("shutdown.complete")
+
+
+app = FastAPI(
+    title="arroba.com API",
+    description="M&A platform for digital agencies — Etapa 0.3 (skeleton).",
+    version="0.0.1",
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins_list or ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(RequestContextMiddleware)
+
+register_exception_handlers(app)
+
+# Routers (all under /api)
+app.include_router(auth_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
+app.include_router(organizations_router, prefix="/api")
+app.include_router(invitations_router, prefix="/api")
+app.include_router(billing_router, prefix="/api")
+
+
+@app.get("/api/health", tags=["health"])
+async def health(response: Response) -> dict:
+    mongo_status = "connected"
+    try:
+        await get_db().command("ping")
+    except Exception:
+        mongo_status = "error"
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "status": "ok",
+        "mongo": mongo_status,
+        "stripe": "env-ok" if settings.stripe_api_key else "env-missing",
+        "emergent_auth": "env-ok" if settings.emergent_auth_url else "env-missing",
+        "environment": settings.env,
+        "version": "0.0.1",
+    }
+
+
+@app.get("/api", include_in_schema=False)
+async def root() -> dict:
+    return {"name": "arroba.com API", "version": "0.0.1", "stage": "E0.3"}
+
+
+def _custom_openapi() -> dict:
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title="arroba.com API",
+        version="0.0.1",
+        description="M&A platform for digital agencies. Etapa 0 — Foundation.",
+        routes=app.routes,
+        tags=OPENAPI_TAGS,
+    )
+    schema["info"]["x-stage"] = "E0.3"
+    schema["info"]["x-boundary-first"] = True
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = _custom_openapi  # type: ignore[assignment]
