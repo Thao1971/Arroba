@@ -25,7 +25,7 @@ async def test_create_org_and_owner_membership(alice):
 
 async def test_invite_and_accept_flow_creates_two_members(client):
     # Owner creates org
-    await _register(client, "owner@example.com")
+    await _register(client, "owner@arrobatest.com")
     r = await client.post(
         "/api/organizations", json={"legal_name": "Studio44"}
     )
@@ -34,7 +34,7 @@ async def test_invite_and_accept_flow_creates_two_members(client):
     # Owner invites newhire
     r = await client.post(
         f"/api/organizations/{org_id}/invitations",
-        json={"email": "newhire@example.com", "role_in_org": "operator"},
+        json={"email": "newhire@arrobatest.com", "role_in_org": "operator"},
     )
     assert r.status_code == 201, r.text
     token = r.json()["token"]
@@ -44,7 +44,7 @@ async def test_invite_and_accept_flow_creates_two_members(client):
     client.cookies.clear()
 
     # Newhire registers (cookie attached) and accepts invitation
-    await _register(client, "newhire@example.com")
+    await _register(client, "newhire@arrobatest.com")
     r = await client.post(f"/api/invitations/{token}/accept")
     assert r.status_code == 201, r.text
     assert r.json()["role_in_org"] == "operator"
@@ -62,31 +62,31 @@ async def test_invite_and_accept_flow_creates_two_members(client):
 
 
 async def test_accept_invite_wrong_email_returns_403(client):
-    await _register(client, "owner2@example.com")
+    await _register(client, "owner2@arrobatest.com")
     r = await client.post("/api/organizations", json={"legal_name": "Wrong-Email Co"})
     org_id = r.json()["org"]["org_id"]
     r = await client.post(
         f"/api/organizations/{org_id}/invitations",
-        json={"email": "intended@example.com", "role_in_org": "operator"},
+        json={"email": "intended@arrobatest.com", "role_in_org": "operator"},
     )
     token = r.json()["token"]
     await client.post("/api/auth/logout")
     client.cookies.clear()
 
     # Register a DIFFERENT user and try to accept — must fail with 403
-    await _register(client, "someone-else@example.com")
+    await _register(client, "someone-else@arrobatest.com")
     r = await client.post(f"/api/invitations/{token}/accept")
     assert r.status_code == 403
     assert r.json()["code"] == "invitation_email_mismatch"
 
 
 async def test_non_member_cannot_read_org(client):
-    await _register(client, "a@example.com")
+    await _register(client, "a@arrobatest.com")
     r = await client.post("/api/organizations", json={"legal_name": "Solo"})
     org_id = r.json()["org"]["org_id"]
     await client.post("/api/auth/logout")
     client.cookies.clear()
 
-    await _register(client, "b@example.com")
+    await _register(client, "b@arrobatest.com")
     r = await client.get(f"/api/organizations/{org_id}")
     assert r.status_code == 403

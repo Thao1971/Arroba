@@ -47,7 +47,7 @@ async def alice(client: AsyncClient) -> AsyncClient:
     """A logged-in client carrying Alice's session cookie."""
     r = await client.post(
         "/api/auth/register",
-        json={"email": "alice@example.com", "password": "Secret123!", "full_name": "Alice"},
+        json={"email": "alice@arrobatest.com", "password": "Secret123!", "full_name": "Alice"},
     )
     assert r.status_code == 201, r.text
     return client

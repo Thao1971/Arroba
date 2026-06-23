@@ -84,7 +84,17 @@ async def me(user: UserPublic = Depends(get_current_user)) -> MeResponse:
     )
 
 
-@router.post("/logout")
+@router.post(
+    "/logout",
+    summary="Logout (idempotent)",
+    description=(
+        "Invalidates the server-side session and clears the `arroba_session` cookie.\n\n"
+        "**Idempotent**: returns 200 with `{ok: true}` regardless of session state "
+        "(no session, expired session, or active session). Clients SHOULD treat any "
+        "200 here as 'definitely logged out' and never branch on prior state."
+    ),
+    responses={200: {"description": "Logged out (always, idempotent)."}},
+)
 async def logout(
     response: Response, session_id: str | None = Depends(get_session_id)
 ) -> dict:

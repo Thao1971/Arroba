@@ -24,6 +24,10 @@ ignore = ["E501", "N818", "B008"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+  "real_mongo: integration test that hits a real MongoDB at MONGO_URL (skipped by default)",
+]
+addopts = ["-m", "not real_mongo"]
 filterwarnings = [
   "ignore::DeprecationWarning",
   "ignore::PendingDeprecationWarning",

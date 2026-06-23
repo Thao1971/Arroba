@@ -1,9 +1,41 @@
 """Mongo (Motor) async client + index init + test-override hook.
 Every module accesses the database via `get_db()` only. Tests inject a
-mongomock-motor instance through `override_db()`."""
+mongomock-motor instance through `override_db()`.
+
+==================== AUDIT DE ÍNDICES SPARSE (E0.3.1) ====================
+Los índices `sparse=True` SOLO saltan documentos donde el campo está AUSENTE,
+NO donde su valor es `null`. Como `pydantic.model_dump(mode="json")` serializa
+campos `None` a JSON `null`, los inserts producían `{google_id: null}` (y
+`{tax_id: null}`) que terminaban TODOS en el mismo slot del índice unique
+sparse, provocando duplicate-key en el segundo registro.
+
+Defensa en profundidad aplicada:
+  (a) Reemplazo `sparse=True` por `partialFilterExpression` que solo indexa
+      cuando el campo es de tipo string (excluye explícitamente null/absent).
+  (b) Todos los inserts en /modules/*/service.py usan model_dump(exclude_none=True)
+      para no escribir null en el documento.
+
+Índices auditados:
+  - users.user_id          : unique          (no nullable, OK)
+  - users.email            : unique          (no nullable, OK)
+  - users.google_id        : unique + partialFilter (FIXED — antes sparse)
+  - organizations.org_id   : unique          (no nullable, OK)
+  - organizations.tax_id   : partialFilter   (FIXED — antes sparse, aunque sin unique)
+  - memberships.*          : todos sobre campos no-null, OK
+  - user_sessions.*        : todos sobre campos no-null + TTL en expires_at, OK
+  - org_invitations.*      : todos sobre campos no-null, OK
+
+Migración de índices viejos: en init_indexes() se hace drop explícito de los
+índices auto-nombrados antiguos (google_id_1, tax_id_1) si todavía existen
+con opciones antiguas, antes de crear los nuevos con nombre explícito.
+=========================================================================
+"""
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 from src.core.config import get_settings
+from src.core.logging import get_logger
+
+log = get_logger("database")
 
 _client: AsyncIOMotorClient | None = None
 _db: AsyncIOMotorDatabase | None = None
@@ -31,26 +63,65 @@ def override_db(db: AsyncIOMotorDatabase | None) -> None:
     _db = db
 
 
+async def _drop_legacy_sparse_indexes() -> None:
+    """Idempotent migration: drop pre-E0.3.1 sparse indexes whose options
+    can't be mutated in-place. Only drops if the existing index does NOT
+    already carry partialFilterExpression."""
+    db = get_db()
+    for collection, legacy_name in [
+        ("users", "google_id_1"),
+        ("organizations", "tax_id_1"),
+    ]:
+        try:
+            info = await db[collection].index_information()
+        except Exception:
+            continue
+        meta = info.get(legacy_name)
+        if meta and "partialFilterExpression" not in meta:
+            try:
+                await db[collection].drop_index(legacy_name)
+                log.info("indexes.legacy_dropped", collection=collection, name=legacy_name)
+            except Exception as e:  # pragma: no cover
+                log.warning("indexes.legacy_drop_failed", collection=collection, error=str(e))
+
+
 async def init_indexes() -> None:
     """Idempotent index creation for every collection owned by a module."""
     db = get_db()
-    # users
+
+    # === Migration of legacy sparse indexes (E0.3.1) ===
+    await _drop_legacy_sparse_indexes()
+
+    # === users ===
     await db.users.create_index("user_id", unique=True)
     await db.users.create_index("email", unique=True)
-    await db.users.create_index("google_id", unique=True, sparse=True)
-    # organizations
+    await db.users.create_index(
+        "google_id",
+        unique=True,
+        partialFilterExpression={"google_id": {"$type": "string"}},
+        name="google_id_partial_string",
+    )
+
+    # === organizations ===
     await db.organizations.create_index("org_id", unique=True)
-    await db.organizations.create_index("tax_id", sparse=True)
-    # memberships
+    await db.organizations.create_index(
+        "tax_id",
+        partialFilterExpression={"tax_id": {"$type": "string"}},
+        name="tax_id_partial_string",
+    )
+
+    # === memberships ===
     await db.memberships.create_index("membership_id", unique=True)
     await db.memberships.create_index([("user_id", 1), ("org_id", 1)], unique=True)
     await db.memberships.create_index("user_id")
     await db.memberships.create_index("org_id")
-    # user_sessions — TTL on expires_at
+
+    # === user_sessions (TTL on expires_at) ===
     await db.user_sessions.create_index("session_id", unique=True)
     await db.user_sessions.create_index("user_id")
     await db.user_sessions.create_index("expires_at", expireAfterSeconds=0)
-    # org_invitations
+
+    # === org_invitations ===
     await db.org_invitations.create_index("invitation_id", unique=True)
     await db.org_invitations.create_index("token", unique=True)
     await db.org_invitations.create_index("email")

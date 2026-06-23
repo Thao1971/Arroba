@@ -61,7 +61,9 @@ async def register_user(
         full_name=full_name,
         role=Role.subscriber,
     )
-    await db.users.insert_one(user.model_dump(mode="json"))
+    # exclude_none=True: NEVER write {google_id: null} to disk; the partial
+    # filter index would still catch dup-null but the document stays cleaner.
+    await db.users.insert_one(user.model_dump(mode="json", exclude_none=True))
     sid, expires = await _create_session(user.user_id, ip, user_agent)
     log.info("auth.register", user_id=user.user_id, email=email_norm)
     return _to_public(user.model_dump(mode="json")), sid, expires
@@ -112,7 +114,7 @@ async def exchange_emergent_session(
             role=Role.subscriber,
             email_verified=True,
         )
-        await db.users.insert_one(user.model_dump(mode="json"))
+        await db.users.insert_one(user.model_dump(mode="json", exclude_none=True))
         doc = user.model_dump(mode="json")
         log.info("auth.register_oauth", user_id=user.user_id, email=email)
     else:

@@ -18,7 +18,7 @@
 curl -X POST http://localhost:8001/api/auth/register \
   -H "Content-Type: application/json" \
   -c /tmp/cookies.txt \
-  -d '{"email":"tester@example.com","password":"Test1234!","full_name":"Tester"}'
+  -d '{"email":"tester@arrobatest.com","password":"Test1234!","full_name":"Tester"}'
 # → 201, cookie httpOnly `arroba_session` en /tmp/cookies.txt
 ```
 
@@ -27,7 +27,7 @@ curl -X POST http://localhost:8001/api/auth/register \
 curl -X POST http://localhost:8001/api/auth/login \
   -H "Content-Type: application/json" \
   -c /tmp/cookies.txt \
-  -d '{"email":"tester@example.com","password":"Test1234!"}'
+  -d '{"email":"tester@arrobatest.com","password":"Test1234!"}'
 # → 200
 ```
 
@@ -42,16 +42,17 @@ curl -b /tmp/cookies.txt http://localhost:8001/api/auth/me
 curl -X POST -b /tmp/cookies.txt http://localhost:8001/api/auth/logout
 ```
 
-## Usuario de smoke test ya creado (E0.3)
+## Usuarios de smoke test ya creados (E0.3 + E0.3.1)
 
-Durante la verificación de E0.3 quedó persistido en MongoDB un usuario funcional
-que el tester puede reusar:
+Durante la verificación quedaron persistidos en MongoDB usuarios funcionales
+que el tester puede reusar para pruebas exploratorias:
 
-| Email | Password | Role |
-|---|---|---|
-| `smoke_e0_3@example.com` | `SmokeTest123!` | `subscriber` |
-
-Adicionalmente tiene una org de prueba (`Smoke Agency`, owner) creada.
+| Email | Password | Role | Notas |
+|---|---|---|---|
+| `smoke_e0_3@example.com` | `SmokeTest123!` | `subscriber` | Legacy E0.3 (pre-fix). Tiene `google_id: null` en doc por el bug. Existe pero NO crear más con dominio `@example.com`. |
+| `smoke_e031_1@arrobatest.com` | `Smoke123!` | `subscriber` | Post-fix E0.3.1. Sin `google_id` en doc. |
+| `smoke_e031_2@arrobatest.com` | `Smoke123!` | `subscriber` | Post-fix E0.3.1. |
+| `smoke_e031_3@arrobatest.com` | `Smoke123!` | `subscriber` | Post-fix E0.3.1. |
 
 ## Roles disponibles (enum `Role`)
 

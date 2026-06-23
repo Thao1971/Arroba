@@ -27,7 +27,7 @@ log = get_logger("organizations")
 async def create_org(payload: CreateOrgPayload, created_by: str) -> CreateOrgResponse:
     db = get_db()
     org = OrgInDB(**payload.model_dump(), created_by=created_by)
-    await db.organizations.insert_one(org.model_dump(mode="json"))
+    await db.organizations.insert_one(org.model_dump(mode="json", exclude_none=True))
     membership = MembershipInDB(
         user_id=created_by,
         org_id=org.org_id,
