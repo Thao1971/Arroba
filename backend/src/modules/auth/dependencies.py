@@ -2,10 +2,9 @@ from fastapi import Cookie, Depends
 
 from src.core.exceptions import ForbiddenError
 from src.modules.auth import service as auth_service
+from src.modules.auth.cookies import SESSION_COOKIE
 from src.modules.auth.models import UserPublic
 from src.shared.types import Role
-
-SESSION_COOKIE = "arroba_session"
 
 
 async def get_current_user(

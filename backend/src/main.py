@@ -11,6 +11,12 @@ from src.core.config import get_settings
 from src.core.database import close_client, get_db, init_indexes
 from src.core.exceptions import register_exception_handlers
 from src.core.logging import configure_logging, get_logger
+from src.modules.agency_tool_adapter.router import (
+    admin_router as agency_tool_admin_router,
+)
+from src.modules.agency_tool_adapter.router import (
+    public_router as agency_tool_public_router,
+)
 from src.modules.auth.router import router as auth_router
 from src.modules.billing.router import router as billing_router
 from src.modules.organizations.router import (
@@ -32,6 +38,17 @@ OPENAPI_TAGS = [
     {"name": "users", "description": "Authenticated user profile."},
     {"name": "organizations", "description": "Orgs, memberships, invitations."},
     {"name": "billing", "description": "Stripe health check (E0 stub)."},
+    {
+        "name": "agency-tool",
+        "description": (
+            "Agency Tool adapter (public surface). E0.4: mock; reads from "
+            "master_companies_mock. Real implementation tracked as REQ-001."
+        ),
+    },
+    {
+        "name": "agency-tool-admin",
+        "description": "Admin CRUD over master_companies_mock (mock data only).",
+    },
 ]
 
 
@@ -68,8 +85,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="arroba.com API",
-    description="M&A platform for digital agencies — Etapa 0.3 (skeleton).",
-    version="0.0.1",
+    description="M&A platform for digital agencies — Etapa 0.4 (skeleton complete).",
+    version="0.0.2",
     lifespan=lifespan,
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
@@ -92,6 +109,8 @@ app.include_router(users_router, prefix="/api")
 app.include_router(organizations_router, prefix="/api")
 app.include_router(invitations_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")
+app.include_router(agency_tool_public_router, prefix="/api")
+app.include_router(agency_tool_admin_router, prefix="/api")
 
 
 @app.get("/api/health", tags=["health"])
@@ -108,7 +127,7 @@ async def health(response: Response) -> dict:
         "stripe": "env-ok" if settings.stripe_api_key else "env-missing",
         "emergent_auth": "env-ok" if settings.emergent_auth_url else "env-missing",
         "environment": settings.env,
-        "version": "0.0.1",
+        "version": "0.0.2",
     }
 
 
@@ -122,12 +141,12 @@ def _custom_openapi() -> dict:
         return app.openapi_schema
     schema = get_openapi(
         title="arroba.com API",
-        version="0.0.1",
+        version="0.0.2",
         description="M&A platform for digital agencies. Etapa 0 — Foundation.",
         routes=app.routes,
         tags=OPENAPI_TAGS,
     )
-    schema["info"]["x-stage"] = "E0.3"
+    schema["info"]["x-stage"] = "E0.4"
     schema["info"]["x-boundary-first"] = True
     app.openapi_schema = schema
     return schema

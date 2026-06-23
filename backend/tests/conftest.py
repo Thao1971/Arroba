@@ -1,6 +1,7 @@
 """Shared pytest fixtures — in-memory mongomock-motor + httpx ASGI client."""
 import asyncio
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
@@ -50,4 +51,31 @@ async def alice(client: AsyncClient) -> AsyncClient:
         json={"email": "alice@arrobatest.com", "password": "Secret123!", "full_name": "Alice"},
     )
     assert r.status_code == 201, r.text
+    return client
+
+
+@pytest_asyncio.fixture
+async def admin_client(mock_db, client: AsyncClient) -> AsyncClient:
+    """A logged-in client whose role has been promoted to admin.
+
+    NOTE: E0.4 does NOT expose a public endpoint to promote users to admin.
+    The only way to create an admin is via `scripts/seed_admin.py` against
+    real Mongo, or — in tests — by writing role='admin' directly to the
+    collection bypassing the public flow. Documented in /app/memory/test_credentials.md.
+    """
+    # Register a normal user first (gives us session cookie + valid user_id)
+    r = await client.post(
+        "/api/auth/register",
+        json={
+            "email": "admin@arrobatest.com",
+            "password": "Admin1234!",
+            "full_name": "Test Admin",
+        },
+    )
+    assert r.status_code == 201, r.text
+    # Promote directly in the mock DB — Boundary First exception only valid in tests.
+    await mock_db.users.update_one(
+        {"email": "admin@arrobatest.com"},
+        {"$set": {"role": "admin", "updated_at": datetime.now(UTC)}},
+    )
     return client

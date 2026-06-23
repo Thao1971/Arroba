@@ -24,6 +24,8 @@ Defensa en profundidad aplicada:
   - memberships.*          : todos sobre campos no-null, OK
   - user_sessions.*        : todos sobre campos no-null + TTL en expires_at, OK
   - org_invitations.*      : todos sobre campos no-null, OK
+  - master_companies_mock.master_company_id : unique (no nullable, OK)
+  - master_companies_mock.cif               : unique + partialFilter (E0.4 — patrón E0.3.1)
 
 Migración de índices viejos: en init_indexes() se hace drop explícito de los
 índices auto-nombrados antiguos (google_id_1, tax_id_1) si todavía existen
@@ -126,6 +128,18 @@ async def init_indexes() -> None:
     await db.org_invitations.create_index("token", unique=True)
     await db.org_invitations.create_index("email")
     await db.org_invitations.create_index("org_id")
+
+    # === master_companies_mock (Agency Tool adapter, E0.4) ===
+    # Same E0.3.1 pattern: partialFilterExpression instead of sparse so that
+    # null/absent cif values don't collide on the unique index.
+    await db.master_companies_mock.create_index("master_company_id", unique=True)
+    await db.master_companies_mock.create_index(
+        "cif",
+        unique=True,
+        partialFilterExpression={"cif": {"$type": "string"}},
+        name="cif_partial_string",
+    )
+    await db.master_companies_mock.create_index("created_at")
 
 
 async def close_client() -> None:

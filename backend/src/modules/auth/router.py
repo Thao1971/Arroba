@@ -4,8 +4,11 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel
 
 from src.modules.auth import service as auth_service
+from src.modules.auth.cookies import (
+    clear_session_cookie,
+    set_session_cookie,
+)
 from src.modules.auth.dependencies import (
-    SESSION_COOKIE,
     get_current_user,
     get_session_id,
 )
@@ -23,18 +26,6 @@ from src.modules.organizations.service import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _set_cookie(response: Response, session_id: str) -> None:
-    response.set_cookie(
-        key=SESSION_COOKIE,
-        value=session_id,
-        httponly=True,
-        samesite="lax",
-        secure=False,  # toggled at the proxy in prod
-        max_age=60 * 60 * 24 * 7,
-        path="/",
-    )
-
-
 class MeResponse(BaseModel):
     user: UserPublic
     memberships: list[dict]
@@ -47,7 +38,7 @@ async def register(payload: RegisterPayload, request: Request, response: Respons
     user, sid, expires = await auth_service.register_user(
         email=payload.email, password=payload.password, full_name=payload.full_name, ip=ip, user_agent=ua
     )
-    _set_cookie(response, sid)
+    set_session_cookie(response, sid, request)
     return AuthResponse(user=user, session_expires_at=expires)
 
 
@@ -58,7 +49,7 @@ async def login(payload: LoginPayload, request: Request, response: Response) -> 
     user, sid, expires = await auth_service.login_user(
         email=payload.email, password=payload.password, ip=ip, user_agent=ua
     )
-    _set_cookie(response, sid)
+    set_session_cookie(response, sid, request)
     return AuthResponse(user=user, session_expires_at=expires)
 
 
@@ -71,7 +62,7 @@ async def session_exchange(
     user, sid, expires = await auth_service.exchange_emergent_session(
         session_id=payload.session_id, ip=ip, user_agent=ua
     )
-    _set_cookie(response, sid)
+    set_session_cookie(response, sid, request)
     return AuthResponse(user=user, session_expires_at=expires)
 
 
@@ -96,8 +87,10 @@ async def me(user: UserPublic = Depends(get_current_user)) -> MeResponse:
     responses={200: {"description": "Logged out (always, idempotent)."}},
 )
 async def logout(
-    response: Response, session_id: str | None = Depends(get_session_id)
+    request: Request,
+    response: Response,
+    session_id: str | None = Depends(get_session_id),
 ) -> dict:
     await auth_service.logout(session_id)
-    response.delete_cookie(SESSION_COOKIE, path="/")
+    clear_session_cookie(response, request)
     return {"ok": True, "logged_out_at": datetime.utcnow().isoformat()}

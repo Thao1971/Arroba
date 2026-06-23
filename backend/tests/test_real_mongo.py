@@ -14,6 +14,7 @@ Justification for these tests:
 """
 import os
 import uuid
+from datetime import UTC
 
 import pytest
 import pytest_asyncio
@@ -152,3 +153,64 @@ async def test_oauth_register_then_three_password_users_coexist(real_client, rea
                 "email_verified": True,
             }
         )
+
+
+async def test_master_companies_mock_cif_partial_filter(real_client, real_db):
+    """E0.4 audit: master_companies_mock.cif index is partialFilter (NOT sparse).
+    3 entries without cif must coexist without collision."""
+    # Promote test admin
+    from datetime import datetime
+    r = await real_client.post(
+        "/api/auth/register",
+        json={"email": "real_admin@arrobatest.com", "password": "Admin1234!"},
+    )
+    assert r.status_code == 201
+    await real_db.users.update_one(
+        {"email": "real_admin@arrobatest.com"},
+        {"$set": {"role": "admin", "updated_at": datetime.now(UTC)}},
+    )
+    # Create 3 entries with NO cif
+    for i in range(3):
+        r = await real_client.post(
+            "/api/admin/agency-tool/master-companies-mock",
+            json={"legal_name": f"NoCif Real #{i}"},
+        )
+        assert r.status_code == 201, r.text
+    # Verify index metadata
+    info = await real_db.master_companies_mock.index_information()
+    assert "cif_partial_string" in info
+    meta = info["cif_partial_string"]
+    assert meta.get("unique") is True
+    assert meta["partialFilterExpression"] == {"cif": {"$type": "string"}}
+    # Confirm 3 docs persisted without cif field
+    count = await real_db.master_companies_mock.count_documents({})
+    assert count == 3
+    has_cif = await real_db.master_companies_mock.count_documents({"cif": {"$exists": True}})
+    assert has_cif == 0
+
+
+async def test_master_companies_mock_cif_uniqueness_enforced(real_client, real_db):
+    """When cif IS present, uniqueness still applies (the partial filter only
+    skips the index entry when the value isn't a string)."""
+    from datetime import datetime
+    await real_client.post(
+        "/api/auth/register",
+        json={"email": "real_admin2@arrobatest.com", "password": "Admin1234!"},
+    )
+    await real_db.users.update_one(
+        {"email": "real_admin2@arrobatest.com"},
+        {"$set": {"role": "admin", "updated_at": datetime.now(UTC)}},
+    )
+    r1 = await real_client.post(
+        "/api/admin/agency-tool/master-companies-mock",
+        json={"legal_name": "First", "cif": "B99999999"},
+    )
+    assert r1.status_code == 201, r1.text
+    # Second with same CIF should be rejected by the DB unique index
+    r2 = await real_client.post(
+        "/api/admin/agency-tool/master-companies-mock",
+        json={"legal_name": "Second", "cif": "B99999999"},
+    )
+    # Service catches DuplicateKeyError and returns 409.
+    assert r2.status_code == 409, r2.text
+    assert r2.json()["code"] == "master_company_duplicate_unique_field"

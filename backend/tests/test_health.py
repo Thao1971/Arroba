@@ -4,7 +4,7 @@ async def test_health_endpoint(client):
     body = r.json()
     assert body["status"] == "ok"
     assert body["mongo"] == "connected"
-    assert body["version"] == "0.0.1"
+    assert body["version"] == "0.0.2"
     assert body["environment"]
     assert body["emergent_auth"] in {"env-ok", "env-missing"}
     assert body["stripe"] in {"env-ok", "env-missing"}
@@ -15,7 +15,15 @@ async def test_openapi_lists_all_routers(client):
     assert r.status_code == 200
     schema = r.json()
     tags = {t["name"] for t in schema.get("tags", [])}
-    assert {"health", "auth", "users", "organizations", "billing"}.issubset(tags)
+    assert {
+        "health",
+        "auth",
+        "users",
+        "organizations",
+        "billing",
+        "agency-tool",
+        "agency-tool-admin",
+    }.issubset(tags)
     paths = schema.get("paths", {})
     for required in [
         "/api/health",
@@ -32,8 +40,13 @@ async def test_openapi_lists_all_routers(client):
         "/api/organizations/{org_id}/invitations",
         "/api/invitations/{token}/accept",
         "/api/billing/health",
+        "/api/agency-tool/status",
+        "/api/agency-tool/companies/{master_company_id}",
+        "/api/admin/agency-tool/master-companies-mock",
+        "/api/admin/agency-tool/master-companies-mock/{master_company_id}",
     ]:
         assert required in paths, f"missing OpenAPI path: {required}"
+    assert schema["info"]["x-stage"] == "E0.4"
 
 
 async def test_billing_health(client):
