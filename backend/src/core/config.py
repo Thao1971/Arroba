@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     stripe_api_key: str = ""
     stripe_webhook_secret: str = ""
 
+    # LLM (E1.4)
+    emergent_llm_key: str = ""
+    llm_provider: str = "claude"
+    llm_model: str = "claude-sonnet-4-6"
+    llm_timeout_seconds: int = 8
+
+    # Agency Tool adapters (E1.4)
+    enrich_company_source: str = "mock"
+
     # CORS
     cors_origins: str = "http://localhost:3000"
 

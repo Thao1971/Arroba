@@ -211,7 +211,44 @@ Documentado en `/app/_requirements_for_agency_tool/README.md` con criterio expl�
 
 ---
 
-## 🟢 Etapa 1.3 — Copilot Foundation (EN CURSO desde 2026-06-24)
+## ✅ Etapa 1.3 — Copilot Foundation (CERRADA 2026-06-24)
+
+Resumen del cierre:
+- Backend: módulo `copilot/` con `POST /api/copilot/skills/search` público, determinista, `X-Source: mock`. Discriminated union `Workspace.blocks[]` (`search_results | empty_state | error | loading`). 10 nuevos tests pytest.
+- Frontend: `components/copilot/` con `CopilotProvider`, `CopilotDock` (FAB + panel, Cmd/Ctrl+K, ESC, autofocus, sr-announcer), `Composer`, `ConversationThread`, `WorkspaceArea`. Block Library + `SearchResultsBlock`, `LoadingBlock`, `ErrorBlock`. Orchestrator pipeline `text → routeIntent → executeSkill → Workspace`. 16 nuevos tests vitest.
+- REQ-003 emitido para `copilot_search_real` en `/app/_requirements_for_agency_tool/README.md`.
+- **Backend 49/49 PASS · Frontend 67/67 PASS**. Lint + typecheck + build verde.
+- API surface verificada por tester (TEST 4 PASS). TESTS 1-3 (UI) marcados HUMAN_REQUIRED por infra de browser, aceptados por el usuario.
+- Brand refresh E1.3.5 → pendiente, no se ejecuta en esta fase.
+
+---
+
+## 🟢 Etapa 1.4 — Intelligence Skills (EN CURSO desde 2026-06-24)
+
+**Scope dentro**:
+- LLMProvider abstraction backend (`copilot/llm/`): Protocol + claude (vía
+  emergentintegrations) + gpt-5.2 stub + mock + factory por env.
+- **Analyze Skill** con Claude Sonnet 4.6: extrae empresa de query →
+  `EnrichCompanyAdapter` → prompt JSON → workspace con Hero + Metrics +
+  CompanyCard + Narrative.
+- **Value Skill** determinista (sin LLM): valoración por múltiplo sectorial +
+  rango 85%/120% + disclaimer. Workspace con Hero + Valuation + Metrics.
+- **Recommend Skill** mock + LLM-assisted intent: subtipos
+  `similar_to_company` / `opportunities_by_sector` / `list_by_sector`. Workspace
+  con Hero + CompanyCardsGrid.
+- Intent Router upgrade frontend: detecta verbos `analiza`, `valora`,
+  `recomienda`, `compañías similares a`, etc.
+- ErrorBlock replay frontend: `lastQuery` persiste en provider; "Reintentar"
+  re-ejecuta misma intent.
+- `EnrichCompanyAdapter` Boundary First: mock + real stub + factory por env.
+- REQ-004 (Valuation Engine) + REQ-005 (Recommendation Engine) al Agency Tool.
+
+**Scope fuera**: Stripe, créditos, finder fee, Data Room, Deal Workspace,
+NDAs, LOI, Workspaces persistentes con URL propia, Universal Search página,
+Compare Skill u otras skills no listadas.
+
+**Regla crítica**: tests pytest NUNCA pegan a Claude real. `MockLLMProvider`
+vía dependency injection.
 
 **Nota**: el análisis de reconstrucción "ARROBA Matching v1.0" fue **CANCELADO** por
 decisión del usuario el 2026-06-24. La fuente de verdad vuelve a ser:
