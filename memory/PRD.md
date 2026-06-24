@@ -490,7 +490,7 @@ El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.m
 
 | Fase | Entidad / Tarea | Estado |
 |---|---|---|
-| **E1.5-REWORK** | Empresa | 🟢 EN CURSO — implementación iniciada |
+| **E1.5-REWORK** | Empresa | ✅ **CERRADA** 2026-06-24 — Entity First end-to-end verde |
 | **E1.5.5** | Brand Refresh | 🔵 ENCADENADA tras E1.5 verde |
 | **E1.6** | Sector | 🔵 PLANIFICADA |
 | **E1.7** | Territorio | 🔵 PLANIFICADA |
@@ -503,6 +503,50 @@ El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.m
 - Conservar TODO el código actual (Block Library, Skills, Copilot, LLMProvider, Workspaces, Historial, OrgSwitcher, EnrichCompanyAdapter, mocks, demo users). No se borra nada.
 - `/historial` y `/w/{id}` se mantienen vivos durante E1.5-REWORK como retrocompatibilidad.
 - La prioridad de planificación es: **UX > Arquitectura > Implementación**.
+
+---
+
+## ✅ Etapa 1.5-REWORK — Empresa (Entity First) (CERRADA · 2026-06-24)
+
+Materialización de la **filosofía v3.0 §12 «La ficha es la verdad»**. El chat
+deja de generar páginas paralelas: ahora actualiza secciones in-place de la
+Empresa Entity Page (`/empresa/{cif}`).
+
+### Subentregables
+
+| Entregable | Estado | Notas |
+|---|---|---|
+| **`/empresa/[cif]`** (ruta mixta anónima + autenticada) | ✅ | Server-side rendering con hidratación; 3 secciones públicas + 5 LockedSectionBlur cuando anónimo; 8 secciones cuando autenticado. |
+| **Backend `companies`** | ✅ | CRUD + Skills + Rate Limiting + LLM Advisor. 138/138 pytest verde (114 previos + 24 nuevos en `test_companies_advisor.py`). |
+| **Company Advisor** | ✅ | Copilot scoped a UNA empresa. Prompt endurecido (philosophy §12) + fallback determinista `_ensure_section_update_when_needed()` que sintetiza un `narrative` block desde `response_text` cuando el LLM olvida emitir section_updates en queries que claramente tocan análisis/riesgos/oportunidades. |
+| **`CustomEvent("arroba:company-section-update")`** | ✅ | El `CopilotProvider` en modo `entity_context` despacha el evento; `CompanyPageClient` escucha y actualiza solo las secciones emitidas — sin recargar página, sin bloque suelto en el thread. |
+| **`RefreshAnalysisButton`** | ✅ | Optimistic cooldown 60s client-side tras éxito + parseo de Retry-After en 429. Toast de éxito/warning. |
+| **`CompanyHeader` (acciones)** | ✅ | Toggle watchlist + share-with-team gated por watchlist. Toasts «Próximamente: E1.8» (Solicitar valoración avanzada) y «Próximamente: E1.9» (Activar oportunidad). |
+| **Entity Resolution en `/copilot/search`** | ✅ | Si la query es un CIF o nombre exacto, el endpoint devuelve `navigate_to=/empresa/{cif}` para redirigir directo sin pasar por un workspace. |
+| **`apiClient.companies.*` SDK** | ✅ | Endpoints `get`, `sendMessage`, `refreshAnalysis`, `toggleWatchlist`, `toggleShare`, `getConversation`. `Content-Type: application/json` preservado (regresión del header spread cubierta por test). |
+| **Tests Vitest E1.5-REWORK** | ✅ | 131/131 verde (102 previos + 29 nuevos): `copilot-provider-entity.test.tsx` (5), `company-page-client.test.tsx` (6), `company-header.test.tsx` (7), `locked-section-blur.test.tsx` (4), `companies-client.test.ts` (7). |
+| **Verificación E2E con Playwright + cuentas reales** | ✅ | `buyer@arroba.com` en `/empresa/B86540112` con query «Háblame de los riesgos» → POST `/api/companies/{cif}/messages` → 200 con `section_updates[1]` → CustomEvent fires → `block-narrative` se actualiza in-place con contenido fresco (Kitchen Studio: 32 empleados, Madrid, margen EBITDA 20%, riesgos específicos). URL queda en `/empresa/B86540112`, nunca navega a `/w/`. |
+
+### P0 resuelto
+
+**Bug**: Claude real devolvía `section_updates: []` aunque la query era
+explícitamente sobre riesgos → la ficha nunca se refrescaba → el chat parecía
+colgado.
+
+**Fix**: prompt endurecido (philosophy v3.0 §12 incrustada) + fallback
+determinista `_ensure_section_update_when_needed()` que sintetiza un
+narrative block desde el `response_text` cuando se detecta una intención
+clara de actualizar sección (`_detect_section_intent()` con keywords
+acentos-insensibles).
+
+### Decisiones de scope
+
+- Las skills `analyze` (refresh narrativa) y comparables/valuation tienen
+  endpoints REST dedicados con rate limit 60s; la valoración avanzada y la
+  activación de oportunidad muestran toasts «Próximamente E1.8/E1.9».
+- Toggle watchlist y share-with-team operan contra colecciones con índices
+  únicos compuestos `(org_id, master_company_id, saved_by, visibility)`.
+- TTL de 90 días para `company_analysis_refreshes` (auto-limpieza Mongo).
 
 ---
 

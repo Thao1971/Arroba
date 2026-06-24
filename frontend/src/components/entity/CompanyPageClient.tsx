@@ -100,16 +100,20 @@ export function CompanyPageClient({
 
   /* ---------- Manual refresh of the narrative (rate-limited) ---------- */
   const onRefreshAnalysis = useCallback(async () => {
-    if (refreshingAnalysis) return;
+    if (refreshingAnalysis || analysisCountdown !== null) return;
     setRefreshingAnalysis(true);
     try {
       const res = await apiClient.companies.refreshAnalysis(cif);
       setSections((s) => ({ ...s, narrative: res.block }));
       notify({ kind: 'success', text: 'Análisis del Copilot actualizado.' });
+      // Optimistic client-side cooldown matching the backend window (60s).
+      // This locks the button immediately so users don't trigger a 2nd
+      // round-trip that the server would only refuse with 429.
+      startCountdown(60, setAnalysisCountdown);
     } catch (e) {
       if (e instanceof ApiError && e.status === 429) {
-        // The backend returns the cooldown seconds as a string inside detail.
-        // We start a small countdown so the user sees feedback in-button.
+        // Server enforced cooldown: extract the remaining seconds from the
+        // detail field — falls back to 60 if the backend ever changes shape.
         const m = /(\d+)/.exec(String(e.detail || ''));
         const retry = m && m[1] ? Number(m[1]) : 60;
         startCountdown(retry, setAnalysisCountdown);
@@ -123,7 +127,7 @@ export function CompanyPageClient({
     } finally {
       setRefreshingAnalysis(false);
     }
-  }, [cif, refreshingAnalysis]);
+  }, [cif, refreshingAnalysis, analysisCountdown]);
 
   /* ---------- Section locks (anonymous only) ---------- */
   const locked = useMemo(

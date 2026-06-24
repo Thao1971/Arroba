@@ -366,4 +366,59 @@ describe('CompanyPageClient — authenticated', () => {
     expect(btn).toBeDisabled();
     expect(call).toBeGreaterThan(0);
   });
+
+  it('refresh analysis success — locks button client-side for 60s (optimistic cooldown)', async () => {
+    const user = userEvent.setup();
+    global.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (typeof url === 'string' && url.includes('/skills/analyze')) {
+        return new Response(
+          JSON.stringify({
+            block: {
+              id: 'blk_new_narr',
+              type: 'narrative',
+              props: {
+                title: 'Lectura del analista',
+                summary: 'Nueva narrativa refrescada.',
+                key_points: [],
+                risks: [],
+                opportunities: [],
+                citations: [],
+              },
+            },
+            generated_at: new Date().toISOString(),
+            source: 'real',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          conversation_id: 'conv_1',
+          master_company_id: 'mc_kitchen',
+          messages: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }) as unknown as typeof fetch;
+
+    render(
+      withIntl(
+        <CompanyPageClient cif="B86540112" initial={authedFixture()} authenticated={true} />,
+      ),
+    );
+    const btn = screen.getByTestId('company-refresh-analysis');
+    await user.click(btn);
+    // After a successful refresh, the button must lock for 60s.
+    await waitFor(
+      () => {
+        expect(btn).toHaveTextContent(/Espera 60s/);
+      },
+      { timeout: 3000 },
+    );
+    expect(btn).toBeDisabled();
+    // And the narrative content updated.
+    expect(
+      screen.getByText('Nueva narrativa refrescada.'),
+    ).toBeInTheDocument();
+  });
 });
