@@ -1,20 +1,32 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-06-24 — **E1.5 ⏸️ CONGELADA 2026-06-24 — PAUSA ESTRATÉGICA DEL USUARIO**.
+> **Última actualización**: 2026-06-24 — **Filosofía v3.0 promulgada. E1.5 reposicionada. E1.5-REWORK (Empresa) por definir.**
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 ---
 
-## ⏸️ FREEZE 2026-06-24 — Pausa estratégica decretada por el usuario
+## 📜 FUENTE DE VERDAD CANÓNICA
 
-**Estado**: E1.5 (Workspaces Persistentes) queda **⏸️ CONGELADA 2026-06-24 — PAUSA ESTRATÉGICA DEL USUARIO**.
+> **Documento maestro de filosofía**: `/app/memory/ARROBA_PHILOSOPHY.md` (v3.0, 2026-06-24).
+>
+> Este PRD documenta el estado del proyecto. La filosofía estratégica, los principios, las entidades del dominio y el orden de construcción están definidos en ARROBA_PHILOSOPHY.md.
+>
+> **Si hay conflicto entre PRD y ARROBA_PHILOSOPHY.md, gana ARROBA_PHILOSOPHY.md.**
+>
+> El modelo `Copilot → Skill → Workspace` queda **derogado**. El modelo correcto es **Entity First + Copilot Transversal**, con entidades principales: Empresa · Sector · Territorio · Valoración · Oportunidad · Transacción.
 
-**Motivo literal**: "Auditoría UX/navegación pendiente. La unidad de trabajo del producto está en revisión. Hasta que el orquestador devuelva conclusiones, no se reanuda E1.5 ni se inicia E1.6."
+---
 
-**Bug pendiente (no se ataca durante el freeze)**:
-🐛 **PENDIENTE - SE RETOMARÁ SI E1.5 SE DESCONGELA** — In-workspace "Valora X" → 500. El botón "Seguir trabajando" del dock efímero funciona (verificado por tester); enviar un segundo comando desde dentro de `/w/{id}` devuelve 500. Sospecha: mismo patrón de `Content-Type` perdido al spread de headers que arreglamos en `client.ts`, pero en otro endpoint (probablemente `POST /api/workspaces/{id}/messages`).
+## 🔄 REPOSICIONAMIENTO 2026-06-24 — Filosofía v3.0 promulgada
 
-**Nota de preservación**: Workspaces, `/w/{id}`, historial, compartición team — todo se conserva en código, congelado funcionalmente. **NO borrar**. NO escribir código nuevo sobre estos módulos hasta que el orquestador devuelva conclusiones de la auditoría UX.
+**Estado**: E1.5 (Workspaces Persistentes) queda **🔄 REPOSICIONADA 2026-06-24**.
+
+**Motivo**: Workspaces deja de ser unidad principal del producto. El código se conserva como capa de memoria/persistencia subordinada a entidades. Ver `ARROBA_PHILOSOPHY.md` sección 5 y 11.
+
+**Bug pendiente (NO ATAQUE PROACTIVO)**:
+🐛 **NO ATAQUE PROACTIVO** — In-workspace "Valora X" → 500. El botón "Seguir trabajando" del dock efímero funciona (verificado por tester); enviar un segundo comando desde dentro de `/w/{id}` devuelve 500. Sospecha: mismo patrón de `Content-Type` perdido al spread de headers que arreglamos en `client.ts`, pero en otro endpoint (probablemente `POST /api/workspaces/{id}/messages`). **Solo se arreglará si una entidad concreta lo necesita en E1.5-REWORK o posteriores.**
+
+**Nota de preservación**: Workspaces, `/w/{id}`, historial, compartición team — todo se conserva en código como capa subordinada. **NO borrar**. NO escribir código nuevo sobre estos módulos hasta que el orquestador devuelva el brief de E1.5-REWORK aprobado por el usuario.
 
 **No reanudar E1.5 ni iniciar E1.6 sin instrucción explícita del orquestador.**
 
@@ -470,6 +482,26 @@ anterior). Cancelación oficial: "Phase E1.3 — Copilot Foundation" del orden
 
 ---
 
+## 🔄 Reorientación estratégica 2026-06-24 — Etapas siguientes
+
+El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.md`). Orden de construcción aprobado por el usuario:
+
+| Fase | Entidad | Estado |
+|---|---|---|
+| **E1.5-REWORK** | Empresa | ⏳ POR DEFINIR (orquestador redactará brief tras aprobación de UX) |
+| **E1.6** | Sector | 🔵 PLANIFICADA |
+| **E1.7** | Territorio | 🔵 PLANIFICADA |
+| **E1.8** | Oportunidad | 🔵 PLANIFICADA |
+| **E1.9** | Transacción (con capacidades: Matching, Teaser, NDA, IM, IOI, LOI, DD, Data Room, Q&A, Negociación, SPA, Cierre) | 🔵 PLANIFICADA |
+
+**Reglas operativas durante la reorientación**:
+- NO escribir código de producto hasta que el orquestador devuelva el brief de E1.5-REWORK aprobado por el usuario.
+- Conservar TODO el código actual (Block Library, Skills, Copilot, LLMProvider, Workspaces, Historial, OrgSwitcher, EnrichCompanyAdapter, mocks, demo users). No se borra nada.
+- `/historial` y `/w/{id}` se mantienen vivos durante E1.5-REWORK como retrocompatibilidad.
+- La prioridad de planificación es: **UX > Arquitectura > Implementación**.
+
+---
+
 ## 📂 Mapa de carpetas críticas
 
 ```
@@ -480,6 +512,7 @@ anterior). Cancelación oficial: "Phase E1.3 — Copilot Foundation" del orden
 ├── _design_intake/           47 prototipos HTML+JSX vanilla (referencia perpetua de UX)
 ├── _requirements_for_agency_tool/  REQ-001 abierto
 └── memory/
+    ├── ARROBA_PHILOSOPHY.md  fuente de verdad canónica v3.0 (Entity First + Copilot Transversal)
     ├── PRD.md                este archivo
     └── test_credentials.md   cuentas para e1_tester
 ```
