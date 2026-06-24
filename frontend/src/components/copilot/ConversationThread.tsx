@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useCopilot } from './CopilotProvider';
 import { WorkspaceArea } from './WorkspaceArea';
+import { OpenWorkspaceButton } from './OpenWorkspaceButton';
 import type { CopilotMessage } from './CopilotProvider';
 
 /**
@@ -65,6 +66,7 @@ export function ConversationThread() {
           acc.push(
             <div key={`ws-${workspace.workspace_id}`} className="pl-9">
               <WorkspaceArea workspace={workspace} />
+              <OpenWorkspaceButton />
             </div>
           );
         }

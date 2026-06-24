@@ -11,16 +11,25 @@ import {
   useRef,
 } from 'react';
 import { usePathname } from 'next/navigation';
-import { dispatch as orchestratorDispatch, type Workspace } from '@/lib/orchestrator';
+import { dispatch as orchestratorDispatch, type Workspace, type BlockSpec } from '@/lib/orchestrator';
 import { useAuth } from '@/contexts/auth-context';
+import { apiClient } from '@/lib/api/client';
+import { useActiveOrg } from '@/lib/workspaces/useActiveOrg';
+import type {
+  EphemeralBlockSnapshot,
+  EphemeralMessageSnapshot,
+  WorkspaceExtendResponse,
+} from '@/lib/workspaces/types';
 
 /**
- * Centralised state for the Copilot dock. Mounted once near the root of the
- * (public) and (authenticated) layouts. Persists `open` + `history` +
- * `lastQuery` to localStorage so the UX feels stable across navigations.
+ * Copilot session state.
  *
- * `lastQuery` powers the ErrorBlock "Reintentar" UX: instead of falling back
- * to /help, we re-issue the exact same text the user originally sent.
+ *  Two modes, transparently switched by `currentWorkspaceId`:
+ *  - ephemeral: `send()` hits the Copilot skill endpoints directly. The
+ *    workspace lives only in memory + localStorage.
+ *  - anchored:  `send()` hits `POST /api/workspaces/{id}/messages` so the new
+ *    blocks are persisted. The provider appends the delta to the local
+ *    state (without recharging the workspace).
  */
 
 export type MessageRole = 'user' | 'assistant';
@@ -39,6 +48,7 @@ interface CopilotState {
   history: CopilotMessage[];
   workspace: Workspace | null;
   lastQuery: string | null;
+  currentWorkspaceId: string | null;
 }
 
 type Action =
@@ -54,6 +64,12 @@ type Action =
     }
   | { type: 'fail'; assistant: string }
   | { type: 'clear' }
+  | { type: 'set_workspace_anchored'; workspaceId: string | null }
+  | {
+      type: 'hydrate_persistent';
+      messages: CopilotMessage[];
+      workspace: Workspace | null;
+    }
   | { type: 'hydrate'; state: Partial<CopilotState> };
 
 const INITIAL: CopilotState = {
@@ -62,6 +78,7 @@ const INITIAL: CopilotState = {
   history: [],
   workspace: null,
   lastQuery: null,
+  currentWorkspaceId: null,
 };
 
 const STORAGE_KEY = 'arroba.copilot.session.v1';
@@ -122,6 +139,21 @@ function reducer(state: CopilotState, action: Action): CopilotState {
       };
     case 'clear':
       return { ...state, history: [], workspace: null, lastQuery: null };
+    case 'set_workspace_anchored':
+      // When entering anchored mode we DO NOT auto-load the workspace; the
+      // workspace page hydrates the provider explicitly via
+      // `hydrate_persistent` once it fetched the detail. When leaving (id=null),
+      // we keep the ephemeral state intact.
+      return { ...state, currentWorkspaceId: action.workspaceId };
+    case 'hydrate_persistent': {
+      const lastUserMsg = [...action.messages].reverse().find((m) => m.role === 'user');
+      return {
+        ...state,
+        history: action.messages,
+        workspace: action.workspace,
+        lastQuery: lastUserMsg?.text ?? null,
+      };
+    }
     case 'hydrate':
       return { ...state, ...action.state };
     default:
@@ -140,18 +172,42 @@ interface CopilotContextValue extends CopilotState {
   send: (text: string) => Promise<void>;
   retry: () => Promise<void>;
   clear: () => void;
+  /** Promote ephemeral state to a persistent workspace. Returns the new URL
+   *  (e.g. /es/w/wsp_xxxx) on success. Throws if the user is anonymous (the
+   *  caller is expected to redirect to /login). */
+  promoteToWorkspace: (options?: {
+    workspaceType?: 'analyze' | 'value' | 'recommend' | 'search' | 'mixed';
+    title?: string;
+  }) => Promise<{ workspaceId: string; url: string }>;
+  /** Used by /w/[id]/page.tsx to load the persisted workspace into the dock. */
+  hydratePersistent: (messages: CopilotMessage[], workspace: Workspace | null) => void;
   dispatch: Dispatch<Action>;
 }
 
 const CopilotContext = createContext<CopilotContextValue | undefined>(undefined);
 
+const ANCHORED_RE = /^\/(?:[a-z]{2}\/)?w\/([\w-]+)(?:\/.*)?$/;
+
+function extractWorkspaceIdFromPath(pathname: string): string | null {
+  const m = pathname.match(ANCHORED_RE);
+  return m && m[1] ? m[1] : null;
+}
+
 export function CopilotProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const pathname = usePathname() ?? '/';
-  const { isAuthenticated, user, memberships } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { activeOrgId } = useActiveOrg();
   const hydrated = useRef(false);
 
-  // Hydrate from localStorage once on mount.
+  // Track which workspace we're anchored to (if any).
+  const anchoredId = useMemo(() => extractWorkspaceIdFromPath(pathname), [pathname]);
+  useEffect(() => {
+    dispatch({ type: 'set_workspace_anchored', workspaceId: anchoredId });
+  }, [anchoredId]);
+
+  // Hydrate from localStorage once on mount (ephemeral state only — never the
+  // anchored workspace, which has its own server source of truth).
   useEffect(() => {
     if (hydrated.current) return;
     hydrated.current = true;
@@ -170,13 +226,14 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch {
-      // ignore corrupted state
+      // ignore
     }
   }, []);
 
-  // Persist on change (debounced via microtask).
+  // Persist ephemeral state (NOT anchored — that lives in DB).
   useEffect(() => {
     if (!hydrated.current) return;
+    if (state.currentWorkspaceId) return; // don't pollute LS with persisted state
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
@@ -188,20 +245,62 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         }),
       );
     } catch {
-      // quota / private mode → ignore silently
+      // ignore
     }
-  }, [state.open, state.history, state.workspace, state.lastQuery]);
+  }, [state.open, state.history, state.workspace, state.lastQuery, state.currentWorkspaceId]);
 
   const send = useCallback<CopilotContextValue['send']>(
     async (rawText) => {
       const text = rawText.trim();
       if (!text) return;
       dispatch({ type: 'submit', text });
+
+      // Anchored mode: hit /workspaces/{id}/messages and merge the delta.
+      if (state.currentWorkspaceId) {
+        try {
+          const res: WorkspaceExtendResponse = await apiClient.workspaces.extend(
+            state.currentWorkspaceId,
+            { query: text, context: { locale: 'es', pathname } },
+          );
+          const delta: Workspace = {
+            workspace_id: state.currentWorkspaceId,
+            intent: res.intent,
+            blocks: res.blocks_added.map((b) => ({
+              type: b.type,
+              id: b.block_id,
+              props: b.props,
+            })) as BlockSpec[],
+          };
+          // Concatenate with whatever workspace is currently rendered so the
+          // user sees the full history.
+          const merged: Workspace = state.workspace
+            ? {
+                ...state.workspace,
+                intent: res.intent,
+                blocks: [...state.workspace.blocks, ...delta.blocks],
+              }
+            : delta;
+          dispatch({
+            type: 'resolve',
+            assistant: res.message_assistant.content,
+            workspace: merged,
+          });
+        } catch {
+          dispatch({
+            type: 'resolve',
+            assistant: 'No he podido procesar la petición. Inténtalo de nuevo.',
+            workspace: null,
+          });
+        }
+        return;
+      }
+
+      // Ephemeral mode: orchestrator on the client decides which skill.
       const result = await orchestratorDispatch(text, {
         locale: 'es',
         pathname,
         user_id: user?.user_id,
-        org_id: memberships?.[0]?.org_id,
+        org_id: activeOrgId ?? undefined,
       });
       if (result.intent.kind === 'clear') {
         dispatch({
@@ -218,13 +317,52 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         workspace: result.workspace,
       });
     },
-    [pathname, user?.user_id, memberships],
+    [pathname, user?.user_id, activeOrgId, state.currentWorkspaceId, state.workspace],
   );
 
   const retry = useCallback<CopilotContextValue['retry']>(async () => {
     if (!state.lastQuery) return;
     await send(state.lastQuery);
   }, [send, state.lastQuery]);
+
+  const promoteToWorkspace = useCallback(
+    async (options?: { workspaceType?: 'analyze' | 'value' | 'recommend' | 'search' | 'mixed'; title?: string }) => {
+      if (!isAuthenticated) {
+        throw new Error('promote_requires_auth');
+      }
+      // Snapshot the ephemeral state for persistence.
+      const messages: EphemeralMessageSnapshot[] = state.history.map((m) => ({
+        role: m.role,
+        content: m.text,
+      }));
+      const blocks: EphemeralBlockSnapshot[] = state.workspace
+        ? state.workspace.blocks.map((b) => ({
+            id: b.id,
+            type: b.type,
+            props: b.props as Record<string, unknown>,
+          }))
+        : [];
+      const inferredType = inferWorkspaceTypeFromWorkspace(state.workspace);
+      const res = await apiClient.workspaces.create(
+        {
+          ephemeral_state: { messages, blocks },
+          workspace_type: options?.workspaceType ?? inferredType,
+          title: options?.title ?? null,
+          organization_id: activeOrgId,
+        },
+        activeOrgId,
+      );
+      return { workspaceId: res.workspace_id, url: res.url };
+    },
+    [activeOrgId, isAuthenticated, state.history, state.workspace],
+  );
+
+  const hydratePersistent = useCallback<CopilotContextValue['hydratePersistent']>(
+    (messages, workspace) => {
+      dispatch({ type: 'hydrate_persistent', messages, workspace });
+    },
+    [],
+  );
 
   const value = useMemo<CopilotContextValue>(
     () => ({
@@ -235,15 +373,24 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       send,
       retry,
       clear: () => dispatch({ type: 'clear' }),
+      promoteToWorkspace,
+      hydratePersistent,
       dispatch,
     }),
-    [state, send, retry],
+    [state, send, retry, promoteToWorkspace, hydratePersistent],
   );
 
-  // Avoid leaking the explicit `isAuthenticated` consumer warning in tests
-  void isAuthenticated;
-
   return <CopilotContext.Provider value={value}>{children}</CopilotContext.Provider>;
+}
+
+function inferWorkspaceTypeFromWorkspace(
+  workspace: Workspace | null,
+): 'analyze' | 'value' | 'recommend' | 'search' | 'mixed' {
+  if (!workspace) return 'mixed';
+  if (workspace.intent === 'analyze' || workspace.intent === 'value' || workspace.intent === 'recommend' || workspace.intent === 'search') {
+    return workspace.intent;
+  }
+  return 'mixed';
 }
 
 export function useCopilot(): CopilotContextValue {

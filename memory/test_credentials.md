@@ -94,6 +94,37 @@ que el tester puede reusar para pruebas exploratorias:
 | `smoke_e031_2@arrobatest.com` | `Smoke123!` | `subscriber` | Sin memberships → al login va a `/onboarding`. Útil para probar el journey conversacional. |
 | `smoke_e031_3@arrobatest.com` | `Smoke123!` | `subscriber` | Idem. |
 
+## Demo Users (E1.5)
+
+Sembrados por `python scripts/seed_demo_users.py`. Todos comparten la misma
+organización **"ARROBA Demo Org"** (`tax_id=B99999999`, `org_id=org_a720ff5087aa`).
+Cuatro usuarios distintos con `m&a role` metadata distinto — pero la UI no
+diferencia aún por ese rol (vendrá en E1.7 — Role-based Surfaces).
+
+| Email | Password | M&A role | Notas |
+|---|---|---|---|
+| `buyer@arroba.com`   | `Arroba2026!` | `buyer`       | Sesión funcional al instante. |
+| `seller@arroba.com`  | `Arroba2026!` | `seller`      | Sesión funcional al instante. |
+| `advisor@arroba.com` | `Arroba2026!` | `advisor`     | Sesión funcional al instante. |
+| `equipo@arroba.com`  | `Arroba2026!` | `team_member` | Sesión funcional al instante. |
+
+Todos: `is_active=true`, `email_verified=true`, `role_in_org=operator`,
+`membership.status=active`. Skipean el OnboardingGuard porque ya tienen
+membership activa.
+
+Idempotente: re-ejecutar el seed actualiza password + status + role sin
+duplicar registros.
+
+Casos de uso:
+- **Compartición team E1.5**: buyer crea un workspace, lo comparte con
+  `visibility=team`, otro de los 4 (mismo org) lo lee desde `/es/historial`.
+- **Cross-user permissions**: probar que el extender un workspace solo lo
+  hace `created_by` (test cubre 403 para los demás).
+- **Role-based surfaces (E1.7+)**: cuando construyamos pantallas
+  diferenciadas por rol M&A (buyer / seller / advisor), estos 4 usuarios
+  permitirán comparar UX en paralelo.
+
+
 Los usuarios `e11-flow*-<timestamp>@arrobatest.com` creados por el smoke test de
 E1.1 quedan persistidos y ya tienen `Grupo Olmedo Hoteles, S.L.` como org. Para
 **limpiar** datos de smoke:

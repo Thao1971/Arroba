@@ -8,6 +8,7 @@ import { nextBestActions } from '@/lib/orchestrator';
 import { useCopilot } from './CopilotProvider';
 import { Composer, type ComposerHandle } from './Composer';
 import { ConversationThread } from './ConversationThread';
+import { RecentWorkspacesPanel } from './RecentWorkspacesPanel';
 
 /**
  * Floating Copilot dock. Two states:
@@ -165,6 +166,7 @@ function Header({
       >
         Limpiar
       </button>
+      <RecentWorkspacesPanel />
       <button
         type="button"
         onClick={onClose}

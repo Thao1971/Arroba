@@ -141,6 +141,19 @@ async def init_indexes() -> None:
     )
     await db.master_companies_mock.create_index("created_at")
 
+    # === workspaces (E1.5) ===
+    await db.workspaces.create_index("workspace_id", unique=True)
+    await db.workspaces.create_index([("organization_id", 1), ("state", 1), ("updated_at", -1)])
+    await db.workspaces.create_index([("created_by", 1), ("updated_at", -1)])
+
+    # === workspace_messages (E1.5) ===
+    await db.workspace_messages.create_index("message_id", unique=True)
+    await db.workspace_messages.create_index([("workspace_id", 1), ("created_at", 1)])
+
+    # === workspace_blocks (E1.5) ===
+    await db.workspace_blocks.create_index("block_id", unique=True)
+    await db.workspace_blocks.create_index([("workspace_id", 1), ("order", 1)])
+
 
 async def close_client() -> None:
     global _client, _db

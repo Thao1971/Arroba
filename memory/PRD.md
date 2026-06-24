@@ -223,6 +223,29 @@ Resumen del cierre:
 
 ---
 
+## ✅ Etapa 1.5 — Workspaces Persistentes (CERRADA 2026-06-24)
+
+**Resumen del cierre**:
+- **Modelo de datos**: 3 colecciones (`workspaces`, `workspace_messages`, `workspace_blocks`) con índices por org/created_by/updated_at + order. Visibility enum amplio (`private|team|organization|public`); UI solo expone `private↔team`.
+- **6 endpoints** bajo `/api/workspaces`: create / list / detail / extend (POST messages) / share / patch (title) / delete (archive soft). Todos auth-protected. `X-Active-Org` header para multi-org.
+- **`intent_router.py` espejo del TS**: el endpoint `messages` ejecuta el orchestrator en backend; el dock efímero sigue ejecutándolo en frontend. Test de parity backend↔frontend evita derivas.
+- **Frontend completo**: páginas `/es/w/[id]` y `/es/historial`. `OrgSwitcher` en el header (static/dropdown según memberships). `CopilotProvider` con modo anchored automático según URL. `OpenWorkspaceButton` ("Seguir trabajando") que promueve estado efímero a persistente. `RecentWorkspacesPanel` dropdown en el dock con últimos 10 + link a historial.
+- **Auto-título determinista**: primera query del user con verbo stripped + capitalize + truncate 80 chars. Cero LLM aquí.
+- **Cross-org safety**: redirect a `/es/historial` cuando el user abre un workspace de otra org sin acceso. Auto-switch a la org del workspace cuando sí tiene membership.
+- **Compartición team verificada E2E**: buyer → comparte → seller misma org lo ve.
+- **Limpieza**: borradas las rutas obsoletas `/es/analizar`, `/es/valorar`, `/es/comprar-vender` (prohibidas por Copilot First).
+- **Demo users seed**: 4 usuarios (`buyer/seller/advisor/equipo@arroba.com` con password `Arroba2026!`) + 1 org "ARROBA Demo Org" (B99999999). Idempotente.
+- **Tests**: Backend **110/110 PASS** (24 nuevos), Frontend **97/97 PASS** (11 nuevos). Lint + typecheck + build verde.
+- **Sin REQ nuevo emitido** al Agency Tool. Snapshot del workspace para enviar al Deal Workspace futuro vendrá cuando exista el caso de uso (no proyectado a priori).
+
+**Capturas visuales**:
+- `/app/screenshots/e15_historial_light.png` — historial con un workspace `Equipo`.
+- `/app/screenshots/e15_historial_dark.png` — mismo, tema dark.
+- `/app/screenshots/e15_workspace_detail_light.png` — workspace abierto con header (badges Análisis + Equipo · botones Hacer privado + Archivar · lápiz edit) + thread (user msg + assistant + HeroBlock) + dock anchored abierto con composer activo.
+- `/app/screenshots/e15_seller_sees_team_workspace.png` — seller@arroba.com (avatar SD) viendo en su historial el workspace creado por buyer (avatar BD en la captura del owner) gracias a `visibility=team`.
+
+---
+
 ## ✅ Etapa 1.4 — Intelligence Skills (CERRADA 2026-06-24)
 
 **Resumen del cierre**:

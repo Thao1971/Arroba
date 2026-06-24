@@ -5,13 +5,12 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { LogOut, ChevronDown, User as UserIcon, Settings, Wrench } from 'lucide-react';
 import { ThemeSwitcher, Avatar } from '@/components/ds';
+import { OrgSwitcher } from './OrgSwitcher';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/cn';
 
 const NAV_ITEMS = [
-  { href: '/analizar', key: 'analizar' as const },
-  { href: '/valorar', key: 'valorar' as const },
-  { href: '/comprar-vender', key: 'compraventa' as const },
+  { href: '/historial', key: 'historial' as const },
 ];
 
 /**
@@ -86,6 +85,7 @@ export function AuthHeader() {
           })}
         </nav>
         <div className="flex items-center gap-2">
+          <OrgSwitcher />
           <ThemeSwitcher />
           <div className="relative" ref={menuRef}>
             <button

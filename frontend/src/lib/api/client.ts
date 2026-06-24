@@ -26,6 +26,16 @@ import type {
   ValueSkillResponse,
 } from '@/lib/orchestrator/types';
 
+import type {
+  WorkspaceCreatePayload,
+  WorkspaceCreateResponse,
+  WorkspaceDetail,
+  WorkspaceDoc,
+  WorkspaceExtendPayload,
+  WorkspaceExtendResponse,
+  WorkspaceList,
+} from '@/lib/workspaces/types';
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -132,6 +142,50 @@ export const apiClient = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+  },
+  workspaces: {
+    create: (payload: WorkspaceCreatePayload, activeOrg?: string | null) =>
+      request<WorkspaceCreateResponse>('/api/workspaces', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    list: (
+      params: { type?: string; state?: 'active' | 'archived'; limit?: number; offset?: number },
+      activeOrg?: string | null,
+    ) => {
+      const qs = new URLSearchParams();
+      if (params.type) qs.set('type', params.type);
+      if (params.state) qs.set('state', params.state);
+      if (params.limit) qs.set('limit', String(params.limit));
+      if (params.offset) qs.set('offset', String(params.offset));
+      const path = `/api/workspaces${qs.toString() ? `?${qs.toString()}` : ''}`;
+      return request<WorkspaceList>(path, {
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      });
+    },
+    detail: (workspaceId: string) =>
+      request<WorkspaceDetail>(`/api/workspaces/${workspaceId}`),
+    extend: (workspaceId: string, payload: WorkspaceExtendPayload) =>
+      request<WorkspaceExtendResponse>(`/api/workspaces/${workspaceId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    share: (workspaceId: string, payload: { visibility: 'private' | 'team' }) =>
+      request<WorkspaceDoc>(`/api/workspaces/${workspaceId}/share`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    patchTitle: (workspaceId: string, title: string) =>
+      request<WorkspaceDoc>(`/api/workspaces/${workspaceId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      }),
+    archive: (workspaceId: string) =>
+      request<{ workspace_id: string; state: 'archived' }>(
+        `/api/workspaces/${workspaceId}`,
+        { method: 'DELETE' },
+      ),
   },
 };
 

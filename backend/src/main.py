@@ -21,6 +21,7 @@ from src.modules.agency_tool_adapter.router import (
     public_router as agency_tool_public_router,
 )
 from src.modules.copilot.router import public_router as copilot_router
+from src.modules.workspaces.router import router as workspaces_router
 from src.modules.auth.router import router as auth_router
 from src.modules.billing.router import router as billing_router
 from src.modules.organizations.router import (
@@ -117,6 +118,7 @@ app.include_router(agency_tool_public_anon_router, prefix="/api")
 app.include_router(agency_tool_public_router, prefix="/api")
 app.include_router(agency_tool_admin_router, prefix="/api")
 app.include_router(copilot_router, prefix="/api")
+app.include_router(workspaces_router, prefix="/api")
 
 
 @app.get("/api/health", tags=["health"])

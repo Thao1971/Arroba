@@ -1,5 +1,25 @@
 # CHANGELOG — ARROBA Platform
 
+## 24 Jun 2026 — E1.5 Workspaces Persistentes
+
+- **Modelo de datos** (3 colecciones MongoDB): `workspaces`, `workspace_messages`, `workspace_blocks`. Índices por `organization_id+state+updated_at`, `created_by+updated_at`, `workspace_id+order`. Visibilidades soportadas en schema: `private | team | organization | public`. UI E1.5 solo expone `private ↔ team`.
+- **6 endpoints** bajo `/api/workspaces`: `POST /` (create) · `GET /` (list filtrado por org + state) · `GET /{id}` (detail con access control) · `POST /{id}/messages` (extend — el orchestrator backend decide la skill via `intent_router.py`) · `POST /{id}/share` (toggle private↔team) · `PATCH /{id}` (title) · `DELETE /{id}` (soft archive). Todos requieren auth; `X-Active-Org` header opcional para multi-org.
+- **`intent_router.py` espejo** del TS — única fuente de verdad de la lista de verbos. Test `test_intent_router.py::test_parity_with_frontend_verb_list` impide derivas silenciosas.
+- **Frontend**:
+  - Página `/es/w/[workspace_id]` (client + SWR): renderiza Workspace persistente, header con título inline editable, badge tipo + visibility, botón `Compartir con mi equipo` / `Hacer privado`, botón `Archivar`.
+  - Página `/es/historial`: lista con filtros tipo (`Todos | Análisis | Valoraciones | Recomendaciones | Búsquedas | Mixto`) + estado (`Activos | Archivados`). Empty state contextual.
+  - `OrgSwitcher`: dropdown en el header autenticado. Estático cuando hay 1 membership; dropdown con marcas cuando ≥2. Persiste `arroba.active_org_id` en localStorage. Emite `arroba:active-org-changed` cuando cambia.
+  - `CopilotProvider` modo "anchored": detecta `/w/{id}` por URL, llama a `POST /workspaces/{id}/messages` y mergea el delta. Modo ephemeral E1.4 intacto en cualquier otra ruta.
+  - `OpenWorkspaceButton` ("Seguir trabajando"): aparece en el dock efímero cuando hay ≥1 par user/assistant. Click → POST `/api/workspaces` → router.push(`/es/w/{id}`). Anónimo → `/es/login?next=/es/historial`.
+  - `RecentWorkspacesPanel`: dropdown en el header del dock con los 10 últimos workspaces de la org activa + link a `/es/historial`.
+- **Auto-título determinista**: primera query del user, sin verbo de comando, primer carácter capitalizado, truncado a 80 chars en el último espacio. Sin LLM, sin coste.
+- **Cross-org safety**: si el user accede a `/es/w/{id}` de una org a la que no pertenece, redirect a `/es/historial` con toast. Si pertenece pero la activa es otra, se ajusta `activeOrgId` automáticamente.
+- **Compartición team** verificada E2E: buyer crea workspace privado → comparte team → seller (otra cuenta misma org) lo ve en `/es/historial` y puede leerlo (lectura sí, extender no).
+- **Limpieza de rutas obsoletas**: borradas `/es/analizar`, `/es/valorar`, `/es/comprar-vender` (prohibidas por Copilot First).
+- **Demo users seed**: `scripts/seed_demo_users.py` crea 4 usuarios + 1 org "ARROBA Demo Org" (B99999999) idempotente. Credenciales en `/app/memory/test_credentials.md`.
+- **Tests**: Backend **110/110 PASS** (24 nuevos: 16 workspaces + 8 intent_router parity). Frontend **97/97 PASS** (11 nuevos: 5 OpenWorkspaceButton + 3 OrgSwitcher + 3 HistoryPage). Lint + typecheck + build verde.
+- **Housekeeping E1.4**: 2 tests añadidos a `test_copilot_recommend.py` (cobertura sectorial baja → fallback con sectores adyacentes; cobertura alta → solo estrictos). +1 empresa al seed (`mc_lacteos`, Lácteos del Atlántico). Smoke E2E real contra preview: `oportunidades en alimentación` → 3 cards Alimentación.
+
 ## 24 Jun 2026 — E1.4 Intelligence Skills
 
 - **Backend** — adapter `EnrichCompanyAdapter` (Boundary First, Mock/Real + factory por `ENRICH_COMPANY_SOURCE`). Skills `analyze` / `value` / `recommend` con `POST /api/copilot/skills/{analyze,value,recommend}` (`X-Source: mock`). Discriminated union de bloques ampliada a 10 tipos: `search_results` · `empty_state` · `error` · `loading` · `hero` · `metrics` · `company_card` · `company_cards_grid` · `valuation` · `narrative`.
