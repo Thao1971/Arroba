@@ -151,7 +151,13 @@ async def init_indexes() -> None:
     await db.workspace_messages.create_index([("workspace_id", 1), ("created_at", 1)])
 
     # === workspace_blocks (E1.5) ===
-    await db.workspace_blocks.create_index("block_id", unique=True)
+    # Uniqueness is enforced per workspace (the client may legitimately reuse
+    # short ids like "blk_h1" across different workspaces). A global unique
+    # index on block_id would surface as E11000 BulkWriteError on the second
+    # promotion of the same ephemeral state into a new workspace.
+    await db.workspace_blocks.create_index(
+        [("workspace_id", 1), ("block_id", 1)], unique=True
+    )
     await db.workspace_blocks.create_index([("workspace_id", 1), ("order", 1)])
 
 

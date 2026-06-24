@@ -66,3 +66,62 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "errors": exc.errors(),
             },
         )
+
+    # --- Mongo write conflicts ------------------------------------------------
+    # Translates pymongo / motor duplicate-key errors into a sanitized 409.
+    # Without this, the default 500 path would try to JSON-serialise the
+    # BulkWriteError (which contains BSON ObjectId / bytes) and crash with
+    # "Object of type bytes is not JSON serializable", leaking a bare 500 to
+    # the client and masking the real cause.
+    try:  # pragma: no cover - pymongo is always present in this environment
+        from pymongo.errors import DuplicateKeyError, BulkWriteError
+
+        @app.exception_handler(DuplicateKeyError)
+        async def _dup_key(request: Request, exc: DuplicateKeyError) -> JSONResponse:
+            return JSONResponse(
+                status_code=409,
+                content={
+                    "detail": "duplicate_key",
+                    "code": "duplicate_key",
+                },
+            )
+
+        @app.exception_handler(BulkWriteError)
+        async def _bulk_write(request: Request, exc: BulkWriteError) -> JSONResponse:
+            # `exc.details` contains BSON; never echo it raw to the response.
+            err = (exc.details or {}).get("writeErrors", [{}])[0]
+            code = err.get("code")
+            status_code = 409 if code == 11000 else 500
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "detail": "duplicate_key" if status_code == 409 else "bulk_write_error",
+                    "code": "duplicate_key" if status_code == 409 else "bulk_write_error",
+                },
+            )
+    except ImportError:
+        pass
+
+    # --- Catch-all (last resort) ----------------------------------------------
+    # FastAPI/Starlette's default handler turns any unhandled exception into a
+    # plain-text "Internal Server Error". For our front-end (which assumes JSON
+    # bodies with `detail`/`code`) we want a uniform JSON 500 so the UI can
+    # surface something better than "Internal Server Error (HTTP 500)".
+    @app.exception_handler(Exception)
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
+        from src.core.logging import get_logger
+
+        log = get_logger("exceptions")
+        log.error(
+            "unhandled_exception",
+            path=str(request.url.path),
+            method=request.method,
+            error_type=type(exc).__name__,
+            # Coerce non-JSON-safe args via repr() so we never crash here.
+            error_repr=repr(exc)[:1024],
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "internal_server_error", "code": "internal_server_error"},
+        )
+
