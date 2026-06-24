@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: E1.1 cerrada — Auth UI + Registration Journey conversacional + Organizaciones + Header simplificado.
+> **Última actualización**: 2026-06-24 — E1.1.5 + E1.2 cerradas formalmente. **E1.3 CONGELADA** pendiente del análisis de reconstrucción "ARROBA Matching v1.0".
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 ---
@@ -167,9 +167,16 @@ los placeholders de los 3 workspaces principales.
 
 ## ⏳ Lo que sigue queda para E1.2+
 
-## ✅ Etapa 1.1.5 + E1.2 — Home pública + Block Library v0 (COMPLETADA)
+## ✅ Etapa 1.1.5 + E1.2 — Home pública + Block Library v0 (CERRADAS 2026-06-24)
 
-Primera entrega de bloques reusables + home pública que los consume.
+Resumen del cierre:
+- Home pública en español funcional sobre la nueva Block Library v0.
+- Block Library v0 (5 bloques): `HeroBlock`, `CTABlock`, `FeatureCardBlock`, `MetricsBlock` (Configurable + Data, 5 estados), `EmptyStateBlock`.
+- Platform Stats Mock: endpoint público `GET /api/agency-tool/platform-stats` + admin CRUD del singleton + `scripts/seed_platform_stats.py` idempotente.
+- REQ-002 emitido al Agency Tool en `/app/_requirements_for_agency_tool/README.md` (público sin auth, swap mock↔real sin cambio de firma).
+- CopilotDemoMock determinista pre-grabado con shape compatible con el protocolo Copilot+Skill futuro.
+- Tests **backend 39/39** + **frontend 51/51** (14 nuevos: 10 blocks + 4 copilot demo). Lint + typecheck + build verde.
+- Light + dark + monocromo verificados.
 
 ### Block Library v0 — 5 bloques
 
@@ -186,7 +193,7 @@ Cada bloque expone `testId` configurable, raíz con `data-testid="block-{name}"`
 ### Componentes puntuales de home
 
 - **`PublicFooter`** — 7 logos institucionales (`INE`, `BOE·BORME`, `BdE`, `CNMV`, `Registradores`, `Comercio`, `Contratación`) en `/public/intake/logos/`. testid `public-footer-logo-{slug}`.
-- **`CopilotDemoMock`** — demo determinista pre-grabada (sin LLM). Script en `/src/components/home/copilot-demo-script.ts` con 4 chips (`shortlist`, `valuate`, `teasers`, `signals`), cada uno con respuesta + cards + citación con `✦`. El shape (`chip_id`, `user_message`, `copilot_response`, `cards`, `citation`) es **compatible con el protocolo Copilot real (E1.3)**.
+- **`CopilotDemoMock`** — demo determinista pre-grabada (sin LLM). Script en `/src/components/home/copilot-demo-script.ts` con 4 chips (`shortlist`, `valuate`, `teasers`, `signals`), cada uno con respuesta + cards + citación con `✦`. El shape (`chip_id`, `user_message`, `copilot_response`, `cards`, `citation`) es **compatible con el protocolo Copilot real (E1.3)** — siempre que E1.3 se desbloquee tras el análisis Matching v1.0.
 
 ### Backend — endpoint `platform_stats`
 
@@ -202,20 +209,43 @@ Cada bloque expone `testId` configurable, raíz con `data-testid="block-{name}"`
 
 Documentado en `/app/_requirements_for_agency_tool/README.md` con criterio explícito "**endpoint público SIN autenticación de usuario**" y mapeo al adapter actual.
 
+---
 
+## ⏸️ Etapa 1.3 — Copilot dock + Composer (CONGELADA - PENDIENTE DE ANÁLISIS DE RECONSTRUCCIÓN)
 
-E1.3 entrega Copilot dock + Composer (port a React+TS desde
-`/_design_intake/assets/arroba-{copilot,composer}.js`), que sustituye los
-placeholders de `/analizar`, `/valorar`, `/comprar-vender` por workspaces
-materializados con bloques.
+**Estado**: ⏸️ **CONGELADA** desde 2026-06-24.
 
-E1.4 entra Stripe (planes + créditos por interacción).
+**Motivo del freeze**: antes de arrancar E1.3 el orquestador va a ejecutar un
+análisis de una posible reconstrucción mayor del producto hacia
+**"ARROBA Matching v1.0"** — matching M&A estructurado, NDAs progresivos, data
+room, deal workspace, finder fee, capa agéntica, integración CIS, etc. El
+resultado de ese análisis puede cambiar el propósito del Copilot y del Block
+Orchestrator (de "asistente conversacional transversal" a "orquestador de
+proceso de matching"), por lo que cualquier port o implementación previa a la
+decisión podría requerir reescritura.
 
-E1.x abre el wire-up real de Google OAuth + página `/auth/callback` (backend ya
-listo desde E0.3.1).
+**🚫 No iniciar E1.3 hasta que el orquestador confirme el resultado del análisis ARROBA Matching v1.0.**
 
-E2 cubre `/recuperar`, perfil editable, ajustes reales y la barra de
-enriquecimiento progresivo del Success.
+Qué NO se debe tocar mientras dure el freeze:
+- NO portar `arroba-copilot.js` ni `arroba-composer.js`.
+- NO añadir Skills (search, valuation, matching, etc.).
+- NO construir el Block Orchestrator real.
+- NO ampliar el `CopilotDemoMock` con lógica nueva (el shape ya es compatible y se queda como está).
+- NO cambiar los placeholders `/analizar`, `/valorar`, `/comprar-vender` (siguen siendo `EmptyStateBlock`).
+
+Qué SÍ se puede hacer mientras dure el freeze (no requiere reabrir E1.3):
+- Bug fixes detectados por `e1_tester` sobre lo ya entregado (E0/E1.1/E1.1.5/E1.2).
+- Cambios cosméticos del DS interno si los pide el orquestador.
+- Lectura de docs de Matching v1.0 cuando lleguen al intake.
+
+---
+
+## 🔜 Etapas posteriores (sin cambios hasta freeze E1.3)
+
+- **E1.4** — Stripe (planes + créditos por interacción) + Search Skill real.
+- **E1.5** — Workspaces dinámicos materializados por Copilot reusando Block Library.
+- **E1.x** — Google OAuth wire-up real + `/auth/callback` (backend ya listo desde E0.3.1).
+- **E2** — `/recuperar` real, perfil editable, ajustes reales, barra de enriquecimiento progresivo del Success del journey.
 
 ---
 
