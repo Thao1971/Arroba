@@ -1,7 +1,22 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-06-24 — E1.1.5 + E1.2 cerradas formalmente. **E1.3 CONGELADA** pendiente del análisis de reconstrucción "ARROBA Matching v1.0".
+> **Última actualización**: 2026-06-24 — **E1.5 ⏸️ CONGELADA 2026-06-24 — PAUSA ESTRATÉGICA DEL USUARIO**.
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
+
+---
+
+## ⏸️ FREEZE 2026-06-24 — Pausa estratégica decretada por el usuario
+
+**Estado**: E1.5 (Workspaces Persistentes) queda **⏸️ CONGELADA 2026-06-24 — PAUSA ESTRATÉGICA DEL USUARIO**.
+
+**Motivo literal**: "Auditoría UX/navegación pendiente. La unidad de trabajo del producto está en revisión. Hasta que el orquestador devuelva conclusiones, no se reanuda E1.5 ni se inicia E1.6."
+
+**Bug pendiente (no se ataca durante el freeze)**:
+🐛 **PENDIENTE - SE RETOMARÁ SI E1.5 SE DESCONGELA** — In-workspace "Valora X" → 500. El botón "Seguir trabajando" del dock efímero funciona (verificado por tester); enviar un segundo comando desde dentro de `/w/{id}` devuelve 500. Sospecha: mismo patrón de `Content-Type` perdido al spread de headers que arreglamos en `client.ts`, pero en otro endpoint (probablemente `POST /api/workspaces/{id}/messages`).
+
+**Nota de preservación**: Workspaces, `/w/{id}`, historial, compartición team — todo se conserva en código, congelado funcionalmente. **NO borrar**. NO escribir código nuevo sobre estos módulos hasta que el orquestador devuelva conclusiones de la auditoría UX.
+
+**No reanudar E1.5 ni iniciar E1.6 sin instrucción explícita del orquestador.**
 
 ---
 
