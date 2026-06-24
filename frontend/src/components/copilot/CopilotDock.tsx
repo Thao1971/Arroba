@@ -29,7 +29,16 @@ import { RecentWorkspacesPanel } from './RecentWorkspacesPanel';
  *   - returns focus to FAB when closing
  */
 export function CopilotDock() {
-  const { open, toggle, closeDock, clear, loading, workspace, history } = useCopilot();
+  const {
+    open,
+    toggle,
+    closeDock,
+    clear,
+    loading,
+    workspace,
+    history,
+    currentEntity,
+  } = useCopilot();
   const pathname = usePathname() ?? '/';
   const { isAuthenticated } = useAuth();
   const fabRef = useRef<HTMLButtonElement | null>(null);
@@ -117,7 +126,12 @@ export function CopilotDock() {
         height: 'min(620px, calc(100vh - 32px))',
       }}
     >
-      <Header onClose={closeDock} onClear={clear} clearDisabled={loading || history.length === 0} />
+      <Header
+        onClose={closeDock}
+        onClear={clear}
+        clearDisabled={loading || history.length === 0}
+        entityName={currentEntity?.name ?? null}
+      />
       <ConversationThread />
       <footer className="border-t border-border bg-surface-2 px-4 py-3" data-testid="copilot-dock-footer">
         <Composer ref={composerRef} chips={chips} showChips={showChips} />
@@ -131,15 +145,25 @@ function Header({
   onClose,
   onClear,
   clearDisabled,
+  entityName,
 }: {
   onClose: () => void;
   onClear: () => void;
   clearDisabled: boolean;
+  entityName: string | null;
 }) {
+  // When the dock is contextualised on an entity (e.g. /empresa/{cif}), the
+  // header reflects the specialised advisor identity per
+  // ARROBA_PHILOSOPHY.md §12 "Company Advisor".
+  const title = entityName ? `✦ Company Advisor de ${entityName}` : 'Arroba Copilot';
+  const subtitle = entityName
+    ? 'Conversación específica para esta empresa · /clear · /help'
+    : 'Pregunta lo que quieras · /clear · /help';
   return (
     <header
       className="flex items-center gap-3 px-4 py-3 border-b border-border bg-surface"
       data-testid="copilot-dock-header"
+      data-entity-mode={entityName ? 'true' : 'false'}
     >
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
@@ -149,11 +173,14 @@ function Header({
         <Sparkles size={16} strokeWidth={1.5} className="text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-display font-semibold text-sm text-text leading-tight">
-          Arroba Copilot
+        <p
+          className="font-display font-semibold text-sm text-text leading-tight truncate"
+          data-testid="copilot-dock-title"
+        >
+          {title}
         </p>
-        <p className="text-[11px] text-text-subtle leading-tight">
-          Pregunta lo que quieras · /clear · /help
+        <p className="text-[11px] text-text-subtle leading-tight truncate">
+          {subtitle}
         </p>
       </div>
       <button

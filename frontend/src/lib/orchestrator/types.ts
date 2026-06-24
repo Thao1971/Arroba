@@ -170,10 +170,28 @@ export interface SearchSkillRequest {
   context: SkillContext;
 }
 
+export interface DisambiguationItem {
+  master_company_id: string;
+  cif: string | null;
+  name: string;
+  sector: string | null;
+  region: string | null;
+}
+
 export interface SearchSkillResponse {
-  workspace: Workspace;
+  /** Filled with a `SearchResultsBlock` or `EmptyStateBlock` workspace
+   *  on the legacy/exploratory path. Null when the response is an
+   *  entity-resolution (navigate_to) or disambiguation. */
+  workspace: Workspace | null;
   source: 'mock' | 'real';
   query: string;
+  /** E1.5-REWORK: when present, the client should `router.push(navigate_to)`
+   *  to land on the entity page. */
+  navigate_to?: string | null;
+  entity_type?: 'company' | 'sector' | 'territory' | null;
+  /** E1.5-REWORK: when present (length 1-5), render a compact disambiguation
+   *  dropdown inside the dock. */
+  disambiguation?: DisambiguationItem[] | null;
 }
 
 export interface AnalyzeSkillRequest {

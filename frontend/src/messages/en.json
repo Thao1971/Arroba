@@ -231,5 +231,13 @@
     "loading": "Loading…",
     "tryAgain": "Try again",
     "back": "Back"
+  },
+  "entity": {
+    "lock": {
+      "title": "You need to sign in",
+      "description": "This section is reserved for arroba.com members. It's free and only takes 30 seconds.",
+      "register": "Create free account",
+      "login": "Sign in"
+    }
   }
 }

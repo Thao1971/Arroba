@@ -10,7 +10,7 @@ import {
   useReducer,
   useRef,
 } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { dispatch as orchestratorDispatch, type Workspace, type BlockSpec } from '@/lib/orchestrator';
 import { useAuth } from '@/contexts/auth-context';
 import { apiClient } from '@/lib/api/client';
@@ -24,12 +24,19 @@ import type {
 /**
  * Copilot session state.
  *
- *  Two modes, transparently switched by `currentWorkspaceId`:
- *  - ephemeral: `send()` hits the Copilot skill endpoints directly. The
- *    workspace lives only in memory + localStorage.
- *  - anchored:  `send()` hits `POST /api/workspaces/{id}/messages` so the new
- *    blocks are persisted. The provider appends the delta to the local
- *    state (without recharging the workspace).
+ *  Three modes, transparently switched by `currentWorkspaceId` /
+ *  `currentEntity`:
+ *  - **ephemeral**: `send()` hits the Copilot skill endpoints directly.
+ *    The workspace lives only in memory + localStorage.
+ *  - **anchored**:  `send()` hits `POST /api/workspaces/{id}/messages` so
+ *    the new blocks are persisted. The provider appends the delta to the
+ *    local state (without recharging the workspace).
+ *  - **entity_context** (E1.5-REWORK): when the user is on
+ *    `/empresa/{cif}`, `send()` hits `POST /api/companies/{cif}/messages`
+ *    so the Company Advisor returns `section_updates[]` that refresh the
+ *    ficha sections (NOT free-standing blocks). The provider broadcasts
+ *    those via `CustomEvent("arroba:company-section-update")`; the
+ *    `CompanyPageClient` listens and re-renders only the affected sections.
  */
 
 export type MessageRole = 'user' | 'assistant';
@@ -42,6 +49,12 @@ export interface CopilotMessage {
   ts: number;
 }
 
+export interface EntityContext {
+  type: 'company';
+  cif: string;
+  name: string | null;
+}
+
 interface CopilotState {
   open: boolean;
   loading: boolean;
@@ -49,6 +62,7 @@ interface CopilotState {
   workspace: Workspace | null;
   lastQuery: string | null;
   currentWorkspaceId: string | null;
+  currentEntity: EntityContext | null;
 }
 
 type Action =
@@ -65,10 +79,15 @@ type Action =
   | { type: 'fail'; assistant: string }
   | { type: 'clear' }
   | { type: 'set_workspace_anchored'; workspaceId: string | null }
+  | { type: 'set_entity_context'; entity: EntityContext | null }
   | {
       type: 'hydrate_persistent';
       messages: CopilotMessage[];
       workspace: Workspace | null;
+    }
+  | {
+      type: 'hydrate_entity_conversation';
+      messages: CopilotMessage[];
     }
   | { type: 'hydrate'; state: Partial<CopilotState> };
 
@@ -79,9 +98,15 @@ const INITIAL: CopilotState = {
   workspace: null,
   lastQuery: null,
   currentWorkspaceId: null,
+  currentEntity: null,
 };
 
 const STORAGE_KEY = 'arroba.copilot.session.v1';
+
+/** Custom event emitted by the provider after a Company Advisor reply that
+ *  carries section_updates. The CompanyPageClient listens for this and
+ *  refreshes only the affected sections in-place. */
+export const COMPANY_SECTION_UPDATE_EVENT = 'arroba:company-section-update';
 
 function reducer(state: CopilotState, action: Action): CopilotState {
   switch (action.type) {
@@ -145,6 +170,24 @@ function reducer(state: CopilotState, action: Action): CopilotState {
       // `hydrate_persistent` once it fetched the detail. When leaving (id=null),
       // we keep the ephemeral state intact.
       return { ...state, currentWorkspaceId: action.workspaceId };
+    case 'set_entity_context':
+      // When entering /empresa/{cif} we wipe the dock history so it shows
+      // the Company Advisor scoped to THIS entity (the hydration call adds
+      // the persistent thread right after). When leaving, history is wiped
+      // too so the dock returns to the ephemeral session.
+      if (state.currentEntity?.cif === action.entity?.cif) {
+        // Same entity (only name might have changed) → just update meta.
+        return { ...state, currentEntity: action.entity };
+      }
+      return {
+        ...state,
+        currentEntity: action.entity,
+        history: action.entity ? [] : state.history,
+        workspace: action.entity ? null : state.workspace,
+        lastQuery: null,
+      };
+    case 'hydrate_entity_conversation':
+      return { ...state, history: action.messages };
     case 'hydrate_persistent': {
       const lastUserMsg = [...action.messages].reverse().find((m) => m.role === 'user');
       return {
@@ -181,21 +224,31 @@ interface CopilotContextValue extends CopilotState {
   }) => Promise<{ workspaceId: string; url: string }>;
   /** Used by /w/[id]/page.tsx to load the persisted workspace into the dock. */
   hydratePersistent: (messages: CopilotMessage[], workspace: Workspace | null) => void;
+  /** Used by /empresa/[cif]/page.tsx to load the prior conversation thread
+   *  into the dock and to attach the company's display name. */
+  hydrateEntityConversation: (messages: CopilotMessage[], name: string) => void;
   dispatch: Dispatch<Action>;
 }
 
 const CopilotContext = createContext<CopilotContextValue | undefined>(undefined);
 
 const ANCHORED_RE = /^\/(?:[a-z]{2}\/)?w\/([\w-]+)(?:\/.*)?$/;
+const ENTITY_COMPANY_RE = /^\/(?:[a-z]{2}\/)?empresa\/([A-Za-z]\d{8})(?:\/.*)?$/;
 
 function extractWorkspaceIdFromPath(pathname: string): string | null {
   const m = pathname.match(ANCHORED_RE);
   return m && m[1] ? m[1] : null;
 }
 
+function extractEntityCifFromPath(pathname: string): string | null {
+  const m = pathname.match(ENTITY_COMPANY_RE);
+  return m && m[1] ? m[1].toUpperCase() : null;
+}
+
 export function CopilotProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const pathname = usePathname() ?? '/';
+  const router = useRouter();
   const { isAuthenticated, user } = useAuth();
   const { activeOrgId } = useActiveOrg();
   const hydrated = useRef(false);
@@ -205,6 +258,15 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     dispatch({ type: 'set_workspace_anchored', workspaceId: anchoredId });
   }, [anchoredId]);
+
+  // Track which entity we're contextualised on (E1.5-REWORK).
+  const entityCif = useMemo(() => extractEntityCifFromPath(pathname), [pathname]);
+  useEffect(() => {
+    dispatch({
+      type: 'set_entity_context',
+      entity: entityCif ? { type: 'company', cif: entityCif, name: null } : null,
+    });
+  }, [entityCif]);
 
   // Hydrate from localStorage once on mount (ephemeral state only — never the
   // anchored workspace, which has its own server source of truth).
@@ -254,6 +316,40 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       const text = rawText.trim();
       if (!text) return;
       dispatch({ type: 'submit', text });
+
+      // Entity-context mode (E1.5-REWORK): hit /companies/{cif}/messages.
+      // The reply carries `section_updates[]` that the host page consumes via
+      // a CustomEvent — the dock thread only shows the textual response.
+      if (state.currentEntity?.type === 'company') {
+        try {
+          const cif = state.currentEntity.cif;
+          const res = await apiClient.companies.sendMessage(cif, {
+            query: text,
+            context: { locale: 'es', pathname },
+          });
+          // Broadcast section_updates so CompanyPageClient can refresh in-
+          // place. We do NOT push them into the dock as free-standing blocks.
+          if (typeof window !== 'undefined' && res.section_updates.length) {
+            window.dispatchEvent(
+              new CustomEvent(COMPANY_SECTION_UPDATE_EVENT, {
+                detail: { cif, section_updates: res.section_updates },
+              }),
+            );
+          }
+          dispatch({
+            type: 'resolve',
+            assistant: res.message_assistant.content,
+            workspace: null,
+          });
+        } catch {
+          dispatch({
+            type: 'fail',
+            assistant:
+              'No he podido procesar tu mensaje. Inténtalo de nuevo en unos segundos.',
+          });
+        }
+        return;
+      }
 
       // Anchored mode: hit /workspaces/{id}/messages and merge the delta.
       if (state.currentWorkspaceId) {
@@ -311,13 +407,31 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
+      // E1.5-REWORK: entity-resolution → router.push to the ficha.
+      if (result.navigate_to) {
+        dispatch({
+          type: 'resolve',
+          assistant: result.assistantMessage,
+          workspace: null,
+        });
+        router.push(result.navigate_to);
+        return;
+      }
       dispatch({
         type: 'resolve',
         assistant: result.assistantMessage,
         workspace: result.workspace,
       });
     },
-    [pathname, user?.user_id, activeOrgId, state.currentWorkspaceId, state.workspace],
+    [
+      pathname,
+      router,
+      user?.user_id,
+      activeOrgId,
+      state.currentEntity,
+      state.currentWorkspaceId,
+      state.workspace,
+    ],
   );
 
   const retry = useCallback<CopilotContextValue['retry']>(async () => {
@@ -364,6 +478,23 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const hydrateEntityConversation = useCallback<
+    CopilotContextValue['hydrateEntityConversation']
+  >(
+    (messages, name) => {
+      dispatch({ type: 'hydrate_entity_conversation', messages });
+      // Also attach the human name to the existing entity context so the
+      // dock can render "✦ Company Advisor de {name}".
+      if (entityCif) {
+        dispatch({
+          type: 'set_entity_context',
+          entity: { type: 'company', cif: entityCif, name },
+        });
+      }
+    },
+    [entityCif],
+  );
+
   const value = useMemo<CopilotContextValue>(
     () => ({
       ...state,
@@ -375,9 +506,17 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       clear: () => dispatch({ type: 'clear' }),
       promoteToWorkspace,
       hydratePersistent,
+      hydrateEntityConversation,
       dispatch,
     }),
-    [state, send, retry, promoteToWorkspace, hydratePersistent],
+    [
+      state,
+      send,
+      retry,
+      promoteToWorkspace,
+      hydratePersistent,
+      hydrateEntityConversation,
+    ],
   );
 
   return <CopilotContext.Provider value={value}>{children}</CopilotContext.Provider>;

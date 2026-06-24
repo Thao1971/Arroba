@@ -312,6 +312,37 @@ def build_valuation(company: EnrichedCompany) -> ValuationBlock:
     )
 
 
+def _build_narrative_placeholder(
+    company: EnrichedCompany, *, locale: str = "es"
+) -> NarrativeBlock:
+    """Snappy deterministic placeholder shown on the initial GET. The user
+    refreshes it on demand via `POST /skills/analyze` so the LLM call never
+    blocks the page load."""
+    if locale == "en":
+        summary = (
+            f"The Copilot has not generated an analysis for {company.legal_name} "
+            "yet. Click '↺ Refresh analysis' or ask the Company Advisor in the "
+            "dock to produce one based on the ficha."
+        )
+    else:
+        summary = (
+            f"El Copilot todavía no ha generado un análisis de {company.legal_name}. "
+            "Pulsa «↺ Refrescar análisis» o pregúntale al Company Advisor en el "
+            "dock para que produzca uno con los datos de la ficha."
+        )
+    return NarrativeBlock(
+        id=new_block_id("narrative"),
+        props=NarrativeBlockProps(
+            title="Lectura del analista",
+            summary=summary,
+            key_points=[],
+            risks=[],
+            opportunities=[],
+            citations=[],
+        ),
+    )
+
+
 async def build_narrative(
     company: EnrichedCompany,
     *,
@@ -449,11 +480,15 @@ async def get_company_detail(
             source=ADAPTER_MODE,
         )
 
-    # Authenticated: full ficha.
+    # Authenticated: full ficha. The narrative section is intentionally a
+    # placeholder on the initial fetch so the GET stays snappy — the LLM call
+    # only happens when the user clicks "↺ Refrescar análisis" or sends a
+    # message in the dock (both of which go through `refresh_analysis` or
+    # the Company Advisor `/messages` endpoint).
     score = build_score_placeholder(company)
     comparables = await build_comparables(company)
     valuation = build_valuation(company)
-    narrative = await build_narrative(company, llm=llm, locale=locale)
+    narrative = _build_narrative_placeholder(company, locale=locale)
 
     sections = CompanySections(
         hero=hero,

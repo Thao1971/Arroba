@@ -73,6 +73,13 @@ export interface OrchestratorResult {
   intent: Intent;
   workspace: Workspace | null; // null for `clear` — UI clears history
   assistantMessage: string | null; // human-readable reply for the thread
+  /** E1.5-REWORK: when set, the caller should `router.push(navigate_to)`
+   *  because the search Skill resolved the query to a concrete entity
+   *  (e.g. "Kitchen Studio" → /empresa/B86540112). */
+  navigate_to?: string | null;
+  /** E1.5-REWORK: disambiguation candidates when the search resolves to
+   *  2-5 known entities (the dock should render a compact dropdown). */
+  disambiguation?: import('./types').DisambiguationItem[] | null;
 }
 
 export async function dispatch(
@@ -100,6 +107,35 @@ export async function dispatch(
   }
 
   try {
+    if (intent.kind === 'search') {
+      // Search returns a polymorphic response: legacy workspace, or
+      // entity-resolution navigate_to, or disambiguation list.
+      const res = await apiClient.copilot.search({ query: intent.query, context });
+      if (res.navigate_to) {
+        return {
+          intent,
+          workspace: null,
+          assistantMessage: `Te llevo a ${entityLabelFromPath(res.navigate_to)}.`,
+          navigate_to: res.navigate_to,
+        };
+      }
+      if (res.disambiguation && res.disambiguation.length > 0) {
+        return {
+          intent,
+          workspace: null,
+          assistantMessage:
+            'He encontrado varias coincidencias. Elige la empresa correcta:',
+          disambiguation: res.disambiguation,
+        };
+      }
+      const ws = res.workspace;
+      return {
+        intent,
+        workspace: ws,
+        assistantMessage: ws ? assistantSummaryFor('search', ws) : 'Sin resultados.',
+      };
+    }
+
     let workspace: Workspace;
     if (intent.kind === 'analyze') {
       const res = await apiClient.copilot.analyze({ query: intent.query, context });
@@ -107,11 +143,8 @@ export async function dispatch(
     } else if (intent.kind === 'value') {
       const res = await apiClient.copilot.value({ query: intent.query, context });
       workspace = res.workspace;
-    } else if (intent.kind === 'recommend') {
-      const res = await apiClient.copilot.recommend({ query: intent.query, context });
-      workspace = res.workspace;
     } else {
-      const res = await apiClient.copilot.search({ query: intent.query, context });
+      const res = await apiClient.copilot.recommend({ query: intent.query, context });
       workspace = res.workspace;
     }
     return {
@@ -131,6 +164,12 @@ export async function dispatch(
       assistantMessage: 'No he podido procesar la petición. Inténtalo de nuevo.',
     };
   }
+}
+
+function entityLabelFromPath(path: string): string {
+  const m = path.match(/^\/empresa\/([A-Z]\d{8})/i);
+  if (m && m[1]) return `la empresa ${m[1].toUpperCase()}`;
+  return path;
 }
 
 function assistantSummaryFor(

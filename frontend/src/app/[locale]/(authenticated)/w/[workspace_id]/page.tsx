@@ -161,6 +161,8 @@ export default function WorkspaceDetailPage() {
         onUpdated={() => mutate()}
       />
 
+      <CompanyBackrefBanner blocks={data.blocks} />
+
       <div className="mt-6 space-y-6" data-testid="workspace-detail-thread">
         <ThreadView messages={data.messages} blocks={data.blocks} />
       </div>
@@ -453,5 +455,70 @@ function WorkspaceHeader({
         </div>
       )}
     </header>
+  );
+}
+
+
+
+/**
+ * E1.5-REWORK retrocompat banner: when a persisted workspace can be linked
+ * to a known company (via its hero/company_card blocks), render a discreet
+ * banner that points users to the new entity-first page.
+ *
+ * Heuristic — extract the first CIF we find in any of these places:
+ *   - a `company_card` block's `props.cif`;
+ *   - a `hero` block's `props.subtitle` matching `B12345678`;
+ *   - a `metrics` block's title (unlikely but cheap).
+ *
+ * The hero's title (or the company_card's name) is used as the display
+ * name. If none of the above matches, the banner is silently hidden.
+ */
+function CompanyBackrefBanner({ blocks }: { blocks: WorkspaceBlock[] }) {
+  const inferred = useMemo(() => {
+    const cifRe = /\b([A-Z]\d{8})\b/;
+    let cif: string | null = null;
+    let name: string | null = null;
+    for (const b of blocks) {
+      const p = (b.props || {}) as Record<string, unknown>;
+      if (!cif) {
+        if (typeof p['cif'] === 'string' && cifRe.test(p['cif'] as string)) {
+          cif = (p['cif'] as string).toUpperCase().replace(/\s|-|\./g, '');
+        } else if (typeof p['subtitle'] === 'string') {
+          const m = (p['subtitle'] as string).toUpperCase().match(cifRe);
+          if (m && m[1]) cif = m[1];
+        }
+      }
+      if (!name) {
+        if (b.type === 'company_card' && typeof p['name'] === 'string') {
+          name = p['name'] as string;
+        } else if (b.type === 'hero' && typeof p['title'] === 'string') {
+          name = p['title'] as string;
+        }
+      }
+      if (cif && name) break;
+    }
+    return cif ? { cif, name } : null;
+  }, [blocks]);
+  if (!inferred) return null;
+  return (
+    <div
+      data-testid="workspace-company-backref-banner"
+      className="mt-4 rounded-2xl border border-border bg-primary/5 px-4 py-3 flex items-center gap-3 text-sm"
+    >
+      <span className="text-text-muted">
+        Esta sesión de análisis se basa en
+      </span>
+      <span className="font-semibold text-text">
+        {inferred.name || inferred.cif}
+      </span>
+      <span className="text-text-muted">·</span>
+      <Link
+        href={`/empresa/${inferred.cif}`}
+        data-testid="workspace-company-backref-link"
+        className="ml-auto text-primary font-semibold hover:underline"
+      >
+        Abrir ficha →
+      </Link>
+    </div>
   );
 }

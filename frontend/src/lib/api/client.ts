@@ -36,6 +36,18 @@ import type {
   WorkspaceList,
 } from '@/lib/workspaces/types';
 
+import type {
+  CompanyDetailResponse,
+  GetConversationResponse,
+  RefreshAnalysisResponse,
+  RefreshComparablesResponse,
+  RefreshValuationResponse,
+  SendMessageRequest,
+  SendMessageResponse,
+  ShareToggleResponse,
+  WatchlistToggleResponse,
+} from '@/lib/companies/types';
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -187,6 +199,59 @@ export const apiClient = {
       request<{ workspace_id: string; state: 'archived' }>(
         `/api/workspaces/${workspaceId}`,
         { method: 'DELETE' },
+      ),
+  },
+  companies: {
+    /** Mixed-access. Anonymous gets sections 1-3 + locked_sections; authed
+     *  gets the full ficha (sections 1-8). */
+    get: (cif: string, activeOrg?: string | null) =>
+      request<CompanyDetailResponse>(`/api/companies/${cif.toUpperCase()}`, {
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    getByMasterId: (masterId: string) =>
+      request<CompanyDetailResponse>(`/api/companies/by-id/${masterId}`),
+    getConversation: (cif: string) =>
+      request<GetConversationResponse>(
+        `/api/companies/${cif.toUpperCase()}/conversation`,
+      ),
+    sendMessage: (cif: string, payload: SendMessageRequest) =>
+      request<SendMessageResponse>(
+        `/api/companies/${cif.toUpperCase()}/messages`,
+        {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        },
+      ),
+    refreshAnalysis: (cif: string) =>
+      request<RefreshAnalysisResponse>(
+        `/api/companies/${cif.toUpperCase()}/skills/analyze`,
+        { method: 'POST' },
+      ),
+    refreshValuation: (cif: string) =>
+      request<RefreshValuationResponse>(
+        `/api/companies/${cif.toUpperCase()}/skills/value`,
+        { method: 'POST' },
+      ),
+    refreshComparables: (cif: string) =>
+      request<RefreshComparablesResponse>(
+        `/api/companies/${cif.toUpperCase()}/skills/comparables`,
+        { method: 'POST' },
+      ),
+    toggleWatchlist: (cif: string, activeOrg: string) =>
+      request<WatchlistToggleResponse>(
+        `/api/companies/${cif.toUpperCase()}/watchlist`,
+        {
+          method: 'POST',
+          headers: { 'X-Active-Org': activeOrg },
+        },
+      ),
+    toggleShare: (cif: string, activeOrg: string) =>
+      request<ShareToggleResponse>(
+        `/api/companies/${cif.toUpperCase()}/share`,
+        {
+          method: 'POST',
+          headers: { 'X-Active-Org': activeOrg },
+        },
       ),
   },
 };

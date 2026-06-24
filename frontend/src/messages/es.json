@@ -220,5 +220,13 @@
     "loading": "Cargando…",
     "tryAgain": "Reintentar",
     "back": "Volver"
+  },
+  "entity": {
+    "lock": {
+      "title": "Necesitas iniciar sesión",
+      "description": "Esta sección está reservada a usuarios con cuenta de arroba.com. Es gratis y solo te toma 30 segundos.",
+      "register": "Crear cuenta gratuita",
+      "login": "Iniciar sesión"
+    }
   }
 }

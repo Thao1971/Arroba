@@ -408,3 +408,89 @@ Mientras estén pendientes, arroba.com usa mocks marcados con header `X-Source: 
 - Endpoint cliente arroba.com: `POST /api/copilot/skills/recommend`.
 - Header runtime: `X-Source: mock` hoy → `real` cuando REQ-005 entre.
 
+
+
+
+---
+
+### [REQ-007] Endpoint `enrich_company_signals`
+
+- **Estado**: pending
+- **Emisor**: arroba.com (Etapa 1.5-REWORK)
+- **Endpoint propuesto**: `GET /v1/signals/company/{master_company_id}`
+- **Respuesta esperada**:
+  ```json
+  {
+    "signals": [
+      {
+        "type": "financial_anomaly" | "contractual" | "legal_publication" |
+                "procurement_award" | "executive_change" | "ownership_change" |
+                "funding_round" | "news_event",
+        "severity": "info" | "warn" | "critical",
+        "source": "BORME" | "Iberinform" | "Datacontract" | "MITRE-BOE" | "PRO-press" | "internal",
+        "detected_at": "<ISO-8601 UTC>",
+        "description": "<= 240 chars",
+        "evidence_url": "<https://...>" | null
+      }
+    ],
+    "scores": {
+      "opportunity": 0-100,
+      "risk": 0-100,
+      "growth": 0-100,
+      "confidence": 0.0-1.0
+    },
+    "computed_at": "<ISO-8601 UTC>"
+  }
+  ```
+- **Headers requeridos**: `X-Source: real` cuando el Agency Tool lo entregue.
+- **SLA objetivo**: < 500ms p95, fresco hasta 24h.
+- **Criterio de aceptación**:
+  1. La sección 4 ("Score y señales") de `/empresa/{cif}` deja de mostrar
+     el placeholder y muestra el bloque real.
+  2. Las señales aparecen también como entrada de `section_updates` que el
+     Company Advisor puede referenciar.
+  3. Mientras esté pendiente, el adapter mock devuelve 0-3 señales sintéticas.
+- **Cuándo lo necesitamos**: Etapa 1.5.5 / E1.6 (sector usa el mismo motor).
+
+#### Trazabilidad
+- Adapter mock (E1.5-REWORK): `/app/backend/src/modules/companies/service.py → build_score_placeholder`.
+- Block contract Pydantic: `HeroBlock` (placeholder) + futuro `SignalsBlock`.
+
+---
+
+### [REQ-008] Endpoint `company_pdf_export`
+
+- **Estado**: pending
+- **Emisor**: arroba.com (Etapa 1.5-REWORK)
+- **Endpoint propuesto**: `POST /v1/exports/company-memory`
+- **Payload**:
+  ```json
+  { "master_company_id": "<uuid>", "user_id": "<uuid>", "fiscal_years": "all" | [2022, 2023, 2024] }
+  ```
+- **Respuesta esperada**:
+  ```json
+  {
+    "available": true,
+    "download_url": "<presigned-https-url>",
+    "expires_at": "<ISO-8601 UTC>",
+    "size_bytes": 1234567,
+    "pages": 28
+  }
+  ```
+  Cuando no esté listo:
+  ```json
+  { "available": false, "reason": "REQ-008 pendiente" }
+  ```
+- **Headers requeridos**: `X-Source: real`.
+- **SLA objetivo**: < 8s para una memoria mercantil completa (peor caso).
+- **Criterio de aceptación**:
+  1. Acción "Descargar memoria mercantil" en la ficha pasa de toast
+     "Próximamente — REQ-008 pendiente" a descarga real.
+  2. URL firmada con caducidad ≤ 5 min.
+  3. PDF auditado: contiene cuentas anuales + BORME + ratios + portada.
+- **Cuándo lo necesitamos**: Etapa posterior a E1.9 (cuando los compradores
+  empiezan a hacer due diligence rápido desde la ficha).
+
+#### Trazabilidad
+- Stub actual (E1.5-REWORK): toast "Próximamente — REQ-008 pendiente" en
+  `/app/frontend/src/components/entity/CompanyHeader.tsx`.
