@@ -188,6 +188,22 @@ COMPANIES = [
         "confidence": 0.82,
         "lineage": "normalized",
     },
+    {
+        "master_company_id": "mc_lacteos",
+        "legal_name": "Lácteos del Atlántico, S.L.",
+        "cif": "B15710112",
+        "sector": "Alimentación",
+        "region": "Galicia",
+        "country": "ES",
+        "financials": {
+            "revenue": 15_800_000,
+            "ebitda": 1_896_000,
+            "employees": 112,
+            "fiscal_year": 2024,
+        },
+        "confidence": 0.84,
+        "lineage": "normalized",
+    },
     # ---------------------- SERVICIOS PROFESIONALES (1) ------------------
     {
         "master_company_id": "mc_asesorapro",

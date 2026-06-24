@@ -156,6 +156,102 @@ async def test_recommend_unknown_company_returns_empty(mock_db, client, mock_llm
     assert blocks[0]["type"] == "empty_state"
 
 
+async def test_recommend_low_coverage_sector_falls_back_to_adjacent(mock_db, client, mock_llm):
+    """When a sector has fewer than 3 companies, the skill tops up with
+    adjacent-sector matches so the workspace always has ≥3 cards. The reason
+    field discloses which items are adjacent (cobertura limitada)."""
+    # Seed only 1 alimentación + 2 hoteles + 1 retail (cobertura baja en
+    # alimentación). Adjacent sectors per the map: hoteles, retail.
+    await mock_db.master_companies_mock.insert_many(
+        [
+            {
+                "master_company_id": "mc_alim1",
+                "legal_name": "Conservas Únicas, S.L.",
+                "cif": "B11111111",
+                "sector": "Alimentación",
+                "region": "Cantabria",
+            },
+            {
+                "master_company_id": "mc_hot1",
+                "legal_name": "Hotel A, S.L.",
+                "cif": "B22222222",
+                "sector": "Hoteles",
+                "region": "Galicia",
+            },
+            {
+                "master_company_id": "mc_hot2",
+                "legal_name": "Hotel B, S.L.",
+                "cif": "B22222223",
+                "sector": "Hoteles",
+                "region": "Madrid",
+            },
+            {
+                "master_company_id": "mc_ret1",
+                "legal_name": "Retail X, S.L.",
+                "cif": "B33333333",
+                "sector": "Retail",
+                "region": "Madrid",
+            },
+        ]
+    )
+    mock_llm.set_default(
+        {
+            "subtype": "opportunities_by_sector",
+            "company_name": None,
+            "sector": "Alimentación",
+        }
+    )
+    r = await client.post(
+        "/api/copilot/skills/recommend",
+        json={"query": "oportunidades en alimentación", "context": {"locale": "es"}},
+    )
+    assert r.status_code == 200
+    ws = r.json()["workspace"]
+    grid = ws["blocks"][1]["props"]
+    assert grid["subtype"] == "opportunities_by_sector"
+    # At least 3 cards total (1 strict alimentación + ≥2 adjacent).
+    assert len(grid["items"]) >= 3, f"got {len(grid['items'])} items: {grid['items']}"
+    # The strict one comes first.
+    assert grid["items"][0]["master_company_id"] == "mc_alim1"
+    # Adjacent items expose their cobertura limitada reason.
+    adjacent_reasons = [
+        it.get("reason") or "" for it in grid["items"][1:]
+    ]
+    assert any("Sector próximo" in r for r in adjacent_reasons)
+    # Narrative mentions the limited coverage.
+    narr = ws["blocks"][2]["props"]
+    assert any("Cobertura limitada" in p for p in narr.get("key_points", []))
+
+
+async def test_recommend_high_coverage_sector_returns_only_strict(mock_db, client, mock_llm):
+    """When a sector has ≥3 companies, no adjacent padding is used."""
+    await mock_db.master_companies_mock.insert_many(
+        [
+            {"master_company_id": "mc_s1", "legal_name": "Sw 1, S.L.", "cif": "B0001", "sector": "Software"},
+            {"master_company_id": "mc_s2", "legal_name": "Sw 2, S.L.", "cif": "B0002", "sector": "Software"},
+            {"master_company_id": "mc_s3", "legal_name": "Sw 3, S.L.", "cif": "B0003", "sector": "Software"},
+            {"master_company_id": "mc_s4", "legal_name": "Sw 4, S.L.", "cif": "B0004", "sector": "Software"},
+            {"master_company_id": "mc_m1", "legal_name": "Mk 1, S.L.", "cif": "B0011", "sector": "Marketing"},
+        ]
+    )
+    mock_llm.set_default(
+        {"subtype": "list_by_sector", "company_name": None, "sector": "Software"}
+    )
+    r = await client.post(
+        "/api/copilot/skills/recommend",
+        json={"query": "empresas en software", "context": {"locale": "es"}},
+    )
+    assert r.status_code == 200
+    grid = r.json()["workspace"]["blocks"][1]["props"]
+    assert len(grid["items"]) == 4
+    # All strict (no Marketing leakage).
+    ids = [it["master_company_id"] for it in grid["items"]]
+    assert "mc_m1" not in ids
+    # No "Sector próximo" reason — only strict matches.
+    for it in grid["items"]:
+        assert "Sector próximo" not in (it.get("reason") or "")
+
+
 async def test_recommend_falls_back_to_heuristic_when_llm_fails(mock_db, client, mock_llm):
     await _seed(mock_db)
     from src.modules.copilot.llm.provider import LLMTimeoutError

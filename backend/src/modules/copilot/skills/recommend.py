@@ -51,6 +51,30 @@ log = get_logger("copilot.skill.recommend")
 
 ADAPTER_MODE = "mock"
 
+# Adjacent-sector map for graceful coverage fallback. When the strict sector
+# match yields <3 results, we top up with companies from these adjacent
+# sectors (clearly marked in the `reason` field so the user knows what they
+# are seeing). The REAL Recommendation Engine (REQ-005) will subsume this.
+_ADJACENT_SECTORS: dict[str, list[str]] = {
+    "alimentacion": ["hoteles", "retail"],
+    "hoteles": ["alimentacion", "servicios profesionales"],
+    "retail": ["alimentacion", "industria"],
+    "software": ["marketing", "servicios profesionales"],
+    "marketing": ["software", "servicios profesionales"],
+    "industria": ["retail", "servicios profesionales"],
+    "salud": ["servicios profesionales"],
+    "servicios profesionales": ["software", "marketing"],
+}
+
+
+def _adjacent_sectors_for(sector_norm: str) -> list[str]:
+    if not sector_norm:
+        return []
+    for key, values in _ADJACENT_SECTORS.items():
+        if key in sector_norm or sector_norm in key:
+            return values
+    return []
+
 
 SYSTEM_PROMPT_ES = (
     "Eres un router de intención para una plataforma de M&A de pymes españolas. "
@@ -237,6 +261,37 @@ def _grid_item_from_company(
     )
 
 
+async def _sector_with_adjacent(
+    sector_label: str, *, min_total: int, limit: int
+) -> tuple[list[EnrichedCompany], list[EnrichedCompany]]:
+    """Return (strict_sector_matches, adjacent_sector_matches).
+
+    Adjacent matches are returned only when the strict set is below `min_total`,
+    and the union is capped at `limit` items. Adjacent matches exclude any
+    company already in the strict set.
+    """
+    strict = await _companies_by_sector(sector_label, limit=limit)
+    if len(strict) >= min_total:
+        return (strict[:limit], [])
+    strict_ids = {c.master_company_id for c in strict}
+    sector_norm = _normalize(sector_label)
+    adj_sectors = _adjacent_sectors_for(sector_norm)
+    adjacent: list[EnrichedCompany] = []
+    for adj in adj_sectors:
+        if len(strict) + len(adjacent) >= limit:
+            break
+        cands = await _companies_by_sector(adj, limit=limit)
+        for c in cands:
+            if c.master_company_id in strict_ids:
+                continue
+            if any(a.master_company_id == c.master_company_id for a in adjacent):
+                continue
+            adjacent.append(c)
+            if len(strict) + len(adjacent) >= limit:
+                break
+    return (strict, adjacent[: max(0, limit - len(strict))])
+
+
 async def execute_recommend(
     request: RecommendSkillRequest,
     *,
@@ -328,20 +383,38 @@ async def execute_recommend(
 
     elif subtype == "opportunities_by_sector":
         sector_label = intent.get("sector") or ""
-        sector_companies = await _companies_by_sector(sector_label, limit=12)
-        for idx, c in enumerate(sector_companies[:6]):
+        strict, adjacent = await _sector_with_adjacent(sector_label, min_total=3, limit=6)
+        for idx, c in enumerate(strict):
             base = 0.9 - (idx * 0.06)
             items.append(
                 _grid_item_from_company(
                     c,
                     score=base,
                     reason=(
-                        "Sector identificado · indicador de oportunidad mock"
+                        f"Sector identificado ({c.sector}) · indicador de oportunidad mock"
                         if locale != "en"
-                        else "Sector match · mock opportunity signal"
+                        else f"Sector match ({c.sector}) · mock opportunity signal"
                     ),
                 )
             )
+        for idx, c in enumerate(adjacent):
+            base = 0.62 - (idx * 0.04)
+            items.append(
+                _grid_item_from_company(
+                    c,
+                    score=base,
+                    reason=(
+                        f"Sector próximo ({c.sector}) · cobertura limitada en «{sector_label}»"
+                        if locale != "en"
+                        else f"Near-by sector ({c.sector}) · limited coverage in '{sector_label}'"
+                    ),
+                )
+            )
+        coverage_note = (
+            f"Cobertura limitada en {sector_label}: completamos con sectores próximos."
+            if locale != "en"
+            else f"Limited coverage in {sector_label}: padded with near-by sectors."
+        ) if adjacent else None
         narrative_summary = (
             f"He preseleccionado {len(items)} empresas en {sector_label} como "
             f"oportunidades preliminares."
@@ -357,11 +430,13 @@ async def execute_recommend(
                 "signals (sale intent, growth, corporate events)."
             ),
         ]
+        if coverage_note:
+            narrative_points.insert(0, coverage_note)
 
     else:  # list_by_sector
         sector_label = intent.get("sector") or ""
-        sector_companies = await _companies_by_sector(sector_label, limit=12)
-        for idx, c in enumerate(sector_companies[:8]):
+        strict, adjacent = await _sector_with_adjacent(sector_label, min_total=3, limit=8)
+        for idx, c in enumerate(strict):
             base = 0.85 - (idx * 0.05)
             items.append(
                 _grid_item_from_company(
@@ -374,11 +449,31 @@ async def execute_recommend(
                     ),
                 )
             )
+        for idx, c in enumerate(adjacent):
+            base = 0.55 - (idx * 0.04)
+            items.append(
+                _grid_item_from_company(
+                    c,
+                    score=base,
+                    reason=(
+                        f"Sector próximo ({c.sector})"
+                        if locale != "en"
+                        else f"Near-by sector ({c.sector})"
+                    ),
+                )
+            )
+        coverage_note = (
+            f"Cobertura limitada en {sector_label}: completamos con sectores próximos."
+            if locale != "en"
+            else f"Limited coverage in {sector_label}: padded with near-by sectors."
+        ) if adjacent else None
         narrative_summary = (
             f"{len(items)} empresas listadas para el sector {sector_label}."
             if locale != "en"
             else f"{len(items)} companies listed for sector {sector_label}."
         )
+        if coverage_note:
+            narrative_points = [coverage_note]
 
     if not items:
         return RecommendSkillResponse(

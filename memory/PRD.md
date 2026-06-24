@@ -223,7 +223,74 @@ Resumen del cierre:
 
 ---
 
-## 🟢 Etapa 1.4 — Intelligence Skills (CERRADA 2026-06-24)
+## ✅ Etapa 1.4 — Intelligence Skills (CERRADA 2026-06-24)
+
+**Resumen del cierre**:
+- **Backend** — adapter `EnrichCompanyAdapter` (Boundary First Mock/Real + factory por env) en `/app/backend/src/modules/agency_tool_adapter/enrich_company.py`. Skills `analyze`, `value`, `recommend` en `/app/backend/src/modules/copilot/skills/` consumiendo `LLMProvider` (Protocol; Claude vía emergentintegrations en runtime, MockLLMProvider en tests). 3 endpoints nuevos públicos `POST /api/copilot/skills/{analyze,value,recommend}`.
+- **Modelo de bloques ampliado** — `HeroBlock`, `MetricsBlock`, `CompanyCardBlock`, `CompanyCardsGridBlock`, `ValuationBlock`, `NarrativeBlock` (discriminated union por `type`).
+- **Value Skill simplificada** — fórmula determinista `central = revenue * 1.5`, rango `[0.75×, 1.30×]`, sin múltiplos por sector. La inteligencia real llega vía REQ-004.
+- **Recommend Skill** — LLM-assisted intent router (3 subtipos: `similar_to_company` / `opportunities_by_sector` / `list_by_sector`) + heuristic fallback. Body determinista por el adapter mock; REQ-005 sustituirá el cuerpo sin cambiar la firma. **Fallback graceful por cobertura baja** (housekeeping post-E1.4): cuando un sector tiene <3 empresas mock, el grid se completa con sectores adyacentes y la narrativa lo declara explícitamente.
+- **Frontend** — `route-intent.ts` detecta verbos `analiza` / `valora` / `recomienda` (NFD + lower, accent- y case-insensitive). `dispatch.ts` rutea a la skill correcta. `CopilotProvider` persiste `lastQuery`; `ErrorBlock.onRetry` replay con `lastQuery` (no más fallback a `/help`).
+- **4 nuevos blocks frontend** — `ValuationBlock`, `NarrativeBlock`, `CompanyCardBlock`, `CompanyCardsGridBlock` con tokens canónicos + Light + Dark.
+- **`WorkspaceArea.tsx`** — renderer único, registra los 10 tipos de bloques.
+- **REQ-004 + REQ-005** emitidos en `/app/_requirements_for_agency_tool/README.md`.
+- **Seed E1.4** — `scripts/seed_master_companies_e14.py` (idempotente). 13 empresas mock cubriendo los 8 sectores obligatorios; Alimentación tiene 3 empresas (Conservas, Riojana, Lácteos).
+- **Tests** — Backend **86/86 PASS** (49 anteriores + 37 nuevos: 11 enrich_company_adapter + 9 copilot_analyze + 7 copilot_value + 10 copilot_recommend). Frontend **86/86 PASS** (67 anteriores + 19 nuevos).
+- **Verificación visual** — capturas en Light y Dark con Claude real respondiendo (`Analyze`, `Value`, `Recommend`, `ErrorBlock + Reintentar`).
+- **Verificación tester** — 7/9 PASS · 1 FAIL resuelto en housekeeping (Recommend alimentación) · 2 HUMAN_REQUIRED (browser infra) · 1 BLOCKER infra resuelto (URL del tester apuntaba a otro pod; URL real del pod actual es `https://bda5adf2-2809-4e4d-80da-4a47b994f2fe.preview.emergentagent.com/`).
+- **Tokens reales consumidos** — orientativo ≈ 8-12k tokens (4-6 llamadas Claude Sonnet 4.6 en smoke E2E).
+
+### Regla mantenida
+- Tests pytest NUNCA llaman a Claude real. `MockLLMProvider` inyectado vía `set_override`.
+- Skills no importan `claude_provider` ni `emergentintegrations` directamente — todas dependen del Protocol `LLMProvider` y `get_llm_provider()`.
+
+### Empresas mock sembradas por E1.4 (13)
+
+| ID | Razón social | Sector | Región |
+|---|---|---|---|
+| mc_kitchen | Kitchen Studio, S.L. | Software | Madrid |
+| mc_novaledger | NovaLedger SaaS, S.L. | Software | Barcelona |
+| mc_bridge | Bridge Creative Agency, S.L. | Marketing | Madrid |
+| mc_atlantica | Cadena Hotelera Atlántica, S.L. | Hoteles | Galicia |
+| mc_forjas | Forjas del Duero, S.A. | Industria | Castilla y León |
+| mc_termo | Termoplásticos Levante, S.L. | Industria | C. Valenciana |
+| mc_vitalis | Clínicas Vitalis, S.L. | Salud | Madrid |
+| mc_dental | Dental Care Iberia, S.L. | Salud | Cataluña |
+| mc_conservas | Conservas del Cantábrico, S.L. | Alimentación | Cantabria |
+| mc_riojana | Bodegas Riojana Norte, S.A. | Alimentación | La Rioja |
+| mc_lacteos | Lácteos del Atlántico, S.L. | Alimentación | Galicia |
+| mc_asesorapro | AsesoraPro Consultoría, S.L. | Servicios profesionales | Madrid |
+| mc_calzados | Calzados Ribera, S.L. | Retail | C. Valenciana |
+
+---
+
+## 🟢 Etapa 1.5 — Workspaces Persistentes (EN CURSO desde 2026-06-24)
+
+**Filosofía** (reforzada por el usuario):
+- Un workspace NO es una página. Es **memoria persistente de trabajo**.
+- El Copilot continúa el pensamiento; el usuario NO "lanza consultas", trabaja sobre una misma oportunidad.
+- Modelo mental: `Copilot → Skill → Blocks → Workspace → Memoria continua`.
+- Experiencia tipo Notion + Claude Projects (no buscador tradicional).
+
+**Scope dentro**:
+- Persistencia MongoDB de Workspaces (3 colecciones: `workspaces`, `workspace_messages`, `workspace_blocks`).
+- 6 endpoints CRUD bajo `/api/workspaces` (POST, GET list, GET item, POST messages para extender, POST share, DELETE archive, PATCH title).
+- Página `/es/w/[workspace_id]/page.tsx` que renderiza el workspace + dock en modo "anchored".
+- Página `/es/historial/page.tsx` con filtros (tipo + estado).
+- Botón "Abrir workspace" en el dock efímero → POST /api/workspaces → redirect.
+- Acceso rápido del dock con los 10 últimos workspaces.
+- Compartición simple: visibility `private` ↔ `team` (el resto de visibilities quedan en el enum pero no en UI).
+- Cambio de organización activa refresca historial + acceso rápido; navega a `/es/historial` si el workspace activo pertenece a otra org.
+
+**Scope fuera**:
+- Stripe, créditos, finder/success fee, billing.
+- Viewer/Editor permissions granulares.
+- Public link sharing y visibility `organization` / `public` como UI.
+- Rutas dedicadas tipo `/es/analizar/*`, `/es/valorar/*`, `/es/comprar-vender/*`, `/es/empresa/*`, `/es/deal/*` (siguen PROHIBIDAS).
+- Universal Search como página, Comentarios / Presencia en tiempo real, Notifications.
+- Otras Skills además de las 4 existentes.
+
+**Anterior**:
 
 **Resumen del cierre**:
 - **Backend** — adapter `EnrichCompanyAdapter` (Boundary First Mock/Real + factory por env) en `/app/backend/src/modules/agency_tool_adapter/enrich_company.py`. Skills `analyze`, `value`, `recommend` en `/app/backend/src/modules/copilot/skills/` consumiendo `LLMProvider` (Protocol; Claude vía emergentintegrations en runtime, MockLLMProvider en tests). 3 endpoints nuevos públicos `POST /api/copilot/skills/{analyze,value,recommend}`.
