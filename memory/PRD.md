@@ -490,7 +490,7 @@ El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.m
 
 | Fase | Entidad / Tarea | Estado |
 |---|---|---|
-| **E1.5-REWORK** | Empresa | ✅ **CERRADA** 2026-06-24 — Entity First end-to-end verde |
+| **E1.5-REWORK** | Empresa | ✅ **CERRADA 2026-06-24 (verificada por e1_tester 9/9)** |
 | **E1.5.5** | Brand Refresh | 🔵 ENCADENADA tras E1.5 verde |
 | **E1.6** | Sector | 🔵 PLANIFICADA |
 | **E1.7** | Territorio | 🔵 PLANIFICADA |
@@ -512,20 +512,67 @@ Materialización de la **filosofía v3.0 §12 «La ficha es la verdad»**. El ch
 deja de generar páginas paralelas: ahora actualiza secciones in-place de la
 Empresa Entity Page (`/empresa/{cif}`).
 
+### Resumen de cierre
+
+- **Backend**: 138/138 pytest PASS (114 previos + 24 nuevos en
+  `test_companies_advisor.py`).
+- **Frontend**: 131/131 Vitest PASS (102 previos + 29 nuevos para E1.5-REWORK).
+- **Verificación independiente `e1_tester`**: 9/9 PASS + 1 warning (banner de
+  `/w/{id}` solo verificable contra data legacy; sin impacto).
+- **Filosofía v3.0 §12 verificada end-to-end**: el chat actualiza secciones
+  in-place de la ficha; la URL nunca abandona `/empresa/{cif}`; el thread del
+  dock muestra solo `response_text`, sin bloques sueltos.
+
+### Highlights de implementación
+
+- **Company Advisor**: prompt endurecido con la regla canónica §12 + few-shot
+  ejemplos. Cuando la query toca {riesgos, oportunidades, análisis, resumen,
+  lectura, fortalezas, debilidades, perspectiva}, DEBE emitir
+  `section_updates` con `section="narrative"`. Para queries triviales
+  (saludos, agradecimientos) devuelve `[]`.
+- **Fallback determinista** (`_ensure_section_update_when_needed`): si el LLM
+  omite el `section_updates` y `_detect_section_intent()` matchea un patrón
+  de actualización clara, sintetizamos un `narrative` block desde
+  `response_text` (extrayendo bullets para `risks` u `opportunities` según
+  contexto). Red de seguridad para Claude no determinista.
+- **RefreshAnalysisButton** con **optimistic cooldown 60s client-side** tras
+  éxito (no hace falta esperar al 429 del backend). Si llega 429, parsea los
+  segundos restantes del body y arranca el countdown apropiado.
+- **Ruta canonical** `/empresa/{cif}` (uppercase forzado tanto en URL como en
+  detección de pathname para el `entity_context` del Copilot).
+- **Dock en modo `entity_context`**: `CopilotProvider.send()` redirige a
+  `apiClient.companies.sendMessage()` y despacha
+  `window.dispatchEvent(new CustomEvent("arroba:company-section-update"))`
+  con `{cif, section_updates}`. `state.workspace` permanece `null`.
+- **Search reposicionada con 6 paths**: Entity Resolution (CIF/nombre exacto)
+  → redirige directo a `/empresa/{cif}` sin pasar por workspace.
+- **Retrocompatibilidad `/historial`**: intacta, los workspaces legacy se
+  siguen listando y reabriendo (sin queries nuevas).
+
+### Variantes de contrato a recordar
+
+| Aspecto | Forma estable |
+|---|---|
+| Body request envío de mensaje | `{ "query": str, "context": { "locale": str, "pathname": str } }` (NO `prompt` ni `message`). |
+| Shape `CompanyDetailResponse.header` | `{ "cif": str, "name": str, "sector"?: str, "region"?: str, "country"?: str, "initials"?: str, "score"?: int }` (no `legal_name` ni `master_company_id` aquí). |
+| Rate-limit `/skills/analyze` | HTTP **429** con `body.detail` = `"Espera Ns."` + header `Retry-After: N` (segundos). Cliente debe consumir ambas fuentes. |
+| Estructura `section_updates[]` | `[{ "section": "narrative"\|"valuation"\|"comparables"\|"metrics"\|"signals"\|"identity", "block": BlockSpec }]` — el `section` es el discriminador (sin `id` top-level). |
+| `CustomEvent` channel | `arroba:company-section-update` con `detail: { cif: str, section_updates: SectionUpdate[] }`. El listener filtra por `cif`. |
+
 ### Subentregables
 
 | Entregable | Estado | Notas |
 |---|---|---|
 | **`/empresa/[cif]`** (ruta mixta anónima + autenticada) | ✅ | Server-side rendering con hidratación; 3 secciones públicas + 5 LockedSectionBlur cuando anónimo; 8 secciones cuando autenticado. |
-| **Backend `companies`** | ✅ | CRUD + Skills + Rate Limiting + LLM Advisor. 138/138 pytest verde (114 previos + 24 nuevos en `test_companies_advisor.py`). |
-| **Company Advisor** | ✅ | Copilot scoped a UNA empresa. Prompt endurecido (philosophy §12) + fallback determinista `_ensure_section_update_when_needed()` que sintetiza un `narrative` block desde `response_text` cuando el LLM olvida emitir section_updates en queries que claramente tocan análisis/riesgos/oportunidades. |
-| **`CustomEvent("arroba:company-section-update")`** | ✅ | El `CopilotProvider` en modo `entity_context` despacha el evento; `CompanyPageClient` escucha y actualiza solo las secciones emitidas — sin recargar página, sin bloque suelto en el thread. |
-| **`RefreshAnalysisButton`** | ✅ | Optimistic cooldown 60s client-side tras éxito + parseo de Retry-After en 429. Toast de éxito/warning. |
-| **`CompanyHeader` (acciones)** | ✅ | Toggle watchlist + share-with-team gated por watchlist. Toasts «Próximamente: E1.8» (Solicitar valoración avanzada) y «Próximamente: E1.9» (Activar oportunidad). |
-| **Entity Resolution en `/copilot/search`** | ✅ | Si la query es un CIF o nombre exacto, el endpoint devuelve `navigate_to=/empresa/{cif}` para redirigir directo sin pasar por un workspace. |
-| **`apiClient.companies.*` SDK** | ✅ | Endpoints `get`, `sendMessage`, `refreshAnalysis`, `toggleWatchlist`, `toggleShare`, `getConversation`. `Content-Type: application/json` preservado (regresión del header spread cubierta por test). |
-| **Tests Vitest E1.5-REWORK** | ✅ | 131/131 verde (102 previos + 29 nuevos): `copilot-provider-entity.test.tsx` (5), `company-page-client.test.tsx` (6), `company-header.test.tsx` (7), `locked-section-blur.test.tsx` (4), `companies-client.test.ts` (7). |
-| **Verificación E2E con Playwright + cuentas reales** | ✅ | `buyer@arroba.com` en `/empresa/B86540112` con query «Háblame de los riesgos» → POST `/api/companies/{cif}/messages` → 200 con `section_updates[1]` → CustomEvent fires → `block-narrative` se actualiza in-place con contenido fresco (Kitchen Studio: 32 empleados, Madrid, margen EBITDA 20%, riesgos específicos). URL queda en `/empresa/B86540112`, nunca navega a `/w/`. |
+| **Backend `companies`** | ✅ | CRUD + Skills + Rate Limiting + LLM Advisor. |
+| **Company Advisor** | ✅ | Copilot scoped a UNA empresa. Prompt endurecido + fallback determinista. |
+| **`CustomEvent("arroba:company-section-update")`** | ✅ | `CopilotProvider` (entity_context) despacha; `CompanyPageClient` escucha y actualiza secciones in-place. |
+| **`RefreshAnalysisButton`** | ✅ | Optimistic cooldown 60s + parseo de Retry-After en 429. |
+| **`CompanyHeader` (acciones)** | ✅ | Toggle watchlist + share-with-team gated por watchlist. Toasts «Próximamente: E1.8» y «Próximamente: E1.9». |
+| **Entity Resolution en `/copilot/search`** | ✅ | CIF / nombre exacto → `navigate_to=/empresa/{cif}`. |
+| **`apiClient.companies.*` SDK** | ✅ | `Content-Type: application/json` preservado (regresión cubierta por test). |
+| **Tests Vitest E1.5-REWORK** | ✅ | 29 tests nuevos. |
+| **Verificación E2E (`e1_tester`)** | ✅ | 9/9 PASS + 1 warn. |
 
 ### P0 resuelto
 
