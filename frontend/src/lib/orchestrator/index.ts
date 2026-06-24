@@ -3,11 +3,7 @@
  *
  *   text  →  routeIntent  →  executeSkill  →  Workspace
  *
- * The orchestrator is responsible for:
- *  - parsing the user input (slash commands vs free text)
- *  - dispatching the right Skill
- *  - shaping the response into a Workspace the UI can render
- *  - surfacing errors as ErrorBlock workspaces (never throws)
+ * Skills available in E1.4: search, analyze, value, recommend.
  */
 import { apiClient, ApiError } from '@/lib/api/client';
 import { routeIntent } from './route-intent';
@@ -24,11 +20,15 @@ export { nextBestActions } from './next-best-actions';
 export type { SuggestionChip } from './next-best-actions';
 
 const HELP_TEXT =
-  'Escribe lo que necesites: una empresa, un sector, un CIF, una ubicación. ' +
-  'Arroba Copilot localiza la información y la materializa aquí. ' +
-  'Atajos disponibles: /clear (limpiar conversación) · /help (esta ayuda).';
+  'Pídeme: analizar una empresa, valorarla o recomendarte similares. ' +
+  'Ejemplo: «analiza Kitchen Studio», «valora Grupo Olmedo», «empresas en alimentación». ' +
+  'Atajos: /clear (limpiar conversación) · /help (esta ayuda).';
 
-function makeErrorWorkspace(message: string, code?: string): Workspace {
+function makeErrorWorkspace(
+  message: string,
+  code: string | undefined,
+  retry: string,
+): Workspace {
   return {
     workspace_id: 'wsp_' + Date.now().toString(36),
     intent: 'error',
@@ -40,7 +40,7 @@ function makeErrorWorkspace(message: string, code?: string): Workspace {
           title: 'No hemos podido completar tu petición',
           message,
           code,
-          retry_intent: 'search',
+          retry_intent: retry,
         },
       } as BlockSpec,
     ],
@@ -58,7 +58,11 @@ function makeHelpWorkspace(): Workspace {
         props: {
           title: 'Ayuda rápida',
           description: HELP_TEXT,
-          suggestions: ['Kitchen Studio', 'Software en Madrid', 'Hoteles termales'],
+          suggestions: [
+            'Analiza Kitchen Studio',
+            'Valora Grupo Olmedo Hoteles',
+            'Empresas en software',
+          ],
         },
       } as BlockSpec,
     ],
@@ -73,7 +77,7 @@ export interface OrchestratorResult {
 
 export async function dispatch(
   input: string,
-  context: SkillContext
+  context: SkillContext,
 ): Promise<OrchestratorResult> {
   const intent = routeIntent(input);
 
@@ -90,17 +94,30 @@ export async function dispatch(
   if (!intent.query) {
     return {
       intent,
-      workspace: makeErrorWorkspace('La consulta está vacía.', 'empty_query'),
+      workspace: makeErrorWorkspace('La consulta está vacía.', 'empty_query', 'search'),
       assistantMessage: 'Cuéntame algo más, por favor.',
     };
   }
 
   try {
-    const res = await apiClient.copilot.search({ query: intent.query, context });
+    let workspace: Workspace;
+    if (intent.kind === 'analyze') {
+      const res = await apiClient.copilot.analyze({ query: intent.query, context });
+      workspace = res.workspace;
+    } else if (intent.kind === 'value') {
+      const res = await apiClient.copilot.value({ query: intent.query, context });
+      workspace = res.workspace;
+    } else if (intent.kind === 'recommend') {
+      const res = await apiClient.copilot.recommend({ query: intent.query, context });
+      workspace = res.workspace;
+    } else {
+      const res = await apiClient.copilot.search({ query: intent.query, context });
+      workspace = res.workspace;
+    }
     return {
       intent,
-      workspace: res.workspace,
-      assistantMessage: assistantSummaryFor(res.workspace),
+      workspace,
+      assistantMessage: assistantSummaryFor(intent.kind, workspace),
     };
   } catch (err) {
     const isApi = err instanceof ApiError;
@@ -108,14 +125,18 @@ export async function dispatch(
       intent,
       workspace: makeErrorWorkspace(
         isApi && err.detail ? err.detail : 'No hemos podido conectar con el Copilot.',
-        isApi ? err.code : 'network_error'
+        isApi ? err.code : 'network_error',
+        intent.kind,
       ),
-      assistantMessage: 'No he podido procesar la búsqueda. Inténtalo de nuevo.',
+      assistantMessage: 'No he podido procesar la petición. Inténtalo de nuevo.',
     };
   }
 }
 
-function assistantSummaryFor(ws: Workspace): string {
+function assistantSummaryFor(
+  kind: 'search' | 'analyze' | 'value' | 'recommend',
+  ws: Workspace,
+): string {
   const first = ws.blocks[0];
   if (!first) return 'Listo.';
   if (first.type === 'search_results') {
@@ -126,6 +147,11 @@ function assistantSummaryFor(ws: Workspace): string {
   }
   if (first.type === 'empty_state') {
     return 'No he encontrado coincidencias directas. Prueba con una de estas sugerencias:';
+  }
+  if (first.type === 'hero') {
+    if (kind === 'analyze') return 'He preparado el análisis de la empresa. Aquí abajo.';
+    if (kind === 'value') return 'Aquí tienes la valoración indicativa.';
+    if (kind === 'recommend') return 'Estas son mis recomendaciones.';
   }
   return 'Listo.';
 }

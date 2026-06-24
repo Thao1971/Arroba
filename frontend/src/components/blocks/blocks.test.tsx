@@ -188,3 +188,137 @@ describe('MetricsBlock — data mode (SWR)', () => {
     expect(screen.getByTestId('b-m-retry')).toBeInTheDocument();
   });
 });
+
+
+// ---------------------------------------------------------------------------
+// E1.4 — Intelligence Skills blocks
+// ---------------------------------------------------------------------------
+import {
+  ValuationBlock,
+  NarrativeBlock,
+  CompanyCardBlock,
+  CompanyCardsGridBlock,
+} from './index';
+
+describe('ValuationBlock', () => {
+  it('renders central value, range chips and disclaimer', () => {
+    render(
+      <ValuationBlock
+        companyName="Kitchen Studio, S.L."
+        sector="Software"
+        method="revenue_multiple"
+        multipleLabel="1.5× ingresos"
+        multipleValue={1.5}
+        centralValue={8_100_000}
+        lowValue={6_075_000}
+        highValue={10_530_000}
+        currency="EUR"
+        inputs={[
+          { label: 'Ingresos', value: '5.4M €' },
+          { label: 'Factor', value: '1.5×' },
+        ]}
+        disclaimer="Valoración indicativa. No constituye recomendación profesional."
+      />,
+    );
+    expect(screen.getByTestId('block-valuation')).toBeInTheDocument();
+    expect(screen.getByTestId('block-valuation-multiple')).toHaveTextContent(
+      '1.5× ingresos',
+    );
+    expect(screen.getByTestId('block-valuation-central')).toHaveTextContent('8.1 M €');
+    expect(screen.getByTestId('block-valuation-low')).toHaveTextContent('6.1 M €');
+    expect(screen.getByTestId('block-valuation-high')).toHaveTextContent('10.5 M €');
+    expect(screen.getByTestId('block-valuation-disclaimer')).toHaveTextContent(
+      'indicativa',
+    );
+  });
+});
+
+describe('NarrativeBlock', () => {
+  it('renders only the populated sections', () => {
+    render(
+      <NarrativeBlock
+        summary="Empresa sólida."
+        keyPoints={['Margen 20%']}
+        risks={[]}
+        opportunities={['Cross-selling']}
+        citations={[]}
+      />,
+    );
+    expect(screen.getByTestId('block-narrative-summary')).toBeInTheDocument();
+    expect(screen.getByTestId('block-narrative-key-points')).toBeInTheDocument();
+    expect(screen.queryByTestId('block-narrative-risks')).not.toBeInTheDocument();
+    expect(screen.getByTestId('block-narrative-opportunities')).toBeInTheDocument();
+    expect(screen.queryByTestId('block-narrative-citations')).not.toBeInTheDocument();
+  });
+});
+
+describe('CompanyCardBlock', () => {
+  it('renders all canonical fields when provided', () => {
+    render(
+      <CompanyCardBlock
+        masterCompanyId="mc_kitchen"
+        name="Kitchen Studio"
+        legalName="Kitchen Studio, S.L."
+        cif="B86540112"
+        sector="Software"
+        region="Madrid"
+        country="ES"
+        revenue={5_400_000}
+        ebitda={1_100_000}
+        employees={32}
+        fiscalYear={2024}
+        confidence={0.9}
+      />,
+    );
+    expect(screen.getByTestId('block-company-card')).toBeInTheDocument();
+    expect(screen.getByTestId('block-company-card-name')).toHaveTextContent(
+      'Kitchen Studio, S.L.',
+    );
+    expect(screen.getByTestId('block-company-card-revenue')).toHaveTextContent('5.4M €');
+    expect(screen.getByTestId('block-company-card-ebitda')).toHaveTextContent('1.1M €');
+    expect(screen.getByTestId('block-company-card-employees')).toHaveTextContent('32');
+    expect(screen.getByTestId('block-company-card-fiscal')).toHaveTextContent('2024');
+    expect(screen.getByTestId('block-company-card-confidence')).toHaveTextContent('90%');
+  });
+
+  it('handles missing fields gracefully', () => {
+    render(<CompanyCardBlock masterCompanyId="mc_x" name="Empty Co" />);
+    expect(screen.getByTestId('block-company-card-revenue')).toHaveTextContent('—');
+    expect(screen.getByTestId('block-company-card-employees')).toHaveTextContent('—');
+  });
+});
+
+describe('CompanyCardsGridBlock', () => {
+  it('renders one card per item with the correct subtype eyebrow', () => {
+    render(
+      <CompanyCardsGridBlock
+        subtype="opportunities_by_sector"
+        items={[
+          {
+            masterCompanyId: 'mc_a',
+            name: 'Company A',
+            sector: 'Software',
+            region: 'Madrid',
+            score: 0.9,
+            reason: 'r-a',
+          },
+          {
+            masterCompanyId: 'mc_b',
+            name: 'Company B',
+            sector: 'Software',
+            region: 'BCN',
+            score: 0.65,
+            reason: 'r-b',
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('block-company-cards-grid')).toHaveAttribute(
+      'data-subtype',
+      'opportunities_by_sector',
+    );
+    expect(screen.getByTestId('block-company-cards-grid-item-mc_a')).toBeInTheDocument();
+    expect(screen.getByTestId('block-company-cards-grid-item-mc_b')).toBeInTheDocument();
+    expect(screen.getByText('Oportunidades en el sector')).toBeInTheDocument();
+  });
+});

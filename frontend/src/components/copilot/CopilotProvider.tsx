@@ -16,8 +16,11 @@ import { useAuth } from '@/contexts/auth-context';
 
 /**
  * Centralised state for the Copilot dock. Mounted once near the root of the
- * (public) and (authenticated) layouts. Persists `open` + `history` to
- * localStorage so the UX feels stable across navigations.
+ * (public) and (authenticated) layouts. Persists `open` + `history` +
+ * `lastQuery` to localStorage so the UX feels stable across navigations.
+ *
+ * `lastQuery` powers the ErrorBlock "Reintentar" UX: instead of falling back
+ * to /help, we re-issue the exact same text the user originally sent.
  */
 
 export type MessageRole = 'user' | 'assistant';
@@ -35,6 +38,7 @@ interface CopilotState {
   loading: boolean;
   history: CopilotMessage[];
   workspace: Workspace | null;
+  lastQuery: string | null;
 }
 
 type Action =
@@ -57,6 +61,7 @@ const INITIAL: CopilotState = {
   loading: false,
   history: [],
   workspace: null,
+  lastQuery: null,
 };
 
 const STORAGE_KEY = 'arroba.copilot.session.v1';
@@ -73,6 +78,7 @@ function reducer(state: CopilotState, action: Action): CopilotState {
       return {
         ...state,
         loading: true,
+        lastQuery: action.text,
         history: [
           ...state.history,
           { id: msgId(), role: 'user', text: action.text, ts: Date.now() },
@@ -80,7 +86,13 @@ function reducer(state: CopilotState, action: Action): CopilotState {
       };
     case 'resolve':
       if (action.cleared) {
-        return { ...state, loading: false, history: [], workspace: null };
+        return {
+          ...state,
+          loading: false,
+          history: [],
+          workspace: null,
+          lastQuery: null,
+        };
       }
       return {
         ...state,
@@ -109,7 +121,7 @@ function reducer(state: CopilotState, action: Action): CopilotState {
         ],
       };
     case 'clear':
-      return { ...state, history: [], workspace: null };
+      return { ...state, history: [], workspace: null, lastQuery: null };
     case 'hydrate':
       return { ...state, ...action.state };
     default:
@@ -126,6 +138,7 @@ interface CopilotContextValue extends CopilotState {
   openDock: () => void;
   closeDock: () => void;
   send: (text: string) => Promise<void>;
+  retry: () => Promise<void>;
   clear: () => void;
   dispatch: Dispatch<Action>;
 }
@@ -152,6 +165,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
             open: Boolean(saved.open),
             history: Array.isArray(saved.history) ? saved.history.slice(-30) : [],
             workspace: saved.workspace ?? null,
+            lastQuery: typeof saved.lastQuery === 'string' ? saved.lastQuery : null,
           },
         });
       }
@@ -170,12 +184,13 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
           open: state.open,
           history: state.history.slice(-30),
           workspace: state.workspace,
-        })
+          lastQuery: state.lastQuery,
+        }),
       );
     } catch {
       // quota / private mode → ignore silently
     }
-  }, [state.open, state.history, state.workspace]);
+  }, [state.open, state.history, state.workspace, state.lastQuery]);
 
   const send = useCallback<CopilotContextValue['send']>(
     async (rawText) => {
@@ -203,8 +218,13 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         workspace: result.workspace,
       });
     },
-    [pathname, user?.user_id, memberships]
+    [pathname, user?.user_id, memberships],
   );
+
+  const retry = useCallback<CopilotContextValue['retry']>(async () => {
+    if (!state.lastQuery) return;
+    await send(state.lastQuery);
+  }, [send, state.lastQuery]);
 
   const value = useMemo<CopilotContextValue>(
     () => ({
@@ -213,10 +233,11 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       openDock: () => dispatch({ type: 'open' }),
       closeDock: () => dispatch({ type: 'close' }),
       send,
+      retry,
       clear: () => dispatch({ type: 'clear' }),
       dispatch,
     }),
-    [state, send]
+    [state, send, retry],
   );
 
   // Avoid leaking the explicit `isAuthenticated` consumer warning in tests

@@ -1,12 +1,20 @@
 """Copilot module — orchestrates Skills and returns Workspace specs.
 
-In E1.3 the only Skill is `search`. The Skill is **deterministic** (no LLM):
-it filters the `master_companies_mock` collection by name/sector/CIF and
-returns a Workspace populated with `SearchResultsBlock`, `EmptyStateBlock` or
-`ErrorBlock`.
+Each Skill emits a Workspace = ordered list of Blocks. Blocks form a
+discriminated union over `type` (see `BlockSpec`).
 
-Contract is designed so a future real Skill (powered by LLM or the Agency Tool
-endpoint REQ-003) can swap implementation without changing the response shape.
+E1.3 shipped:
+  - search → SearchResultsBlock / EmptyStateBlock / ErrorBlock / LoadingBlock
+
+E1.4 adds:
+  - analyze   → HeroBlock + MetricsBlock + CompanyCardBlock + NarrativeBlock
+  - value     → HeroBlock + ValuationBlock + MetricsBlock + NarrativeBlock
+  - recommend → HeroBlock + CompanyCardsGridBlock + NarrativeBlock (LLM-assisted intent
+                routing; deterministic body backed by the Mock adapter for now).
+
+Contract is designed so a future real Skill (powered by the Agency Tool real
+endpoint REQ-003+) can swap implementation without breaking the response
+shape.
 """
 from __future__ import annotations
 
@@ -15,7 +23,7 @@ from typing import Annotated, Any, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------
-# Request — what the frontend sends.
+# Request — what the frontend sends. One context shape for every Skill.
 # ---------------------------------------------------------------------------
 class SkillContext(BaseModel):
     """Context that travels with every Skill request."""
@@ -29,6 +37,24 @@ class SkillContext(BaseModel):
 class SearchSkillRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str = Field(min_length=1, max_length=200)
+    context: SkillContext = Field(default_factory=SkillContext)
+
+
+class AnalyzeSkillRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1, max_length=300)
+    context: SkillContext = Field(default_factory=SkillContext)
+
+
+class ValueSkillRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1, max_length=300)
+    context: SkillContext = Field(default_factory=SkillContext)
+
+
+class RecommendSkillRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1, max_length=300)
     context: SkillContext = Field(default_factory=SkillContext)
 
 
@@ -68,7 +94,102 @@ class ErrorBlockProps(BaseModel):
     retry_intent: str | None = None  # the intent to dispatch on "retry"
 
 
-# Discriminator
+# ----- E1.4 props ---------------------------------------------------------
+class HeroBlockProps(BaseModel):
+    """Hero strap rendered above a workspace. Used by Analyze, Value, Recommend
+    to anchor the workspace with a title + tagline + optional eyebrow."""
+    model_config = ConfigDict(extra="forbid")
+    eyebrow: str | None = None
+    title: str
+    subtitle: str | None = None
+    tone: Literal["neutral", "success", "warning", "info"] = "neutral"
+
+
+class MetricItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    label: str
+    value: str
+    hint: str | None = None
+    trend: Literal["up", "down", "flat"] | None = None
+
+
+class MetricsBlockProps(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = None
+    items: list[MetricItem] = Field(min_length=1, max_length=8)
+
+
+class CompanyCardProps(BaseModel):
+    """Single rich card with the canonical bits the user expects to see for
+    an analysed company."""
+    model_config = ConfigDict(extra="forbid")
+    master_company_id: str
+    name: str
+    legal_name: str | None = None
+    cif: str | None = None
+    sector: str | None = None
+    region: str | None = None
+    country: str | None = "ES"
+    revenue: float | None = None  # EUR
+    ebitda: float | None = None  # EUR
+    employees: int | None = None
+    fiscal_year: int | None = None
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class CompanyCardsGridItem(BaseModel):
+    """Item inside CompanyCardsGridBlock. Lighter than CompanyCardProps —
+    designed for grid density."""
+    model_config = ConfigDict(extra="forbid")
+    master_company_id: str
+    name: str
+    sector: str | None = None
+    region: str | None = None
+    score: float = Field(ge=0.0, le=1.0)
+    reason: str | None = None  # 1-line LLM-style reason ("similar by sector & size")
+
+
+class CompanyCardsGridProps(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = None
+    subtype: Literal[
+        "similar_to_company",
+        "opportunities_by_sector",
+        "list_by_sector",
+        "generic",
+    ] = "generic"
+    items: list[CompanyCardsGridItem] = Field(default_factory=list, max_length=12)
+
+
+class ValuationBlockProps(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    company_name: str
+    sector: str | None = None
+    method: Literal["ebitda_multiple", "revenue_multiple"] = "ebitda_multiple"
+    multiple_label: str  # e.g. "EV/EBITDA 6.0x"
+    multiple_value: float = Field(gt=0)
+    central_value: float = Field(ge=0)  # EUR
+    low_value: float = Field(ge=0)
+    high_value: float = Field(ge=0)
+    currency: Literal["EUR"] = "EUR"
+    inputs: list[MetricItem] = Field(default_factory=list, max_length=6)
+    disclaimer: str  # required — regulatory / non-binding language
+
+
+class NarrativeBlockProps(BaseModel):
+    """LLM-generated structured narrative. Strict shape so the frontend always
+    knows where each list lives. All lists optional but at least one must be
+    non-empty (validated at construction)."""
+    model_config = ConfigDict(extra="forbid")
+    title: str | None = None
+    summary: str | None = None
+    key_points: list[str] = Field(default_factory=list, max_length=6)
+    risks: list[str] = Field(default_factory=list, max_length=6)
+    opportunities: list[str] = Field(default_factory=list, max_length=6)
+    citations: list[str] = Field(default_factory=list, max_length=6)
+
+
+# Discriminator wrappers ----------------------------------------------------
 class SearchResultsBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     type: Literal["search_results"] = "search_results"
@@ -90,8 +211,60 @@ class ErrorBlock(BaseModel):
     props: ErrorBlockProps
 
 
+class HeroBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["hero"] = "hero"
+    id: str
+    props: HeroBlockProps
+
+
+class MetricsBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["metrics"] = "metrics"
+    id: str
+    props: MetricsBlockProps
+
+
+class CompanyCardBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["company_card"] = "company_card"
+    id: str
+    props: CompanyCardProps
+
+
+class CompanyCardsGridBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["company_cards_grid"] = "company_cards_grid"
+    id: str
+    props: CompanyCardsGridProps
+
+
+class ValuationBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["valuation"] = "valuation"
+    id: str
+    props: ValuationBlockProps
+
+
+class NarrativeBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["narrative"] = "narrative"
+    id: str
+    props: NarrativeBlockProps
+
+
 BlockSpec = Annotated[
-    Union[SearchResultsBlock, EmptyStateBlock, ErrorBlock],
+    Union[
+        SearchResultsBlock,
+        EmptyStateBlock,
+        ErrorBlock,
+        HeroBlock,
+        MetricsBlock,
+        CompanyCardBlock,
+        CompanyCardsGridBlock,
+        ValuationBlock,
+        NarrativeBlock,
+    ],
     Field(discriminator="type"),
 ]
 
@@ -101,8 +274,7 @@ BlockSpec = Annotated[
 # ---------------------------------------------------------------------------
 class Workspace(BaseModel):
     """A workspace is the materialised result of a Skill. Renders inside the
-    Copilot dock's expanded panel (transient, no URL).
-    """
+    Copilot dock's expanded panel (transient, no URL until E1.5)."""
     model_config = ConfigDict(extra="forbid")
     workspace_id: str
     intent: str
@@ -113,23 +285,63 @@ class SearchSkillResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     workspace: Workspace
     source: Literal["mock", "real"] = "mock"
-    # Echoes back what the frontend asked, helps debugging client-side.
     query: str
 
 
-# Re-export only public surface.
+class AnalyzeSkillResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workspace: Workspace
+    source: Literal["mock", "real"] = "mock"
+    query: str
+
+
+class ValueSkillResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workspace: Workspace
+    source: Literal["mock", "real"] = "mock"
+    query: str
+
+
+class RecommendSkillResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    workspace: Workspace
+    source: Literal["mock", "real"] = "mock"
+    query: str
+
+
+# Re-export public surface.
 __all__: list[str] = [
+    "AnalyzeSkillRequest",
+    "AnalyzeSkillResponse",
     "BlockSpec",
+    "CompanyCardBlock",
+    "CompanyCardProps",
+    "CompanyCardsGridBlock",
+    "CompanyCardsGridItem",
+    "CompanyCardsGridProps",
     "EmptyStateBlock",
     "EmptyStateBlockProps",
     "ErrorBlock",
     "ErrorBlockProps",
+    "HeroBlock",
+    "HeroBlockProps",
+    "MetricItem",
+    "MetricsBlock",
+    "MetricsBlockProps",
+    "NarrativeBlock",
+    "NarrativeBlockProps",
+    "RecommendSkillRequest",
+    "RecommendSkillResponse",
     "SearchResultItem",
     "SearchResultsBlock",
     "SearchResultsBlockProps",
     "SearchSkillRequest",
     "SearchSkillResponse",
     "SkillContext",
+    "ValuationBlock",
+    "ValuationBlockProps",
+    "ValueSkillRequest",
+    "ValueSkillResponse",
     "Workspace",
 ]
 

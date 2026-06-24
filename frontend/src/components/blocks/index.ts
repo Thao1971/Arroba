@@ -17,3 +17,15 @@ export type {
   SearchResultsBlockProps,
   SearchResultItem,
 } from './SearchResultsBlock';
+// E1.4 — Intelligence Skills
+export { ValuationBlock } from './ValuationBlock';
+export type { ValuationBlockProps, ValuationInput } from './ValuationBlock';
+export { NarrativeBlock } from './NarrativeBlock';
+export type { NarrativeBlockProps } from './NarrativeBlock';
+export { CompanyCardBlock } from './CompanyCardBlock';
+export type { CompanyCardBlockProps } from './CompanyCardBlock';
+export { CompanyCardsGridBlock } from './CompanyCardsGridBlock';
+export type {
+  CompanyCardsGridBlockProps,
+  CompanyCardsGridItem,
+} from './CompanyCardsGridBlock';

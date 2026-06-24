@@ -223,7 +223,46 @@ Resumen del cierre:
 
 ---
 
-## 🟢 Etapa 1.4 — Intelligence Skills (EN CURSO desde 2026-06-24)
+## 🟢 Etapa 1.4 — Intelligence Skills (CERRADA 2026-06-24)
+
+**Resumen del cierre**:
+- **Backend** — adapter `EnrichCompanyAdapter` (Boundary First Mock/Real + factory por env) en `/app/backend/src/modules/agency_tool_adapter/enrich_company.py`. Skills `analyze`, `value`, `recommend` en `/app/backend/src/modules/copilot/skills/` consumiendo `LLMProvider` (Protocol; Claude vía emergentintegrations en runtime, MockLLMProvider en tests). 3 endpoints nuevos públicos `POST /api/copilot/skills/{analyze,value,recommend}`.
+- **Modelo de bloques ampliado** — `HeroBlock`, `MetricsBlock`, `CompanyCardBlock`, `CompanyCardsGridBlock`, `ValuationBlock`, `NarrativeBlock` (discriminated union por `type`).
+- **Value Skill simplificada** — fórmula determinista `central = revenue * 1.5`, rango `[0.75×, 1.30×]`, sin múltiplos por sector. La inteligencia real llega vía REQ-004.
+- **Recommend Skill** — LLM-assisted intent router (3 subtipos: `similar_to_company` / `opportunities_by_sector` / `list_by_sector`) + heuristic fallback. Body determinista por el adapter mock; REQ-005 sustituirá el cuerpo sin cambiar la firma.
+- **Frontend** — `route-intent.ts` detecta verbos `analiza` / `valora` / `recomienda` (NFD + lower, accent- y case-insensitive). `dispatch.ts` rutea a la skill correcta. `CopilotProvider` persiste `lastQuery`; `ErrorBlock.onRetry` replay con `lastQuery` (no más fallback a `/help`).
+- **4 nuevos blocks frontend** — `ValuationBlock`, `NarrativeBlock`, `CompanyCardBlock`, `CompanyCardsGridBlock` con tokens canónicos + Light + Dark.
+- **`WorkspaceArea.tsx`** — renderer único, registra los 10 tipos de bloques (`search_results` · `empty_state` · `error` · `loading` · `hero` · `metrics` · `company_card` · `company_cards_grid` · `valuation` · `narrative`).
+- **REQ-004 + REQ-005** emitidos en `/app/_requirements_for_agency_tool/README.md` con payloads, schemas, SLA y criterios de aceptación accionables.
+- **Seed E1.4** — `scripts/seed_master_companies_e14.py` (idempotente, upsert por `master_company_id`). 12 empresas cubriendo los 8 sectores obligatorios.
+- **Tests** — Backend **84/84 PASS** (49 anteriores + 35 nuevos: 11 enrich_company_adapter + 9 copilot_analyze + 7 copilot_value + 8 copilot_recommend). Frontend **86/86 PASS** (67 anteriores + 19 nuevos: 7 route-intent + 4 blocks E1.4 + 8 workspace-area E1.4). Lint + typecheck + build verde en frontend; ruff verde en backend.
+- **Verificación visual** — capturas en Light y Dark con Claude real respondiendo (`Analyze`, `Value`, `Recommend`, `ErrorBlock + Reintentar`).
+- **Tokens reales consumidos** — orientativo ≈ 8-12k tokens (4-6 llamadas a Claude Sonnet 4.6 vía Emergent LLM Key durante smoke E2E).
+
+### Regla mantenida
+- Tests pytest NUNCA llaman a Claude real. `MockLLMProvider` inyectado vía `set_override`.
+- Skills no importan `claude_provider` ni `emergentintegrations` directamente — todas dependen del Protocol `LLMProvider` y `get_llm_provider()`.
+
+### Empresas mock sembradas por E1.4 (12)
+
+| ID | Razón social | Sector | Región |
+|---|---|---|---|
+| mc_kitchen | Kitchen Studio, S.L. | Software | Madrid |
+| mc_novaledger | NovaLedger SaaS, S.L. | Software | Barcelona |
+| mc_bridge | Bridge Creative Agency, S.L. | Marketing | Madrid |
+| mc_atlantica | Cadena Hotelera Atlántica, S.L. | Hoteles | Galicia |
+| mc_forjas | Forjas del Duero, S.A. | Industria | Castilla y León |
+| mc_termo | Termoplásticos Levante, S.L. | Industria | C. Valenciana |
+| mc_vitalis | Clínicas Vitalis, S.L. | Salud | Madrid |
+| mc_dental | Dental Care Iberia, S.L. | Salud | Cataluña |
+| mc_conservas | Conservas del Cantábrico, S.L. | Alimentación | Cantabria |
+| mc_riojana | Bodegas Riojana Norte, S.A. | Alimentación | La Rioja |
+| mc_asesorapro | AsesoraPro Consultoría, S.L. | Servicios profesionales | Madrid |
+| mc_calzados | Calzados Ribera, S.L. | Retail | C. Valenciana |
+
+---
+
+## 🟢 Etapa 1.4 — Intelligence Skills (PREVIO — EN CURSO; sustituido por la sección anterior)
 
 **Scope dentro**:
 - LLMProvider abstraction backend (`copilot/llm/`): Protocol + claude (vía

@@ -1,5 +1,19 @@
 # CHANGELOG — ARROBA Platform
 
+## 24 Jun 2026 — E1.4 Intelligence Skills
+
+- **Backend** — adapter `EnrichCompanyAdapter` (Boundary First, Mock/Real + factory por `ENRICH_COMPANY_SOURCE`). Skills `analyze` / `value` / `recommend` con `POST /api/copilot/skills/{analyze,value,recommend}` (`X-Source: mock`). Discriminated union de bloques ampliada a 10 tipos: `search_results` · `empty_state` · `error` · `loading` · `hero` · `metrics` · `company_card` · `company_cards_grid` · `valuation` · `narrative`.
+- **Value Skill simplificada** — fórmula determinista `central = revenue * 1.5`, rango `[0.75×, 1.30×]`. Sin múltiplos por sector. La inteligencia real llega vía REQ-004 (Agency Tool Valuation Engine).
+- **Recommend Skill** — LLM-assisted intent router (Claude Sonnet 4.6 vía Emergent LLM Key) en 3 subtipos: `similar_to_company` / `opportunities_by_sector` / `list_by_sector`. Heuristic fallback cuando el LLM falla. Body devuelto por adapter mock; REQ-005 lo sustituirá.
+- **Analyze Skill** — LLM-powered (Claude Sonnet 4.6). 1 reintento de JSON strict + fallback de narrativa. Workspace: Hero + Metrics + CompanyCard + Narrative.
+- **Frontend** — `route-intent.ts` detecta verbos (analiza/valora/recomienda/empresas similares a/empresas en …) accent- y case-insensitive vía NFD. `dispatch.ts` rutea a `apiClient.copilot.{search,analyze,value,recommend}`. `CopilotProvider` persiste `lastQuery`; `ErrorBlock.onRetry` replay con `lastQuery` (no más fallback a `/help`).
+- **Block Library E1.4** — `ValuationBlock` (valor central + rango + disclaimer), `NarrativeBlock` (summary + key_points + risks + opportunities), `CompanyCardBlock`, `CompanyCardsGridBlock` (3 subtipos). Tokens canónicos en Light + Dark.
+- **REQ-004 + REQ-005** emitidos en `/app/_requirements_for_agency_tool/README.md`. Payloads, schemas, SLA y criterios de aceptación accionables.
+- **Seed E1.4** — `scripts/seed_master_companies_e14.py` añade 12 empresas mock cubriendo los 8 sectores obligatorios (Software, Marketing, Hoteles, Industria, Salud, Alimentación, Servicios profesionales, Retail).
+- **Tests** — Backend **84/84 PASS** (35 nuevos). Frontend **86/86 PASS** (19 nuevos). Tests pytest NUNCA pegan a Claude real — `MockLLMProvider` inyectado vía `set_override`.
+- **`emergentintegrations`** — import path corregido a `emergentintegrations.llm.chat` (era `emergentintegrations.llmchat`).
+- **Verificación visual** — capturas Light + Dark de Analyze, Value, Recommend, Error+Retry con Claude real respondiendo.
+
 ## 24 Jun 2026 — E1.3 Copilot Foundation
 
 - **Backend** — nuevo módulo `src/modules/copilot/` con `POST /api/copilot/skills/search` (público, `X-Source: mock`). Discriminated union `Workspace.blocks[]` con tipos `search_results | empty_state | error | loading`. Service determinista sobre `master_companies_mock` con scoring textual + CIF + sector accent-insensitive. 10 nuevos tests `tests/test_copilot_search.py`. Backend total: **49/49 PASS**.

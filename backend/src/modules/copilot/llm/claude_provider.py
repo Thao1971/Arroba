@@ -43,7 +43,7 @@ class ClaudeProvider:
         try:
             # Local import keeps the rest of the codebase importable even if
             # emergentintegrations is uninstalled (tests stub the provider).
-            from emergentintegrations.llmchat import LlmChat, UserMessage  # type: ignore
+            from emergentintegrations.llm.chat import LlmChat, UserMessage  # type: ignore
         except Exception as exc:  # pragma: no cover - infra failure
             raise LLMUpstreamError(f"emergentintegrations not available: {exc}") from exc
 
@@ -71,7 +71,7 @@ class ClaudeProvider:
 
         try:
             response = await asyncio.wait_for(_call(rendered), timeout=self._timeout)
-        except asyncio.TimeoutError as exc:
+        except asyncio.TimeoutError:
             log.warning("[LLM] claude timeout (first attempt)", model=self._model)
             await asyncio.sleep(2)
             try:

@@ -16,8 +16,14 @@ import type {
 } from './types';
 
 import type {
+  AnalyzeSkillRequest,
+  AnalyzeSkillResponse,
+  RecommendSkillRequest,
+  RecommendSkillResponse,
   SearchSkillRequest,
   SearchSkillResponse,
+  ValueSkillRequest,
+  ValueSkillResponse,
 } from '@/lib/orchestrator/types';
 
 export class ApiError extends Error {
@@ -108,6 +114,21 @@ export const apiClient = {
     /** Public — works with or without auth. Returns a Workspace spec. */
     search: (payload: SearchSkillRequest) =>
       request<SearchSkillResponse>('/api/copilot/skills/search', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    analyze: (payload: AnalyzeSkillRequest) =>
+      request<AnalyzeSkillResponse>('/api/copilot/skills/analyze', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    value: (payload: ValueSkillRequest) =>
+      request<ValueSkillResponse>('/api/copilot/skills/value', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    recommend: (payload: RecommendSkillRequest) =>
+      request<RecommendSkillResponse>('/api/copilot/skills/recommend', {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
