@@ -58,12 +58,30 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
+        from src.core.logging import get_logger
+
+        log = get_logger("exceptions")
+        # `exc.errors()` may contain bytes (e.g. when Pydantic echoes back the
+        # raw `input` for a failed validator on a binary field). `json.dumps`
+        # crashes on those. We use FastAPI's `jsonable_encoder` to coerce them
+        # into JSON-safe primitives.
+        from fastapi.encoders import jsonable_encoder
+
+        safe_errors = jsonable_encoder(
+            exc.errors(), custom_encoder={bytes: lambda b: b.decode("utf-8", "replace")}
+        )
+        log.warning(
+            "request_validation_error",
+            path=str(request.url.path),
+            method=request.method,
+            errors=safe_errors,
+        )
         return JSONResponse(
             status_code=422,
             content={
                 "detail": "validation_error",
                 "code": "validation_error",
-                "errors": exc.errors(),
+                "errors": safe_errors,
             },
         )
 

@@ -56,12 +56,14 @@ async function request<T>(
 ): Promise<T> {
   const res = await fetch(path, {
     credentials: 'include',
+    ...init,
+    // headers MUST come AFTER `...init` so that the spread of caller-supplied
+    // `init.headers` does NOT clobber our `Content-Type` / `Accept` defaults.
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       ...(init.headers || {}),
     },
-    ...init,
   });
   const text = await res.text();
   const body = text ? safeJSON(text) : null;
