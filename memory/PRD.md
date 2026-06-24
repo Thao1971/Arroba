@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-06-24 — **Filosofía v3.0 promulgada. E1.5 reposicionada. E1.5-REWORK (Empresa) por definir.**
+> **Última actualización**: 2026-06-24 — **Filosofía v3.0 DEFINITIVA promulgada. E1.5-REWORK (Empresa) — brief en redacción por orquestador.**
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 ---
@@ -14,6 +14,8 @@
 > **Si hay conflicto entre PRD y ARROBA_PHILOSOPHY.md, gana ARROBA_PHILOSOPHY.md.**
 >
 > El modelo `Copilot → Skill → Workspace` queda **derogado**. El modelo correcto es **Entity First + Copilot Transversal**, con entidades principales: Empresa · Sector · Territorio · Valoración · Oportunidad · Transacción.
+>
+> Versión actual: v3.0 (definitiva) — añadidas sección 5 (Oportunidad vs Transacción), sección 11 (Acción inmediata) y sección 12 completa (Principios UX oficiales).
 
 ---
 
@@ -488,7 +490,7 @@ El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.m
 
 | Fase | Entidad | Estado |
 |---|---|---|
-| **E1.5-REWORK** | Empresa | ⏳ POR DEFINIR (orquestador redactará brief tras aprobación de UX) |
+| **E1.5-REWORK** | Empresa | ⏳ EN REDACCIÓN — UX aprobada (1a/2a/3a/4a/5a confirmados por sección 12 de la filosofía). Brief técnico en revisión por el usuario. |
 | **E1.6** | Sector | 🔵 PLANIFICADA |
 | **E1.7** | Territorio | 🔵 PLANIFICADA |
 | **E1.8** | Oportunidad | 🔵 PLANIFICADA |

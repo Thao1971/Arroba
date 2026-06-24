@@ -1,38 +1,38 @@
-# ARROBA.COM — Filosofía canónica v3.0
+# ARROBA.COM — Filosofía canónica v3.0 (definitiva)
 
 > **Fuente de verdad estratégica del producto.**
 > Sustituye cualquier interpretación previa basada en el modelo `Copilot → Skill → Workspace`.
-> Aprobada por el usuario el 2026-06-24.
+> Promulgada por el usuario el 2026-06-24. Esta versión es definitiva.
 
 ---
 
-# REORIENTACIÓN ESTRATÉGICA DE ARROBA.COM — ENTITY FIRST + COPILOT TRANSVERSAL
+# REORIENTACIÓN DEFINITIVA DE ARROBA.COM — FILOSOFÍA V3.0
 
 ## IMPORTANTE
 
-Detén cualquier interpretación derivada del modelo:
+Se ha promulgado oficialmente ARROBA_PHILOSOPHY.md como fuente de verdad principal.
 
-Copilot → Skill → Workspace
+A partir de ahora, cualquier decisión de producto, UX o arquitectura debe respetar este documento.
 
-porque esa interpretación nos ha alejado del Blueprint y del Design Intake.
-
-No estamos construyendo ChatGPT Projects ni Claude Projects.
-
-Estamos construyendo un Bloomberg conversacional para la economía española.
+Si existe conflicto entre PRD y ARROBA_PHILOSOPHY.md, prevalece ARROBA_PHILOSOPHY.md.
 
 ⸻
 
-## 1. Filosofía correcta
+## 1. El modelo Copilot → Skill → Workspace queda derogado
 
-La regla es:
+NO estamos construyendo ChatGPT Projects ni Claude Projects.
+
+NO estamos construyendo una aplicación centrada en conversaciones.
+
+El modelo `Copilot → Skill → Workspace` queda oficialmente derogado.
+
+⸻
+
+## 2. Filosofía correcta
 
 Copilot First en interacción.
 
 Entity First en producto.
-
-El Copilot es la interfaz principal.
-
-Pero NO es la entidad principal.
 
 La inteligencia se adapta al producto.
 
@@ -40,55 +40,15 @@ El producto NO se adapta a la inteligencia.
 
 ⸻
 
-## 2. El Copilot es transversal
-
-El Copilot vive en toda la plataforma.
-
-Puede:
-
-* analizar una empresa;
-* analizar un sector;
-* analizar un territorio;
-* valorar una compañía;
-* descubrir oportunidades;
-* ayudar en una operación;
-* asistir un proceso M&A.
-
-Por tanto:
-
-NO vive solamente dentro del Transaction OS.
-
-Pero tampoco es la unidad principal del sistema.
-
-⸻
-
 ## 3. Entidades principales del dominio
 
-**Analizar**
+**Analizar**: Empresa, Sector, Territorio.
 
-Entidades:
+**Valorar**: Valoración.
 
-* Empresa
-* Sector
-* Territorio
+**Comprar / Vender**: Oportunidad.
 
-**Valorar**
-
-Entidades:
-
-* Valoración
-
-**Comprar / Vender**
-
-Entidad principal:
-
-* Oportunidad
-
-**Ejecutar**
-
-Entidad principal:
-
-* Transacción
+**Ejecutar**: Transacción.
 
 ⸻
 
@@ -98,269 +58,141 @@ Tal y como establece el Blueprint:
 
 > "Company: Entidad central del sistema."
 
-La ficha de empresa es uno de los activos más importantes de arroba.com.
-
-El Copilot es contextual sobre la empresa.
-
-NO al revés.
+La ficha de empresa es uno de los activos más importantes de arroba.com. El Copilot es contextual sobre la empresa. NO al revés.
 
 ⸻
 
-## 5. Workspace
+## 5. Oportunidad y Transacción
 
-Workspace significa únicamente:
+La Oportunidad es una entidad de descubrimiento.
 
-* contexto;
-* memoria;
-* persistencia;
-* entorno de trabajo.
+La Transacción es una entidad de ejecución.
 
-Un workspace puede existir sobre:
+No todas las oportunidades se convierten en una transacción. Pero toda transacción nace de una oportunidad.
 
-* una empresa;
-* un sector;
-* un territorio;
-* una valoración;
-* una oportunidad;
-* una transacción.
-
-Pero nunca sustituye a esas entidades.
-
-Por tanto:
-
-NO construir nuevas páginas tomando el workspace como unidad principal.
+La secuencia correcta es: Oportunidad → Matching → Transacción.
 
 ⸻
 
-## 6. Navegación principal
+## 6. Transaction OS
 
-La navegación principal sigue siendo:
+La Transacción puede ser **Buy-side** o **Sell-side**.
 
-ANALIZAR
+Dentro de una Transacción viven capacidades y fases.
 
-↓
+**Matching**: mecanismo que permite iniciar una operación. NO es una entidad.
 
-VALORAR
+### Fases de la operación
 
-↓
+Teaser → NDA → Information Memorandum → IOI → LOI → Due Diligence → Negociación → SPA → Cierre.
 
-COMPRAR / VENDER
-
-Estas áreas NO desaparecen.
-
-NO se sustituyen por conversaciones.
-
-NO se sustituyen por workspaces.
-
-El Copilot vive dentro de ellas.
+Dentro de Due Diligence viven: Data Room, Q&A, Documentos.
 
 ⸻
 
-## 7. Evolución de una oportunidad
+## 7. Qué NO son entidades
 
-Cuando una oportunidad madura:
+NO son entidades principales: Workspace, Matching, Mandato, Data Room, Q&A, Equipo, Actividad, Documentos.
 
-Oportunidad
-
-↓
-
-Matching
-
-↓
-
-Transacción M&A
-
-La transacción puede ser:
-
-* Buy-side
-* Sell-side
+Son capacidades o componentes.
 
 ⸻
 
-## 8. Transaction OS
+## 8. Workspace
 
-La Transacción es una entidad principal del dominio.
+Workspace significa únicamente: memoria, persistencia, contexto, entorno de trabajo.
 
-Dentro de ella viven capacidades y fases.
-
-**Matching**
-
-Permite identificar compradores, vendedores o inversores compatibles.
-
-El matching es un mecanismo que permite iniciar la operación.
-
-No es una entidad independiente.
+Puede existir sobre una empresa, sector, territorio, valoración, oportunidad o transacción. Pero nunca sustituye a esas entidades.
 
 ⸻
 
-### Fases de una operación
+## 9. Reutilización
 
-Teaser
+NO borrar nada.
 
-↓
+Reutilizar: Block Library, Skills, Copilot, Workspaces, Historial, EnrichCompanyAdapter, Data Layer, Intelligence Engine.
 
-NDA
-
-↓
-
-Cuaderno de venta / Information Memorandum
-
-↓
-
-Oferta Indicativa (IOI)
-
-↓
-
-LOI (cuando exista)
-
-↓
-
-Due Diligence
-
-Dentro de la Due Diligence viven:
-
-* Data Room
-* Q&A
-* Documentos
-
-↓
-
-Negociación
-
-↓
-
-SPA
-
-↓
-
-Cierre
+Los workspaces pasan a ser una capa subordinada de memoria.
 
 ⸻
 
-## 9. Qué NO son entidades
+## 10. Orden oficial de construcción
 
-NO son entidades principales:
-
-* Workspace
-* Matching
-* Mandato
-* Data Room
-* Q&A
-* Equipo
-* Actividad
-* Documentos
-
-Son capacidades o componentes que viven dentro de una transacción.
+**E1.5-REWORK** — Empresa → **E1.6** — Sector → **E1.7** — Territorio → **E1.8** — Oportunidad → **E1.9** — Transacción → **Transaction OS** con Matching, Teaser, NDA, IM, IOI, LOI, DD, Data Room, Q&A, Negociación, SPA, Cierre.
 
 ⸻
 
-## 10. Modelo mental correcto
+## 11. Acción inmediata
 
-EMPRESA
+NO escribir todavía código.
 
-SECTOR
+Primero redactar el brief completo de E1.5-REWORK.
 
-TERRITORIO
+La primera entidad visible del producto será `/empresa/{master_company_id}`.
 
-VALORACIÓN
+NO `/workspace/{id}`. NO rutas basadas en conversación. NO páginas construidas alrededor del workspace.
 
-OPORTUNIDAD
+El modelo correcto: EMPRESA → COPILOT CONTEXTUAL → SKILLS → BLOCKS → MEMORIA → WORKSPACE.
 
-TRANSACCIÓN
-
-↓
-
-COPILOT CONTEXTUAL
-
-↓
-
-SKILLS
-
-↓
-
-BLOCKS
-
-↓
-
-MEMORIA
-
-↓
-
-WORKSPACE
-
-NO:
-
-Copilot
-
-↓
-
-Skill
-
-↓
-
-Workspace
+Objetivo: Bloomberg + PitchBook + Datasite + Notion + Perplexity. No ChatGPT Projects.
 
 ⸻
 
-## 11. Reutilización
+## 12. Principios UX oficiales
 
-Conservar todo el código construido siempre que sea reutilizable:
+### Acceso público a las entidades
 
-* Block Library
-* Skills
-* Copilot
-* Data Layer
-* Intelligence Engine
-* Workspaces
-* Historial
+Las fichas de empresa deberán tener una parte pública.
 
-Los workspaces pasan a ser una capa de memoria y persistencia, no la unidad principal del producto.
+El usuario anónimo podrá ver: identidad, descripción, información básica, algunos datos financieros, señales básicas.
 
-⸻
+Las capacidades avanzadas estarán protegidas mediante registro.
 
-## 12. Orden de construcción
+### Company Advisor
 
-**E1.5-REWORK** — Empresa
+Cada entidad podrá disponer de un agente especializado: Company Advisor, Sector Analyst, Territory Analyst, Valuation Advisor, Deal Advisor.
 
-**E1.6** — Sector
+El Copilot global existe, pero dentro de una entidad adopta una identidad especializada.
 
-**E1.7** — Territorio
+Ejemplo: ✦ Company Advisor de Kitchen Studio.
 
-**E1.8** — Oportunidad
+La inteligencia es contextual.
 
-**E1.9** — Transacción
+### La ficha es la verdad
 
-Con:
+La información vive en la entidad. No en el chat.
 
-* Matching
-* Teaser
-* NDA
-* Information Memorandum
-* IOI
-* LOI
-* Due Diligence
-* Data Room
-* Q&A
-* Negociación
-* SPA
-* Cierre
+El chat no genera páginas paralelas. El chat modifica, amplía o explica secciones existentes.
 
-⸻
+Ejemplos:
+- "Háblame de los riesgos" → Actualiza Riesgos.
+- "Compárala con Making Science" → Actualiza Comparables.
+- "¿Qué oportunidades ves?" → Actualiza Oportunidades.
 
-## Regla final
+La conversación es una interfaz. La entidad es el producto.
 
-La UX tiene prioridad sobre la arquitectura.
+### Search-first navigation
 
-La arquitectura tiene prioridad sobre la implementación.
+Cuando una búsqueda identifica una entidad concreta: Kitchen Studio → /empresa/{cif}.
 
-La inteligencia debe adaptarse al producto.
+No se devolverán listas de tarjetas en el chat. Solo cuando exista ambigüedad aparecerá un pequeño disambiguador.
 
-El producto NO debe adaptarse a la inteligencia.
+La navegación principal debe ser: Buscar → Entidad → Copilot contextual → Acciones.
 
-El objetivo sigue siendo:
+### Memoria asociada a la entidad
 
-Bloomberg + PitchBook + Notion + Perplexity.
+La memoria de trabajo pertenece a la entidad. Cada empresa, sector, territorio, oportunidad y transacción tendrán su propio contexto.
 
-No ChatGPT Projects.
+Los workspaces son memoria. No son el producto.
 
-No Claude Projects.
+### Regla fundamental
+
+Entidad → Copilot especializado → Skills → Bloques → Memoria → Workspace.
+
+Nunca: Copilot → Workspace → Entidad.
+
+### Diferencia con ChatGPT Projects
+
+ChatGPT Projects almacena conversaciones. arroba.com almacena conocimiento sobre entidades.
+
+La conversación es temporal. La entidad es permanente.
