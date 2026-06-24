@@ -173,6 +173,9 @@ function DesignSystemInner() {
       </Section>
 
       <Section id="primitives" title={t('ds.sectionPrimitives')}>
+        <h3 id="primitives-buttons" className="font-display font-medium text-sm text-text-muted uppercase tracking-wider mb-3 scroll-mt-20">
+          Buttons
+        </h3>
         <div className="flex flex-wrap gap-3 mb-6">
           <Button>Primary</Button>
           <Button variant="secondary">Secondary</Button>
@@ -184,12 +187,18 @@ function DesignSystemInner() {
           <Button size="lg">Lg</Button>
         </div>
         <Divider className="my-4" />
+        <h3 id="primitives-inputs" className="font-display font-medium text-sm text-text-muted uppercase tracking-wider mb-3 scroll-mt-20">
+          Inputs
+        </h3>
         <div className="grid md:grid-cols-2 gap-4 mb-6">
           <Input label="Email" placeholder="hola@arroba.com" />
           <Input label="Contraseña" type="password" helperText="Mínimo 8 caracteres" />
           <Input label="Con error" defaultValue="x" error="Email no válido" />
         </div>
         <Divider className="my-4" />
+        <h3 id="primitives-badges" className="font-display font-medium text-sm text-text-muted uppercase tracking-wider mb-3 scroll-mt-20">
+          Badges
+        </h3>
         <div className="flex flex-wrap gap-2 mb-6">
           <Badge>Default</Badge>
           <Badge variant="success">Success</Badge>
@@ -198,6 +207,9 @@ function DesignSystemInner() {
           <Badge variant="info">Info</Badge>
           <Badge variant="info" icon={<Sparkles size={10} className="ai-marker" />}>✩ IA</Badge>
         </div>
+        <h3 id="primitives-alerts" className="font-display font-medium text-sm text-text-muted uppercase tracking-wider mb-3 scroll-mt-20">
+          Alerts
+        </h3>
         <div className="space-y-2 mb-6">
           <Alert variant="info" title="Info">Esta acción es trazable.</Alert>
           <Alert variant="success" title="Listo">Cambios guardados correctamente.</Alert>
@@ -205,16 +217,40 @@ function DesignSystemInner() {
           <Alert variant="danger" title="Error">No se ha podido completar.</Alert>
         </div>
         <Divider className="my-4" />
+        <h3 id="primitives-avatar" className="font-display font-medium text-sm text-text-muted uppercase tracking-wider mb-3 scroll-mt-20">
+          Avatar &amp; Spinner
+        </h3>
         <div className="flex items-center gap-6 mb-6 flex-wrap">
           <Avatar name="Ana Pérez" />
           <Avatar name="Carlos Muñoz" size={44} />
           <Avatar name="Álvaro García" size={56} />
           <Spinner />
         </div>
+        <h3 id="primitives-confidence" className="font-display font-medium text-sm text-text-muted uppercase tracking-wider mb-3 scroll-mt-20">
+          Confidence
+        </h3>
         <div className="flex flex-wrap gap-2">
           <ConfidenceBadge confidence={0.88} />
           <ConfidenceBadge confidence={0.65} />
           <ConfidenceBadge confidence={0.32} />
+        </div>
+      </Section>
+
+      <Section id="card" title="Card">
+        <p className="text-sm text-text-muted mb-4">
+          Contenedor base. Variantes: simple, con header, con footer.
+        </p>
+        <div className="grid md:grid-cols-3 gap-4">
+          <Card>
+            <p className="font-display font-medium mb-1">Card simple</p>
+            <p className="text-sm text-text-muted">Contenido libre.</p>
+          </Card>
+          <Card header={<span>Con header</span>}>
+            <p className="text-sm text-text-muted">El header tiene una línea inferior.</p>
+          </Card>
+          <Card header={<span>Card completa</span>} footer={<span className="text-xs text-text-subtle">Footer</span>}>
+            <p className="text-sm text-text-muted">Header + body + footer.</p>
+          </Card>
         </div>
       </Section>
 

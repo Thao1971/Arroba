@@ -1,0 +1,48 @@
+{
+  "summary": "FIX E1.1.1 OnboardingGuard regression test. CASO 7 (main fix), CASO 7b (inverse), CASO 4 PASO E (DS cosmetic) and quick regression all PASS. The OnboardingGuard in /app/frontend/src/app/[locale]/(authenticated)/layout.tsx correctly forces users with memberships.length===0 back to /onboarding when they try to access any non-onboarding authenticated route. Admin with memberships>=1 visiting /onboarding is correctly redirected to /organizaciones by the onboarding page's own useEffect.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": {
+    "frontend": [
+      "CASO 7 — Registered new user e11-guard-<ts>@arrobatest.com, after register URL is /onboarding and journey-thread/journey-intent-list are visible",
+      "CASO 7 — Manual navigation to /analizar redirected to /onboarding (journey-thread present)",
+      "CASO 7 — Manual navigation to /valorar redirected to /onboarding",
+      "CASO 7 — Manual navigation to /comprar-vender redirected to /onboarding",
+      "CASO 7 — Manual navigation to /organizaciones redirected to /onboarding",
+      "CASO 7 — Manual navigation to /perfil redirected to /onboarding",
+      "CASO 7 — Manual navigation to /ajustes redirected to /onboarding",
+      "CASO 7 — Manual navigation to /internal/design-system redirected to /onboarding",
+      "CASO 7b — Admin (after creating 1 TEST_AdminOrg_Guard membership) navigating to /onboarding is redirected to /organizaciones (organizations-title testid visible)",
+      "CASO 7b — Admin with memberships>=1 can access /internal/design-system without redirect",
+      "CASO 4 PASO E — section#card exists with visible inner h2 'Card' and 3 Card examples (simple/with header/with header+footer)",
+      "CASO 4 PASO E — Anchor #card scrolls to section (top within viewport, scrollY≈3492px from page top, scroll-mt-20 working)",
+      "CASO 4 PASO E — All 6 primitives h3 sub-headings present and visible: primitives-buttons ('Buttons'), primitives-inputs ('Inputs'), primitives-badges ('Badges'), primitives-alerts ('Alerts'), primitives-avatar ('Avatar & Spinner'), primitives-confidence ('Confidence')",
+      "Regression — admin@arroba.dev login works and redirects to /organizaciones (after seeding 1 membership)",
+      "Regression — Authenticated header shows 3 nav links: Analizar / Valorar / Comprar/Vender (data-testid: auth-header-nav-analizar/valorar/compraventa)",
+      "Regression — User menu opens via auth-header-user-menu-button; contains Perfil / Configuración / Design System (admin) / Cerrar sesión",
+      "Regression — Logout (auth-header-logout-button) redirects to /login"
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "OnboardingGuard at /app/frontend/src/app/[locale]/(authenticated)/layout.tsx is correctly implemented: uses useAuth() (SWR-backed, no extra round-trip), redirects via router.replace, shows spinner fallback with data-testid='onboarding-guard-redirect' during transition.",
+    "MINOR: Task description says 'h2 con id=card' but actual implementation puts id='card' on the wrapping <section> element (via Section helper at line 29-36 of design-system/page.tsx), with the h2 inside without id. Anchor navigation #card still works correctly because the SECTION has the id. Functional behaviour is correct; only the literal description in the task vs implementation differs. No action needed since requirement says 'h2 con id=card Y/O anchor #card lleva a una sección con ejemplos del componente Card' — second clause is satisfied.",
+    "NOTE: Seeded admin (admin@arroba.dev) has memberships=[] in current DB state. As a side effect of the new guard, admin cannot reach /internal/design-system without first creating an organization or completing onboarding. This is intentional per the code comment in layout.tsx line 13-14, but may surprise admins who only want DS access. Created an org POST /api/organizations to unblock; consider seeding an admin org in scripts/seed_admin.py for future tests."
+  ],
+  "updated_files": [],
+  "success_rate": { "frontend": "100% (7/7 protected-routes block + inverse redirect + DS cosmetic + regression)" },
+  "test_credentials": {
+    "admin": "admin@arroba.dev / Admin1234! (memberships seeded by test: org_a1eccff72247 TEST_AdminOrg_Guard)",
+    "fresh_user_caso7": "e11-guard-1782289952@arrobatest.com / Smoke123! (memberships=[] for guard test)"
+  },
+  "seed_data_creation": "Created 1 TEST org via POST /api/organizations for admin@arroba.dev: org_id=org_a1eccff72247, legal_name=TEST_AdminOrg_Guard, tax_id=B12345678. Created fresh user e11-guard-1782289952@arrobatest.com to test CASO 7.",
+  "mocked_apis": { "has_mocked_apis": false, "mocked_apis_list": [] },
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "OnboardingGuard fix is verified working. All previously-failing CASO 7 scenarios now pass. The /onboarding page's own useEffect handles the inverse case (memberships>=1 → /organizaciones). Admin needs at least one membership to access /internal/* — this is intentional per layout.tsx comment. If you need admin DS access in future tests, create an org first via POST /api/organizations with admin cookies. data-testid 'onboarding-guard-redirect' was not observed in the route-switch tests because the redirect happens fast and the journey UI renders straight away — but the redirect behavior itself is verified."
+}
