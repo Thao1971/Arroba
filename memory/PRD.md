@@ -211,39 +211,79 @@ Documentado en `/app/_requirements_for_agency_tool/README.md` con criterio expl�
 
 ---
 
-## ⏸️ Etapa 1.3 — Copilot dock + Composer (CONGELADA - PENDIENTE DE ANÁLISIS DE RECONSTRUCCIÓN)
+## 🟢 Etapa 1.3 — Copilot Foundation (EN CURSO desde 2026-06-24)
 
-**Estado**: ⏸️ **CONGELADA** desde 2026-06-24.
+**Nota**: el análisis de reconstrucción "ARROBA Matching v1.0" fue **CANCELADO** por
+decisión del usuario el 2026-06-24. La fuente de verdad vuelve a ser:
+- Blueprint V5 (referenciado por el usuario; en filesystem hay `Arroba Com Blueprint
+  Estrategico Arquitectonico V1.docx` + design briefs; "V5" es la versión más
+  reciente conocida por el usuario).
+- Estado actual de `/app/frontend` y `/app/backend`.
+- Decisiones arquitectónicas tomadas durante el desarrollo.
 
-**Motivo del freeze**: antes de arrancar E1.3 el orquestador va a ejecutar un
-análisis de una posible reconstrucción mayor del producto hacia
-**"ARROBA Matching v1.0"** — matching M&A estructurado, NDAs progresivos, data
-room, deal workspace, finder fee, capa agéntica, integración CIS, etc. El
-resultado de ese análisis puede cambiar el propósito del Copilot y del Block
-Orchestrator (de "asistente conversacional transversal" a "orquestador de
-proceso de matching"), por lo que cualquier port o implementación previa a la
-decisión podría requerir reescritura.
+**Prioridad**: construcción.
 
-**🚫 No iniciar E1.3 hasta que el orquestador confirme el resultado del análisis ARROBA Matching v1.0.**
+### Entregado en E1.3 (Copilot Foundation)
 
-Qué NO se debe tocar mientras dure el freeze:
-- NO portar `arroba-copilot.js` ni `arroba-composer.js`.
-- NO añadir Skills (search, valuation, matching, etc.).
-- NO construir el Block Orchestrator real.
-- NO ampliar el `CopilotDemoMock` con lógica nueva (el shape ya es compatible y se queda como está).
-- NO cambiar los placeholders `/analizar`, `/valorar`, `/comprar-vender` (siguen siendo `EmptyStateBlock`).
+- **Backend** — nuevo módulo `src/modules/copilot/`:
+  - `POST /api/copilot/skills/search` público, body
+    `{ query, context: { locale, pathname, user_id?, org_id? } }`.
+  - Response: `Workspace { workspace_id, intent, blocks[] }` con discriminated
+    union `search_results | empty_state | error | loading`.
+  - Header `X-Source: mock`.
+  - Service determinista filtra `master_companies_mock` con scoring textual +
+    CIF + sector (accent-insensitive).
+  - Tests: `tests/test_copilot_search.py` → **10 nuevos PASS** (happy, by-CIF,
+    accent-insensitive, empty state, locale=en, invalid query, extra fields,
+    oversized query, no-auth, context con user/org).
+- **Frontend** — nuevo árbol `components/copilot/`:
+  - `CopilotProvider` (state + persistencia localStorage + dispatch).
+  - `CopilotDock` (FAB minimizado / panel expandido; atajo Cmd/Ctrl+K; ESC
+    cierra; autofocus composer; sr-announcer).
+  - `Composer` (textarea autoexpand 1–8 rows, Enter envía, Shift+Enter newline,
+    chips contextuales arriba, slot adjuntos = Plus button con tooltip
+    "Próximamente").
+  - `ConversationThread` (user/assistant bubbles + último workspace inline).
+  - `WorkspaceArea` (renderer switch por `block.type`).
+- **Block Library nueva**:
+  - `SearchResultsBlock` (lista con nombre, sector, CIF, score badge).
+  - `LoadingBlock` (skeleton de 3 filas).
+  - `ErrorBlock` (icono danger + retry).
+- **lib/orchestrator/** — pipeline `text → routeIntent → executeSkill → Workspace`:
+  - `routeIntent` parsea `/clear` y `/help`; resto → search.
+  - `nextBestActions` da 3 chips deterministas por pathname (port del
+    `presetsFor` del intake).
+  - `dispatch` invoca `apiClient.copilot.search` y mapea errores a ErrorBlock.
+- **Montaje** en `(public)/layout.tsx` + `(authenticated)/layout.tsx`.
+- **REQ-003** emitido en `/app/_requirements_for_agency_tool/README.md` con
+  payload completo, filtros, ranking, paginación y criterios de aceptación.
+- **Tests frontend nuevos**: 16 (route-intent 5 + next-best-actions 4 +
+  workspace-area 4 + copilot-dock E2E 3).
+- **Verificación**: backend **49/49 PASS** · frontend **67/67 PASS** · lint ·
+  typecheck · build OK · light + dark verificados.
 
-Qué SÍ se puede hacer mientras dure el freeze (no requiere reabrir E1.3):
-- Bug fixes detectados por `e1_tester` sobre lo ya entregado (E0/E1.1/E1.1.5/E1.2).
-- Cambios cosméticos del DS interno si los pide el orquestador.
-- Lectura de docs de Matching v1.0 cuando lleguen al intake.
+**Scope OUT** (sin tocar): LLM real, otras Skills, Deal Workspace, NDAs, Data
+Room, LOI, Matching, Marketplace, Universal Search como página, Stripe,
+integración CIS real.
 
 ---
 
-## 🔜 Etapas posteriores (sin cambios hasta freeze E1.3)
+## 🗄️ Anexo histórico — freeze de E1.3 (CANCELADO el mismo día)
 
-- **E1.4** — Stripe (planes + créditos por interacción) + Search Skill real.
-- **E1.5** — Workspaces dinámicos materializados por Copilot reusando Block Library.
+> Texto conservado por trazabilidad. El freeze duró menos de una hora.
+
+E1.3 estuvo brevemente ⏸️ **CONGELADA** el 2026-06-24 a la espera del resultado
+de un análisis de reconstrucción mayor (ARROBA Matching v1.0). El usuario
+canceló el análisis el mismo día y la etapa volvió a 🟢 EN CURSO (ver sección
+anterior). Cancelación oficial: "Phase E1.3 — Copilot Foundation" del orden
+2026-06-24.
+
+---
+
+## 🔜 Etapas posteriores
+
+- **E1.4** — Stripe (planes + créditos por interacción) + Skills adicionales (Analyze/Value/Recommend).
+- **E1.5** — Workspaces persistentes con URL propia + Block Orchestrator avanzado.
 - **E1.x** — Google OAuth wire-up real + `/auth/callback` (backend ya listo desde E0.3.1).
 - **E2** — `/recuperar` real, perfil editable, ajustes reales, barra de enriquecimiento progresivo del Success del journey.
 

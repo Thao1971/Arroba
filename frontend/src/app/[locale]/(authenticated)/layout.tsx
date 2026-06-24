@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { AuthHeader } from '@/components/layout/AuthHeader';
 import { Spinner } from '@/components/ds';
+import { CopilotProvider, CopilotDock } from '@/components/copilot';
 
 /**
  * Routes that exempt from the "must finish onboarding first" rule.
@@ -17,12 +18,15 @@ const ONBOARDING_EXEMPT_PREFIX = '/onboarding';
 
 export default function AuthenticatedLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-text">
-      <AuthHeader />
-      <main className="flex-1">
-        <OnboardingGuard>{children}</OnboardingGuard>
-      </main>
-    </div>
+    <CopilotProvider>
+      <div className="min-h-screen flex flex-col bg-bg text-text">
+        <AuthHeader />
+        <main className="flex-1">
+          <OnboardingGuard>{children}</OnboardingGuard>
+        </main>
+        <CopilotDock />
+      </div>
+    </CopilotProvider>
   );
 }
 

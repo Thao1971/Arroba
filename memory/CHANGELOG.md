@@ -1,5 +1,17 @@
 # CHANGELOG — ARROBA Platform
 
+## 24 Jun 2026 — E1.3 Copilot Foundation
+
+- **Backend** — nuevo módulo `src/modules/copilot/` con `POST /api/copilot/skills/search` (público, `X-Source: mock`). Discriminated union `Workspace.blocks[]` con tipos `search_results | empty_state | error | loading`. Service determinista sobre `master_companies_mock` con scoring textual + CIF + sector accent-insensitive. 10 nuevos tests `tests/test_copilot_search.py`. Backend total: **49/49 PASS**.
+- **Frontend** — `components/copilot/` con `CopilotProvider`, `CopilotDock` (FAB minimizado / panel expandido, Cmd+K toggle, ESC cierra, autofocus composer, sr-announcer), `Composer` (textarea autoexpand, Enter envía, chips contextuales, slot adjuntos), `ConversationThread` con renderer inline del último workspace.
+- **Block Library** — añadidos `SearchResultsBlock` (lista nombre/sector/CIF/score), `LoadingBlock` (skeleton 3 filas), `ErrorBlock` (icono danger + retry). EmptyStateBlock reusado.
+- **`lib/orchestrator/`** — pipeline `text → routeIntent → executeSkill → Workspace`. Slash commands `/clear` y `/help` parseados. `nextBestActions` deterministas por pathname (port del `presetsFor` del intake).
+- **Montaje** en `(public)/layout.tsx` y `(authenticated)/layout.tsx` con `<CopilotProvider><CopilotDock /></CopilotProvider>`.
+- **REQ-003** emitido en `/app/_requirements_for_agency_tool/README.md` con payload, filtros, ranking, paginación y criterios de aceptación para el endpoint real del Agency Tool.
+- **Tests frontend** — 16 nuevos (route-intent 5, next-best-actions 4, workspace-area 4, dock E2E 3). Frontend total: **67/67 PASS**.
+- **Light + Dark verificados** vía screenshot tool con: dock minimizado, dock expandido con chips, workspace con `SearchResultsBlock` (≥3 resultados), EmptyState con sugerencias, ErrorBlock con retry, Loading typing indicator.
+- **`ThemeSwitcher`** — añadido `data-testid="theme-toggle"` para tests automatizados.
+
 ## 9 Abr 2026
 - **Premium Intelligence Agent — 3 capas para Pro+**
   - Premium Quant: 8 KPIs deterministas (endeudamiento, fondo maniobra, pasivo/EBITDA, EBITDA/activo, rev/empleado, EBITDA/empleado, deuda neta/EBITDA, margen EBITDA) con tooltips, formulas y niveles

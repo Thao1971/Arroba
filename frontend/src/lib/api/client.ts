@@ -15,6 +15,11 @@ import type {
   SessionExchangePayload,
 } from './types';
 
+import type {
+  SearchSkillRequest,
+  SearchSkillResponse,
+} from '@/lib/orchestrator/types';
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -98,6 +103,14 @@ export const apiClient = {
     /** Public — unauthenticated home page consumer. Throws ApiError(404) when
      *  the singleton is not seeded yet. */
     platformStats: () => request<PlatformStats>('/api/agency-tool/platform-stats'),
+  },
+  copilot: {
+    /** Public — works with or without auth. Returns a Workspace spec. */
+    search: (payload: SearchSkillRequest) =>
+      request<SearchSkillResponse>('/api/copilot/skills/search', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
 };
 

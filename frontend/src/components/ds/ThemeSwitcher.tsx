@@ -25,6 +25,7 @@ export function ThemeSwitcher({
       onClick={toggle}
       aria-pressed={hydrated ? isDark : undefined}
       aria-label={isDark ? ariaLabelLight : ariaLabelDark}
+      data-testid="theme-toggle"
       className={cn(
         'inline-flex items-center justify-center w-11 h-11 rounded-md',
         'bg-surface border border-border hover:border-border-strong',

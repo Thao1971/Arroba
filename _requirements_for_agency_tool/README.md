@@ -125,3 +125,95 @@ Mientras estén pendientes, arroba.com usa mocks marcados con header `X-Source: 
 - Cabecera de respuesta: `X-Source: mock` (E1.1.5) → `real` cuando REQ-002 entre.
 - Seed script: `/app/backend/scripts/seed_platform_stats.py`.
 
+---
+
+### [REQ-003] Endpoint `copilot_search_real`
+
+- **Estado**: pending
+- **Emisor**: arroba.com (Etapa 1.3)
+- **Endpoint propuesto**: `POST /v1/skills/search` (o `GET /v1/search`).
+- **Payload (request)**:
+  ```json
+  {
+    "query": "kitchen studio madrid",
+    "filters": {
+      "sectors": ["software", "construcción"],
+      "cities": ["Madrid"],
+      "size": { "min_revenue": 1000000, "max_revenue": 50000000 },
+      "employees": { "min": 5, "max": 250 }
+    },
+    "context": {
+      "locale": "es",
+      "pathname": "/analizar",
+      "user_id": "user_xxx",
+      "org_id": "org_yyy"
+    },
+    "pagination": { "limit": 12, "offset": 0 },
+    "ranking": "default"
+  }
+  ```
+- **Respuesta esperada**: misma forma que `Workspace` actual:
+  ```json
+  {
+    "workspace": {
+      "workspace_id": "wsp_xxx",
+      "intent": "search",
+      "blocks": [
+        {
+          "type": "search_results",
+          "id": "blk_xxx",
+          "props": {
+            "query": "kitchen studio madrid",
+            "total": 47,
+            "results": [
+              {
+                "master_company_id": "mc_xxx",
+                "name": "Kitchen Studio",
+                "legal_name": "Kitchen Studio, S.L.",
+                "cif": "B86540112",
+                "sector": "Tecnología y software",
+                "city": "Madrid",
+                "score": 0.91
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "source": "real",
+    "query": "kitchen studio madrid"
+  }
+  ```
+- **Ranking**: score normalizado [0,1] mezclando relevancia textual + popularidad
+  + frescura de datos. Documentar el algoritmo en el response (header
+  `X-Ranking-Version: v1` recomendado).
+- **Paginación**: `limit` (default 12, max 50), `offset` (default 0). El campo
+  `total` siempre refleja el conteo completo, no la página.
+- **Filtros**: opcionales. El backend debe ser tolerante a filtros vacíos.
+- **Headers requeridos**: `X-Service-Key` (auth servicio-a-servicio).
+- **Headers de respuesta esperados**: `X-Source: real` cuando el adapter
+  consume al Agency Tool real.
+- **SLA objetivo**: < 400 ms p95 con texto + sin filtros; < 800 ms p95 con
+  filtros complejos.
+- **Cacheable**: parcial — query exacta + filtros en los últimos 60 s.
+- **Endpoint público**: SÍ (sin auth de usuario). El context lleva el `user_id`
+  para personalización, pero la búsqueda misma es pública.
+- **Criterios de aceptación**:
+  1. Devuelve resultados reales del Agency Tool (no fixtures).
+  2. Compatible con el shape actual (`Workspace > Block[]` discriminated union
+     por `type`).
+  3. Empty state cuando no hay matches: devuelve `EmptyStateBlock` con
+     sugerencias contextuales por sector/región.
+  4. Errores recuperables (5xx, timeout) devueltos como `ErrorBlock` con
+     `retry_intent: "search"`.
+  5. El adapter (`src/modules/copilot/service.py → execute_search`) sustituye
+     la query mongo por una llamada HTTPX al endpoint real **sin cambio de
+     firma**.
+
+#### Trazabilidad
+- Adapter mock: `/app/backend/src/modules/copilot/service.py` → `execute_search`.
+- Modelos del contrato Pydantic: `SearchSkillRequest`, `Workspace`, `BlockSpec`
+  en `src/modules/copilot/models.py`.
+- Endpoint cliente arroba.com: `POST /api/copilot/skills/search`.
+- Header de respuesta: `X-Source: mock` (E1.3) → `real` cuando REQ-003 entre.
+

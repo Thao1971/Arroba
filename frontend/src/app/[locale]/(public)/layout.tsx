@@ -3,13 +3,17 @@ import Link from 'next/link';
 import { ThemeSwitcher } from '@/components/ds';
 import { useTranslations } from 'next-intl';
 import { LocaleSwitcher } from './_components/LocaleSwitcher';
+import { CopilotProvider, CopilotDock } from '@/components/copilot';
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-text">
-      <PublicHeader />
-      <main className="flex-1">{children}</main>
-    </div>
+    <CopilotProvider>
+      <div className="min-h-screen flex flex-col bg-bg text-text">
+        <PublicHeader />
+        <main className="flex-1">{children}</main>
+        <CopilotDock />
+      </div>
+    </CopilotProvider>
   );
 }
 
