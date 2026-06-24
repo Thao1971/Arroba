@@ -167,13 +167,42 @@ los placeholders de los 3 workspaces principales.
 
 ## ⏳ Lo que sigue queda para E1.2+
 
-## 🎯 Etapa 1.2+ — Block Library v0 (pendiente)
+## ✅ Etapa 1.1.5 + E1.2 — Home pública + Block Library v0 (COMPLETADA)
 
-E1.2 abrirá la **Block Library v0** con 7 bloques (HeroBlock, MetricsBlock,
-TableBlock, ChartBlock, CompanyCardBlock, EmptyStateBlock —ya existe—,
-CTABlock). Cada bloque con contrato de props + 4 estados (loading/empty/error/
-unavailable). Referencia obligatoria del intake: `/app/_design_intake/Bloques
-Scores y Signals.html`.
+Primera entrega de bloques reusables + home pública que los consume.
+
+### Block Library v0 — 5 bloques
+
+| Bloque | Tipo | Estados soportados | Uso en home |
+|---|---|---|---|
+| `HeroBlock` | Configurable | static-only | hero principal + variant `banner` (moat) |
+| `CTABlock` | Configurable | static-only | CTA final |
+| `FeatureCardBlock` | Configurable | static-only | 3 movimientos, 5 capas, 6 oportunidades, 3 agent-ready |
+| `MetricsBlock` | **Configurable + Data** | loading · empty · error · unavailable · success | KPIs de la home (modo `data`) consumiendo `/api/agency-tool/platform-stats` |
+| `EmptyStateBlock` | Configurable | static (anticipo E1.1) | placeholders `/analizar /valorar /comprar-vender /perfil /ajustes` |
+
+Cada bloque expone `testId` configurable, raíz con `data-testid="block-{name}"`, soporta Light + Dark, tokens canónicos.
+
+### Componentes puntuales de home
+
+- **`PublicFooter`** — 7 logos institucionales (`INE`, `BOE·BORME`, `BdE`, `CNMV`, `Registradores`, `Comercio`, `Contratación`) en `/public/intake/logos/`. testid `public-footer-logo-{slug}`.
+- **`CopilotDemoMock`** — demo determinista pre-grabada (sin LLM). Script en `/src/components/home/copilot-demo-script.ts` con 4 chips (`shortlist`, `valuate`, `teasers`, `signals`), cada uno con respuesta + cards + citación con `✦`. El shape (`chip_id`, `user_message`, `copilot_response`, `cards`, `citation`) es **compatible con el protocolo Copilot real (E1.3)**.
+
+### Backend — endpoint `platform_stats`
+
+- `GET /api/agency-tool/platform-stats` — **público sin auth**, header `X-Source: mock`.
+- `POST/GET/PUT/DELETE /api/admin/agency-tool/platform-stats-mock` — admin CRUD (singleton).
+- `GET /api/agency-tool/status` — público, lista los adapters disponibles (incluye nuevo `platform_stats`).
+- Service: `get_platform_stats`, `upsert_platform_stats_mock`, `update_platform_stats_mock`, `delete_platform_stats_mock` en `src/modules/agency_tool_adapter/service.py`.
+- Modelo Pydantic `PlatformStats` con 8 campos + `last_updated`, `confidence`, `lineage`, `valid_until`, `source`.
+- Seed script `scripts/seed_platform_stats.py` (idempotente, upsert sobre `_key="singleton"`).
+- 9 tests específicos `tests/test_platform_stats.py` + 4 tests existentes actualizados (status now public, ya no requiere auth).
+
+### REQ-002 al Agency Tool
+
+Documentado en `/app/_requirements_for_agency_tool/README.md` con criterio explícito "**endpoint público SIN autenticación de usuario**" y mapeo al adapter actual.
+
+
 
 E1.3 entrega Copilot dock + Composer (port a React+TS desde
 `/_design_intake/assets/arroba-{copilot,composer}.js`), que sustituye los

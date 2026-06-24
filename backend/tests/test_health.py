@@ -41,9 +41,11 @@ async def test_openapi_lists_all_routers(client):
         "/api/invitations/{token}/accept",
         "/api/billing/health",
         "/api/agency-tool/status",
+        "/api/agency-tool/platform-stats",
         "/api/agency-tool/companies/{master_company_id}",
         "/api/admin/agency-tool/master-companies-mock",
         "/api/admin/agency-tool/master-companies-mock/{master_company_id}",
+        "/api/admin/agency-tool/platform-stats-mock",
     ]:
         assert required in paths, f"missing OpenAPI path: {required}"
     assert schema["info"]["x-stage"] == "E0.4"

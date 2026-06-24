@@ -111,3 +111,59 @@ class AdapterStatus(BaseModel):
 
 class StatusResponse(BaseModel):
     adapters: list[AdapterStatus]
+
+
+# =====================================================================
+# Platform stats — aggregate stats served on the PUBLIC home page
+# =====================================================================
+class PlatformStats(BaseModel):
+    """Aggregate platform statistics served on the PUBLIC home. Exposed without
+    auth so anonymous visitors see the value proposition. The contract is fixed
+    so the real Agency Tool (REQ-002) can swap in without frontend changes."""
+    model_config = ConfigDict(extra="forbid")
+    companies_with_intelligence: int
+    companies_with_financials: int
+    economic_metrics_total: int
+    corporate_movements: int
+    investors_and_funds: int
+    sectors_analyzed: int
+    companies_with_public_contracts: int
+    cross_sectors: int
+    last_updated: datetime
+    confidence: float = Field(ge=0.0, le=1.0)
+    lineage: Lineage
+    valid_until: datetime | None = None
+    source: str = "mock"
+
+
+class CreatePlatformStatsMockPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    companies_with_intelligence: int = Field(ge=0)
+    companies_with_financials: int = Field(ge=0)
+    economic_metrics_total: int = Field(ge=0)
+    corporate_movements: int = Field(ge=0)
+    investors_and_funds: int = Field(ge=0)
+    sectors_analyzed: int = Field(ge=0)
+    companies_with_public_contracts: int = Field(ge=0)
+    cross_sectors: int = Field(ge=0)
+    last_updated: datetime | None = None
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    lineage: Lineage = Lineage.raw
+    valid_until: datetime | None = None
+
+
+class UpdatePlatformStatsMockPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    companies_with_intelligence: int | None = Field(default=None, ge=0)
+    companies_with_financials: int | None = Field(default=None, ge=0)
+    economic_metrics_total: int | None = Field(default=None, ge=0)
+    corporate_movements: int | None = Field(default=None, ge=0)
+    investors_and_funds: int | None = Field(default=None, ge=0)
+    sectors_analyzed: int | None = Field(default=None, ge=0)
+    companies_with_public_contracts: int | None = Field(default=None, ge=0)
+    cross_sectors: int | None = Field(default=None, ge=0)
+    last_updated: datetime | None = None
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    lineage: Lineage | None = None
+    valid_until: datetime | None = None
+

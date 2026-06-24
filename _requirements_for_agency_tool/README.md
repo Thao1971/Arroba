@@ -66,3 +66,62 @@ Mientras estén pendientes, arroba.com usa mocks marcados con header `X-Source: 
   `GET /api/agency-tool/status`
 - Log marker en runtime: `[MOCK]` mientras dure el modo mock; cambiar a `[REAL]` cuando se haga el switch.
 - Cabecera de respuesta: `X-Source: mock` o `X-Source: real`.
+
+---
+
+### [REQ-002] Endpoint `platform_stats`
+
+- **Estado**: pending
+- **Emisor**: arroba.com (Etapa 1.1.5)
+- **Endpoint propuesto**: `GET /v1/platform_stats`
+- **Payload**: ninguno (solo cabeceras de servicio).
+- **Respuesta esperada**: misma estructura del endpoint mock actual en arroba.com.
+  Ver `PlatformStats` en `/app/backend/src/modules/agency_tool_adapter/models.py`.
+  ```json
+  {
+    "companies_with_intelligence": 5189,
+    "companies_with_financials": 5227,
+    "economic_metrics_total": 4197,
+    "corporate_movements": 39436,
+    "investors_and_funds": 2075,
+    "sectors_analyzed": 87,
+    "companies_with_public_contracts": 61264,
+    "cross_sectors": 88,
+    "last_updated": "2026-06-24T09:00:00Z",
+    "confidence": 1.0,
+    "lineage": "raw",
+    "valid_until": null,
+    "source": "real"
+  }
+  ```
+- **Headers requeridos**: `X-Service-Key: <token>` (auth servicio-a-servicio).
+- **Headers de respuesta esperados**: el cliente arroba.com renvía a la home con
+  `X-Source: real` cuando el adapter consume al Agency Tool real (mientras tanto
+  emite `X-Source: mock`).
+- **SLA objetivo**: < 200 ms p95. Es endpoint público de home — impacta conversión.
+- **Cacheable**: sí, TTL configurable (sugerido 5-15 min, alineado a la frecuencia
+  real de actualización agregada).
+- **Criterio de aceptación**:
+  1. Devuelve métricas agregadas reales y actualizadas (NO datos sintéticos).
+  2. **Endpoint público SIN autenticación de usuario** (la home de arroba.com es
+     pública y este endpoint la consume).
+  3. `confidence`, `lineage` y `valid_until` con valores reales (no
+     placeholders).
+  4. El adapter de arroba.com (`get_platform_stats` en
+     `/app/backend/src/modules/agency_tool_adapter/service.py`) puede sustituir
+     la implementación mock por un cliente HTTPX real **sin cambio de firma**.
+- **Cuándo lo necesitamos**: tan pronto como el Agency Tool lo entregue. La home
+  funciona con mock hasta entonces.
+- **Bloqueador para arroba.com**: No. Mientras tanto el adapter consume desde
+  `platform_stats_mock` (singleton) seedeado con
+  `scripts/seed_platform_stats.py` y editable vía `POST/PUT/DELETE
+  /api/admin/agency-tool/platform-stats-mock` (admin).
+
+#### Trazabilidad
+- Adapter mock: `/app/backend/src/modules/agency_tool_adapter/service.py` →
+  `get_platform_stats`.
+- Documento de contrato Pydantic: `PlatformStats` en `models.py`.
+- Endpoint cliente arroba.com (público, sin auth): `GET /api/agency-tool/platform-stats`.
+- Cabecera de respuesta: `X-Source: mock` (E1.1.5) → `real` cuando REQ-002 entre.
+- Seed script: `/app/backend/scripts/seed_platform_stats.py`.
+

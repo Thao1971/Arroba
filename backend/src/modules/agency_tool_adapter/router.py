@@ -4,24 +4,51 @@ from src.modules.agency_tool_adapter import service
 from src.modules.agency_tool_adapter.dependencies import get_admin_user, get_current_user
 from src.modules.agency_tool_adapter.models import (
     CreateMasterCompanyMockPayload,
+    CreatePlatformStatsMockPayload,
     EnrichedCompany,
+    PlatformStats,
     Profile,
     StatusResponse,
     UpdateMasterCompanyMockPayload,
+    UpdatePlatformStatsMockPayload,
 )
 from src.modules.auth.models import UserPublic
 
 # ====================================================================
-# Public surface (any authenticated user)
+# Public surface — UNAUTHENTICATED endpoints (visible to anonymous home)
+# ====================================================================
+public_anon_router = APIRouter(prefix="/agency-tool", tags=["agency-tool"])
+
+
+@public_anon_router.get(
+    "/platform-stats",
+    response_model=PlatformStats,
+    responses={
+        200: {
+            "description": (
+                "Aggregate platform stats. Public (no auth) — rendered on the "
+                "anonymous home page. `X-Source` header indicates mock vs real."
+            )
+        },
+        404: {"description": "Stats singleton not seeded yet."},
+    },
+)
+async def get_platform_stats(response: Response) -> PlatformStats:
+    data = await service.get_platform_stats()
+    response.headers["X-Source"] = data.source
+    return data
+
+
+@public_anon_router.get("/status", response_model=StatusResponse)
+async def get_status() -> StatusResponse:
+    """Public listing of which adapters are mock vs real. No auth needed."""
+    return await service.status()
+
+
+# ====================================================================
+# Public surface — AUTHENTICATED endpoints (any logged-in user)
 # ====================================================================
 public_router = APIRouter(prefix="/agency-tool", tags=["agency-tool"])
-
-
-@public_router.get("/status", response_model=StatusResponse)
-async def get_status(
-    _user: UserPublic = Depends(get_current_user),
-) -> StatusResponse:
-    return await service.status()
 
 
 @public_router.get(
@@ -94,3 +121,34 @@ async def admin_delete(
     _admin: UserPublic = Depends(get_admin_user),
 ) -> dict:
     return await service.delete_master_company_mock(master_company_id)
+
+
+# ----- platform_stats_mock (singleton) -----
+@admin_router.post("/platform-stats-mock", status_code=201)
+async def admin_platform_stats_upsert(
+    payload: CreatePlatformStatsMockPayload,
+    admin: UserPublic = Depends(get_admin_user),
+) -> dict:
+    return await service.upsert_platform_stats_mock(payload, updated_by=admin.user_id)
+
+
+@admin_router.get("/platform-stats-mock")
+async def admin_platform_stats_get(
+    _admin: UserPublic = Depends(get_admin_user),
+) -> dict:
+    return await service._get_platform_stats_doc()
+
+
+@admin_router.put("/platform-stats-mock")
+async def admin_platform_stats_update(
+    payload: UpdatePlatformStatsMockPayload,
+    admin: UserPublic = Depends(get_admin_user),
+) -> dict:
+    return await service.update_platform_stats_mock(payload, updated_by=admin.user_id)
+
+
+@admin_router.delete("/platform-stats-mock")
+async def admin_platform_stats_delete(
+    _admin: UserPublic = Depends(get_admin_user),
+) -> dict:
+    return await service.delete_platform_stats_mock()

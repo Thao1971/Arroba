@@ -1,1 +1,10 @@
+export { CTABlock } from './CTABlock';
+export type { CTABlockProps, CTAAction } from './CTABlock';
 export { EmptyStateBlock } from './EmptyStateBlock';
+export type { EmptyStateBlockProps } from './EmptyStateBlock';
+export { FeatureCardBlock } from './FeatureCardBlock';
+export type { FeatureCardBlockProps } from './FeatureCardBlock';
+export { HeroBlock } from './HeroBlock';
+export type { HeroBlockProps } from './HeroBlock';
+export { MetricsBlock } from './MetricsBlock';
+export type { Metric, MetricTrend, MetricsBlockProps } from './MetricsBlock';

@@ -10,6 +10,7 @@ import type {
   LoginPayload,
   MeResponse,
   OrgWithMembership,
+  PlatformStats,
   RegisterPayload,
   SessionExchangePayload,
 } from './types';
@@ -92,6 +93,11 @@ export const apiClient = {
         body: JSON.stringify(payload),
       }),
     mine: () => request<OrgWithMembership[]>('/api/organizations/mine'),
+  },
+  agencyTool: {
+    /** Public — unauthenticated home page consumer. Throws ApiError(404) when
+     *  the singleton is not seeded yet. */
+    platformStats: () => request<PlatformStats>('/api/agency-tool/platform-stats'),
   },
 };
 

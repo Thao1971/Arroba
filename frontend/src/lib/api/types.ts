@@ -97,3 +97,23 @@ export interface CreateOrgResponse {
   org: OrgPublic;
   membership: MembershipPublic;
 }
+
+// ===================== Agency Tool =====================
+
+export type Lineage = 'raw' | 'normalized' | 'inferred' | 'ai_generated';
+
+export interface PlatformStats {
+  companies_with_intelligence: number;
+  companies_with_financials: number;
+  economic_metrics_total: number;
+  corporate_movements: number;
+  investors_and_funds: number;
+  sectors_analyzed: number;
+  companies_with_public_contracts: number;
+  cross_sectors: number;
+  last_updated: string;
+  confidence: number;
+  lineage: Lineage;
+  valid_until: string | null;
+  source: string;
+}

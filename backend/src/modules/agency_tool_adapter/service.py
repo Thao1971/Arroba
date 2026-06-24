@@ -28,13 +28,16 @@ except ImportError:  # pragma: no cover
 from src.modules.agency_tool_adapter.models import (
     AdapterStatus,
     CreateMasterCompanyMockPayload,
+    CreatePlatformStatsMockPayload,
     EnrichedCompany,
     Financials,
     Lineage,
     MasterCompanyMockInDB,
+    PlatformStats,
     Profile,
     StatusResponse,
     UpdateMasterCompanyMockPayload,
+    UpdatePlatformStatsMockPayload,
     new_master_company_id,
 )
 
@@ -94,9 +97,117 @@ async def status() -> StatusResponse:
                     "Mock implementation reads from master_companies_mock collection."
                     " Switch to real when Agency Tool delivers REQ-001."
                 ),
-            )
+            ),
+            AdapterStatus(
+                name=PLATFORM_STATS_NAME,
+                mode=ADAPTER_MODE,
+                since="2026-06-24",
+                endpoint_when_real="GET https://agency-tool/v1/platform_stats",
+                note=(
+                    "Mock implementation reads from platform_stats_mock singleton."
+                    " Switch to real when Agency Tool delivers REQ-002."
+                ),
+            ),
         ]
     )
+
+
+# =====================================================================
+# Platform stats — public read + admin CRUD over platform_stats_mock
+# =====================================================================
+PLATFORM_STATS_NAME = "platform_stats"
+PLATFORM_STATS_KEY = "singleton"  # only ONE document per arroba.com deployment
+
+
+async def get_platform_stats() -> PlatformStats:
+    """PUBLIC read. Anonymous visitors see this on the home page."""
+    db = get_db()
+    doc = await db.platform_stats_mock.find_one({"_key": PLATFORM_STATS_KEY}, {"_id": 0})
+    if not doc:
+        raise NotFoundError("platform_stats_not_seeded", code="platform_stats_not_seeded")
+    log.info("[MOCK] agency_tool.get_platform_stats", source=ADAPTER_MODE)
+    return PlatformStats(
+        companies_with_intelligence=int(doc["companies_with_intelligence"]),
+        companies_with_financials=int(doc["companies_with_financials"]),
+        economic_metrics_total=int(doc["economic_metrics_total"]),
+        corporate_movements=int(doc["corporate_movements"]),
+        investors_and_funds=int(doc["investors_and_funds"]),
+        sectors_analyzed=int(doc["sectors_analyzed"]),
+        companies_with_public_contracts=int(doc["companies_with_public_contracts"]),
+        cross_sectors=int(doc["cross_sectors"]),
+        last_updated=_as_dt(doc["last_updated"]),
+        confidence=float(doc.get("confidence", 1.0)),
+        lineage=Lineage(doc.get("lineage", "raw")),
+        valid_until=_as_dt(doc.get("valid_until")) if doc.get("valid_until") else None,
+        source=ADAPTER_MODE,
+    )
+
+
+async def upsert_platform_stats_mock(
+    payload: "CreatePlatformStatsMockPayload", updated_by: str
+) -> dict[str, Any]:
+    """Admin write. Either creates the singleton or replaces all of its fields."""
+    db = get_db()
+    data = payload.model_dump(mode="json", exclude_none=True)
+    now = datetime.now(UTC)
+    data["last_updated"] = data.get("last_updated") or now
+    data["_key"] = PLATFORM_STATS_KEY
+    data["updated_at"] = now
+    data["updated_by"] = updated_by
+    await db.platform_stats_mock.update_one(
+        {"_key": PLATFORM_STATS_KEY}, {"$set": data}, upsert=True
+    )
+    log.info("[MOCK] agency_tool.upsert_platform_stats_mock", updated_by=updated_by)
+    return await _get_platform_stats_doc()
+
+
+async def update_platform_stats_mock(
+    payload: "UpdatePlatformStatsMockPayload", updated_by: str
+) -> dict[str, Any]:
+    """Partial admin update."""
+    db = get_db()
+    patch = payload.model_dump(mode="json", exclude_none=True)
+    if not patch:
+        return await _get_platform_stats_doc()
+    patch["updated_at"] = datetime.now(UTC)
+    patch["updated_by"] = updated_by
+    if "last_updated" not in patch:
+        patch["last_updated"] = patch["updated_at"]
+    res = await db.platform_stats_mock.update_one(
+        {"_key": PLATFORM_STATS_KEY}, {"$set": patch}
+    )
+    if res.matched_count == 0:
+        raise NotFoundError("platform_stats_not_seeded", code="platform_stats_not_seeded")
+    log.info("[MOCK] agency_tool.update_platform_stats_mock", updated_by=updated_by)
+    return await _get_platform_stats_doc()
+
+
+async def delete_platform_stats_mock() -> dict[str, str]:
+    db = get_db()
+    res = await db.platform_stats_mock.delete_one({"_key": PLATFORM_STATS_KEY})
+    if res.deleted_count == 0:
+        raise NotFoundError("platform_stats_not_seeded", code="platform_stats_not_seeded")
+    return {"deleted": PLATFORM_STATS_KEY}
+
+
+async def _get_platform_stats_doc() -> dict[str, Any]:
+    db = get_db()
+    doc = await db.platform_stats_mock.find_one({"_key": PLATFORM_STATS_KEY}, {"_id": 0})
+    if not doc:
+        raise NotFoundError("platform_stats_not_seeded", code="platform_stats_not_seeded")
+    for k in ("last_updated", "updated_at", "valid_until"):
+        v = doc.get(k)
+        if isinstance(v, datetime):
+            doc[k] = v.isoformat()
+    return doc
+
+
+def _as_dt(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    raise TypeError(f"unsupported datetime value: {value!r}")
 
 
 # =====================================================================
