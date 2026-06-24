@@ -1,0 +1,92 @@
+{
+  "summary": "E1.5-REWORK (Entity First + Copilot Transversal) end-to-end verification on /empresa/B86540112 with buyer@arroba.com / Arroba2026!. CORE P0 FLOW PASSES: the Copilot Dock query 'Háblame de los riesgos principales' triggers POST /api/companies/{cif}/messages → 200 with section_updates length=1 → CustomEvent fires → block-narrative updates IN-PLACE with risk-specific content (32 empleados, Madrid, margen EBITDA 20%, ausencia de datos sobre deuda/churn) and the URL stays at /empresa/B86540112 (no /w/ navigation, no parallel page generation — philosophy respected). Most regression flows pass (header toasts Próximamente E1.8/E1.9, watchlist toggle + Compartir-con-equipo dependent disabled state, /historial loads with persisted workspaces, anonymous access shows all 5 LockedSectionBlur teasers with correct /registro and /login CTAs, trivial query 'Hola' does NOT touch any section). TWO REGRESSIONS FOUND: (1) the 'Refrescar análisis' button does not lock client-side after the first click — backend rate-limit endpoint returns 429 correctly but the UI keeps the button enabled with the same label, so the spec'd UX ('Espera Ns' + disabled) is broken; (2) the toast data-testid='arroba-toast-success' never renders after a section_update — neither for the P0 narrative refresh nor any other update.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CompanyHeader / RefreshAnalysisButton",
+        "issue": "After clicking 'Refrescar análisis' (HTTP 200), the button remains enabled with label '↺ Refrescar análisis'. Spec requires the button to disable and show 'Espera Ns' for the rate-limit window (backend confirms 60s window, returning 429 with body summary 'Espera 40s.' on immediate retry). Without the client lock, users can spam the button and only learn about the cooldown after the 2nd network round-trip.",
+        "selector": "[data-testid=\"company-refresh-analysis\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Toast / arroba-toast-success",
+        "issue": "Spec says: 'Debería aparecer un toast «Sección «narrative» actualizada» (data-testid=arroba-toast-success)' after a Copilot reply that mutates a section. In testing the toast NEVER appears (count=0) even though the narrative block was visibly updated in-place. The success path is silent — users may miss that the ficha was patched.",
+        "selector": "[data-testid=\"arroba-toast-success\"]",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": {
+    "flow_P0_chat_reactivity": [
+      "Login buyer@arroba.com → POST /api/auth/login → 200 ✓",
+      "/empresa/B86540112 renders with block-narrative, copilot-dock-fab, company-header-actions, company-refresh-analysis ✓",
+      "Dock opens; header reads '✦ Company Advisor' ✓",
+      "Composer accepts 'Háblame de los riesgos principales' ✓",
+      "POST /api/companies/B86540112/messages → 200, section_updates length=1 (section+block keys) ✓",
+      "block-narrative content UPDATED IN-PLACE: 'He actualizado la sección Análisis con los riesgos principales … 32 empleados … Madrid … margen EBITDA del 20% … ausencia de datos sobre deuda, churn o concentración de clientes …' ✓",
+      "URL stays at /empresa/B86540112 (never navigates to /w/) ✓"
+    ],
+    "regression_header": [
+      "Toast 'Solicitar valoración avanzada — Próximamente: E1.8' shown on click ✓",
+      "Toast '✦ Activar oportunidad — Próximamente: E1.9' shown on click ✓",
+      "[data-testid=company-action-watchlist] toggles Guardar en cartera ⇄ En tu cartera ✓",
+      "'Compartir con equipo' is DISABLED while not in watchlist and ENABLED once in watchlist ✓"
+    ],
+    "regression_rate_limit_backend": [
+      "POST /api/companies/B86540112/skills/analyze #1 → 200 ✓",
+      "POST /api/companies/B86540112/skills/analyze #2 immediate → 429 with body {block.props.summary:'Espera 40s.'} ✓"
+    ],
+    "regression_anonymous": [
+      "Without session, /empresa/B86540112 renders LockedSectionBlur teasers: company-score-locked, company-comparables-locked, company-valuation-locked, company-narrative-locked, company-actions-locked (5/5) ✓",
+      "company-refresh-analysis NOT present for anon (count=0) ✓",
+      "company-score-locked-cta-register href=/registro ✓",
+      "company-score-locked-cta-login href=/login ✓"
+    ],
+    "regression_historial": [
+      "/historial loads for buyer@arroba.com, lists multiple persisted Kitchen Studio workspaces (Análisis / Privado, 'hace 2 h') ✓"
+    ],
+    "trivial_query_no_section_update": [
+      "POST /messages with content='Hola' → 200, section_updates count=0 ✓",
+      "block-narrative text unchanged after 'Hola' ✓",
+      "No arroba-toast-success shown (correctly) ✓",
+      "Dock thread shows conversational reply '¡Hola! Soy Company Advisor… ¿En qué puedo ayudarte?' — no inline blocks in the thread ✓"
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_34.json"
+  ],
+  "action_items": [
+    "Wire the 'Refrescar análisis' button to lock client-side immediately after the first click (optimistic disable for the 60s window) and reflect the 429 'Espera Ns' label coming back from the backend body. Today the backend returns the Retry-After header and a parseable body, but RefreshAnalysisButton ignores them.",
+    "Surface a success toast (data-testid='arroba-toast-success') when CompanyPageClient receives the arroba:company-section-update CustomEvent and at least one section was patched. Without this confirmation the chat→ficha mutation is silent. Spec literal: 'Sección «narrative» actualizada'.",
+    "Optional: trivial queries that produce zero section_updates should NOT need a toast — current behavior is correct, just keep the toast gated on len(section_updates) > 0."
+  ],
+  "critical_code_review_comments": [
+    "Backend send_message response shape: section_updates items carry keys {section, block} (no top-level id). The frontend handler in CompanyPageClient must rely on the `section` discriminator — confirmed it does (applySectionUpdates is keyed by section). OK.",
+    "Backend advisor fallback _ensure_section_update_when_needed verified live: a query mentioning 'riesgos' now reliably produces a section_updates entry even if the LLM omits it (was the P0 bug). Fix works end-to-end.",
+    "Frontend RefreshAnalysisButton: missing client-side cooldown state (setBusy/cooldown timer driven from Retry-After). This is a UX regression vs spec.",
+    "Frontend CompanyPageClient: the arroba:company-section-update listener dispatches setSections but does not call the toast helper. Add a single toast call gated on detail.section_updates.length > 0."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend_curl": "5/5 (login, messages-riesgos, skills/analyze 200, skills/analyze 429, messages-Hola)",
+    "frontend_e2e": "6/7 flows pass — P0 narrative reactivity, header toasts, watchlist+share dependency, anon teasers+CTAs, historial, trivial-query — fail: refresh button client lock, missing arroba-toast-success"
+  },
+  "test_credentials": {
+    "buyer": "buyer@arroba.com / Arroba2026! (org_a720ff5087aa, role subscriber)"
+  },
+  "seed_data_creation": "No new seed data. Watchlist for buyer on B86540112 was toggled but restored to its prior state ('En tu cartera') before exit. /skills/analyze was hit twice which warmed the 60s rate-limit window for buyer+B86540112 — re-running refresh tests within 60s will see HTTP 429.",
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  },
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use BASE=https://musing-hellman-9.preview.emergentagent.com (the REACT_APP_BACKEND_URL in handoffs may be stale). Buyer login is solid via POST /api/auth/login. The fix that's confirmed working: advisor _ensure_section_update_when_needed forces section_updates on risk/oppty/análisis queries so the ficha mutates even if Claude omits the block. The TWO remaining regressions are pure-frontend: (1) RefreshAnalysisButton lacks a client cooldown — backend already returns 429 + Retry-After + body 'Espera Ns', the UI just needs to consume it; (2) the success toast for section_update is never dispatched — add it in the CustomEvent handler in CompanyPageClient when detail.section_updates?.length > 0.",
+  "rca_of_the_issue": "P0 bug from previous iteration ('Claude returns section_updates=[] for risk queries → ficha never updates → chat appears hung') is RESOLVED. End-to-end confirmation: query 'Háblame de los riesgos principales' on Kitchen Studio yields section_updates length=1 with a narrative block that cites 32 empleados, Madrid, margen EBITDA 20%, and the gaps in deuda/churn data; the frontend's window.dispatchEvent(arroba:company-section-update) flows into setSections(applySectionUpdates(prev, updates)) and the block-narrative DOM is patched without any route change. Remaining issues are cosmetic/UX-only and listed above."
+}
