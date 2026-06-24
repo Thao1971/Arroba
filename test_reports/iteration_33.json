@@ -1,0 +1,82 @@
+{
+  "summary": "E1.5 'Seguir trabajando' bug NOT fully fixed. Backend pytest (18/18 workspace tests) PASS and curl items 1-4 PASS in isolation, but the live E2E from the frontend produces HTTP 500 → 'Internal Server Error (HTTP 500)' shown under the button. RCA confirmed: the fix that swapped block_id from server-generated to client-supplied (b.id) collides with the unique index on workspace_blocks.block_id, causing pymongo.errors.BulkWriteError E11000. The traceback also exposes a secondary bug in the global exception handler (the BulkWriteError contains BSON bytes that crash JSONResponse render, producing the unhelpful bare 500). Tests 5,6 BLOCKED by the 500; test 7 (team share) PASS via curl.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/workspaces",
+        "issue": "DuplicateKeyError E11000 on workspace_blocks.block_id_1 when the client re-uses an ephemeral block id across sessions (e.g. 'blk_h1'). After the E1.5 fix `block_id` is persisted from `b.id` (client) instead of `new_block_id()` (server), but Mongo enforces a global UNIQUE index on `block_id` alone. Every 2nd 'Seguir trabajando' from any browser session that emits the same client id returns 500.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "global exception handler (src/core/exceptions.py / starlette base middleware)",
+        "issue": "Uncaught exceptions whose repr/args contain bytes (BSON Binary, ObjectId raw, DuplicateKeyError details) crash the default 500 renderer with 'TypeError: Object of type bytes is not JSON serializable', leaking a bare 'Internal Server Error' to the client. Add a catch-all handler that returns a sanitized JSON 500 (and consider catching BulkWriteError / DuplicateKeyError specifically and translating to 409).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Copilot Dock → Seguir trabajando → /w/{id}",
+        "issue": "Button surfaces 'Internal Server Error (HTTP 500)' under the button instead of navigating. The router.push('/w/${workspaceId}') change is correct, but never executes because promoteToWorkspace() throws ApiError 500 first.",
+        "affected_selectors": ["[data-testid=copilot-open-workspace]", "[data-testid=copilot-open-workspace-error]"]
+      }
+    ],
+    "design_issues": []
+  },
+  "passed_tests": {
+    "backend_pytest": "18/18 in /app/backend/tests/test_workspaces.py PASS (includes round_trip_block_id and rejects_block_without_id added in this iteration).",
+    "curl_tests": [
+      "TEST 1 — POST /api/workspaces with fresh ids: 201 + url='/w/wsp_e42bf7efc236' (no /es/) ✓",
+      "TEST 2 — GET round-trips block_ids ['blk_h1','blk_m1'] exactly ✓",
+      "TEST 3 — POST with block missing id → 422, loc mentions 'id' ✓",
+      "TEST 4 — OpenAPI EphemeralBlock has 'id' in required and includes description ✓",
+      "TEST 7 — buyer share team → seller can GET workspace + appears in /api/workspaces?include_shared=true ✓"
+    ],
+    "playwright": [
+      "Login buyer@arroba.com / Arroba2026! ✓",
+      "Copilot dock opens; composer accepts 'Analiza Kitchen Studio' ✓",
+      "block-company-card renders after Claude analyze ✓",
+      "Seguir trabajando button visible after user+assistant pair ✓"
+    ],
+    "failed_playwright": [
+      "Click Seguir trabajando → expected navigation to /w/{id} → received Internal Server Error (HTTP 500) shown under button (screenshot captured).",
+      "Test 6 (extend with 'valora Kitchen Studio') BLOCKED — never reached workspace page."
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_workspaces.py",
+    "/app/test_reports/pytest/"
+  ],
+  "action_items": [
+    "FIX #1 (root cause of the live 500): make block_id unique per workspace, NOT globally. Either (a) drop the unique index on `block_id` alone and add compound unique `(workspace_id, block_id)`, OR (b) persist a server-side `block_id = new_block_id()` for storage and keep `client_block_id = b.id` as a non-unique echo field, returning `client_block_id` as `block_id` in GET responses, OR (c) namespace storage id as `f'{workspace_id}:{b.id}'`. Then re-test from the frontend: the same client ids must work across many promotions.",
+    "FIX #2 (secondary, ergonomic): in the global error path, catch pymongo BulkWriteError / DuplicateKeyError and return 409 with a JSON-safe body. Also harden the catch-all 500 renderer to coerce non-serializable values to repr(...) so we never leak a bare 'Internal Server Error'.",
+    "FIX #3 (test gap): add a backend regression that creates two workspaces back-to-back from the same user with overlapping `b.id` values — this would have caught the live bug. Current `test_create_workspace_round_trips_block_id` only creates ONE workspace.",
+    "FIX #4 (test gap): the Playwright frontend test added (open-workspace-button.test.tsx) probably mocks the API and so missed the duplicate-key path. Add an integration test that actually POSTs to /api/workspaces twice with the same client ids."
+  ],
+  "critical_code_review_comments": [
+    "Backend src/modules/workspaces/service.py:244 — `'block_id': b.id` violates the global UNIQUE index on block_id. Either the index assumption or this line must change.",
+    "Backend src/core/exceptions.py:43 — there is no `@app.exception_handler(Exception)` catch-all that produces a JSON 500. Any uncaught exception whose args contain bytes (very common with pymongo) yields the misleading TypeError chain and a plain-text 500 — this masked the real bug for the test that 'passed' isolated.",
+    "Backend service.py:267 `_workspace_url` correctly returns `/w/{id}` (locale-less) — verified.",
+    "Frontend OpenWorkspaceButton.tsx:41 — `router.push('/w/${workspaceId}')` correct, surfaces ApiError detail+status. Code is fine; it just never gets to push because the API errors first.",
+    "Frontend CopilotProvider.tsx:338-344 — `b.id` is taken from the in-memory block; if the renderer assigns deterministic short ids (e.g. `blk_hero_<n>`), they will collide across sessions. This is the root user-visible symptom."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend_pytest": "100% (18/18 test_workspaces.py) but the green tests don't exercise the duplicate-id path",
+    "backend_curl_live": "5/5 isolated cases PASS; the live frontend payload reproducibly returns 500",
+    "frontend_e2e": "Partial: login + dock + analyze OK; Seguir trabajando fails; extend (test 6) blocked"
+  },
+  "test_credentials": {
+    "buyer": "buyer@arroba.com / Arroba2026! (org_a720ff5087aa)",
+    "seller": "seller@arroba.com / Arroba2026! (same org)"
+  },
+  "seed_data_creation": "Created workspaces wsp_e42bf7efc236 (curl, shared team) and wsp_a340c4e6460c (curl) and several wsp_* from Playwright attempts. block_id 'blk_h1' is now persisted globally, so any future call with `id:'blk_h1'` will keep failing until FIX #1 is applied or the row is removed.",
+  "mocked_apis": { "has_mocked_apis": false, "mocked_apis_list": [] },
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reproduce instantly with: curl -X POST <BASE>/api/workspaces -H 'Content-Type: application/json' -b cookies -d '{\"ephemeral_state\":{\"messages\":[{\"role\":\"user\",\"content\":\"x\"},{\"role\":\"assistant\",\"content\":\"y\"}],\"blocks\":[{\"id\":\"blk_h1\",\"type\":\"hero\",\"props\":{}}]},\"workspace_type\":\"analyze\",\"title\":null,\"organization_id\":\"org_a720ff5087aa\"}' → 500. mongosh shows `db.workspace_blocks.getIndexes()` includes `{key:{block_id:1}, unique:true}`. Real Mongo error visible in /var/log/supervisor/backend.err.log: E11000 duplicate key error collection: arroba_com.workspace_blocks index: block_id_1.",
+  "rca of the issue": "ROOT CAUSE: arroba_com.workspace_blocks has a UNIQUE index on `block_id` alone. The E1.5 fix changed `service.create_workspace` to persist `block_id = b.id` (client-supplied) instead of `new_block_id()`. Client-supplied ids are NOT globally unique (frontend reuses them: e.g. 'blk_h1' on every promotion), so the second and subsequent inserts raise pymongo.errors.BulkWriteError E11000. The exception is not handled, the default 500 path tries to JSON-serialize the BulkWriteError details which contain ObjectId/datetime/bytes in BSON form, triggering 'TypeError: Object of type bytes is not JSON serializable'. The client sees an opaque 'Internal Server Error (HTTP 500)' and the user's URL stays at /es (well actually at /organizaciones) because router.push never runs. REPRODUCTION STEPS: (1) login buyer, (2) open dock, (3) Analiza Kitchen Studio, (4) click Seguir trabajando. MITIGATION: change unique index to compound (workspace_id, block_id) — this preserves the idempotency intent (sent id == returned id within a workspace) without colliding across workspaces. Also add a global exception handler and a DuplicateKeyError handler."
+}

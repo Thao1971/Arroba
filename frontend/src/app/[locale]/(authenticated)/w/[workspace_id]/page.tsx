@@ -90,7 +90,7 @@ export default function WorkspaceDetailPage() {
         return;
       }
       notify('warn', 'Has cambiado de organización. Este workspace pertenece a otra a la que no tienes acceso.');
-      router.replace('/es/historial');
+      router.replace('/historial');
     }
   }, [data, activeOrgId, availableOrgs, setActiveOrgId, router]);
 
@@ -144,7 +144,7 @@ export default function WorkspaceDetailPage() {
       className="max-w-3xl mx-auto px-6 py-8"
     >
       <Link
-        href="/es/historial"
+        href="/historial"
         className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text mb-4"
         data-testid="workspace-detail-back"
       >
@@ -274,7 +274,7 @@ function NotFoundOrForbidden({ testId, message }: { testId: string; message: str
     >
       <h2 className="font-display font-semibold text-xl text-text">{message}</h2>
       <Link
-        href="/es/historial"
+        href="/historial"
         className="text-sm text-primary font-semibold"
       >
         Ver tu historial →
@@ -347,7 +347,7 @@ function WorkspaceHeader({
     try {
       await apiClient.workspaces.archive(workspaceId);
       notify('success', 'Workspace archivado.');
-      router.push('/es/historial');
+      router.push('/historial');
     } catch {
       notify('error', 'No hemos podido archivar.');
     } finally {

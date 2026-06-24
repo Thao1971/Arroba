@@ -119,7 +119,7 @@ export default function HistoryPage() {
           {items.map((w) => (
             <li key={w.workspace_id}>
               <Link
-                href={`/es/w/${w.workspace_id}`}
+                href={`/w/${w.workspace_id}`}
                 data-testid={`history-card-${w.workspace_id}`}
                 className="group block h-full rounded-xl border border-border bg-surface p-4 hover:border-primary transition-colors"
               >

@@ -110,7 +110,14 @@ def _auto_title_from_query(query: str) -> str:
 
 
 def _workspace_url(workspace_id: str, locale: str = "es") -> str:
-    return f"/{locale}/w/{workspace_id}"
+    """Returns the canonical visible URL for the workspace.
+
+    With `next-intl` configured to `localePrefix: 'never'` (see frontend
+    middleware), the locale never appears in the visible URL. We keep the
+    `locale` arg for future flexibility but DO NOT inject it into the path.
+    """
+    _ = locale  # reserved for future per-locale routing
+    return f"/w/{workspace_id}"
 
 
 def _project_workspace(doc: dict[str, Any]) -> Workspace:
@@ -232,7 +239,9 @@ async def create_workspace(
     for idx, b in enumerate(payload.ephemeral_state.blocks):
         block_docs.append(
             {
-                "block_id": new_block_id(),
+                # Round-trip the client-generated id so the frontend can keep
+                # tracking the same block across the ephemeral→persistent boundary.
+                "block_id": b.id,
                 "workspace_id": wsid,
                 "message_id": last_assistant_mid,
                 "type": b.type,

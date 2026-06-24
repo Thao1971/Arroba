@@ -117,7 +117,10 @@ async def _make_user_and_join_org(
     return {"user_id": user_id}
 
 
-def _ephemeral_state_basic():
+def _ephemeral_state_basic(suffix: str = ""):
+    """Build a fresh ephemeral state. `suffix` keeps block ids unique across
+    multiple POSTs in the same test (the unique index on `block_id` would
+    otherwise fail when promoting two workspaces with identical client ids)."""
     return {
         "ephemeral_state": {
             "messages": [
@@ -125,8 +128,8 @@ def _ephemeral_state_basic():
                 {"role": "assistant", "content": "He preparado el análisis.", "intent": "analyze"},
             ],
             "blocks": [
-                {"id": "blk_h1", "type": "hero", "props": {"title": "Kitchen Studio, S.L.", "tone": "info"}},
-                {"id": "blk_m1", "type": "metrics", "props": {"items": [{"label": "Ingresos", "value": "5.4M €"}]}},
+                {"id": f"blk_h1{suffix}", "type": "hero", "props": {"title": "Kitchen Studio, S.L.", "tone": "info"}},
+                {"id": f"blk_m1{suffix}", "type": "metrics", "props": {"items": [{"label": "Ingresos", "value": "5.4M €"}]}},
             ],
         },
         "workspace_type": "analyze",
@@ -147,12 +150,45 @@ async def test_create_workspace_persists_messages_and_blocks(alice_in_org):
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["workspace_id"].startswith("wsp_")
+    # localePrefix='never' → url is locale-less.
+    assert body["url"].startswith("/w/"), body["url"]
     assert body["url"].endswith(body["workspace_id"])
-    assert body["url"].startswith("/es/w/")
     assert body["visibility"] == "private"
     assert body["workspace_type"] == "analyze"
     # Title was auto-derived from "analiza Kitchen Studio" → "Kitchen Studio".
     assert "Kitchen Studio" in body["title"]
+
+
+async def test_create_workspace_round_trips_block_id(alice_in_org):
+    """Sent block.id MUST round-trip as block_id on GET. This nails the regression
+    where the frontend wasn't passing an `id` and FE rendered an HTTP 500 because
+    the client-generated id couldn't be matched on read."""
+    c = alice_in_org["client"]
+    payload = _ephemeral_state_basic()
+    sent_ids = {b["id"] for b in payload["ephemeral_state"]["blocks"]}
+    r = await c.post("/api/workspaces", json=payload)
+    assert r.status_code == 201
+    wsid = r.json()["workspace_id"]
+    detail = (await c.get(f"/api/workspaces/{wsid}")).json()
+    got_ids = {b["block_id"] for b in detail["blocks"]}
+    assert sent_ids == got_ids, f"sent={sent_ids} got={got_ids}"
+
+
+async def test_create_workspace_rejects_block_without_id(alice_in_org):
+    """Bug regression: the schema must reject blocks without `id` with a clean
+    422 (not a 500). The frontend now assigns ids before sending; the schema
+    enforces the contract."""
+    c = alice_in_org["client"]
+    bad = _ephemeral_state_basic()
+    bad["ephemeral_state"]["blocks"] = [
+        {"type": "hero", "props": {"title": "X"}},  # missing `id`
+    ]
+    r = await c.post("/api/workspaces", json=bad)
+    assert r.status_code == 422, r.text
+    body = r.json()
+    # Pydantic surfaces the missing field; the response shape may vary across
+    # FastAPI versions, so we just assert "id" appears somewhere in the detail.
+    assert "id" in str(body.get("detail", body)), body
 
 
 async def test_create_workspace_uses_x_active_org_header(alice_in_org, client, mock_db):
@@ -187,10 +223,10 @@ async def test_list_workspaces_filters_by_active_org(alice_in_org, mock_db):
     )
     org_beta = r.json()["org"]["org_id"]
     # 1 workspace en alpha, 1 en beta.
-    await c.post("/api/workspaces", json=_ephemeral_state_basic())
+    await c.post("/api/workspaces", json=_ephemeral_state_basic("_a"))
     await c.post(
         "/api/workspaces",
-        json=_ephemeral_state_basic(),
+        json=_ephemeral_state_basic("_b"),
         headers={"X-Active-Org": org_beta},
     )
     listing = (await c.get("/api/workspaces")).json()

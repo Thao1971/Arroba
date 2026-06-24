@@ -111,7 +111,7 @@ export function RecentWorkspacesPanel() {
               {items.map((w) => (
                 <li key={w.workspace_id}>
                   <Link
-                    href={`/es/w/${w.workspace_id}`}
+                    href={`/w/${w.workspace_id}`}
                     onClick={() => setOpen(false)}
                     data-testid={`copilot-dock-recent-item-${w.workspace_id}`}
                     className="flex items-start gap-2 px-3 py-2.5 text-sm hover:bg-surface-2 transition-colors"
@@ -138,7 +138,7 @@ export function RecentWorkspacesPanel() {
             </ul>
           )}
           <Link
-            href="/es/historial"
+            href="/historial"
             onClick={() => setOpen(false)}
             data-testid="copilot-dock-recent-all"
             className="border-t border-border flex items-center justify-between gap-2 px-3 py-2.5 text-xs font-semibold text-primary hover:bg-surface-2"

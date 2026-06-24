@@ -78,11 +78,24 @@ class WorkspaceBlock(BaseModel):
 # Request payloads
 # ---------------------------------------------------------------------------
 class EphemeralBlock(BaseModel):
-    """Block as it travels in the ephemeral state when promoting to persistent."""
+    """Block as it travels in the ephemeral state when promoting to persistent.
+    The frontend MUST assign a stable client-side `id` to each block at render
+    time so this round-trip is idempotent (sent id == returned id in GET)."""
     model_config = ConfigDict(extra="forbid")
-    id: str
-    type: str
-    props: dict[str, Any]
+    id: str = Field(
+        min_length=1,
+        max_length=80,
+        description="Client-generated stable identifier for the block. Echoed "
+        "back by GET /workspaces/{id} as `block_id`.",
+    )
+    type: str = Field(
+        min_length=1,
+        max_length=40,
+        description="Discriminator that matches the Copilot block union "
+        "(hero | metrics | company_card | company_cards_grid | valuation | "
+        "narrative | search_results | empty_state | error | loading).",
+    )
+    props: dict[str, Any] = Field(description="Block-specific props payload.")
 
 
 class EphemeralMessage(BaseModel):

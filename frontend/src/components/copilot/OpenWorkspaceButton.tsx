@@ -27,22 +27,25 @@ export function OpenWorkspaceButton() {
 
   const onClick = useCallback(async () => {
     if (!isAuthenticated) {
-      const next = encodeURIComponent('/es/historial');
-      router.push(`/es/login?next=${next}`);
+      const next = encodeURIComponent('/historial');
+      router.push(`/login?next=${next}`);
       return;
     }
     setError(null);
     setPending(true);
     try {
-      const { url } = await promoteToWorkspace();
-      router.push(url);
+      const { workspaceId } = await promoteToWorkspace();
+      // localePrefix='never' in next-intl middleware: visible URLs DO NOT
+      // include the locale segment. Use the bare path and let the middleware
+      // resolve the segment internally.
+      router.push(`/w/${workspaceId}`);
     } catch (e) {
       const msg =
         e instanceof ApiError
-          ? e.detail
+          ? `${e.detail}${e.status ? ` (HTTP ${e.status})` : ''}`
           : e instanceof Error && e.message === 'promote_requires_auth'
             ? 'Inicia sesión para guardar este workspace.'
-            : 'No hemos podido guardar el workspace.';
+            : 'Hubo un problema. Inténtalo de nuevo.';
       setError(msg);
     } finally {
       setPending(false);
