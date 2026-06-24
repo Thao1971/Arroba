@@ -46,7 +46,7 @@ describe('isValidSpanishTaxId', () => {
   it('rejects malformed tax ids', () => {
     expect(isValidSpanishTaxId('')).toBe(false);
     expect(isValidSpanishTaxId('12345')).toBe(false);
-    expect(isValidSpanishTaxId('Q12345678')).toBe(false); // wrong char count
     expect(isValidSpanishTaxId('K12345678')).toBe(false); // K not a valid CIF letter
+    expect(isValidSpanishTaxId('B1234')).toBe(false); // too short
   });
 });

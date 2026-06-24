@@ -1,47 +1,237 @@
 {
   "landing": {
-    "title": "[EN] From data to decision.",
-    "subtitle": "[EN] Analyse · Value · Buy or sell. Private, conversational platform for M&A in the Madtech ecosystem.",
-    "stage": "[EN] Stage 0 · Foundation",
-    "ctaDesignSystem": "[EN] View Design System"
+    "title": "From data to decision.",
+    "subtitle": "Analyse · Value · Buy or sell. A private, conversational platform for M&A in the Madtech ecosystem.",
+    "stage": "Stage 1 · Auth + Organisations",
+    "ctaPrimary": "Sign in",
+    "ctaSecondary": "Create account"
   },
   "nav": {
-    "home": "[EN] Home",
-    "designSystem": "[EN] Design System",
-    "locale": "[EN] Language"
+    "home": "Home",
+    "designSystem": "Design System",
+    "organizations": "Organisations",
+    "analizar": "Analyse",
+    "valorar": "Value",
+    "compraventa": "Buy/Sell",
+    "locale": "Language",
+    "logout": "Sign out",
+    "login": "Sign in",
+    "register": "Create account"
   },
   "theme": {
-    "light": "[EN] Light",
-    "dark": "[EN] Dark",
-    "toggle": "[EN] Toggle theme"
+    "light": "Light",
+    "dark": "Dark",
+    "toggle": "Toggle theme"
   },
   "monochrome": {
-    "on": "[EN] Enable monochrome",
-    "off": "[EN] Disable monochrome"
+    "on": "Enable monochrome",
+    "off": "Disable monochrome"
   },
   "ds": {
-    "title": "[EN] Design System",
-    "subtitle": "[EN] Tokens, primitives and WCAG check. Stage 0.",
-    "sectionBrand": "[EN] Brand colours",
-    "sectionSemantic": "[EN] Semantic colours",
-    "sectionFeedback": "[EN] Feedback colours",
-    "sectionTypography": "[EN] Typography",
-    "sectionFormat": "[EN] es-ES format",
-    "sectionSpacing": "[EN] Spacing",
-    "sectionRadii": "[EN] Radii",
-    "sectionPrimitives": "[EN] Primitives",
-    "sectionContrast": "[EN] WCAG AA contrast",
-    "sectionQA": "[EN] Visual QA",
-    "contrastPair": "[EN] Pair",
-    "contrastRatio": "[EN] Ratio",
-    "contrastResult": "[EN] Result",
-    "contrastPass": "[EN] AA pass",
-    "contrastFail": "[EN] AA fail"
+    "title": "Design System",
+    "subtitle": "Tokens, primitives and WCAG check. Internal admin tool.",
+    "sectionBrand": "Brand colours",
+    "sectionSemantic": "Semantic colours",
+    "sectionFeedback": "Feedback colours",
+    "sectionTypography": "Typography",
+    "sectionFormat": "es-ES format",
+    "sectionSpacing": "Spacing",
+    "sectionRadii": "Radii",
+    "sectionPrimitives": "Primitives",
+    "sectionContrast": "WCAG AA contrast",
+    "sectionQA": "Visual QA",
+    "contrastPair": "Pair",
+    "contrastRatio": "Ratio",
+    "contrastResult": "Result",
+    "contrastPass": "AA pass",
+    "contrastFail": "AA fail"
   },
   "confidence": {
-    "label": "[EN] Confidence",
-    "high": "[EN] High",
-    "med": "[EN] Medium",
-    "low": "[EN] Low"
+    "label": "Confidence",
+    "high": "High",
+    "med": "Medium",
+    "low": "Low"
+  },
+  "brandPanel": {
+    "tagline": "Spain's economic intelligence",
+    "headline": "Analyse markets, value companies and uncover opportunities to grow, buy, sell or attract investment — all from a single platform.",
+    "footer": "Analyse · Value · Buy/Sell",
+    "statCompanies": "Spanish companies",
+    "statMetrics": "economic metrics",
+    "statCopilot": "intelligence copilot"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to your intelligence and operations workspace.",
+      "google": "Continue with Google",
+      "divider": "or with your email",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Your password",
+      "remember": "Remember me",
+      "forgot": "Forgot your password?",
+      "submit": "Sign in",
+      "noAccount": "Don't have an account yet?",
+      "createAccount": "Create account",
+      "invalidCredentials": "Wrong email or password.",
+      "genericError": "We couldn't sign you in. Please try again."
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Start your intelligence and operations workspace.",
+      "google": "Continue with Google",
+      "divider": "or with your email",
+      "nameLabel": "Full name",
+      "namePlaceholder": "Ana García",
+      "emailLabel": "Work email",
+      "emailPlaceholder": "ana@company.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "At least 8 characters and one digit",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "login": "Sign in",
+      "termsBefore": "By creating an account you accept our",
+      "termsLink": "Terms",
+      "termsAnd": "and",
+      "privacyLink": "Privacy",
+      "passwordHintMin": "8+ characters",
+      "passwordHintNumber": "Includes a digit",
+      "emailInUse": "This email is already registered.",
+      "genericError": "We couldn't complete your registration. Please review the form."
+    },
+    "recuperar": {
+      "title": "Recover password",
+      "subtitle": "We're preparing this flow. Soon you'll be able to reset your password by email.",
+      "back": "Back to sign in",
+      "comingSoon": "Coming soon"
+    },
+    "callback": {
+      "title": "Connecting with Google…",
+      "subtitle": "Finishing your sign-in.",
+      "error": "We couldn't complete the sign-in.",
+      "retry": "Back to sign in"
+    }
+  },
+  "onboarding": {
+    "title": "Create your organisation",
+    "subtitle": "Before we start, we need to know which company or entity you belong to. You can invite more people later.",
+    "legalNameLabel": "Legal name",
+    "legalNamePlaceholder": "Acme Holdings, S.L.",
+    "taxIdLabel": "Tax ID (CIF / NIF / NIE)",
+    "taxIdHelper": "Optional. Leave it empty and complete it later.",
+    "taxIdPlaceholder": "B12345678",
+    "countryLabel": "Country",
+    "submit": "Create organisation",
+    "genericError": "We couldn't create the organisation. Please review the form.",
+    "taxIdInvalid": "Invalid CIF/NIF/NIE format.",
+    "duplicate": "An organisation with that tax ID already exists."
+  },
+  "journey": {
+    "copilotName": "Arroba Copilot",
+    "intro": "Hi, I'm Arroba Copilot ✦. I'm going to ask you a few questions to understand what you'd like to do and set up your workspace. Don't worry if you don't have all the answers yet — you can complete them later.",
+    "q1": "To start, what would you like to do?",
+    "q2": "Tell me a bit about you so I can tailor what I propose.",
+    "vehicleHint": "Search your company by name or tax ID, or type it if you don't have one yet.",
+    "companyHint": "I'll automatically build its profile from our database.",
+    "vehicleQ": "From which company or vehicle would you make the acquisitions?",
+    "companyQ": "Tell me your company's legal name or tax ID.",
+    "exploreBranch": "Perfect. I'll let you explore freely. First, what should we call your workspace?",
+    "exploreLabel": "Your workspace name",
+    "explorePlaceholder": "My personal workspace",
+    "searchPlaceholder": "Legal name or tax ID…",
+    "searchSuggestions": "Try: \"kitchen\", \"olmedo\", \"B-47 594 478\"…",
+    "noResults": "No matches for \"{q}\".",
+    "useFreeText": "Use \"{q}\" →",
+    "confirmTitle": "I found this company in our database. Please confirm it's yours before we continue.",
+    "confirmYes": "Yes, this one",
+    "confirmNo": "No, search again",
+    "confirmRazon": "Legal name",
+    "confirmCif": "Tax ID",
+    "confirmForma": "Legal form",
+    "confirmSector": "Sector",
+    "confirmCity": "Address",
+    "confirmWeb": "Web",
+    "confirmRevenue": "Revenue",
+    "confirmEbitda": "EBITDA",
+    "confirmEmployees": "Employees",
+    "continue": "Continue",
+    "multiHint": "You can pick multiple.",
+    "preparing": "Thanks. With this I can prepare your summary.",
+    "summaryTitle": "Summary prepared by Arroba Copilot",
+    "summaryCompany": "Company",
+    "summaryObjective": "Objective",
+    "summaryHorizon": "Horizon",
+    "summaryEntity": "Entity type",
+    "summaryFootnote": "You can review and complete every detail later, no rush.",
+    "summaryAdvancedToggle": "Optional details",
+    "summaryTaxIdLabel": "Tax ID (optional)",
+    "summaryCountryLabel": "Country",
+    "createSpace": "Create my workspace",
+    "creatingSpace": "Creating your workspace…",
+    "stepLabel": "Step {current} of {total}",
+    "successTitle": "Your workspace is ready",
+    "successBody": "I've saved <strong>{entity}</strong> in your organisation.",
+    "successBodyExplore": "Your personal workspace is created. You can start exploring now.",
+    "successGoOrgs": "Go to my organisations",
+    "errorCommit": "We couldn't create your workspace. Please try again.",
+    "errorRetry": "Try again",
+    "errorTaxIdInvalid": "Invalid CIF/NIF/NIE format.",
+    "errorTaxIdDuplicate": "An organisation with that tax ID already exists.",
+    "summaryNarrative": {
+      "comprar": "You're preparing an acquisition thesis for {goals}, operating from {company}, with a horizon of {plazo}.",
+      "vender": "{company} is considering its future: {goals}. Plans to move {plazo}, keeping full control of the process.",
+      "financiar": "{company} is seeking financing to {goals}, planning to move {plazo}.",
+      "explorar": "{company}: your personal intelligence and operations workspace."
+    },
+    "plazoLong": {
+      "Ahora": "immediately",
+      "En los próximos 12 meses": "within the next 12 months",
+      "Más adelante": "later on"
+    }
+  },
+  "organizations": {
+    "title": "Organisations",
+    "subtitle": "Entities you belong to inside arroba.com.",
+    "createCta": "Create another organisation",
+    "empty": "You don't belong to any organisation yet.",
+    "emptyCta": "Create my first organisation",
+    "roleOwner": "Owner",
+    "roleAdmin": "Admin",
+    "roleOperator": "Operator",
+    "statusActive": "Active",
+    "statusSuspended": "Suspended",
+    "statusArchived": "Archived",
+    "loading": "Loading organisations…"
+  },
+  "header": {
+    "openMenu": "Open user menu",
+    "profile": "Profile",
+    "settings": "Settings",
+    "designSystemAdmin": "Design System (admin)",
+    "logout": "Sign out"
+  },
+  "placeholders": {
+    "analizar": {
+      "title": "Analyse — available in E1.3",
+      "description": "This workspace will materialise once the conversational Copilot is live. You'll be able to analyse companies and sectors with Agency Tool data.",
+      "hint": "The Copilot will dynamically render blocks (Hero, Metrics, Tables, Charts…) based on your question."
+    },
+    "valorar": {
+      "title": "Value — available in E1.3",
+      "description": "Multiples, comparables and scenario-based valuations. The UI materialises when the Copilot is live.",
+      "hint": "Valuations will reuse the v0 Block Library primitives."
+    },
+    "compraventa": {
+      "title": "Buy/Sell — available in E1.3",
+      "description": "Launch a buy-side thesis or a sell-side opportunity. The Copilot will keep working it in your workspace.",
+      "hint": "Will integrate with the opportunities catalogue and the matching module."
+    }
+  },
+  "common": {
+    "loading": "Loading…",
+    "tryAgain": "Try again",
+    "back": "Back"
   }
 }

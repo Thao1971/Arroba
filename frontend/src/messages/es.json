@@ -1,14 +1,22 @@
 {
   "landing": {
     "title": "Del dato a la decisión.",
-    "subtitle": "Analízar · Valorar · Comprar o vender. Una plataforma privada, conversacional, para operaciones de M&A en el ecosistema Madtech.",
-    "stage": "Etapa 0 · Fundación",
-    "ctaDesignSystem": "Ver Design System"
+    "subtitle": "Analizar · Valorar · Comprar o vender. Una plataforma privada, conversacional, para operaciones de M&A en el ecosistema Madtech.",
+    "stage": "Etapa 1 · Auth + Organizaciones",
+    "ctaPrimary": "Iniciar sesión",
+    "ctaSecondary": "Crear cuenta"
   },
   "nav": {
     "home": "Inicio",
     "designSystem": "Design System",
-    "locale": "Idioma"
+    "organizations": "Organizaciones",
+    "analizar": "Analizar",
+    "valorar": "Valorar",
+    "compraventa": "Comprar/Vender",
+    "locale": "Idioma",
+    "logout": "Cerrar sesión",
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta"
   },
   "theme": {
     "light": "Claro",
@@ -21,7 +29,7 @@
   },
   "ds": {
     "title": "Design System",
-    "subtitle": "Tokens, primitives y verificación WCAG. Etapa 0.",
+    "subtitle": "Tokens, primitives y verificación WCAG. Herramienta interna admin.",
     "sectionBrand": "Colores — Brand",
     "sectionSemantic": "Colores — Semantic",
     "sectionFeedback": "Colores — Feedback",
@@ -43,5 +51,176 @@
     "high": "Alta",
     "med": "Media",
     "low": "Baja"
+  },
+  "brandPanel": {
+    "tagline": "Inteligencia económica de España",
+    "headline": "Analiza mercados, valora empresas y descubre oportunidades para crecer, comprar, vender o atraer inversión desde una única plataforma.",
+    "footer": "Analiza · Valora · Compra/Vende",
+    "statCompanies": "compañías españolas",
+    "statMetrics": "métricas económicas",
+    "statCopilot": "copiloto de inteligencia"
+  },
+  "auth": {
+    "login": {
+      "title": "Bienvenido de nuevo",
+      "subtitle": "Accede a tu espacio de inteligencia y operaciones.",
+      "google": "Continuar con Google",
+      "divider": "o con tu email",
+      "emailLabel": "Email",
+      "emailPlaceholder": "tu@empresa.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Tu contraseña",
+      "remember": "Recordarme",
+      "forgot": "¿Olvidaste tu contraseña?",
+      "submit": "Iniciar sesión",
+      "noAccount": "¿Aún no tienes cuenta?",
+      "createAccount": "Crear cuenta",
+      "invalidCredentials": "Email o contraseña incorrectos.",
+      "genericError": "No hemos podido iniciar sesión. Inténtalo de nuevo."
+    },
+    "register": {
+      "title": "Crea tu cuenta",
+      "subtitle": "Empieza tu espacio de inteligencia y operaciones.",
+      "google": "Continuar con Google",
+      "divider": "o con tu email",
+      "nameLabel": "Nombre completo",
+      "namePlaceholder": "Ana García",
+      "emailLabel": "Email profesional",
+      "emailPlaceholder": "ana@empresa.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Mínimo 8 caracteres con un número",
+      "submit": "Crear cuenta",
+      "haveAccount": "¿Ya tienes cuenta?",
+      "login": "Inicia sesión",
+      "termsBefore": "Al crear cuenta aceptas nuestros",
+      "termsLink": "Términos",
+      "termsAnd": "y",
+      "privacyLink": "Privacidad",
+      "passwordHintMin": "8+ caracteres",
+      "passwordHintNumber": "Incluye un número",
+      "emailInUse": "Este email ya está registrado.",
+      "genericError": "No hemos podido completar el registro. Revisa los datos."
+    },
+    "recuperar": {
+      "title": "Recuperar contraseña",
+      "subtitle": "Estamos preparando este flujo. Próximamente podrás reiniciar tu contraseña por email.",
+      "back": "Volver al login",
+      "comingSoon": "Próximamente"
+    },
+    "callback": {
+      "title": "Conectando con Google…",
+      "subtitle": "Estamos terminando de iniciar tu sesión.",
+      "error": "No hemos podido completar el inicio de sesión.",
+      "retry": "Volver al login"
+    }
+  },
+  "onboarding": {
+    "title": "Crea tu organización",
+    "subtitle": "Antes de empezar, necesitamos saber a qué empresa o entidad perteneces. Podrás invitar a más personas después.",
+    "legalNameLabel": "Razón social",
+    "legalNamePlaceholder": "Acme Holdings, S.L.",
+    "taxIdLabel": "CIF / NIF / NIE",
+    "taxIdHelper": "Opcional. Si lo dejas vacío podremos completarlo después.",
+    "taxIdPlaceholder": "B12345678",
+    "countryLabel": "País",
+    "submit": "Crear organización",
+    "genericError": "No hemos podido crear la organización. Revisa los datos.",
+    "taxIdInvalid": "Formato de CIF/NIF/NIE no válido.",
+    "duplicate": "Ya existe una organización con ese CIF/NIF."
+  },
+  "journey": {
+    "copilotName": "Arroba Copilot",
+    "intro": "Hola, soy Arroba Copilot ✦. Voy a hacerte unas preguntas para entender qué te gustaría hacer y preparar tu espacio de trabajo. No te preocupes si todavía no tienes todas las respuestas: podrás completarlas más adelante.",
+    "q1": "Para empezar, ¿qué te gustaría hacer?",
+    "q2": "Cuéntame un poco sobre ti, así ajusto lo que te propongo.",
+    "vehicleHint": "Busca tu empresa por nombre o CIF, o escríbelo si aún no la tienes.",
+    "companyHint": "Construiré su ficha automáticamente a partir de nuestra base de datos.",
+    "vehicleQ": "¿Desde qué empresa o vehículo te gustaría realizar las adquisiciones?",
+    "companyQ": "Indícame la razón social o el CIF de tu empresa.",
+    "exploreBranch": "Perfecto. Te dejo explorar libremente. Antes, dime con qué nombre llamamos a tu espacio.",
+    "exploreLabel": "Nombre de tu espacio",
+    "explorePlaceholder": "Mi espacio personal",
+    "searchPlaceholder": "Razón social o CIF…",
+    "searchSuggestions": "Prueba: «kitchen», «olmedo», «B-47 594 478»…",
+    "noResults": "Sin resultados para «{q}».",
+    "useFreeText": "Usar «{q}»",
+    "confirmTitle": "He localizado esta empresa en nuestra base de datos. Confírmame que es la tuya antes de seguir.",
+    "confirmYes": "Sí, es esta",
+    "confirmNo": "No, buscar otra",
+    "confirmRazon": "Razón social",
+    "confirmCif": "CIF",
+    "confirmForma": "Forma jurídica",
+    "confirmSector": "Sector",
+    "confirmCity": "Domicilio",
+    "confirmWeb": "Web",
+    "confirmRevenue": "Facturación",
+    "confirmEbitda": "EBITDA",
+    "confirmEmployees": "Empleados",
+    "continue": "Continuar",
+    "multiHint": "Puedes elegir varias.",
+    "preparing": "Gracias. Con esto ya puedo preparar tu resumen.",
+    "summaryTitle": "Resumen preparado por Arroba Copilot",
+    "summaryCompany": "Empresa",
+    "summaryObjective": "Objetivo",
+    "summaryHorizon": "Horizonte",
+    "summaryEntity": "Tipo de entidad",
+    "summaryFootnote": "Podrás revisar y completar todos los detalles más adelante, sin prisa.",
+    "summaryAdvancedToggle": "Datos opcionales",
+    "summaryTaxIdLabel": "CIF / NIF (opcional)",
+    "summaryCountryLabel": "País",
+    "createSpace": "Crear mi espacio",
+    "creatingSpace": "Creando tu espacio…",
+    "stepLabel": "Paso {current} de {total}",
+    "successTitle": "Tu espacio está listo",
+    "successBody": "He guardado tu espacio en tus organizaciones.",
+    "successBodyExplore": "Tu espacio personal está creado. Ya puedes empezar a explorar.",
+    "successGoOrgs": "Entrar en mis organizaciones",
+    "errorCommit": "No hemos podido crear tu espacio. Vuelve a intentarlo.",
+    "errorRetry": "Reintentar",
+    "errorTaxIdInvalid": "Formato de CIF/NIF/NIE no válido.",
+    "errorTaxIdDuplicate": "Ya existe una organización con ese CIF/NIF."
+  },
+  "organizations": {
+    "title": "Organizaciones",
+    "subtitle": "Las entidades a las que perteneces dentro de arroba.com.",
+    "createCta": "Crear otra organización",
+    "empty": "Aún no perteneces a ninguna organización.",
+    "emptyCta": "Crear mi primera organización",
+    "roleOwner": "Propietario",
+    "roleAdmin": "Administrador",
+    "roleOperator": "Operador",
+    "statusActive": "Activa",
+    "statusSuspended": "Suspendida",
+    "statusArchived": "Archivada",
+    "loading": "Cargando organizaciones…"
+  },
+  "header": {
+    "openMenu": "Abrir menú de usuario",
+    "profile": "Perfil",
+    "settings": "Configuración",
+    "designSystemAdmin": "Design System (admin)",
+    "logout": "Cerrar sesión"
+  },
+  "placeholders": {
+    "analizar": {
+      "title": "Analizar — disponible en E1.3",
+      "description": "Este espacio se materializará cuando el Copilot conversacional esté operativo. Podrás analizar empresas y sectores con datos del Agency Tool.",
+      "hint": "El Copilot generará bloques (Hero, Métricas, Tablas, Gráficos…) de forma dinámica según tu pregunta."
+    },
+    "valorar": {
+      "title": "Valorar — disponible en E1.3",
+      "description": "Calcula valoraciones por múltiplos, comparables y escenarios. La interfaz se materializa cuando el Copilot esté disponible.",
+      "hint": "Las valoraciones reusarán los Bloques de la Block Library v0."
+    },
+    "compraventa": {
+      "title": "Comprar/Vender — disponible en E1.3",
+      "description": "Lanza una tesis de compra o una oportunidad de venta. El Copilot la trabajará en tu espacio.",
+      "hint": "Se integrará con el catálogo de oportunidades y el módulo de matching."
+    }
+  },
+  "common": {
+    "loading": "Cargando…",
+    "tryAgain": "Reintentar",
+    "back": "Volver"
   }
 }

@@ -84,17 +84,23 @@ curl -i -b /tmp/cookies.txt http://localhost:8001/api/agency-tool/companies/{id}
 curl -b /tmp/cookies.txt http://localhost:8001/api/agency-tool/status
 ```
 
-## Usuarios de smoke test ya creados (E0.3 + E0.3.1)
+## Usuarios de smoke test ya creados
 
-Durante la verificación quedaron persistidos en MongoDB usuarios funcionales
+Durante E0.3/E0.3.1 y E1.1 quedaron persistidos en MongoDB usuarios funcionales
 que el tester puede reusar para pruebas exploratorias:
 
 | Email | Password | Role | Notas |
 |---|---|---|---|
-| `smoke_e0_3@example.com` | `SmokeTest123!` | `subscriber` | Legacy E0.3 (pre-fix). Tiene `google_id: null` en doc por el bug; coexiste sin problemas con el resto tras la migración. NO crear nuevos con dominio `@example.com`. |
-| `smoke_e031_1@arrobatest.com` | `Smoke123!` | `subscriber` | Post-fix E0.3.1. Sin `google_id` en doc. |
-| `smoke_e031_2@arrobatest.com` | `Smoke123!` | `subscriber` | Post-fix E0.3.1. |
-| `smoke_e031_3@arrobatest.com` | `Smoke123!` | `subscriber` | Post-fix E0.3.1. |
+| `smoke_e031_2@arrobatest.com` | `Smoke123!` | `subscriber` | Sin memberships → al login va a `/onboarding`. Útil para probar el journey conversacional. |
+| `smoke_e031_3@arrobatest.com` | `Smoke123!` | `subscriber` | Idem. |
+
+Los usuarios `e11-flow*-<timestamp>@arrobatest.com` creados por el smoke test de
+E1.1 quedan persistidos y ya tienen `Grupo Olmedo Hoteles, S.L.` como org. Para
+**limpiar** datos de smoke:
+
+```bash
+mongosh arroba_com --eval "db.users.deleteMany({email: /e11-flow/}); db.organizations.deleteMany({legal_name: /Grupo Olmedo/, created_by: {\$ne: 'user_174ea4693938'}}); db.memberships.deleteMany({user_id: {\$in: db.users.find({email: /e11-flow/},{_id:0,user_id:1}).map(u=>u.user_id)}})"
+```
 
 ## Convenciones internas
 

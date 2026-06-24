@@ -1,5 +1,5 @@
 'use client';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect } from 'react';
 import useSWR from 'swr';
 import { ApiError, apiClient, swrFetcher } from '@/lib/api/client';
 import type {
@@ -21,9 +21,20 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/**
+ * Race-condition guard: when the browser is on /auth/callback with a
+ * `#session_id=…` fragment, SWR must NOT fetch /api/auth/me until the
+ * callback page has exchanged the session_id (server cookie not set yet).
+ */
+function isOnOAuthCallback(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.hash.includes('session_id=');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const skip = isOnOAuthCallback();
   const { data, error, isLoading, mutate } = useSWR<MeResponse, ApiError>(
-    '/api/auth/me',
+    skip ? null : '/api/auth/me',
     swrFetcher,
     {
       shouldRetryOnError: (e) => !(e instanceof ApiError && e.status === 401),
@@ -70,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     memberships,
-    isLoading,
+    isLoading: skip ? false : isLoading,
     isAuthenticated,
     login,
     register,
@@ -84,14 +95,4 @@ export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
   return ctx;
-}
-
-/** Convenience: subscribe to the "is authenticated" boolean only (cheap rerender). */
-export function useIsAuthenticated(): { isAuthenticated: boolean; isLoading: boolean } {
-  const [state, setState] = useState({ isAuthenticated: false, isLoading: true });
-  const ctx = useContext(AuthContext);
-  useEffect(() => {
-    if (ctx) setState({ isAuthenticated: ctx.isAuthenticated, isLoading: ctx.isLoading });
-  }, [ctx?.isAuthenticated, ctx?.isLoading]);
-  return state;
 }

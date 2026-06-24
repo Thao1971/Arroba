@@ -42,3 +42,16 @@ html { scroll-behavior: smooth; }
 [data-monochrome] {
   filter: grayscale(1) contrast(0.96);
 }
+
+/* ---------- Registration Journey animations ---------- */
+@keyframes journeyIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes journeyBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: .55; }
+  30%           { transform: translateY(-5px); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
+}

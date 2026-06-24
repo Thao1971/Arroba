@@ -13,6 +13,7 @@ import {
   Input,
   Spinner,
 } from '@/components/ds';
+import { RequireAuth } from '@/components/RequireAuth';
 import { tokens } from '@/lib/tokens';
 import {
   formatCurrency,
@@ -50,6 +51,14 @@ function Swatch({ name, varName }: { name: string; varName: string }) {
 }
 
 export default function DesignSystemPage() {
+  return (
+    <RequireAuth role="admin">
+      <DesignSystemInner />
+    </RequireAuth>
+  );
+}
+
+function DesignSystemInner() {
   const t = useTranslations();
   const [mono, setMono] = useState(false);
 

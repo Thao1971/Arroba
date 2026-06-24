@@ -7,6 +7,7 @@ import { ReactNode } from 'react';
 import { isLocale, locales } from '@/i18n/config';
 import { PRE_PAINT_THEME_SCRIPT } from '@/lib/theme';
 import { tokens } from '@/lib/tokens';
+import { AuthProvider } from '@/contexts/auth-context';
 import '../globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -64,7 +65,7 @@ export default async function LocaleLayout({
       </head>
       <body>
         <NextIntlClientProvider messages={messages} locale={locale}>
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </NextIntlClientProvider>
       </body>
     </html>

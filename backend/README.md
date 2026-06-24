@@ -2,6 +2,38 @@
 
 **Etapa 0.4 completada** — Skeleton: auth + users + organizations + billing health + agency_tool_adapter (mock) + health-check.
 
+## Google OAuth · wire-up deferred (E1.x)
+
+`POST /api/auth/session` ya está implementado (intercambia un `session_id` de
+Emergent → cookie httpOnly local; ver `src/modules/auth/router.py` y
+`exchange_emergent_session` en `service.py`). El **lanzador frontend** y la
+**callback page** **NO** se entregan en E1.1.
+
+En E1.1, el botón "Continuar con Google" en `/login` y `/registro` queda
+**deshabilitado** con tooltip "Próximamente"
+(`frontend/src/components/auth/GoogleButton.tsx`). Cuando se reabra el wire-up:
+
+1. Habilitar el botón y disparar el redirect:
+   ```ts
+   // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS,
+   // THIS BREAKS THE AUTH.
+   const redirectUrl = window.location.origin + '/auth/callback';
+   window.location.href =
+     'https://auth.emergentagent.com/?redirect=' + encodeURIComponent(redirectUrl);
+   ```
+2. Crear `/[locale]/(public)/auth/callback/page.tsx`:
+   - Leer `window.location.hash` → parsear `session_id=…`.
+   - `apiClient.auth.exchangeSession({ session_id })`.
+   - `history.replaceState(null, '', location.pathname)` para limpiar el fragmento.
+   - Redirigir según `memberships`: vacío → `/onboarding`; ≥1 → `/organizaciones`.
+3. El `AuthProvider` ya tiene el guard `isOnOAuthCallback()` para no fetchear
+   `/api/auth/me` mientras el hash contiene `session_id=`; mantenerlo.
+
+Razón del diferimiento: E1.1 priorizó cerrar UI auth + Registration Journey
+conversacional. El wire-up OAuth real abre superficie de pruebas y políticas
+(allowlist de dominios, redirect_uri seguro) que mejor encajan junto a la
+política de roles (E1.x).
+
 ## Arrancar en el pod (supervisor)
 
 ```bash

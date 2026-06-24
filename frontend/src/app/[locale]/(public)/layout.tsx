@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import { ThemeSwitcher } from '@/components/ds';
 import { useTranslations } from 'next-intl';
+import { LocaleSwitcher } from './_components/LocaleSwitcher';
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
@@ -11,7 +12,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       <footer className="border-t border-border">
         <div className="max-w-6xl mx-auto px-6 py-6 text-xs text-text-subtle font-body flex justify-between">
           <span>© {new Date().getFullYear()} arroba.com</span>
-          <span>Etapa 0 · Foundation</span>
+          <span>Etapa 1 · Auth + Organizaciones</span>
         </div>
       </footer>
     </div>
@@ -22,28 +23,34 @@ function PublicHeader() {
   const t = useTranslations();
   return (
     <header className="sticky top-0 z-30 backdrop-blur border-b border-border bg-surface/85">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-display font-semibold text-lg flex items-center gap-2">
+      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
+        <Link
+          href="/"
+          className="font-display font-semibold text-lg flex items-center gap-2"
+          data-testid="public-header-logo"
+        >
           <span className="text-primary">@</span>
           <span>arroba.com</span>
         </Link>
         <nav className="flex items-center gap-2">
           <Link
-            href="/design-system"
-            className="px-3 h-11 inline-flex items-center text-sm text-text-muted hover:text-text"
+            href="/login"
+            data-testid="public-header-login"
+            className="px-3 h-10 inline-flex items-center text-sm text-text-muted hover:text-text"
           >
-            {t('nav.designSystem')}
+            {t('nav.login')}
           </Link>
-          <LocaleSwitcherInline />
+          <Link
+            href="/registro"
+            data-testid="public-header-register"
+            className="hidden sm:inline-flex px-3 h-10 items-center rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary-hover transition-colors"
+          >
+            {t('nav.register')}
+          </Link>
+          <LocaleSwitcher />
           <ThemeSwitcher />
         </nav>
       </div>
     </header>
-  );
-}
-
-function LocaleSwitcherInline() {
-  return (
-    <form action="/api/locale-switch" method="post" className="hidden" />
   );
 }
