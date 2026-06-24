@@ -281,11 +281,36 @@ class Workspace(BaseModel):
     blocks: list[BlockSpec]
 
 
-class SearchSkillResponse(BaseModel):
+class DisambiguationItem(BaseModel):
+    """One row of the dropdown shown by the dock when a search query matches
+    2-5 known companies. Used by the entity-resolution path of
+    `POST /api/copilot/skills/search` (E1.5-REWORK)."""
     model_config = ConfigDict(extra="forbid")
-    workspace: Workspace
+    master_company_id: str
+    cif: str | None = None
+    name: str
+    sector: str | None = None
+    region: str | None = None
+
+
+class SearchSkillResponse(BaseModel):
+    """Multi-shape response:
+      - legacy (exploratory query, no entity match): `workspace` is filled
+        with a `SearchResultsBlock` or `EmptyStateBlock`.
+      - resolve (exact match on name/CIF): `navigate_to` + `entity_type` are
+        filled. `workspace` is None.
+      - disambiguation (2-5 candidates): `disambiguation` is filled.
+        `workspace` is None.
+      - empty (0 matches, exploratory): `workspace` filled with EmptyState.
+    """
+    model_config = ConfigDict(extra="forbid")
+    workspace: Workspace | None = None
     source: Literal["mock", "real"] = "mock"
     query: str
+    # Entity-resolution surface (E1.5-REWORK).
+    navigate_to: str | None = None
+    entity_type: Literal["company", "sector", "territory"] | None = None
+    disambiguation: list[DisambiguationItem] | None = None
 
 
 class AnalyzeSkillResponse(BaseModel):
@@ -318,6 +343,7 @@ __all__: list[str] = [
     "CompanyCardProps",
     "CompanyCardsGridBlock",
     "CompanyCardsGridItem",
+    "DisambiguationItem",
     "CompanyCardsGridProps",
     "EmptyStateBlock",
     "EmptyStateBlockProps",

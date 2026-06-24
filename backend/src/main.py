@@ -21,6 +21,7 @@ from src.modules.agency_tool_adapter.router import (
     public_router as agency_tool_public_router,
 )
 from src.modules.copilot.router import public_router as copilot_router
+from src.modules.companies.router import router as companies_router
 from src.modules.workspaces.router import router as workspaces_router
 from src.modules.auth.router import router as auth_router
 from src.modules.billing.router import router as billing_router
@@ -53,6 +54,14 @@ OPENAPI_TAGS = [
     {
         "name": "agency-tool-admin",
         "description": "Admin CRUD over master_companies_mock (mock data only).",
+    },
+    {
+        "name": "companies",
+        "description": (
+            "Entity-first company pages (E1.5-REWORK). GET /api/companies/{cif} "
+            "is mixed-access (anonymous gets sections 1-3 + locked_sections). "
+            "Auth endpoints persist conversation + watchlist + share."
+        ),
     },
 ]
 
@@ -118,6 +127,7 @@ app.include_router(agency_tool_public_anon_router, prefix="/api")
 app.include_router(agency_tool_public_router, prefix="/api")
 app.include_router(agency_tool_admin_router, prefix="/api")
 app.include_router(copilot_router, prefix="/api")
+app.include_router(companies_router)
 app.include_router(workspaces_router, prefix="/api")
 
 

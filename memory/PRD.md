@@ -488,13 +488,15 @@ anterior). Cancelación oficial: "Phase E1.3 — Copilot Foundation" del orden
 
 El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.md`). Orden de construcción aprobado por el usuario:
 
-| Fase | Entidad | Estado |
+| Fase | Entidad / Tarea | Estado |
 |---|---|---|
-| **E1.5-REWORK** | Empresa | ⏳ EN REDACCIÓN — UX aprobada (1a/2a/3a/4a/5a confirmados por sección 12 de la filosofía). Brief técnico en revisión por el usuario. |
+| **E1.5-REWORK** | Empresa | 🟢 EN CURSO — implementación iniciada |
+| **E1.5.5** | Brand Refresh | 🔵 ENCADENADA tras E1.5 verde |
 | **E1.6** | Sector | 🔵 PLANIFICADA |
 | **E1.7** | Territorio | 🔵 PLANIFICADA |
-| **E1.8** | Oportunidad | 🔵 PLANIFICADA |
-| **E1.9** | Transacción (con capacidades: Matching, Teaser, NDA, IM, IOI, LOI, DD, Data Room, Q&A, Negociación, SPA, Cierre) | 🔵 PLANIFICADA |
+| **E1.8** | Valoración | 🔵 PLANIFICADA |
+| **E1.9** | Oportunidad | 🔵 PLANIFICADA |
+| **E2.0** | Transacción (Transaction OS con: Matching, Teaser, NDA, IM, IOI, LOI, DD, Data Room, Q&A, Negociación, SPA, Cierre) | 🔵 PLANIFICADA |
 
 **Reglas operativas durante la reorientación**:
 - NO escribir código de producto hasta que el orquestador devuelva el brief de E1.5-REWORK aprobado por el usuario.

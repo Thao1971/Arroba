@@ -160,6 +160,33 @@ async def init_indexes() -> None:
     )
     await db.workspace_blocks.create_index([("workspace_id", 1), ("order", 1)])
 
+    # === companies module (E1.5-REWORK) ===
+    # company_conversations: ONE conversation per (user_id, master_company_id).
+    # Memory of chat is owned by the (user, entity) tuple — distinct users in
+    # the same org keep separate threads, by design.
+    await db.company_conversations.create_index(
+        [("user_id", 1), ("master_company_id", 1)], unique=True
+    )
+
+    # company_watchlists: ONE saved entry per (org_id, master_company_id) so
+    # an org sees a single canonical record per company; saved_by tells who
+    # added it, visibility ("private"|"team") controls visibility to other
+    # org members.
+    await db.company_watchlists.create_index(
+        [("org_id", 1), ("master_company_id", 1)], unique=True
+    )
+    await db.company_watchlists.create_index("saved_by")
+    await db.company_watchlists.create_index("visibility")
+
+    # company_analysis_refreshes: rate-limit ledger. TTL on last_refresh_at
+    # gives us automatic cleanup so the collection cannot grow unbounded.
+    await db.company_analysis_refreshes.create_index(
+        [("user_id", 1), ("master_company_id", 1)], unique=True
+    )
+    await db.company_analysis_refreshes.create_index(
+        "last_refresh_at", expireAfterSeconds=60 * 60 * 24 * 90
+    )
+
 
 async def close_client() -> None:
     global _client, _db

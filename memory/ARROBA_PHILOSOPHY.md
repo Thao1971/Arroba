@@ -118,7 +118,48 @@ Los workspaces pasan a ser una capa subordinada de memoria.
 
 ## 10. Orden oficial de construcción
 
-**E1.5-REWORK** — Empresa → **E1.6** — Sector → **E1.7** — Territorio → **E1.8** — Oportunidad → **E1.9** — Transacción → **Transaction OS** con Matching, Teaser, NDA, IM, IOI, LOI, DD, Data Room, Q&A, Negociación, SPA, Cierre.
+**E1.5-REWORK** — Empresa
+
+↓
+
+**E1.5.5** — Brand Refresh
+
+↓
+
+**E1.6** — Sector
+
+↓
+
+**E1.7** — Territorio
+
+↓
+
+**E1.8** — Valoración
+
+↓
+
+**E1.9** — Oportunidad
+
+↓
+
+**E2.0** — Transacción
+
+↓
+
+**Transaction OS** con:
+
+* Matching
+* Teaser
+* NDA
+* Information Memorandum
+* IOI
+* LOI
+* Due Diligence
+* Data Room
+* Q&A
+* Negociación
+* SPA
+* Cierre
 
 ⸻
 
@@ -150,7 +191,7 @@ Las capacidades avanzadas estarán protegidas mediante registro.
 
 ### Company Advisor
 
-Cada entidad podrá disponer de un agente especializado: Company Advisor, Sector Analyst, Territory Analyst, Valuation Advisor, Deal Advisor.
+Cada entidad podrá disponer de un agente especializado: Company Advisor, Sector Analyst, Territory Analyst, Valuation Advisor, Opportunity Advisor, Deal Advisor.
 
 El Copilot global existe, pero dentro de una entidad adopta una identidad especializada.
 

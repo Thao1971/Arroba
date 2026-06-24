@@ -25,6 +25,11 @@ class NotFoundError(DomainError):
     status_code = 404
 
 
+class BadRequestError(DomainError):
+    code = "bad_request"
+    status_code = 400
+
+
 class ConflictError(DomainError):
     code = "conflict"
     status_code = 409

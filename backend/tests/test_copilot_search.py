@@ -82,29 +82,34 @@ async def test_search_happy_path_returns_results_block(admin_client, client):
 
 
 async def test_search_matches_by_cif_with_separators(admin_client, client):
+    """A CIF with separators normalises to a clean CIF and resolves directly
+    to the entity page (E1.5-REWORK: CIF queries always resolve)."""
     await _seed(admin_client)
     r = await client.post(
         "/api/copilot/skills/search",
         json={"query": "B-47 594 478", "context": {"locale": "es", "pathname": "/"}},
     )
     assert r.status_code == 200
-    block = r.json()["workspace"]["blocks"][0]
-    assert block["type"] == "search_results"
-    ids = [item["master_company_id"] for item in block["props"]["results"]]
-    assert "mc_olmedo" in ids
+    body = r.json()
+    assert body["workspace"] is None
+    assert body["entity_type"] == "company"
+    assert body["navigate_to"] == "/empresa/B47594478"
 
 
 async def test_search_accent_insensitive(admin_client, client):
+    """A 1-word concrete query (≥4 chars) that matches exactly one strong
+    candidate after NFD normalisation resolves to the entity page
+    (E1.5-REWORK)."""
     await _seed(admin_client)
     r = await client.post(
         "/api/copilot/skills/search",
         json={"query": "munoz", "context": {"locale": "es", "pathname": "/"}},
     )
     assert r.status_code == 200
-    block = r.json()["workspace"]["blocks"][0]
-    assert block["type"] == "search_results"
-    ids = [item["master_company_id"] for item in block["props"]["results"]]
-    assert "mc_munoz" in ids
+    body = r.json()
+    # Muñoz Comunicación is the only strong match → resolve.
+    assert body["navigate_to"] == "/empresa/B85412003"
+    assert body["workspace"] is None
 
 
 async def test_search_empty_state_with_contextual_suggestions(client):
