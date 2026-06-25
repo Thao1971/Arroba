@@ -1,10 +1,16 @@
-# arroba.com — Authorization Spec v1.0.0
+# arroba.com — Authorization Spec v1.1.0
 
 > **Spec canónico** · capa 4 del canon (Engines & Specs).
 > Fase 1.0.2 del Sprint 1 — segundo spec del Identity Platform Sprint.
 > Fecha de cierre: 2026-06-25.
 >
 > **CHANGELOG interno**:
+>
+> **v1.1.0 (2026-06-25)** — Patch forward-compatibility aprobado por el usuario tras revisión de v1.0:
+> - **Patch A.1**: principio canónico **P-A.12 — Authorization Explainability** elevado a requisito arquitectónico. La `Decision` pública incluye 5 campos obligatorios (`policy_ids_matched`, `rule_id_decisive`, `abac_attributes_used`, `missing_requirements`, `reason_code`). Nueva §20 dedicada.
+> - **Patch A.2**: campos `valid_from` / `valid_until` añadidos a `policies` y `resource_acls` (default `null`); `expires_at` añadido opcional a `feature_flags`. Motor de decisión filtra por ventana temporal. Nueva §21.
+> - **Patch A.3**: declaración forward del modelo `delegations` (delegación temporal de autoridad). NO implementado en v1.1; schema candidato + diferencia canónica con `resource_acls`. Nueva §22.
+> - **Patch A.4**: principio canónico **P-A.13 — Authorization orientada a entidades** (no a pantallas/módulos). Revisión confirmada del catálogo de acciones §6 y recursos §7: están centrados en entidades del Entity Framework. Sin renombres pendientes.
 >
 > **v1.0.0 (2026-06-25)** — Cierre inicial. Aprobadas las 8 decisiones D-A.1-D-A.8 del SPRINT1_ARCHITECTURE_PROPOSAL y las 3 observaciones forward-compatibility del usuario.
 >
@@ -224,6 +230,51 @@ Las colecciones de Authorization (`policies`, `feature_flags`, `resource_acls`, 
 
 El rol `arroba_team` tiene permisos de mediación documentados (§12), siempre con `audit_level = "extended"` y, en ciertos casos, requiere "razón" obligatoria.
 
+### P-A.12 — Authorization Explainability (requisito arquitectónico)
+
+El motor debe ser **completamente explicable**. No basta con devolver `permit` o `deny`. Cada `Decision` pública incluye obligatoriamente:
+
+| Campo | Tipo | Propósito |
+|---|---|---|
+| `policy_ids_matched` | `list[str]` | Policies que contribuyeron a la decisión (incluyendo ACLs si aplicaron) |
+| `rule_id_decisive` | `str` \| `null` | Regla que produjo el efecto final (primer `deny` en deny-overrides; o `permit` más prioritario) |
+| `abac_attributes_used` | `list[str]` | Qué atributos del contexto fueron evaluados (`plan`, `kyc_status`, `risk_score`, `identity_tier`, `fiscal_entity_id`, etc.) |
+| `missing_requirements` | `list[str]` | En `deny`: qué requisitos faltaban (`kyc_required: verified`, `plan_required: corporate+`, `membership_required: owner\|admin`, etc.). En `permit`: lista vacía. |
+| `reason_code` | `str` | Código canónico de la decisión (i18n en frontend; ver OPEN-A2-20). Lista cerrada documentada en §20.4. |
+
+**Usos canónicos de la explainability**:
+- **Arroba Copilot**: explica al user por qué no puede hacer X y propone remedio concreto.
+- **Auditoría**: trazabilidad regulatoria (GDPR, sector financiero, MiCA si aplica).
+- **Soporte (`arroba_team`)**: mediación informada.
+- **Depuración**: equipo técnico.
+
+**No es feature de UX, es requisito arquitectónico**. Toda `Decision` lleva estos campos siempre. La UX decide cuándo y cómo mostrarlos.
+
+Detalle completo del contrato en §20.
+
+### P-A.13 — Authorization orientada a entidades (no a pantallas)
+
+La autorización **NO** se modela alrededor de pantallas, módulos o features de la aplicación. Se modela alrededor del **Entity Framework canónico** (`ENTITY_MODEL.md` + `ENTITY_FRAMEWORK.md`).
+
+El motor canónico responde preguntas como:
+
+| Pregunta canónica | Resource canónico | Acción canónica |
+|---|---|---|
+| ¿Puede este subject editar **esta Empresa**? | `company.{cif}` | `company.update` |
+| ¿Puede acceder a **este Match**? | `match.{id}` | `match.read` |
+| ¿Puede participar en **esta Operación**? | `operation.{id}` | `operation.read` / `operation.advance_phase` |
+| ¿Puede leer **este Documento**? | `document.{id}` | `document.read` |
+| ¿Puede abrir **este Data Room** (forward)? | `dataroom.{id}` | `dataroom.read` |
+| ¿Puede generar valoración sobre **esta Oportunidad**? | `opportunity.{id}` | `valuation.create` |
+
+**Implicaciones**:
+- El catálogo de `resource_types` (§7) **es** el catálogo de entidades del Entity Framework (incluyendo Match como entidad canónica, decisión Sprint 0).
+- Las acciones se nombran en términos de entidad: `company.read`, `match.accept`, `operation.advance_phase`, **NO** `dashboard.view` ni `settings_page.access`.
+- Las pantallas frontend consultan permisos sobre las **entidades** que muestran, no sobre las pantallas en sí. Una pantalla con N entidades hace N checks (bulk endpoint §15.3 lo facilita).
+- Cuando una nueva pantalla aparece, **NO** se añaden acciones nuevas; la pantalla reusa las acciones existentes sobre las entidades que renderiza.
+
+**Cobertura**: revisión confirmada del catálogo §6 al cierre v1.1: las **107 acciones canónicas** están todas centradas en entidades del Entity Framework + dominios transversales (Identity, Authorization mismo, Subscription/Billing forward). Cero acciones "de pantalla" residuales. Cualquier propuesta futura de añadir acciones debe pasar el filtro: ¿corresponde a una **entidad** del Entity Framework o a un **dominio transversal canónico**? Si no, se reescribe en términos de entidad o se rechaza.
+
 ---
 
 ## 4. Modelo de datos canónico (Mongo)
@@ -254,8 +305,10 @@ El rol `arroba_team` tiene permisos de mediación documentados (§12), siempre c
 | `updated_at` | `datetime` | sí | now() | — |
 | `updated_by` | `str` (user_id) | no | `null` | quien hizo último update |
 | `audit_reason` | `str` | sí | — | razón obligatoria al crear/modificar |
-| `effective_from` | `datetime` | no | `null` | fecha desde la que aplica; default = `created_at` |
-| `effective_until` | `datetime` | no | `null` | fecha de expiración opcional |
+| `effective_from` | `datetime` | no | `null` | fecha desde la que aplica; default = `created_at`. **Alias canónico**: `valid_from` (ver §21). |
+| `effective_until` | `datetime` | no | `null` | fecha de expiración opcional. **Alias canónico**: `valid_until` (ver §21). |
+| `valid_from` | `datetime` | no | `null` | (forward-compatible, ver §21) sinónimo de `effective_from`. Si ambos presentes, debe coincidir. |
+| `valid_until` | `datetime` | no | `null` | (forward-compatible, ver §21) sinónimo de `effective_until`. Si ambos presentes, debe coincidir. |
 
 **Índices**:
 - `policy_id` unique.
@@ -286,6 +339,7 @@ El rol `arroba_team` tiene permisos de mediación documentados (§12), siempre c
 | `created_by` | `str` (user_id) | sí | — | — |
 | `created_at` | `datetime` | sí | now() | — |
 | `updated_at` | `datetime` | sí | now() | — |
+| `expires_at` | `datetime` | no | `null` | (forward-compatible, ver §21) TTL opcional global de la flag; al expirar, se devuelve `default_value` con `reason: "flag_expired"`. |
 | `audit_reason` | `str` | sí | — | razón obligatoria |
 
 **Índices**: `key` unique, `enabled`.
@@ -309,7 +363,9 @@ El rol `arroba_team` tiene permisos de mediación documentados (§12), siempre c
 | `effect` | enum | sí | `"permit"` | normalmente permit; deny ACL es rare pero válido (ban de un user de UN recurso) |
 | `granted_by` | `str` (user_id) | sí | — | con role apropiado (owner/admin de la org dueña del recurso) |
 | `granted_at` | `datetime` | sí | now() | — |
-| `expires_at` | `datetime` | no | `null` | TTL opcional (automatic revocation) |
+| `valid_from` | `datetime` | no | `null` | (forward-compatible, ver §21) ventana de validez inferior; `null` = activa desde `granted_at`. |
+| `expires_at` | `datetime` | no | `null` | TTL opcional (automatic revocation). **Alias canónico**: `valid_until` (ver §21). Mantenido por compatibilidad. |
+| `valid_until` | `datetime` | no | `null` | (forward-compatible, ver §21) sinónimo de `expires_at`. Si ambos presentes, debe coincidir. |
 | `revoked_at` | `datetime` | no | `null` | soft delete |
 | `revoked_by` | `str` (user_id) | no | `null` | — |
 | `reason` | `str` | sí | — | trazabilidad obligatoria |
@@ -1675,13 +1731,346 @@ Esto justifica el diseño actual: motor propio simple, contrato estable.
 
 ---
 
+## 20. Authorization Explainability (canónica)
+
+> Materialización del principio **P-A.12** (§3). La explainability no es un add-on; es la forma canónica en que el motor expone sus decisiones.
+
+### 20.1 Contrato de `Decision`
+
+Toda invocación de `authz.check(...)` retorna un objeto `Decision` con la siguiente shape **obligatoria**:
+
+```python
+Decision = {
+  # Núcleo (ya presente en v1.0)
+  "effect": "permit" | "deny",
+  "reason": str,                          # texto humano-legible interno
+  "latency_ms": int,
+  "cache_hit": bool,
+
+  # Explainability (P-A.12, obligatorios en v1.1)
+  "policy_ids_matched": list[str],        # ej. ["P-IDENTITY-MEMBER-001", "P-AT-AUDIT-001"]
+  "rule_id_decisive": str | None,         # ej. "P-IDENTITY-MEMBER-001" (la que ganó)
+  "abac_attributes_used": list[str],      # ej. ["plan", "kyc_status", "active_org_id"]
+  "missing_requirements": list[Requirement],  # vacía en permit
+  "reason_code": str,                     # código canónico (§20.4)
+}
+
+Requirement = {
+  "kind": "kyc" | "plan" | "membership" | "feature_flag" | "acl" | "identity_tier" | "custom",
+  "expected": Any,                        # ej. "verified", "corporate+", "owner|admin"
+  "current": Any,                         # ej. "none", "subscriber", "operator"
+  "fix_hint": str,                        # canónico: lo que el frontend traduce a CTA
+}
+```
+
+### 20.2 Resolución de `missing_requirements`
+
+Cuando `effect = "deny"`, el motor calcula **qué faltaba** examinando las policies que NO matched y las pre-flight checks:
+
+| Origen del deny | `missing_requirements[].kind` | Ejemplo |
+|---|---|---|
+| Pre-flight KYC gate (§9.1) | `"kyc"` | `{expected: "verified", current: "none", fix_hint: "complete_kyc"}` |
+| Pre-flight `identity_tier` gate | `"identity_tier"` | `{expected: "internal", current: "external", fix_hint: "request_internal_membership"}` |
+| Ninguna policy con `permit` matched, faltaba `membership.role` | `"membership"` | `{expected: ["owner", "admin"], current: "operator", fix_hint: "request_role_change"}` |
+| Policy condition referenciaba `plan` (forward) | `"plan"` | `{expected: "corporate+", current: "subscriber", fix_hint: "upgrade_plan"}` |
+| `feature_flag` requerido off | `"feature_flag"` | `{expected: "new_match_ui = true", current: "false", fix_hint: "feature_unavailable"}` |
+| No había `resource_acl` para subject externo | `"acl"` | `{expected: "explicit_grant", current: "none", fix_hint: "request_explicit_access"}` |
+| Custom condition (e.g., `risk_score <= 50`) | `"custom"` | `{expected: "risk_score <= 50", current: "78", fix_hint: "contact_arroba_team"}` |
+
+**Regla canónica**: si hay múltiples `missing_requirements`, se devuelven **todas** (no se corta en la primera). El frontend decide cuál presentar al user (típicamente la más accionable).
+
+### 20.3 Algoritmo de generación
+
+```python
+def build_missing_requirements(subject, action, resource, context, policies_evaluated):
+    reqs = []
+    
+    # 1. Pre-flight KYC
+    if action in KYC_GATED_ACTIONS and subject.kyc_status != "verified":
+        reqs.append(Requirement(kind="kyc", expected="verified",
+                                current=subject.kyc_status, fix_hint="complete_kyc"))
+    
+    # 2. Pre-flight identity_tier
+    if subject.identity_tier == "external" and action not in EXTERNAL_ALLOWED_ACTIONS:
+        reqs.append(Requirement(kind="identity_tier", expected="internal",
+                                current="external", fix_hint="request_internal_membership"))
+    
+    # 3. Análisis de policies que rechazaron en subject_match
+    for policy in policies_evaluated:
+        if not policy.matched_subject and policy.effect == "permit":
+            # Esta policy hubiera permitido si el subject cumpliera
+            req = derive_requirement_from_subject_match(policy.subject_match, subject)
+            if req:
+                reqs.append(req)
+    
+    # 4. Análisis de condition (ABAC) no satisfecha
+    for policy in policies_evaluated:
+        if policy.matched_subject and policy.matched_resource and not policy.condition_satisfied:
+            req = derive_requirement_from_condition(policy.condition, subject)
+            if req:
+                reqs.append(req)
+    
+    return dedupe(reqs)
+```
+
+### 20.4 Catálogo canónico de `reason_code`
+
+Lista cerrada. Traducción i18n en frontend.
+
+**Permit codes**:
+```
+permit_by_policy
+permit_by_acl
+permit_anonymous_public
+permit_self_action
+```
+
+**Deny codes**:
+```
+deny_default_no_match
+deny_by_policy
+deny_by_acl
+deny_kyc_required
+deny_kyc_expired
+deny_kyc_failed
+deny_identity_tier_restricted
+deny_plan_insufficient
+deny_plan_unknown                  # subject.plan = "unknown" durante migración
+deny_membership_required
+deny_membership_role_insufficient
+deny_membership_revoked
+deny_membership_suspended
+deny_org_archived
+deny_org_suspended
+deny_user_suspended
+deny_user_deleted
+deny_resource_archived
+deny_resource_not_found            # cuando policy depende de attribute de resource ausente
+deny_risk_score_too_high
+deny_feature_flag_disabled
+deny_arroba_team_no_mediation
+deny_arroba_team_outside_mediation_scope
+deny_delegation_expired            # forward
+deny_external_acl_required
+deny_capability_authorization_required  # cuando AGENTIC_LAYERS exige L4
+deny_engine_degraded               # modo seguro post-fallo
+deny_other
+```
+
+Convención: prefijo `permit_` o `deny_` + razón canónica. Cualquier nuevo code requiere bump menor del spec.
+
+### 20.5 Visibilidad de campos al subject
+
+Una `Decision` se devuelve **completa** al subject si el subject es:
+- El propio sujeto consultando `me/permissions` o `me/decisions/recent`.
+- Un `admin` o `arroba_team` (con mediación, para cross-user).
+
+Para subjects regulares consultando otros subjects: **NO** se exponen `policy_ids_matched` ni `abac_attributes_used` (información sensible sobre cómo funcionan las policies). Solo `effect`, `reason_code` y `missing_requirements` (con `fix_hint` simplificado).
+
+**Resuelve OPEN-A2-18**: `/me/decisions/recent` expone `(action, resource_id, effect, reason_code, missing_requirements_count, ts)`. No expone `policy_ids_matched`.
+
+### 20.6 Audit log con explainability
+
+`authz_audit_log.policy_ids_matched`, `.policy_id_decisive` ya están en schema §4.4. Se añaden:
+- `audit.abac_attributes_used`: lista (persistida 100%).
+- `audit.missing_requirements`: lista (persistida 100% solo en denegaciones).
+- `audit.reason_code`: code canónico (siempre persistido).
+
+### 20.7 Uso por Arroba Copilot
+
+El Copilot transversal (`TRANSACTION_COPILOT_SPEC §10`) consume `Decision.missing_requirements` para responder al user:
+
+> Usuario: "¿Por qué no puedo firmar este NDA?"
+> Copilot lee Decision con `missing_requirements: [{kind: "kyc", expected: "verified", current: "none", fix_hint: "complete_kyc"}]`.
+> Copilot responde: "Para firmar este NDA necesitas completar la verificación KYC. ¿Quieres iniciarla ahora?" + CTA.
+
+Esto es **canónico**: el Copilot no inventa explicaciones; las deriva del contrato de explainability.
+
+---
+
+## 21. Forward-compatibility: permisos temporales
+
+> Todo permiso modelado en el sistema debe **poder** tener vigencia temporal. En v1.1 los campos están en schema con default `null` (sin expiración). Las funcionalidades v1.1 que ya los usan: `effective_from`/`effective_until` en policies (introducidos en v1.0) y `expires_at` en `resource_acls`.
+
+### 21.1 Schema canónico forward-compatible
+
+Todas las entidades de Authorization que conceden permisos exponen pareja `valid_from` / `valid_until`:
+
+| Entidad | Campos canónicos | Aliases preservados | Default |
+|---|---|---|---|
+| `policies` | `valid_from`, `valid_until` | `effective_from`, `effective_until` (v1.0) | `null` |
+| `resource_acls` | `valid_from`, `valid_until` | `expires_at` ↔ `valid_until` (v1.0) | `null` |
+| `feature_flags` | `expires_at` (global TTL de la flag) | — | `null` |
+| `delegations` (forward §22) | `valid_from`, `valid_until` (obligatorio en este caso) | — | `valid_until` es **obligatorio** |
+
+Cuando ambos alias están presentes, **deben coincidir** (validación al crear/actualizar). Si solo uno está presente, se interpreta automáticamente como el otro.
+
+### 21.2 Motor: filtrado por ventana temporal
+
+El evaluador, antes de considerar una policy/ACL aplicable, verifica:
+
+```python
+def is_within_temporal_window(entity, now):
+    vf = entity.valid_from or entity.effective_from or entity.granted_at
+    vu = entity.valid_until or entity.effective_until or entity.expires_at
+    if vf is not None and now < vf:
+        return False
+    if vu is not None and now > vu:
+        return False
+    return True
+```
+
+Si el resultado es `False`, la entidad **se ignora** (no match). NO produce ni `permit` ni `deny`; simplemente no se considera. Si todas las policies aplicables están fuera de ventana, el resultado es `deny_default_no_match`.
+
+### 21.3 Cache invalidation y ventanas temporales
+
+Una policy/ACL con `valid_until` próximo invalida automáticamente:
+- TTL del cache de decisiones que la usaron = `min(60s, valid_until - now)`.
+- Job cron cada 60s detecta entradas cuyo `valid_until` pasó y emite `authz.acl.expired` o `authz.policy.expired`.
+
+### 21.4 Casos de uso forward que esto habilita
+
+| Caso | Mecanismo |
+|---|---|
+| Data Room con expiración 7 días | `resource_acls` con `valid_until = now + 7d` |
+| Abogado externo con acceso temporal a una operation | `resource_acls` con `valid_from`/`valid_until` + `subject_type = "external_relationship"` (forward IDENTITY_SPEC §18) |
+| Auditor con acceso a SPA durante DD window | `resource_acls` con ventana acotada |
+| Permiso extraordinario `arroba_team` para mediación | `mediations` con `expires_at`; las policies que dependen de "mediation_active" se cierran al expirar |
+| Policy de "modo elecciones" (durante 2 semanas) | `policies` con `valid_from`/`valid_until` |
+| Feature flag con sunset planificado | `feature_flags.expires_at` |
+| Promoción temporal de acceso a Beta | `feature_flags` con `expires_at` + rules de rollout |
+
+### 21.5 Garantía de no rotura
+
+- Toda entidad existente en Mongo con `valid_from = null` y `valid_until = null` sigue funcionando como antes (siempre válida).
+- Los aliases v1.0 (`effective_from`, `effective_until`, `expires_at`) se mantienen leídos por el motor sin cambios.
+- Migración Mongo `2026_06_25_authz_v1_1.py`: añade campos default `null` a documentos existentes; idempotente.
+
+### 21.6 Audit
+
+Cualquier mutación a campos `valid_*` requiere `audit_reason` obligatoria si la entidad ya estaba activa.
+
+---
+
+## 22. Forward-compatibility: delegación temporal de autoridad
+
+> **Estado en v1.1**: NO implementada. Solo se declara el modelo conceptual para evitar refactor cuando se implemente.
+
+### 22.1 Concepto canónico
+
+Un usuario con **autoridad** sobre un recurso (ej. CEO/owner sobre una `operation`) puede **delegar temporalmente** parte de su autoridad a otro miembro del equipo, **sin cambiar roles ni memberships permanentes**.
+
+Ejemplo: durante 5 días de vacaciones del CEO, delega `loi.submit` sobre la operación X al CFO. Cuando expira la ventana, la autoridad vuelve al CEO automáticamente.
+
+### 22.2 Diferencia canónica con `resource_acls`
+
+| Concepto | Naturaleza | Ejemplo |
+|---|---|---|
+| `resource_acls` | Concesión de **acceso** a un recurso a un subject que normalmente no lo tendría | Compartir Data Room con un abogado externo |
+| `delegations` (forward) | Transferencia temporal de **autoridad ejecutiva** (firmar, aprobar, autorizar L4) de un user a otro | CEO delega firma de LOI al CFO durante 5 días |
+
+Las **ACL** dicen "este subject puede leer/escribir este recurso"; las **delegations** dicen "este subject puede actuar **en nombre de** ese otro subject sobre este recurso, durante esta ventana".
+
+### 22.3 Schema candidato
+
+```yaml
+delegations:
+  _id: ObjectId
+  delegation_id: str (deleg_)
+  
+  delegator_user_id: FK user          # quien delega su autoridad
+  delegate_user_id: FK user           # quien recibe la autoridad
+  
+  resource_type: enum                 # del catálogo §7
+  resource_id: str                    # id del resource específico
+  
+  delegated_actions: list[str]        # subset del catálogo §6; debe ser subset de las acciones que el delegator puede realizar
+  
+  reason: str                         # obligatorio
+  
+  valid_from: datetime
+  valid_until: datetime               # obligatorio (no perpetua)
+  
+  status: enum [active, revoked, expired]
+  
+  created_at: datetime
+  created_by: user_id                 # = delegator
+  revoked_at: datetime | null
+  revoked_by: user_id | null
+  
+  audit_trail: list[dict]             # historial de cambios/usos
+```
+
+### 22.4 Motor (forward)
+
+El motor de decisión añadirá un paso adicional **DESPUÉS** de evaluar policies + ACLs, **ANTES** de aplicar deny-overrides:
+
+```
+[v1.1 actual]
+1. Pre-flight (KYC, identity_tier)
+2. Cache lookup
+3. Policies match
+4. ACLs match
+5. Deny-overrides
+6. Cache + audit
+
+[v1.2 forward con delegations]
+1. Pre-flight (KYC, identity_tier)
+2. Cache lookup
+3. Policies match
+4. ACLs match
+5. Delegations match     # NUEVO: ¿alguna delegación activa concede esta action?
+6. Deny-overrides
+7. Cache + audit
+```
+
+Una delegación activa produce un effect `permit` adicional con el `delegator_user_id` registrado como contexto.
+
+### 22.5 Constraints canónicos
+
+| Constraint | Razón |
+|---|---|
+| `delegator` debe **poder ejecutar** la acción él mismo en el momento de delegar. | No se puede delegar una autoridad que no se tiene. |
+| `valid_until` obligatorio; sin perpetuas. | Delegación ≠ transferencia de role. |
+| `valid_until - valid_from <= 90 días` (configurable por plan). | Evita degeneración en transferencia de facto. |
+| Acciones críticas (`spa.sign`, `org.transfer_ownership`) **NO** son delegables en v1.2. Pueden añadirse a futuro con doble autorización. | Imposibles de revertir; riesgo legal. |
+| Delegations son **no transitivas**: el delegate NO puede delegar a su vez. | Evita cadenas confusas. |
+| `delegate` queda registrado en audit como "actuando_en_nombre_de delegator" en cada acción ejecutada. | Trazabilidad. |
+
+### 22.6 Eventos canónicos (forward)
+
+```
+authz.delegation.created
+authz.delegation.invoked        # cuando el delegate ejecuta una acción gracias a la delegación
+authz.delegation.revoked
+authz.delegation.expired
+```
+
+### 22.7 APIs candidatas (forward)
+
+```
+POST   /api/authz/delegations              # crear (delegator)
+GET    /api/authz/delegations/mine         # mis delegaciones (como delegator o delegate)
+POST   /api/authz/delegations/{id}/revoke
+GET    /api/authz/delegations/active-for-me # las que actualmente me dan autoridad sobre recursos
+```
+
+### 22.8 Garantía v1.1
+
+- El contrato del motor `authz.check(...)` permanece **idéntico** entre v1.1 y la futura v1.2 que añada delegations.
+- Las policies actuales no se ven afectadas.
+- Las ACL actuales no se ven afectadas.
+- El frontend que en v1.1 nunca consulta delegations sigue funcionando cuando se introduzcan.
+
+---
+
 ## Cierre del spec
 
 Este documento es **fuente de verdad** sobre la plataforma de Authorization de arroba.com. Cualquier desviación en código requiere bump de versión + propagación a `CHANGELOG.md`.
 
-**Versión actual**: `v1.0.0`.
-**Estado**: ✅ Cerrado. Pendiente aprobación del usuario antes de redactar SUBSCRIPTION_SPEC (Fase 1.0.3).
-**Próxima fase**: 1.0.3 — `SUBSCRIPTION_SPEC.md` (no se inicia sin aprobación).
+**Versión actual**: `v1.1.0`.
+**Estado**: ✅ Cerrado con patches A.1-A.4 aplicados (Explainability canónica, permisos temporales forward, delegations forward, principio de Authorization orientada a entidades). Pendiente aprobación del usuario antes de redactar SUBSCRIPTION_SPEC (Fase 1.0.3).
+**Próxima fase**: 1.0.3 — `SUBSCRIPTION_SPEC.md` (en redacción tras este patch).
 
 > **Fuentes canónicas referenciadas**:
 > - `/app/memory/specs/IDENTITY_SPEC.md` v1.1.0 (capa anterior)
