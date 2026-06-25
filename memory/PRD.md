@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-06-24 — **Filosofía v3.0 DEFINITIVA promulgada. E1.5-REWORK (Empresa) — brief en redacción por orquestador.**
+> **Última actualización**: 2026-06-24 — **E1.5-REWORK ✅ CERRADA + verificada 9/9. Design System promulgado como 5ª capa. E1.5.5 (Empresa Polish + DS Canonization) en redacción por orquestador.**
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 ---
@@ -16,6 +16,8 @@
 > El modelo `Copilot → Skill → Workspace` queda **derogado**. El modelo correcto es **Entity First + Copilot Transversal**, con entidades principales: Empresa · Sector · Territorio · Valoración · Oportunidad · Transacción.
 >
 > Versión actual: v3.0 (definitiva) — añadidas sección 5 (Oportunidad vs Transacción), sección 11 (Acción inmediata) y sección 12 completa (Principios UX oficiales).
+>
+> El proyecto tiene cinco capas canónicas: Blueprint Estratégico · UX Blueprint · Design System · Diseños (Claude) · Implementación (Emergent). Documentado en §13 de ARROBA_PHILOSOPHY.md.
 
 ---
 
@@ -491,7 +493,7 @@ El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.m
 | Fase | Entidad / Tarea | Estado |
 |---|---|---|
 | **E1.5-REWORK** | Empresa | ✅ **CERRADA 2026-06-24 (verificada por e1_tester 9/9)** |
-| **E1.5.5** | Brand Refresh | 🔵 ENCADENADA tras E1.5 verde |
+| **E1.5.5** | Brand Refresh | 🟢 EN CURSO (orquestador redacta brief) — Empresa Polish + Design System Canonization (5ª capa promulgada) |
 | **E1.6** | Sector | 🔵 PLANIFICADA |
 | **E1.7** | Territorio | 🔵 PLANIFICADA |
 | **E1.8** | Valoración | 🔵 PLANIFICADA |
