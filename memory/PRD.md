@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-06-24 — **E1.5.5 ✅ CERRADA — Design System v1.0.0 canonizado (5ª capa). Empresa polished + 11 componentes canónicos + DESIGN_SYSTEM.md (552 líneas, 3 niveles).**
+> **Última actualización**: 2026-06-24 — **E1.5.6 ✅ CERRADA — Entity Framework v1.0.0 (3ª capa canónica). 11 componentes base + ENTITY_FRAMEWORK.md (828 líneas) + ENTITY_MODEL.md (818 líneas). CompanyHeader refactorizado como wrapper. 152/152 frontend + 138/138 backend.**
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 ---
@@ -17,7 +17,9 @@
 >
 > Versión actual: v3.0 (definitiva) — añadidas sección 5 (Oportunidad vs Transacción), sección 11 (Acción inmediata) y sección 12 completa (Principios UX oficiales).
 >
-> El proyecto tiene cinco capas canónicas: Blueprint Estratégico · UX Blueprint · Design System · Diseños (Claude) · Implementación (Emergent). Documentado en §13 de ARROBA_PHILOSOPHY.md.
+> El proyecto tiene **seis capas canónicas**: Blueprint Estratégico · UX Blueprint · **Entity Framework** (E1.5.6) · Design System (E1.5.5) · Diseños (Claude) · Implementación (Emergent). Documentado en §13 de ARROBA_PHILOSOPHY.md.
+>
+> Fuentes de verdad por capa: `ARROBA_PHILOSOPHY.md` (estrategia + UX), `ENTITY_FRAMEWORK.md` (arquitectura UX), `ENTITY_MODEL.md` (ontología), `DESIGN_SYSTEM.md` (visual).
 
 ---
 
@@ -493,7 +495,8 @@ El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.m
 | Fase | Entidad / Tarea | Estado |
 |---|---|---|
 | **E1.5-REWORK** | Empresa | ✅ **CERRADA 2026-06-24 (verificada por e1_tester 9/9)** |
-| **E1.5.5** | Brand Refresh | ✅ **CERRADA 2026-06-24** — Empresa Polish + Design System v1.0.0 (552 líneas, 3 niveles) |
+| **E1.5.5** | Brand Refresh | ✅ **CERRADA 2026-06-24** — Empresa Polish + Design System v1.0.0 (552 líneas, 3 niveles). Verificada 3/4 PASS por e1_tester + 1 HUMAN_REQUIRED por limitación viewport (no fallo de producto). |
+| **E1.5.6** | Consolidación Arquitectónica | ✅ **CERRADA 2026-06-24** — Entity Framework como 3ª capa canónica + Entity Model (ontología) + 11 componentes base + refactor CompanyHeader (sin regresión visual) |
 | **E1.6** | Sector | 🔵 PLANIFICADA |
 | **E1.7** | Territorio | 🔵 PLANIFICADA |
 | **E1.8** | Valoración | 🔵 PLANIFICADA |
@@ -675,6 +678,103 @@ patrón canónico de referencia para las siguientes entidades.
 - `/tmp/ds_v1_light.png` + `/tmp/ds_v1_dark.png` — Living DS catalog.
 - `/tmp/empresa_v1_light.png` + `/tmp/empresa_v1_dark.png` — ficha Empresa polished.
 - `/tmp/empresa_v1_mobile.png` (390px) + `/tmp/empresa_v1_tablet.png` (768px) — responsive.
+
+---
+
+## ✅ Etapa 1.5.6 — Consolidación Arquitectónica (CERRADA · 2026-06-24)
+
+**Canonización de la 3ª capa del proyecto** (Entity Framework) según
+`ARROBA_PHILOSOPHY.md` §13 actualizado a 6 capas. Sin modificar
+comportamiento, sin nuevas entidades, sin cambios de navegación ni Design
+System: solo infraestructura conceptual + arquitectónica para que las
+próximas entidades (Sector, Territorio, Valoración, Oportunidad, Persona,
+Advisor, Mandato, Operación) sean **composición de módulos existentes**.
+
+### Resumen de cierre
+
+- **Backend**: 138/138 pytest PASS (sin cambios; fase 100% conceptual + frontend).
+- **Frontend**: 152/152 Vitest PASS (142 previos + 10 nuevos en
+  `entity-framework.test.tsx` cubriendo EntityHeader + EntitySections).
+- **Build + typecheck + lint**: limpio.
+- **Cero regresión visual** en `/empresa/{cif}`: capturas before vs after
+  light + dark idénticas pixel-a-pixel.
+- **Cero regresión funcional**: el flujo P0 de E1.5-REWORK (chat refresca
+  sección) sigue intacto. Todos los testids canónicos
+  (`company-header`, `company-header-actions`, `company-action-*`)
+  preservados tras el refactor.
+
+### Subentregables
+
+| Entregable | Estado | Notas |
+|---|---|---|
+| **`/app/memory/ARROBA_PHILOSOPHY.md` §13 actualizado** | ✅ | 5 capas → **6 capas** insertando Entity Framework entre UX Blueprint y Design System. Regla de jerarquía actualizada. |
+| **`/app/memory/ENTITY_MODEL.md`** | ✅ | 818 líneas. 10 apartados: filosofía + principios + 12 tipos canónicos + campos comunes + relaciones por entidad + grafo del producto + reglas de negocio + versionado + 12 ejemplos JSON completos + principios de evolución. |
+| **`/app/memory/ENTITY_FRAMEWORK.md`** | ✅ | 828 líneas. 12 apartados: filosofía + qué es una entidad + anatomía canónica de 12 módulos + orden obligatorio + mapping al DS + 6 estados + responsive + navegación + reglas de composición + reglas de reutilización + 8 ejemplos completos (Empresa, Sector, Territorio, Valoración, Oportunidad, Persona, Advisor, Operación) + principios de evolución. |
+| **11 componentes base** en `src/components/entity/base/` | ✅ | EntityHeader (real presentational base), EntityHero, EntityMetrics, EntityInsights, EntityAnalisis, EntityAdvisor, EntitySignals, EntityRelations, EntityActions, EntityDocuments, EntityActivity + EntitySections (orquestador canónico del orden §4) + types.ts (EntityTypeId, EntityModuleId, EntityModuleState, EntityHeaderAction, EntitySectionDescriptor, DEFAULT_SECTION_IDS, CANONICAL_MODULE_ORDER) + barrel `index.ts`. Cada componente con JSDoc canónico (propósito, props, especialización, ejemplos). |
+| **Refactor `CompanyHeader`** | ✅ | Convertido a smart container que mantiene 100% de la lógica (watchlist, share, toasts E1.8/E1.9) y delega a `EntityHeader` base. Mantiene todos los testids canónicos: `company-header`, `company-header-name`, `company-header-subtitle`, `company-header-score`, `company-header-actions`, `company-action-{watchlist,share,request-valuation,activate-opportunity,download-memory,claim}`, `company-action-more`. Añade `data-entity-type="company"` al root. |
+| **Tests Vitest E1.5.6** | ✅ | 10 nuevos en `entity-framework.test.tsx`: EntityHeader (5 — data-entity-type, score badge, derive initials, actions row visibility, stable testids + click handlers) + EntitySections (5 — canonical sort, locked state, unavailable state con REQ/ETA, action slot only on ready, data attributes). |
+| **PRD actualizado** | ✅ | Fila E1.5.5 ✅ + Fila E1.5.6 ✅ + referencias canónicas a `ENTITY_FRAMEWORK.md` + `ENTITY_MODEL.md` desde la sección "FUENTE DE VERDAD CANÓNICA". |
+
+### Decisiones de diseño
+
+- **EntityHeader presentacional + container smart**: el primitivo base es
+  puro (sin estado, sin API calls). El container (`CompanyHeader`) compone
+  el array `actions: EntityHeaderAction[]` y mantiene toda la lógica
+  específica de Empresa. Esto preserva 100% testids actuales sin que el
+  primitivo conozca terminología company-specific.
+- **`entityType` como discriminador**: todas las primitivas base aceptan
+  `entityType` y lo exponen como `data-entity-type` en el DOM. Hoy no
+  cambia comportamiento; mañana permite specialisation por CSS, analytics
+  y QA.
+- **No generalización prematura**: NO se creó SectorHeader / TerritoryHeader
+  / ValuationHeader / OpportunityHeader. Solo se documentan en
+  `ENTITY_FRAMEWORK.md` §11 con sus módulos activos/omitidos. La
+  implementación real se hace en E1.6+ cuando exista la página.
+- **EntitySections es la API objetivo**: el `CompanyPageClient` actual NO
+  consume el orquestador `EntitySections` para evitar regresión durante
+  E1.5.6. Las primeras consumidoras serán las páginas de E1.6 en
+  adelante. Hoy el contrato está testeado y verificable.
+- **Wrappers thin = añaden data attrs, no markup**: EntityHero, EntityMetrics,
+  EntityInsights, EntityAnalisis, EntityRelations son pass-throughs de
+  ~10 líneas sobre los primitives del DS añadiendo solo
+  `data-entity-section` y `data-entity-type`. Cero cambio visual.
+
+### Hierarquía actualizada de capas canónicas
+
+```
+1. Blueprint Estratégico         (PHILOSOPHY)
+        ↓
+2. UX Blueprint                  (PHILOSOPHY §12)
+        ↓
+3. Entity Framework              (ENTITY_FRAMEWORK + ENTITY_MODEL)   ✨ E1.5.6
+        ↓
+4. Design System                 (DESIGN_SYSTEM)                     E1.5.5
+        ↓
+5. Diseños (Claude)
+        ↓
+6. Implementación (Emergent)
+```
+
+### Verificación visual
+
+Capturas before vs after del refactor (Kitchen Studio, S.L.):
+
+- `/tmp/empresa_before_light.png` ↔ `/tmp/empresa_after_light.png` — idénticas.
+- `/tmp/empresa_before_dark.png` ↔ `/tmp/empresa_after_dark.png` — idénticas.
+
+Todos los componentes canónicos del header verificados con Playwright en
+producción: name, actions row, watchlist toggle (con estado "En tu
+cartera"), share, request-valuation, activate-opportunity (primary
+red), download-memory, claim, more-dropdown. `data-entity-type="company"`
+confirmado en el root.
+
+### Files key
+
+- Docs: `memory/ENTITY_FRAMEWORK.md` (828 líneas), `memory/ENTITY_MODEL.md` (818 líneas), `memory/ARROBA_PHILOSOPHY.md` §13 actualizado a 6 capas.
+- Componentes base: `frontend/src/components/entity/base/{types,EntityHeader,EntityHero,EntityMetrics,EntityInsights,EntityAnalisis,EntityAdvisor,EntitySignals,EntityRelations,EntityActions,EntityDocuments,EntityActivity,EntitySections,index}.{ts,tsx}` — 14 archivos.
+- Refactor: `frontend/src/components/entity/CompanyHeader.tsx` (de container monolítico → smart container delegando a EntityHeader base).
+- Tests: `frontend/src/components/entity/base/entity-framework.test.tsx` (10 tests).
+- PRD: sección E1.5.6 CERRADA agregada.
 
 ---
 

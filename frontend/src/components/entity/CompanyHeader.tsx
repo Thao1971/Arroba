@@ -1,12 +1,23 @@
 'use client';
 /**
- * CompanyHeader — sticky-ish header for `/empresa/{cif}`.
+ * CompanyHeader — smart container for the `/empresa/{cif}` Header module.
  *
- * Renders the company avatar (initials), name, CIF + sector + region, and
- * (for authenticated users) a row of typed actions that talk to the
- * `apiClient.companies.*` SDK or fire "coming soon" toasts.
+ * Owns the data flow + side effects (toggle watchlist, toggle share, fire
+ * "coming soon" toasts) and delegates the presentational rendering to the
+ * canonical `EntityHeader` base primitive
+ * (`@/components/entity/base/EntityHeader`).
  *
- * Action toast labels follow the canonical phase plan:
+ * Architectural shape (E1.5.6):
+ *   - Stable testid `company-header` on the root + `company-header-name`,
+ *     `company-header-subtitle`, `company-header-score`,
+ *     `company-header-actions`, `company-action-{kind}` for actions, and
+ *     `company-action-more` for the dropdown — all preserved across the
+ *     refactor so existing tests + e1_tester keep passing untouched.
+ *   - All entity-specific logic (when share is enabled, what toast appears
+ *     for "Solicitar valoración avanzada", etc.) lives here. The base
+ *     primitive stays purely presentational.
+ *
+ * Toast labels follow the canonical phase plan:
  *   - "Solicitar valoración avanzada" → "Próximamente: E1.8"
  *   - "✦ Activar oportunidad"          → "Próximamente: E1.9"
  *   - "Descargar memoria mercantil"    → "Próximamente — REQ-008 pendiente"
@@ -20,7 +31,6 @@ import {
   TrendingUp,
   Download,
   Flag,
-  MoreHorizontal,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -29,9 +39,10 @@ import type {
   CompanyHeaderInfo,
   WatchlistVisibility,
 } from '@/lib/companies/types';
-import { cn } from '@/lib/cn';
 import { useActiveOrg } from '@/lib/workspaces/useActiveOrg';
 import { notify } from '@/lib/notify';
+import { EntityHeader } from './base/EntityHeader';
+import type { EntityHeaderAction } from './base/types';
 
 export interface CompanyHeaderProps {
   cif: string;
@@ -129,150 +140,67 @@ export function CompanyHeader({
     });
   };
 
+  const actions: EntityHeaderAction[] = [
+    {
+      testId: 'company-action-watchlist',
+      label: inWatchlist ? 'En tu cartera' : 'Guardar en cartera',
+      icon: inWatchlist ? Bookmark : BookmarkPlus,
+      onClick: onToggleWatchlist,
+      disabled: busy === 'watchlist',
+      active: inWatchlist,
+    },
+    {
+      testId: 'company-action-share',
+      label:
+        visibility === 'team' ? 'Compartida con equipo' : 'Compartir con equipo',
+      icon: Share2,
+      onClick: onToggleShare,
+      disabled: busy === 'share' || !inWatchlist,
+      active: visibility === 'team',
+    },
+    {
+      testId: 'company-action-request-valuation',
+      label: 'Solicitar valoración avanzada',
+      icon: TrendingUp,
+      onClick: () => onComingSoon('Solicitar valoración avanzada', 'E1.8'),
+    },
+    {
+      testId: 'company-action-activate-opportunity',
+      label: '✦ Activar oportunidad',
+      icon: Sparkles,
+      onClick: () => onComingSoon('✦ Activar oportunidad', 'E1.9'),
+      primary: true,
+    },
+    {
+      testId: 'company-action-download-memory',
+      label: 'Descargar memoria mercantil',
+      icon: Download,
+      onClick: () =>
+        onComingSoon('Descargar memoria mercantil — REQ-008 pendiente'),
+    },
+    {
+      testId: 'company-action-claim',
+      label: 'Reclamar empresa',
+      icon: Flag,
+      onClick: () => onComingSoon('Reclamar empresa'),
+    },
+  ];
+
   return (
-    <header
-      data-testid="company-header"
-      className="rounded-2xl border border-border bg-surface p-6 md:p-8 flex flex-col md:flex-row gap-6 md:items-start"
-    >
-      {/* Avatar */}
-      <div
-        aria-hidden
-        className="shrink-0 w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-bg border border-border flex items-center justify-center"
-      >
-        <span className="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-text">
-          {info.initials}
-        </span>
-      </div>
-
-      {/* Identity */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-3 flex-wrap">
-          <h1
-            className="font-display font-bold text-3xl md:text-4xl tracking-tight text-text leading-tight min-w-0"
-            data-testid="company-header-name"
-          >
-            {info.name}
-          </h1>
-          {info.score != null && (
-            <span
-              data-testid="company-header-score"
-              className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-semibold mt-2"
-            >
-              Score {info.score}
-            </span>
-          )}
-        </div>
-        <p
-          className="mt-2 text-sm md:text-base text-text-muted"
-          data-testid="company-header-subtitle"
-        >
-          {[info.sector, info.region, info.cif].filter(Boolean).join(' · ')}
-        </p>
-
-        {/* Actions row (only authenticated) */}
-        {authenticated && (
-          <div
-            className="mt-5 flex flex-wrap gap-2"
-            data-testid="company-header-actions"
-          >
-            <ActionButton
-              testId="company-action-watchlist"
-              onClick={onToggleWatchlist}
-              disabled={busy === 'watchlist'}
-              icon={inWatchlist ? Bookmark : BookmarkPlus}
-              active={inWatchlist}
-              label={inWatchlist ? 'En tu cartera' : 'Guardar en cartera'}
-            />
-            <ActionButton
-              testId="company-action-share"
-              onClick={onToggleShare}
-              disabled={busy === 'share' || !inWatchlist}
-              icon={Share2}
-              active={visibility === 'team'}
-              label={
-                visibility === 'team' ? 'Compartida con equipo' : 'Compartir con equipo'
-              }
-            />
-            <ActionButton
-              testId="company-action-request-valuation"
-              onClick={() =>
-                onComingSoon('Solicitar valoración avanzada', 'E1.8')
-              }
-              icon={TrendingUp}
-              label="Solicitar valoración avanzada"
-            />
-            <ActionButton
-              testId="company-action-activate-opportunity"
-              onClick={() => onComingSoon('✦ Activar oportunidad', 'E1.9')}
-              icon={Sparkles}
-              label="✦ Activar oportunidad"
-              primary
-            />
-            <ActionButton
-              testId="company-action-download-memory"
-              onClick={() =>
-                onComingSoon('Descargar memoria mercantil — REQ-008 pendiente')
-              }
-              icon={Download}
-              label="Descargar memoria mercantil"
-            />
-            <ActionButton
-              testId="company-action-claim"
-              onClick={() => onComingSoon('Reclamar empresa')}
-              icon={Flag}
-              label="Reclamar empresa"
-            />
-            <button
-              type="button"
-              aria-label="Más acciones"
-              data-testid="company-action-more"
-              className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-border bg-bg text-text-muted hover:bg-surface transition-colors"
-            >
-              <MoreHorizontal size={16} strokeWidth={1.8} />
-            </button>
-          </div>
-        )}
-      </div>
-    </header>
-  );
-}
-
-interface ActionButtonProps {
-  testId: string;
-  onClick: () => void;
-  disabled?: boolean;
-  icon: typeof Bookmark;
-  label: string;
-  active?: boolean;
-  primary?: boolean;
-}
-
-function ActionButton({
-  testId,
-  onClick,
-  disabled,
-  icon: Icon,
-  label,
-  active,
-  primary,
-}: ActionButtonProps) {
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-        primary
-          ? 'bg-primary text-white border-primary hover:bg-primary/90'
-          : active
-          ? 'bg-primary/10 text-primary border-primary/40 hover:bg-primary/15'
-          : 'bg-bg text-text border-border hover:bg-surface',
-      )}
-    >
-      <Icon size={14} strokeWidth={1.8} />
-      {label}
-    </button>
+    <EntityHeader
+      entityType="company"
+      testId="company-header"
+      info={{
+        name: info.name,
+        initials: info.initials ?? undefined,
+        subtitle:
+          [info.sector, info.region, info.cif].filter(Boolean).join(' · ') ||
+          undefined,
+        score: info.score ?? undefined,
+        identifier: info.cif ?? undefined,
+      }}
+      authenticated={authenticated}
+      actions={authenticated ? actions : []}
+    />
   );
 }

@@ -242,27 +242,29 @@ La conversación es temporal. La entidad es permanente.
 
 ## 13. Capas canónicas del proyecto
 
-El proyecto se estructura en cinco capas conceptuales en orden estricto de prioridad:
+El proyecto se estructura en **seis capas** conceptuales en orden estricto de prioridad:
 
 1. **Blueprint Estratégico** — Visión, entidades, modelo de dominio. Documentado en `ARROBA_PHILOSOPHY.md` (este fichero) + Blueprint v1.0 (`/app/_design_intake/uploads/Arroba Com Blueprint Estrategico Arquitectonico V1.docx`).
 
 2. **UX Blueprint** — Decisiones de experiencia de usuario, navegación, flujos. Documentado en la §12 de este fichero y en el Design Intake (`/app/_design_intake/`).
 
-3. **Design System** — Sistema visual canónico: tokens, tipografía, espaciados, componentes reutilizables, estados (loading/empty/error), microinteracciones, accesibilidad, responsive. Documentado en `/app/memory/DESIGN_SYSTEM.md` (a crear en E1.5.5).
+3. **Entity Framework** — Arquitectura UX canónica: anatomía obligatoria de una ficha de entidad, los 12 módulos (Header, Hero, KPIs, Advisor, Insights, Análisis, Señales, Relaciones, Oportunidades, Documentación, Actividad, Acciones), orden top→bottom, reglas de composición y reutilización, ontología de datos. Documentado en `/app/memory/ENTITY_FRAMEWORK.md` (arquitectura) + `/app/memory/ENTITY_MODEL.md` (ontología). Canonizado en E1.5.6.
 
-4. **Diseños (Claude)** — Mockups y especificaciones concretas pre-implementación.
+4. **Design System** — Sistema visual canónico: tokens, tipografía, espaciados, componentes reutilizables, estados (loading/empty/error), microinteracciones, accesibilidad, responsive. Documentado en `/app/memory/DESIGN_SYSTEM.md`. Canonizado en E1.5.5.
 
-5. **Implementación (Emergent)** — Código React/TS/Python ejecutable.
+5. **Diseños (Claude)** — Mockups y especificaciones concretas pre-implementación.
+
+6. **Implementación (Emergent)** — Código React/TS/Python ejecutable.
 
 ### Regla de jerarquía
 
 Si hay conflicto entre dos capas, **prevalece la capa superior**.
 
-- Blueprint > UX Blueprint > Design System > Diseños > Implementación.
+- Blueprint > UX Blueprint > **Entity Framework** > Design System > Diseños > Implementación.
 - La implementación NUNCA dicta UX. La UX NUNCA dicta Blueprint.
-- El Design System sirve a la UX, no al revés.
+- El Entity Framework sirve al UX Blueprint. El Design System sirve al Entity Framework.
 - Los componentes reutilizables NO se diseñan para encajar con el código existente; se diseñan para servir al patrón canónico de las entidades.
 
 ### Aplicación
 
-La ficha de Empresa (E1.5-REWORK) es el primer patrón. El Design System se canoniza en E1.5.5 usándola como referencia. Las siguientes entidades (Sector, Territorio, Valoración, Oportunidad, Transacción) heredarán este Design System.
+La ficha de Empresa (E1.5-REWORK) es el primer patrón implementado. El Design System se canonizó en E1.5.5 usándola como referencia. El Entity Framework se canoniza en E1.5.6 — define la anatomía + ontología que **todas** las entidades (Sector, Territorio, Valoración, Oportunidad, Persona, Advisor, Mandato, Operación) heredarán como composición de módulos base, no como rediseño.
