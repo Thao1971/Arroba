@@ -26,8 +26,8 @@
 | Archivo | Líneas | Tamaño | Última mod. | Propósito declarado | Estado |
 |---|---:|---:|---|---|---|
 | `ARROBA_PHILOSOPHY.md` | 270 | 8.1 KB | 2026-06-25 | Filosofía canónica v3.0 — derroga modelo Workspace-first | ✅ Vigente |
-| `ENTITY_MODEL.md` | 818 | 30 KB | 2026-06-25 | Ontología: 12 tipos canónicos de entidad, campos, relaciones | ✅ Vigente |
-| `ENTITY_FRAMEWORK.md` | 828 | 34 KB | 2026-06-25 | Arquitectura UX: 12 módulos canónicos por entidad | ✅ Vigente |
+| `ENTITY_MODEL.md` | 863 | 35 KB | 2026-06-25 | Ontología: catálogo de tipos canónicos de entidad, campos, relaciones (incluye `match` como entidad de primer nivel tras Sprint 0.5 Ciclo B) | ✅ Vigente v1.1.0 |
+| `ENTITY_FRAMEWORK.md` | 875 | 39 KB | 2026-06-25 | Arquitectura UX: módulos canónicos por entidad (anatomía completa incluyendo Match) | ✅ Vigente v1.1.0 |
 | `DESIGN_SYSTEM.md` | 552 | 27 KB | 2026-06-25 | DS v1.0.0 — Nivel 1 tokens, Nivel 2 componentes, Nivel 3 page patterns | ✅ Vigente |
 | `PRD.md` | 794 | 57 KB | 2026-06-25 | Estado del proyecto + roadmap por etapas E0…E2.0 | ✅ Vigente |
 | `CHANGELOG.md` | 73 | 9.9 KB | 2026-06-24 | Histórico por fecha | ⚠️ Mezcla entradas vigentes (E1.3/1.4/1.5) con entradas legacy de Mar-Abr 2026 (Buyer Activity, LOI Comparator, Cards marketplace) que no corresponden al código actual |
@@ -41,9 +41,10 @@
 | 1 | Blueprint Estratégico | `ARROBA_PHILOSOPHY.md` | ✅ |
 | 2 | UX Blueprint | `ARROBA_PHILOSOPHY.md` §12 | ✅ |
 | 3 | Entity Framework | `ENTITY_FRAMEWORK.md` + `ENTITY_MODEL.md` | ✅ |
-| 4 | Design System | `DESIGN_SYSTEM.md` v1.0.0 | ✅ |
-| 5 | Diseños (page-specific) | embebidos en PRD §1.5/1.5.5/1.5.6 | 🟡 sólo Empresa |
-| 6 | Implementación | código en `/app/frontend` + `/app/backend` | 🟡 sólo Empresa |
+| 4 | Engines & Specs | `specs/*` (6 specs canónicos Sprint 0) | ✅ Baseline v1.0 |
+| 5 | Design System | `DESIGN_SYSTEM.md` v1.0.0 | ✅ |
+| 6 | Diseños (page-specific) | embebidos en PRD §1.5/1.5.5/1.5.6 | 🟡 sólo Empresa |
+| 7 | Implementación | código en `/app/frontend` + `/app/backend` | 🟡 sólo Empresa |
 
 ### 1.3 Lagunas documentales contra el alcance Matching v1.0
 
@@ -66,7 +67,7 @@ Documentos **inexistentes hoy** que el hito requiere:
 | `ADVISOR_LAYER_SPEC.md` (qué hace un asesor: mandatos, exclusividad, panel) | **P1** | Bloque n |
 | `DEAL_WORKSPACE_SPEC.md` (sub-modelo de Operación durante DD/Negociación) | **P2** | Bloque i |
 
-Específicamente: en `ENTITY_MODEL.md` se declaran los 12 tipos (incluido `operation`, `valuation`, `opportunity`, `mandate`, `client`, `document`), pero **ninguno tiene `models.py` en backend salvo `company`/`organization`**. Es decir, la ontología existe en papel, no en código.
+Específicamente: en `ENTITY_MODEL.md` se declaran los tipos canónicos (incluido `operation`, `valuation`, `opportunity`, `mandate`, `match`, `user`, `document`), pero **ninguno tiene `models.py` en backend salvo `company`/`organization`**. Es decir, la ontología existe en papel, no en código.
 
 ---
 
@@ -254,7 +255,7 @@ Resultado: **138 passed, 6 deselected, 0 failed** (`pytest -q`, 14.17 s).
 | `components/journey/` | 5 | Onboarding chat-driven |
 | `components/layout/` | 2 + index | `AuthHeader`, `OrgSwitcher` |
 
-### 3.4 Entity Framework base — 11 / 12 módulos canónicos
+### 3.4 Entity Framework base — módulos canónicos implementados
 
 `src/components/entity/base/`:
 
