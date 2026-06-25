@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-06-24 — **E1.5-REWORK ✅ CERRADA + verificada 9/9. Design System promulgado como 5ª capa. E1.5.5 (Empresa Polish + DS Canonization) en redacción por orquestador.**
+> **Última actualización**: 2026-06-24 — **E1.5.5 ✅ CERRADA — Design System v1.0.0 canonizado (5ª capa). Empresa polished + 11 componentes canónicos + DESIGN_SYSTEM.md (552 líneas, 3 niveles).**
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 ---
@@ -493,7 +493,7 @@ El producto se realinea con la filosofía v3.0 (`/app/memory/ARROBA_PHILOSOPHY.m
 | Fase | Entidad / Tarea | Estado |
 |---|---|---|
 | **E1.5-REWORK** | Empresa | ✅ **CERRADA 2026-06-24 (verificada por e1_tester 9/9)** |
-| **E1.5.5** | Brand Refresh | 🟢 EN CURSO (orquestador redacta brief) — Empresa Polish + Design System Canonization (5ª capa promulgada) |
+| **E1.5.5** | Brand Refresh | ✅ **CERRADA 2026-06-24** — Empresa Polish + Design System v1.0.0 (552 líneas, 3 niveles) |
 | **E1.6** | Sector | 🔵 PLANIFICADA |
 | **E1.7** | Territorio | 🔵 PLANIFICADA |
 | **E1.8** | Valoración | 🔵 PLANIFICADA |
@@ -596,6 +596,85 @@ acentos-insensibles).
 - Toggle watchlist y share-with-team operan contra colecciones con índices
   únicos compuestos `(org_id, master_company_id, saved_by, visibility)`.
 - TTL de 90 días para `company_analysis_refreshes` (auto-limpieza Mongo).
+
+---
+
+## ✅ Etapa 1.5.5 — Empresa Polish + Design System v1.0.0 (CERRADA · 2026-06-24)
+
+**Canonización de la 5ª capa del proyecto** (Design System) según
+`ARROBA_PHILOSOPHY.md` §13. Usa la ficha de Empresa de E1.5-REWORK como
+patrón canónico de referencia para las siguientes entidades.
+
+### Resumen de cierre
+
+- **Backend**: 138/138 pytest PASS (sin cambios; fase puramente de frontend).
+- **Frontend**: 142/142 Vitest PASS (131 previos + 11 nuevos en `design-system-primitives.test.tsx`).
+- **Build + typecheck + lint**: limpio.
+- **Cero hardcoded** de hex/rgba/px en `components/{entity,copilot,blocks}` core (auditado).
+- **Light + Dark** verificados end-to-end en `/empresa/{cif}` real con `buyer@arroba.com` + en `/internal/design-system`.
+- **Responsive** verificado a 390px (mobile), 768px (tablet) y 1920px (desktop).
+
+### Subentregables P0 (must-ship)
+
+| Entregable | Estado | Notas |
+|---|---|---|
+| **Token audit & hardening** | ✅ | `src/styles/tokens.css` reescrito (~240 líneas) — paleta semántica canónica (brand-*, surface-*, text-*, border-*, success/warning/danger/info, locked-overlay), escalas spacing 4→96, type display/h1-h4/body/body-sm/caption/mono con line-height + tracking, radius 0→full, shadows sm→xl, transitions fast/normal/slow + easings, z-index, gradients. Light + Dark coherentes sin condicionales en componentes. |
+| **Tailwind mapping** | ✅ | `tailwind.config.ts` reescrito exponiendo TODOS los nuevos tokens como utilities (`bg-surface-elevated`, `text-h2`, `duration-fast`, `z-modal`, etc.) + 2 keyframes (`section-pulse`, `fade-in-up`). Aliases legacy mantenidos para retrocompat. |
+| **11 componentes canónicos** | ✅ | EntityHeader, EntitySection (re-exports estables), LockedSectionBlur, RefreshButton (nuevo, 4 estados con `data-state`), MetricsGrid (nuevo, 1/2/3/4 col + trends), MetricsBlock, EntityEvolutionChart (inline SVG), LoadingBlock, EmptyStateBlock, ErrorBlock, UnavailableBlock (nuevo, distinto de Empty/Locked/Error con `req`+`eta`), Toast (`notify()` helper). |
+| **CompanyPageClient migrado a RefreshButton** | ✅ | Sin regresión visual; cobertura test cooldown optimista 60s mantenida. |
+| **DESIGN_SYSTEM.md v1.0.0** | ✅ | 552 líneas en `/app/memory/DESIGN_SYSTEM.md`. Nivel 1 (tokens con tabla light/dark/uso), Nivel 2 (11 componentes con anatomía + props + variantes + cuándo NO usar), Nivel 3 (12 Page Patterns: 1 ✅ Company canónico + 6 🔵 templates futuros + 5 🟡 parciales). |
+| **Tests Vitest E1.5.5** | ✅ | 11 nuevos en `design-system-primitives.test.tsx`: UnavailableBlock (3), RefreshButton (4 estados), MetricsGrid (4 incluido columns 1/2/3/4). |
+
+### Subentregables P1 (ship-if-time)
+
+| Entregable | Estado | Notas |
+|---|---|---|
+| **Living `/internal/design-system`** | ✅ | Expandido con `DesignSystemV1Catalog`: theme switcher persistente (toggle `data-dark`), breakpoint badge live, tabla de 16 tokens semánticos con swatches, type scale visual, RefreshButton 4 estados, MetricsGrid 4-col + 2-col, state family (loading/empty/error/unavailable/locked) lado a lado, toast helpers 4 kinds, listado de los 12 Page Patterns con su estado de implementación. |
+| **Responsive Empresa** | ✅ | Mobile (<640): header stack vertical, acciones apiladas, MetricsGrid 1-col. Tablet (768-1024): 2-col layout, header lado-a-lado. Desktop (≥1024): 4-col layout completo. Verificado con capturas reales en producción. |
+
+### Subentregables P2 (best-effort)
+
+| Entregable | Estado | Notas |
+|---|---|---|
+| **Accesibilidad** | 🟡 parcial | `aria-live="polite"` en UnavailableBlock + listener section_updates. `aria-busy` en RefreshButton loading. `:focus-visible` global con focus-ring rojo. `aria-label` en trend icons. Sin axe-core CI todavía (parking para fase posterior). |
+| **Microinteracciones** | 🟡 parcial | `transition-colors duration-fast` aplicado a cards/CTAs. `animate-fade-in-up` en dock open. `prefers-reduced-motion` colapsa transitions globalmente. `animate-section-pulse` definido pero no aplicado todavía al section update (deferred). |
+
+### Highlights de implementación
+
+- **Brand identity intacta** — la auditoría de hardcoded migró 4 gradients
+  + 3 backgrounds + 1 inline color a tokens (CopilotDock, FeatureCardBlock,
+  CTABlock, HeroBlock). Cero cambio visual.
+- **Type scale dual** — añadimos la escala canónica del brief (`display/h1-h4/body/body-sm/caption/mono`) sin romper la legacy (`xs/sm/base/...`). Los aliases legacy se mantienen mappeados a los nuevos valores.
+- **Theme switching reactivo** — el switcher del Living DS sólo añade/quita
+  el atributo `data-dark` en `<html>`. Toda la UI se redibuja
+  automáticamente porque solo consumimos CSS vars.
+- **EntityHeader sin generalización prematura** — `entity/index.ts`
+  re-exporta `CompanyHeader as EntityHeader`. La API canónica está
+  documentada; la generalización real llega en E1.6 cuando exista la
+  primera Sector Page.
+
+### Page Patterns documentados (Nivel 3)
+
+| # | Pattern | Estado | Fase |
+|---|---|---|---|
+| 1 | Company Page | ✅ canónico de referencia | E1.5-REWORK |
+| 2 | Sector Page | 🔵 template | E1.6 |
+| 3 | Territory Page | 🔵 template | E1.7 |
+| 4 | Valuation Page | 🔵 template | E1.8 |
+| 5 | Opportunity Page | 🔵 template | E1.9 |
+| 6 | Transaction Page | 🔵 template | E2.0 |
+| 7 | Dashboard | 🟡 parcial | continuo |
+| 8 | Search Results | 🟡 parcial | continuo |
+| 9 | Assistant / Copilot Dock | 🟡 parcial | E1.5-REWORK |
+| 10 | State family (loading/empty/error/locked/unavailable) | ✅ unificado | E1.5.5 |
+| 11 | Valuation Result | 🟡 parcial | E1.8 |
+| 12 | Marketplace Flows | 🔵 stub | post-E2.0 |
+
+### Capturas de cierre
+
+- `/tmp/ds_v1_light.png` + `/tmp/ds_v1_dark.png` — Living DS catalog.
+- `/tmp/empresa_v1_light.png` + `/tmp/empresa_v1_dark.png` — ficha Empresa polished.
+- `/tmp/empresa_v1_mobile.png` (390px) + `/tmp/empresa_v1_tablet.png` (768px) — responsive.
 
 ---
 

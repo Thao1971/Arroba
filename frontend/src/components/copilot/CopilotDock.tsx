@@ -92,13 +92,13 @@ export function CopilotDock() {
         className={cn(
           'fixed bottom-6 right-6 z-[1100]',
           'w-13 h-13 rounded-full flex items-center justify-center',
-          'shadow-[0_10px_30px_rgba(12,12,14,0.35)]',
-          'transition-transform duration-150 hover:-translate-y-0.5'
+          'shadow-lg',
+          'transition-transform duration-fast hover:-translate-y-0.5'
         )}
         style={{
           width: 52,
           height: 52,
-          background: 'linear-gradient(135deg,#0C0C0E,#2E2E2C)',
+          background: 'var(--gradient-brand-dark)',
         }}
       >
         <Sparkles size={22} strokeWidth={1.5} className="text-primary" />
@@ -115,11 +115,11 @@ export function CopilotDock() {
       aria-label="Arroba Copilot"
       data-testid="copilot-dock-panel"
       className={cn(
-        'fixed bottom-6 right-6 z-[1100]',
+        'fixed bottom-6 right-6 z-modal',
         'flex flex-col',
         'rounded-2xl bg-surface border border-border overflow-hidden',
-        'shadow-[0_20px_60px_rgba(12,12,14,0.35)]',
-        'animate-[journeyIn_.22s_ease_both]'
+        'shadow-xl',
+        'animate-fade-in-up'
       )}
       style={{
         width: 'min(420px, calc(100vw - 32px))',
@@ -167,7 +167,7 @@ function Header({
     >
       <div
         className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-        style={{ background: 'linear-gradient(135deg,#0C0C0E,#2E2E2C)' }}
+        style={{ background: 'var(--gradient-brand-dark)' }}
         aria-hidden
       >
         <Sparkles size={16} strokeWidth={1.5} className="text-primary" />

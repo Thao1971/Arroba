@@ -29,3 +29,13 @@ export type {
   CompanyCardsGridBlockProps,
   CompanyCardsGridItem,
 } from './CompanyCardsGridBlock';
+// E1.5.5 — Design System v1.0.0 canonical primitives
+export { UnavailableBlock } from './UnavailableBlock';
+export type { UnavailableBlockProps } from './UnavailableBlock';
+export { RefreshButton } from './RefreshButton';
+export type { RefreshButtonProps } from './RefreshButton';
+export { MetricsGrid } from './MetricsGrid';
+export type {
+  MetricsGridProps,
+  MetricItem,
+} from './MetricsGrid';

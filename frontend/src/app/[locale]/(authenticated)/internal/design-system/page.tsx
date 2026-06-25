@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Sparkles } from 'lucide-react';
 import {
@@ -25,6 +25,16 @@ import {
 } from '@/lib/format';
 import { contrastRatio, passesAA } from '@/lib/contrast';
 import { cn } from '@/lib/cn';
+import {
+  EmptyStateBlock,
+  ErrorBlock,
+  LoadingBlock,
+  MetricsGrid,
+  RefreshButton,
+  UnavailableBlock,
+} from '@/components/blocks';
+import { LockedSectionBlur } from '@/components/entity';
+import { notify } from '@/lib/notify';
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
@@ -293,6 +303,409 @@ function DesignSystemInner() {
           </table>
         </div>
       </Section>
+
+      {/* ================================================================
+       * v1.0.0 — Canonical Design System (E1.5.5)
+       *
+       * From here down: tokens + components + page patterns documented in
+       * /app/memory/DESIGN_SYSTEM.md. Living catalog rendered with the
+       * actual primitives (not mocks).
+       * ============================================================== */}
+      <DesignSystemV1Catalog />
+    </div>
+  );
+}
+
+/* ====================================================================
+ * Helpers and the v1.0.0 living catalog.
+ * ================================================================== */
+
+function ThemeSwitcher() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    setDark(document.documentElement.hasAttribute('data-dark'));
+  }, []);
+  function toggle() {
+    const html = document.documentElement;
+    if (html.hasAttribute('data-dark')) {
+      html.removeAttribute('data-dark');
+      setDark(false);
+    } else {
+      html.setAttribute('data-dark', '');
+      setDark(true);
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      data-testid="ds-theme-switcher"
+      className={cn(
+        'inline-flex items-center gap-2 rounded-full px-4 py-2',
+        'text-body-sm font-semibold border border-border-default',
+        'bg-surface-elevated text-text-primary hover:bg-surface-muted',
+        'transition-colors duration-fast focus-visible:shadow-focus',
+      )}
+    >
+      {dark ? '☀ Light' : '☾ Dark'}
+    </button>
+  );
+}
+
+function BreakpointBadge() {
+  return (
+    <div
+      className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-3 py-1 text-caption font-mono text-text-muted"
+      data-testid="ds-breakpoint-badge"
+    >
+      <span className="block sm:hidden">xs &lt;640</span>
+      <span className="hidden sm:block md:hidden">sm 640-768</span>
+      <span className="hidden md:block lg:hidden">md 768-1024</span>
+      <span className="hidden lg:block xl:hidden">lg 1024-1280</span>
+      <span className="hidden xl:block 2xl:hidden">xl 1280-1536</span>
+      <span className="hidden 2xl:block">2xl ≥1536</span>
+    </div>
+  );
+}
+
+function CanonSection({
+  id,
+  title,
+  description,
+  children,
+}: {
+  id: string;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      data-testid={`ds-canon-${id}`}
+      className="mb-12 scroll-mt-20"
+    >
+      <header className="mb-4">
+        <h2 className="font-display font-semibold text-h2 leading-h2 text-text-primary">
+          {title}
+        </h2>
+        {description && (
+          <p className="text-body-sm text-text-secondary mt-1">{description}</p>
+        )}
+      </header>
+      <div className="space-y-6">{children}</div>
+    </section>
+  );
+}
+
+function TokenChip({ name, value }: { name: string; value: string }) {
+  return (
+    <div
+      className="flex items-center gap-3 rounded-lg border border-border-default bg-surface-elevated p-3"
+      data-testid={`ds-token-${name}`}
+    >
+      <span
+        aria-hidden
+        className="block w-10 h-10 rounded-md border border-border-default shrink-0"
+        style={{ background: `var(${value})` }}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-body-sm font-semibold text-text-primary truncate">
+          {name}
+        </p>
+        <p className="text-caption text-text-muted font-mono truncate">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const SEMANTIC_TOKENS: Array<{ name: string; value: string }> = [
+  { name: 'brand-primary', value: '--brand-primary' },
+  { name: 'brand-primary-hover', value: '--brand-primary-hover' },
+  { name: 'brand-accent', value: '--brand-accent' },
+  { name: 'surface-primary', value: '--surface-primary' },
+  { name: 'surface-elevated', value: '--surface-elevated' },
+  { name: 'surface-muted', value: '--surface-muted' },
+  { name: 'text-primary', value: '--text-primary' },
+  { name: 'text-secondary', value: '--text-secondary' },
+  { name: 'text-muted', value: '--text-muted' },
+  { name: 'text-disabled', value: '--text-disabled' },
+  { name: 'border-default', value: '--border-default' },
+  { name: 'border-emphasis', value: '--border-emphasis' },
+  { name: 'success', value: '--success' },
+  { name: 'warning', value: '--warning' },
+  { name: 'danger', value: '--danger' },
+  { name: 'info', value: '--info' },
+];
+
+function DesignSystemV1Catalog() {
+  return (
+    <div data-testid="ds-v1-catalog" className="space-y-12">
+      <header className="flex flex-wrap items-end justify-between gap-4 pt-6 mt-12 border-t border-border-default">
+        <div>
+          <p className="text-caption uppercase tracking-caption text-text-muted">
+            E1.5.5 · canonized
+          </p>
+          <h2 className="text-h1 font-display font-semibold leading-h1 text-text-primary">
+            Design System v1.0.0
+          </h2>
+          <p className="text-body text-text-secondary mt-2 max-w-2xl">
+            Catálogo vivo de tokens semánticos, componentes canonizados y page
+            patterns. Spec en{' '}
+            <code className="font-mono text-body-sm">
+              /app/memory/DESIGN_SYSTEM.md
+            </code>
+            .
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <BreakpointBadge />
+          <ThemeSwitcher />
+        </div>
+      </header>
+
+      {/* ---------- Tokens semánticos ---------- */}
+      <CanonSection
+        id="tokens-semantic"
+        title="Tokens semánticos"
+        description="Paleta canónica. Click en cada chip para ver el valor (el catálogo se redibuja al cambiar light/dark)."
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {SEMANTIC_TOKENS.map((t) => (
+            <TokenChip key={t.name} name={t.name} value={t.value} />
+          ))}
+        </div>
+      </CanonSection>
+
+      {/* ---------- Type scale ---------- */}
+      <CanonSection
+        id="type-scale"
+        title="Type scale canónica"
+        description="Display · h1-h4 · body · body-sm · caption. Todas con line-height y letter-spacing definidos."
+      >
+        <div className="space-y-3" data-testid="ds-type-scale">
+          <p className="text-display font-display leading-display tracking-display">
+            Display 72
+          </p>
+          <p className="text-h1 font-display leading-h1 tracking-h1">H1 36</p>
+          <p className="text-h2 font-display leading-h2 tracking-h2">H2 28</p>
+          <p className="text-h3 font-display leading-h3 tracking-h3">H3 22</p>
+          <p className="text-h4 font-display leading-h4">H4 18</p>
+          <p className="text-body">Body 15 — texto por defecto con DM Sans.</p>
+          <p className="text-body-sm text-text-secondary">
+            Body-sm 14 — microcopy y descripciones secundarias.
+          </p>
+          <p className="text-caption text-text-muted uppercase tracking-caption">
+            Caption 12 — labels y badges
+          </p>
+        </div>
+      </CanonSection>
+
+      {/* ---------- RefreshButton variants ---------- */}
+      <CanonSection
+        id="refresh-button"
+        title="RefreshButton — 4 estados"
+        description="idle · loading · cooldown · disabled. Atributo data-state para QA."
+      >
+        <div className="flex flex-wrap gap-3">
+          <RefreshButton
+            label="Refrescar análisis"
+            onClick={() =>
+              notify({ kind: 'success', text: 'Refresh ejecutado.' })
+            }
+            testId="ds-refresh-idle"
+          />
+          <RefreshButton
+            label="Refrescar análisis"
+            loading
+            onClick={() => undefined}
+            testId="ds-refresh-loading"
+          />
+          <RefreshButton
+            label="Refrescar análisis"
+            cooldownSeconds={42}
+            onClick={() => undefined}
+            testId="ds-refresh-cooldown"
+          />
+          <RefreshButton
+            label="Refrescar análisis"
+            disabled
+            onClick={() => undefined}
+            testId="ds-refresh-disabled"
+          />
+        </div>
+      </CanonSection>
+
+      {/* ---------- MetricsGrid 1/2/4 ---------- */}
+      <CanonSection
+        id="metrics-grid"
+        title="MetricsGrid — 1 / 2 / 4 columnas"
+        description="Responsive (1 col mobile, escala según prop columns en md+)."
+      >
+        <MetricsGrid
+          columns={4}
+          testId="ds-metrics-4"
+          items={[
+            { id: 'a', label: 'Ingresos', value: '2,4M €', trend: 'up', hint: 'YoY +12%' },
+            { id: 'b', label: 'EBITDA', value: '480k €', trend: 'flat' },
+            { id: 'c', label: 'Empleados', value: '32', trend: 'down' },
+            { id: 'd', label: 'Margen', value: '20%', trend: 'up' },
+          ]}
+        />
+        <MetricsGrid
+          columns={2}
+          testId="ds-metrics-2"
+          items={[
+            { id: 'p1', label: 'Score sectorial', value: '92' },
+            { id: 'p2', label: 'Confianza dato', value: '0.92' },
+          ]}
+        />
+      </CanonSection>
+
+      {/* ---------- State family ---------- */}
+      <CanonSection
+        id="states"
+        title="Estados — loading / empty / error / unavailable / locked"
+        description="Un estado por situación. Ver §3.10 del DESIGN_SYSTEM."
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <p className="text-caption uppercase tracking-caption text-text-muted mb-2">
+              Loading
+            </p>
+            <LoadingBlock />
+          </div>
+          <div>
+            <p className="text-caption uppercase tracking-caption text-text-muted mb-2">
+              Empty
+            </p>
+            <EmptyStateBlock
+              title="Aún no hay comparables"
+              description="Cuando guardes una empresa en cartera, sus comparables aparecerán aquí."
+            />
+          </div>
+          <div>
+            <p className="text-caption uppercase tracking-caption text-text-muted mb-2">
+              Error
+            </p>
+            <ErrorBlock
+              title="No hemos podido cargar las señales"
+              message="HTTP 500 — vuelve a intentarlo en unos segundos."
+              onRetry={() => notify({ kind: 'info', text: 'Reintentado.' })}
+            />
+          </div>
+          <div>
+            <p className="text-caption uppercase tracking-caption text-text-muted mb-2">
+              Unavailable (REQ-XXX)
+            </p>
+            <UnavailableBlock
+              title="Señales BORME"
+              description="Datos extraídos del BORME, contratación pública y cambios societarios."
+              req="REQ-008"
+              eta="E1.8"
+            />
+          </div>
+          <div className="lg:col-span-2">
+            <p className="text-caption uppercase tracking-caption text-text-muted mb-2">
+              Locked (anon)
+            </p>
+            <LockedSectionBlur
+              testId="ds-locked"
+              title="Valoración indicativa por múltiplo"
+              description="Banda central + rangos. Crea tu cuenta para verla."
+            />
+          </div>
+        </div>
+      </CanonSection>
+
+      {/* ---------- Toast helper ---------- */}
+      <CanonSection
+        id="toast"
+        title="Toast (helper notify)"
+        description="4 kinds. Slide-in arriba centrado, auto-dismiss 3s."
+      >
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            data-testid="ds-toast-success"
+            className="rounded-full px-4 py-2 text-body-sm font-semibold bg-success text-text-on-brand"
+            onClick={() =>
+              notify({
+                kind: 'success',
+                text: 'Sección «narrative» actualizada.',
+              })
+            }
+          >
+            success
+          </button>
+          <button
+            type="button"
+            data-testid="ds-toast-warn"
+            className="rounded-full px-4 py-2 text-body-sm font-semibold bg-warning text-text-on-brand"
+            onClick={() =>
+              notify({
+                kind: 'warn',
+                text: 'Has refrescado el análisis. Espera 60s.',
+              })
+            }
+          >
+            warn
+          </button>
+          <button
+            type="button"
+            data-testid="ds-toast-error"
+            className="rounded-full px-4 py-2 text-body-sm font-semibold bg-danger text-text-on-brand"
+            onClick={() =>
+              notify({ kind: 'error', text: 'No hemos podido procesar.' })
+            }
+          >
+            error
+          </button>
+          <button
+            type="button"
+            data-testid="ds-toast-info"
+            className="rounded-full px-4 py-2 text-body-sm font-semibold bg-info text-text-on-brand"
+            onClick={() =>
+              notify({
+                kind: 'info',
+                text: 'Próximamente: E1.8 (Valoración avanzada).',
+              })
+            }
+          >
+            info
+          </button>
+        </div>
+      </CanonSection>
+
+      {/* ---------- Page patterns ---------- */}
+      <CanonSection
+        id="page-patterns"
+        title="Page Patterns — Nivel 3"
+        description="12 patrones documentados en /app/memory/DESIGN_SYSTEM.md §3."
+      >
+        <div className="rounded-2xl border border-border-default bg-surface-elevated p-6">
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-body-sm">
+            <li>✅ Company Page (canónico de referencia, E1.5-REWORK)</li>
+            <li>🔵 Sector Page (template para E1.6)</li>
+            <li>🔵 Territory Page (template para E1.7)</li>
+            <li>🔵 Valuation Page (template para E1.8)</li>
+            <li>🔵 Opportunity Page (template para E1.9)</li>
+            <li>🔵 Transaction Page (template para E2.0)</li>
+            <li>🟡 Dashboard (parcial)</li>
+            <li>🟡 Search Results (parcial)</li>
+            <li>🟡 Assistant / Copilot Dock (parcial)</li>
+            <li>✅ State family (loading/empty/error/locked/unavailable)</li>
+            <li>🟡 Valuation Result (ValuationBlock plantilla)</li>
+            <li>🔵 Marketplace Flows (post-E2.0)</li>
+          </ul>
+          <p className="text-caption text-text-muted mt-4">
+            Consulta cada patrón en DESIGN_SYSTEM.md §3.1–§3.12 para anatomía,
+            estados, responsive y composición.
+          </p>
+        </div>
+      </CanonSection>
     </div>
   );
 }

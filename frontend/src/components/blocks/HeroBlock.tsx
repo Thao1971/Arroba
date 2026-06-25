@@ -44,13 +44,13 @@ export function HeroBlock({
           dark ? 'text-white' : 'text-text bg-surface border border-border',
           className
         )}
-        style={dark ? { background: '#0C0C0E' } : undefined}
+        style={dark ? { background: 'var(--arroba-black)' } : undefined}
       >
         {dark && (
           <span
             aria-hidden
             className="absolute right-[-90px] top-[-60px] leading-none font-display font-extrabold select-none pointer-events-none"
-            style={{ fontSize: 360, color: 'rgba(232,0,29,.08)' }}
+            style={{ fontSize: 360, color: 'color-mix(in srgb, var(--arroba-red) 8%, transparent)' }}
           >
             ✦
           </span>

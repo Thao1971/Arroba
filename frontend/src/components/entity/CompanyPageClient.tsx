@@ -8,7 +8,6 @@
  * sections the LLM decided to update (per ARROBA_PHILOSOPHY.md §12 "La
  * ficha es la verdad").
  */
-import { Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiClient, ApiError } from '@/lib/api/client';
@@ -23,6 +22,7 @@ import { LockedSectionBlur } from './LockedSectionBlur';
 import { HeroBlock } from '@/components/blocks/HeroBlock';
 import { MetricsBlock } from '@/components/blocks/MetricsBlock';
 import { NarrativeBlock } from '@/components/blocks/NarrativeBlock';
+import { RefreshButton } from '@/components/blocks/RefreshButton';
 import { ValuationBlock } from '@/components/blocks/ValuationBlock';
 import { CompanyCardsGridBlock } from '@/components/blocks/CompanyCardsGridBlock';
 import { notify } from '@/lib/notify';
@@ -249,28 +249,13 @@ export function CompanyPageClient({
           description="Lectura del analista IA basada en la ficha."
           action={
             authenticated && !locked.has('narrative') ? (
-              <button
-                type="button"
-                data-testid="company-refresh-analysis"
+              <RefreshButton
+                testId="company-refresh-analysis"
+                label="Refrescar análisis"
+                loading={refreshingAnalysis}
+                cooldownSeconds={analysisCountdown}
                 onClick={onRefreshAnalysis}
-                disabled={refreshingAnalysis || analysisCountdown !== null}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold border transition-colors',
-                  'bg-bg text-text border-border hover:bg-surface',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                )}
-              >
-                {refreshingAnalysis ? (
-                  <Loader2 size={14} strokeWidth={1.8} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={14} strokeWidth={1.8} />
-                )}
-                {refreshingAnalysis
-                  ? 'Refrescando…'
-                  : analysisCountdown !== null
-                  ? `Espera ${analysisCountdown}s`
-                  : '↺ Refrescar análisis'}
-              </button>
+              />
             ) : null
           }
         >

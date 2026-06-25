@@ -49,9 +49,9 @@ export function FeatureCardBlock({
       )}
       style={
         dark
-          ? { background: '#0C0C0E' }
+          ? { background: 'var(--arroba-black)' }
           : accent
-            ? { background: 'linear-gradient(135deg, #E8001D, #B0001A)' }
+            ? { background: 'var(--gradient-brand-red)' }
             : undefined
       }
     >

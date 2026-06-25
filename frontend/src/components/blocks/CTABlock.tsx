@@ -43,7 +43,7 @@ export function CTABlock({
         dark ? 'text-white' : 'border border-border bg-surface text-text',
         className
       )}
-      style={dark ? { background: '#0C0C0E' } : undefined}
+      style={dark ? { background: 'var(--arroba-black)' } : undefined}
     >
       <h2 className="font-display font-bold text-3xl md:text-4xl tracking-tight max-w-2xl mx-auto">
         {title}
