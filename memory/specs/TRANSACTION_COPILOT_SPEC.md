@@ -1,11 +1,20 @@
-# arroba.com — Transaction Copilot Spec v1.0.0
+# arroba.com — Transaction Copilot Spec v1.1.0
 
 > **Capa canónica**: *Engines & Specs* (séptima capa, pendiente de propagación a `ARROBA_PHILOSOPHY.md` §13 al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.2 (segundo de 6 specs).
-> **Estado**: borrador para revisión humana.
+> **Estado**: borrador para revisión humana — v1.1.0 incorpora 5 patches canónicos tras la entrega de `COPILOTS_SPEC v1.0.0`.
 > **Fecha**: 2026-06-25.
 > **Documento predecesor (lectura obligatoria previa)**: `TRANSACTION_OS_SPEC.md v1.1.0`.
 > **Idioma**: español canónico técnico.
+>
+> **CHANGELOG v1.1.0 (2026-06-25)** — patches quirúrgicos tras `COPILOTS_SPEC v1.0.0`:
+> 1. **Voz única canonizada (B6)** declarada como principio canónico inviolable (§3.0).
+> 2. **`voice` y `contributors`** redefinidos como **metadatos técnicos exclusivos**; nunca renderizables al usuario (§3.2). Cierra `[OPEN-C2]` de `COPILOTS_SPEC`.
+> 3. **TC no es un especialista** — añadido principio explícito de orquestador con 8 funciones declaradas (§1.6).
+> 4. **Especialistas estrictamente acotados al dominio** — añadido en modelo de colaboración (§6.6).
+> 5. **Principio de simplicidad** — añadido como principio de cierre del §1 (§1.7).
+>
+> Los textos previos en conflicto (§3.2-3.3 originales sobre atribución de especialista al usuario) fueron reescritos para alinearse con los patches. La estructura general y las 15 fases de §5 no se han tocado.
 >
 > Este documento define el **Transaction Copilot**: el **director de orquesta** del Transaction OS. Su responsabilidad: acompañar al usuario durante todo el ciclo (Discovery Layer + Transaction Layer) y, en cada fase, decidir qué herramientas, motores y copilots especializados invocar para entregar la mejor experiencia.
 >
@@ -13,8 +22,8 @@
 >
 > **Documentos del Sprint 0**:
 > 1. ✅ `TRANSACTION_OS_SPEC v1.1.0`
-> 2. ← **este documento** (`TRANSACTION_COPILOT_SPEC v1.0.0`)
-> 3. `COPILOTS_SPEC` (pendiente)
+> 2. ← **este documento** (`TRANSACTION_COPILOT_SPEC v1.1.0`)
+> 3. ✅ `COPILOTS_SPEC v1.0.0`
 > 4. `MEMORY_ENGINE_SPEC` (pendiente)
 > 5. `AGENTIC_LAYERS_SPEC` (pendiente)
 > 6. `MONETIZATION_SPEC` (pendiente)
@@ -80,6 +89,29 @@ El Transaction Copilot resuelve las tres: voz única, memoria reconciliada, tran
 - **`MEMORY_ENGINE_SPEC` (0.4)**: define los tipos de memoria (empresa, valoración, oportunidad, match, operación, usuario, advisor, compartida, audit). El Transaction Copilot **lee y escribe** memoria a través de los contratos definidos en este spec.
 - **`AGENTIC_LAYERS_SPEC` (0.5)**: define la semántica de L1/L2/L3/L4. El Transaction Copilot **aplica** los niveles; no los define.
 - **`MONETIZATION_SPEC` (0.6)**: define qué eventos económicos existen. El Transaction Copilot **detecta y notifica** los eventos relevantes; no decide pricing.
+
+### 1.6 El Transaction Copilot NO es un especialista, es un orquestador
+
+> **Principio canónico (patch v1.1.0).** El Transaction Copilot **no es un especialista**. Es un **orquestador**. **No genera conocimiento especializado.** Coordina conocimiento. Sus funciones son:
+>
+> 1. **Decidir** a qué especialistas consultar.
+> 2. **Consolidar** respuestas.
+> 3. **Resolver contradicciones**.
+> 4. **Aplicar permisos**.
+> 5. **Aplicar memoria**.
+> 6. **Decidir el siguiente paso**.
+> 7. **Mantener el contexto de la operación**.
+> 8. **Mantener una única conversación**.
+>
+> Cualquier capacidad de dominio — analizar una empresa, valorar, comparar, redactar Teaser, redactar IM, generar preguntas de Due Diligence, comparar contratos, etc. — **NO es responsabilidad del Transaction Copilot, sino de un especialista invocado por él**.
+
+**Consistencia con §2 (Responsabilidades canónicas)**: las 10 responsabilidades de §2 son **responsabilidades de orquestación**, no de dominio. Ninguna implica que el TC analice por sí mismo una empresa o calcule por sí mismo una valoración. Las menciones puntuales del TC como "haciendo" análisis o valoraciones en §2 / §5 deben leerse como **"orquestando que se haga"**: el TC decide invocar al especialista, recibe el resultado estructurado y lo entrega al usuario. El catálogo cerrado de capacidades de dominio vive en `COPILOTS_SPEC §16` (CAP-001 a CAP-029).
+
+### 1.7 Principio de simplicidad
+
+> **Principio canónico (patch v1.1.0).** Aunque internamente existan múltiples motores y especialistas, **el usuario siempre debe percibir un único asistente inteligente**. La **complejidad vive en la arquitectura**. La **simplicidad vive en la conversación**.
+
+Este principio guía cualquier decisión de diseño futura del Transaction Copilot, tanto en su comportamiento conversacional como en su capa visual (Design System). Cuando una decisión añade visibilidad/atribución/ruido a la conversación del usuario en nombre de la "transparencia interna", el principio de simplicidad prevalece: la complejidad técnica permanece en la arquitectura; la conversación con el usuario se mantiene simple, fluida y unificada.
 
 ---
 
@@ -196,33 +228,70 @@ Ante un bloqueo: **propone** (no ejecuta) acciones de desbloqueo — recordatori
 
 ## 3. Modelo conversacional unificado
 
+### 3.0 Voz única canonizada (B6 — principio canónico inviolable)
+
+> **Patch v1.1.0.** **Arroba Copilot es el único interlocutor visible para el usuario.** Los especialistas (Company Copilot, Market Copilot, Valuation Copilot, Advisor Copilot) **nunca hablan directamente con el usuario**, **nunca generan texto destinado a mostrarse** y **siempre producen resultados estructurados internos**. El Transaction Copilot interpreta, combina y transforma esos resultados en una **única respuesta unificada**.
+
+**Reglas operativas derivadas**:
+
+- Cualquier output de un especialista que contenga texto pensado para ser mostrado al usuario tal cual es **un bug de contrato** del especialista (ver `COPILOTS_SPEC §9.1`: `constraints.no_user_facing_text=true`).
+- El Transaction Copilot **siempre verbaliza en primera persona** ("he analizado", "he comparado", "he revisado") aunque internamente haya delegado a varios especialistas (ver §3.3 reescrita y `COPILOTS_SPEC §3.6` "Transparencia natural sin ruido").
+- Las secciones siguientes de §3 (3.1-3.5) se interpretan **siempre bajo este principio**.
+
 ### 3.1 "Un único Arroba Copilot que cambia de sombrero"
 
-El usuario percibe **un único interlocutor**: Arroba Copilot. Internamente, según la fase, el contexto y la consulta, el Transaction Copilot **adopta o invoca**:
+El usuario percibe **un único interlocutor**: Arroba Copilot. Internamente, según la fase, el contexto y la consulta, el Transaction Copilot **invoca** (no "adopta") a los copilots especializados:
 
-- El **Company Copilot** ("Company Advisor de Kitchen Studio") cuando la fase es analítica sobre una empresa.
-- El **Valuation Copilot** ("Valuation Advisor") cuando se está valorando.
-- El **Market Copilot** ("Sector Analyst", "Territory Analyst") cuando se exploran sectores o territorios.
-- El **Advisor Copilot** ("Deal Advisor") cuando se redactan o revisan cláusulas, NDA, LOI o SPA.
-- El **Transaction Copilot** mismo (cuando habla con su voz orquestadora) en operaciones del ciclo, transiciones, audit, gobierno.
+- El **Company Copilot** cuando la consulta involucra el dominio de **empresas**.
+- El **Valuation Copilot** cuando involucra el dominio de **valoración y comparables**.
+- El **Market Copilot** cuando involucra el dominio de **sectores, mercados y competencia**.
+- El **Advisor Copilot** cuando involucra el dominio de **la forma de trabajar de un asesor M&A** (cláusulas, NDA, LOI, SPA, playbooks).
 
-Esto cumple `ARROBA_PHILOSOPHY.md §12` ("Company Advisor / Sector Analyst / Territory Analyst / Valuation Advisor / Opportunity Advisor / Deal Advisor — cada entidad puede disponer de un agente especializado; el Copilot global existe, pero dentro de una entidad adopta una identidad especializada").
+`COPILOTS_SPEC` consolida la regla: los copilots se organizan **por dominio de conocimiento, no por entidad ni página**.
 
-### 3.2 Diferenciación visual cuando un especialista está activo
+Esto cumple la promesa de `ARROBA_PHILOSOPHY.md §12` ("Company Advisor / Sector Analyst / Territory Analyst / Valuation Advisor / Opportunity Advisor / Deal Advisor — cada entidad puede disponer de un agente especializado; el Copilot global existe, pero dentro de una entidad adopta una identidad especializada") **reinterpretada** según `COPILOTS_SPEC §1.3 + §2.7`: la página de entidad activa **contexto y prioridad de invocación** del especialista relevante, pero **el especialista vive a nivel de dominio**; el usuario sigue percibiendo a **un único Arroba Copilot**.
 
-Este spec define el **contrato funcional**, no el visual. La capa de Design System (capa 5) materializará la diferenciación; aquí se declara el contrato mínimo:
+### 3.2 `voice` y `contributors` son metadatos técnicos exclusivos
 
-- Cada respuesta del copilot **declara la identidad activa** (campo `voice: "transaction" | "company" | "market" | "valuation" | "advisor"`).
-- Cuando una respuesta es **consolidación** de varios especialistas, declara la lista de contribuciones (`contributors: [...]`).
-- La capa visual (DS) decidirá si renderizar avatar diferente, badge, color sutil del bubble — pero el dato canónico viene de aquí.
+> **Patch v1.1.0 — cierra `[OPEN-C2]` de `COPILOTS_SPEC`.**
+>
+> Los campos `voice` y `contributors` del payload del Transaction Copilot son **metadatos técnicos exclusivamente**. **No deben mostrarse al usuario en la conversación normal.** Solo podrán visualizarse en:
+>
+> - **modo debug** (administrador / desarrollo);
+> - **auditorías**;
+> - **herramientas internas de `arroba_team`**;
+> - **interfaces de administración**.
+>
+> **Cualquier renderizado al usuario de estos campos fuera de esos contextos es considerado un bug crítico.**
 
-### 3.3 Transparencia hacia el usuario
+**Detalle del contrato**:
 
-El usuario debe poder saber **qué especialista está respondiendo** cuando es relevante. Reglas:
+- `voice` ∈ `{"transaction", "company", "market", "valuation", "advisor"}` — declara qué dominio orquestó principalmente la respuesta. Útil para audit y telemetría.
+- `contributors: [...]` — lista de especialistas que aportaron output estructurado a la respuesta consolidada. Útil para debug y para el log de invocaciones.
 
-- En respuestas **puramente transaccionales** (transiciones de fase, audit, ayuda procedimental): se identifica como "Arroba Copilot" sin ulterior atribución.
-- En respuestas **analíticas/valorativas/de mercado**: se identifica el especialista contribuyente en una atribución sutil ("Company Advisor de Kitchen Studio: …" o un footer "Contribuye Valuation Copilot").
-- En respuestas **mixtas**: el orquestador consolida y, opcionalmente, ofrece un "ver desglose" para mostrar las contribuciones individuales.
+**Renderizado**:
+
+- **Modo productivo (usuario final)**: la capa de Design System **ignora** estos campos. El usuario ve una sola voz: Arroba Copilot.
+- **Modo debug administrativo (`arroba_team` / `admin`)**: el Design System puede renderizar opcionalmente una vista "DevTools del Copilot" que muestra `voice`, `contributors`, `confidence` por contribuyente y `elapsed_ms`. Esta vista vive en herramientas internas, no en el flujo conversacional normal.
+
+### 3.3 Transparencia natural sin ruido (B11)
+
+El TC verbaliza acciones en **primera persona** y se identifica frente al usuario **siempre como Arroba Copilot**. No hay atribución sistemática a especialistas en el flujo conversacional:
+
+- ✅ "He analizado los financieros de Kitchen Studio…"
+- ✅ "He comparado la valoración con dos transacciones recientes del sector…"
+- ✅ "He revisado las cláusulas del SPA y detecto un riesgo en…"
+- ❌ "Company Advisor de Kitchen Studio dice…"
+- ❌ "Valuation Copilot calcula…"
+- ❌ "Advisor Copilot recomienda…"
+
+**Menciones de dominio** cuando aportan claridad están **permitidas**, pero no son obligatorias:
+
+- ✅ "En términos sectoriales…"
+- ✅ "Desde la perspectiva de valoración…"
+- ✅ "Legalmente, esta cláusula puede ser problemática porque…"
+
+La diferencia es sutil pero importante: se menciona el **dominio**, no el **especialista**. El usuario no percibe entidades separadas; percibe **un único asistente que abarca varios dominios** (ver `COPILOTS_SPEC §3.6 + §12.2`).
 
 ### 3.4 Hilo conversacional único
 
@@ -1018,6 +1087,27 @@ Esta separación queda registrada en audit:
 
 - `copilot.internal_query` (consulta interna).
 - `copilot.user_response` (respuesta consolidada al usuario).
+
+### 6.6 Especialistas estrictamente acotados al dominio (patch v1.1.0)
+
+> **Patch v1.1.0 — principio canónico.**
+>
+> **Cada especialista responde únicamente sobre su dominio.** **No debe intentar resolver preguntas fuera de él.** Si necesita información de otro dominio, **deberá solicitarla al Transaction Copilot mediante `response.recommendations`**. **Nunca invocará directamente a otro especialista.**
+
+**Reglas operativas derivadas**:
+
+- Si una invocación al **Company Copilot** incluye una pregunta valorativa (ej. "¿cuánto vale esta empresa?"), el especialista debe devolver `status: "partial"` o `status: "denied"` con `recommendations: [{ next_step: "consult_valuation_copilot", rationale: "..." }]`. **No debe inventar valoración**.
+- Si una invocación al **Valuation Copilot** incluye una pregunta sobre dinámica sectorial, debe declarar la necesidad de `Market Copilot` en `recommendations`. **No debe inferir sectorialmente**.
+- Si una invocación al **Market Copilot** requiere datos legales/contractuales (ej. cláusulas estándar de un sector), debe declarar la necesidad de `Advisor Copilot`. **No debe redactar legal**.
+- Si una invocación al **Advisor Copilot** requiere datos cuantitativos de valoración, debe declarar la necesidad de `Valuation Copilot`. **No debe valorar por sí mismo**.
+
+**Quién enforza esta regla**:
+
+1. El **contrato canónico de invocación** (`COPILOTS_SPEC §9`) declara `capability` explícita y obligatoria; capacidades fuera del dueño se rechazan automáticamente.
+2. El **Transaction Copilot** valida que cada `capability` solicitada pertenezca al especialista invocado (ver `COPILOTS_SPEC §16` para la lista cerrada de capacidades por dueño).
+3. Cualquier intento de un especialista de invocar a otro **directamente** queda registrado como `copilot.forbidden_cross_invocation_attempted` y rechazado por la capa de orquestación.
+
+**Consistencia**: refuerza lo declarado en `COPILOTS_SPEC §13.2` ("Los especialistas NO se invocan entre sí") y `§3.7` ("Outputs estructurados, no narrativos"). Esta sección lo eleva a **principio explícito** también dentro de `TRANSACTION_COPILOT_SPEC`.
 
 ---
 
