@@ -1,10 +1,22 @@
-# arroba.com — Identity Spec v1.0.0
+# arroba.com — Identity Spec v1.1.0
 
 > **Spec canónico** · capa 4 del canon (Engines & Specs).
 > Fase 1.0.1 del Sprint 1 — primer spec del Identity Platform Sprint.
 > Fecha de cierre: 2026-06-25.
 >
-> **Regla cardinal**: este spec define la **plataforma de Identity** como base autónoma. NO contiene referencias a planes, créditos, cuotas, stripe ni billing. Identity es la capa más baja de la cadena `Identity → Authorization → Subscription → Billing`. Las capas superiores **consumen** Identity; Identity NO depende de ellas.
+> **CHANGELOG interno**:
+>
+> **v1.1.0 (2026-06-25)** — Patch forward-compatibility aprobado por el usuario tras revisión inicial:
+> - **Patch I.1**: principio canónico explícito de **separación de 5 capas** `Authentication ⇄ Identity ⇄ Authorization ⇄ Subscription ⇄ Billing` añadido como P-I.0 en §3. Reemplaza la lectura previa de 4 capas que mezclaba Authentication dentro de Identity.
+> - **Patch I.2**: nueva sección §18 "Forward-compatibility: identidades externas" — declara el path canónico para asesores externos, despachos, bancos, auditores, etc., sin expandir el alcance del Sprint 1.
+> - **Patch I.3**: nueva sección §19 "Forward-compatibility: identidad jurídica/fiscal vs operacional" — declara el path canónico para holding/filial/SPV/sucursal.
+> - **Patch I.4**: §16 ampliada con dos claims forward (`identity_tier`, `fiscal_entity_id`) que AUTHORIZATION_SPEC debe aceptar en su contrato ABAC ya en v1.0.
+>
+> **v1.0.0 (2026-06-25)** — Cierre inicial del spec Fase 1.0.1 Sprint 1.
+>
+> ---
+>
+> **Regla cardinal**: este spec define la **plataforma de Identity** como base autónoma. NO contiene referencias a planes, créditos, cuotas, stripe ni billing. Identity es **la 2ª de 5 capas** de la cadena `Authentication ⇄ Identity ⇄ Authorization ⇄ Subscription ⇄ Billing` (ver §3, P-I.0). Las capas superiores **consumen** Identity; Identity NO depende de ellas (excepto Authentication, que provee credenciales validadas).
 >
 > **Precedencia**: en caso de conflicto entre este spec y la implementación, **gana el spec**. El código se actualiza para alinearse.
 
@@ -129,6 +141,28 @@ Detalle de migración en §15.
 ## 3. Principios canónicos
 
 > Estos principios son **invariantes** del Identity Engine. Cualquier evolución debe respetarlos o producir bump mayor con justificación documentada.
+
+### P-I.0 — Separación canónica de 5 capas (principio arquitectónico)
+
+```
+Authentication  ⇄  Identity  ⇄  Authorization  ⇄  Subscription  ⇄  Billing
+```
+
+Cada capa tiene un dominio propio, **separado** del resto:
+
+| Capa | Pregunta canónica | Qué declara |
+|---|---|---|
+| **Authentication** | "¿quién dice ser quién dice ser?" | Credenciales, tokens, OAuth, sesiones, refresh, MFA futuro |
+| **Identity** | "¿quién es esta persona/entidad y qué la describe?" | Usuarios, organizaciones, teams, memberships, perfiles tipados, verificación, relaciones |
+| **Authorization** | "¿qué puede hacer esta identidad en este contexto?" | Permisos, policies declarativas, ACLs, feature flags, decisiones cacheables |
+| **Subscription** | "¿qué plan, créditos, cuota y restricciones tiene?" | Planes configurables, ledger de créditos, entitlements, gates |
+| **Billing** | "¿cuánto cobramos y cómo?" | Stripe, facturas, IVA, eventos económicos del Transaction OS |
+
+**Dirección del flujo de claims**: cada capa solo **consume claims** de la inferior. Nunca al revés. Identity no conoce planes; Authorization no conoce stripe; Billing no conoce credenciales.
+
+**Por qué 5 y no 4**: Authentication (validación de identidad declarada) e Identity (descripción de quién es esa identidad) son responsabilidades distintas. Authentication maneja credenciales y sesión; Identity maneja qué describe a esa persona/entidad. La separación permite, por ejemplo, sustituir el proveedor de auth (Emergent Google OAuth → enterprise SSO futuro) sin tocar Identity.
+
+**Forma operacional v1**: en este Sprint, Authentication vive físicamente en el módulo `auth/` (cookies, sesiones, OAuth exchange) e Identity en `users/` + `organizations/` + `teams/` + `profiles/` + `kyc/`. El JWT (Authentication) transporta claims **rellenados por Identity** al momento de su emisión y refresh.
 
 ### P-I.1 — Identity es la base autónoma
 
@@ -1513,8 +1547,18 @@ Operaciones que **siempre** generan entrada en `identity_audit_log`:
 user_id, email, email_verified, phone_verified,
 role_global, active_org_id, memberships[],
 kyc_status, kyc_expires_at, risk_score,
-language, arroba_team_flag, profile_kinds[]
+language, arroba_team_flag, profile_kinds[],
+identity_tier, fiscal_entity_id
 ```
+
+**Claims forward-compatibles añadidos en v1.1.0** (declarados ya en el contrato; materialización plena en futuras versiones):
+
+| Claim | Tipo | Default v1.1 | Significado | Forward |
+|---|---|---|---|---|
+| `identity_tier` | `enum {"internal", "external"}` | `"internal"` (constante en v1.1; toda identidad cubierta por `memberships` es `internal`) | Distingue identidades plenas (members de una org) de identidades externas (advisors externos, despachos, bancos, auditores, etc.) | Sprint 1.5 o 2 materializa `external` con scopes reducidos y offboarding automático (§18). |
+| `fiscal_entity_id` | `str | null` | `null` (constante en v1.1; cada org tiene una sola entidad fiscal operativa) | Identifica la entidad fiscal específica del contexto (holding, filial, SPV, sucursal) | Sprint futuro introduce colección `fiscal_entities` y `organization.primary_fiscal_entity_id` (§19). |
+
+**Implicación para AUTHORIZATION_SPEC (1.0.2)**: el contrato ABAC debe **aceptar** estos dos atributos ya en v1.0, aunque su evaluación efectiva en v1.1 sea constante. Cuando se materialicen plenamente, las policies que ya los referenciaban funcionan sin cambios estructurales.
 
 ### 16.2 Accessors cross-module (Boundary First desde Identity)
 
@@ -1582,13 +1626,122 @@ Identity declara una version del shape de claims: `claims.version = "1.0"`. Auth
 
 ---
 
+## 18. Forward-compatibility: identidades externas
+
+> **Estado en v1.0 / v1.1**: el modelo actual cubre las identidades externas mediante mecanismos canónicos ya presentes, sin necesidad de colecciones nuevas en este Sprint.
+
+### 18.1 Mecanismos disponibles en v1.1
+
+| Mecanismo | Caso de uso típico | Cobertura |
+|---|---|---|
+| `organization.org_type = "advisor"` | Despachos M&A boutique que actúan como entidades plenas (firma propia, equipo propio, mandatos propios) | Cubierto |
+| `organization.org_type = "investor"` | Family offices, VC, PE con identidad plena | Cubierto |
+| `membership.role = "guest"` | Persona externa con acceso limitado a una org (ej. abogado externo invitado a UN deal) | Cubierto |
+| `invitation` | Path de incorporación | Cubierto |
+
+### 18.2 Forward-extension declarada (NO implementar en Sprint 1)
+
+Cuando el caso requiera distinguir **identidades externas** sin necesidad de promoverlas a una `org` propia ni a una `membership` plena:
+
+**Opción A — Atributo en `membership`**:
+- Añadir campo `membership.external_relationship_type` opcional.
+- Enum candidato: `advisor_external`, `legal_counsel`, `auditor`, `bank_counterparty`, `notary`, `regulator_observer`, `tax_consultant`.
+
+**Opción B — Colección dedicada `external_relationships`** (más limpia para muchos casos):
+- `external_relationships`: `id`, `org_id`, `user_id`, `relationship_type`, `scope_operations[]`, `scope_capabilities[]`, `granted_by`, `expires_at`.
+- Permite que la identidad externa exista **sin** ocupar slot de `membership` (que está conceptualmente para members plenos de la org).
+
+La decisión entre A y B se toma cuando llegue el sprint de implementación.
+
+### 18.3 Política canónica forward para externas
+
+- **Scopes reducidos por defecto**: solo lectura sobre los contextos específicos para los que fueron invitadas (ej. solo el Data Room de la operación X).
+- **Offboarding automático**: al cerrar (`integration` phase) o cancelar la operación que motivó el acceso, el `external_relationship` expira automáticamente.
+- **Trazabilidad obligatoria**: toda invitación a identidad externa requiere `granted_by` con `role ∈ {owner, admin}` y queda en `identity_audit_log`.
+- **`identity_tier = "external"`**: las identidades externas viajarán con este claim, permitiendo que Authorization aplique policies más restrictivas (ej. nunca pueden ver agregados cross-operation).
+
+### 18.4 Contrato ABAC forward
+
+`AUTHORIZATION_SPEC.md` (1.0.2) debe aceptar `identity_tier` como atributo ABAC contextual. En v1.1 toda identity tiene `identity_tier = "internal"` (constante). Cuando se materialicen las identidades externas, las policies ya las distinguirán.
+
+### 18.5 Garantía de no-rotura
+
+Ningún campo del modelo Identity v1.1 quedará obsoleto al introducir el mecanismo definitivo. Tanto la opción A como la B son **aditivas**: añaden columnas o tablas, no modifican las existentes.
+
+---
+
+## 19. Forward-compatibility: identidad jurídica/fiscal vs operacional
+
+> **Estado en v1.0 / v1.1**: cada `organization` mantiene un único `tax_id` + `country` que representan la **entidad fiscal operativa principal**. Suficiente para el Sprint 1.
+
+### 19.1 Problema canónico
+
+En M&A real, una empresa cliente puede tener estructura compleja:
+- **Holding** con varias **filiales** (cada una entidad fiscal distinta).
+- **SPV** (Special Purpose Vehicle) creada específicamente para una operación.
+- **Sucursales/branches** en jurisdicciones fiscales diferentes.
+- **Joint Ventures** con identidad jurídica propia.
+
+La `organization` operativa (la que opera en la plataforma, contrata el plan, recibe facturas) puede coincidir o no con la entidad jurídica que firma un SPA.
+
+### 19.2 Forward-extension declarada (NO implementar en Sprint 1)
+
+Colección candidata `fiscal_entities`:
+
+| Campo | Tipo | Propósito |
+|---|---|---|
+| `fiscal_entity_id` | `str` (`fent_`) | identidad canónica |
+| `organization_id` | FK | org operativa que gestiona esta entidad |
+| `legal_form` | enum | `sl`, `sa`, `slu`, `sicav`, `spv`, `branch`, `partnership`, etc. |
+| `country` | `str` (ISO-2) | jurisdicción fiscal |
+| `tax_id` | `str` | CIF/NIF/EIN/otros según país |
+| `vat_id` | `str?` | EU VAT si aplica |
+| `vies_validated` | `bool` | validación VAT contra VIES |
+| `parent_fiscal_entity_id` | FK self? | holding-filial relationship |
+| `governance_authority_user_id` | FK user | quién tiene autoridad de gobierno sobre esta entidad |
+| `purpose` | enum | `operational`, `holding`, `spv_per_deal`, `branch`, etc. |
+| `created_at`, `archived_at`, ... | — | ciclo de vida estándar |
+
+**Path de migración**:
+- En v1.1, los campos `organization.tax_id`/`country`/`vat_id` se preservan.
+- Al introducir `fiscal_entities`, se crea automáticamente UNA entrada con `purpose = "operational"` por org, copiando esos campos.
+- `organization.primary_fiscal_entity_id` (FK) apunta a ella.
+- Las nuevas entidades fiscales se añaden como filas adicionales sin tocar la fila operativa.
+
+### 19.3 Casos de uso forward
+
+| Caso | Modelo |
+|---|---|
+| Empresa holding ESP + filial UK | `organization` ESP con `primary_fiscal_entity_id` apuntando a entidad ESP; entidad UK como `fiscal_entity` con `parent_fiscal_entity_id` |
+| SPV creado por operación | `fiscal_entity` con `purpose = "spv_per_deal"`, vinculado a la `operation` que lo originó |
+| Sucursal franquiciada | `fiscal_entity` con `purpose = "branch"`, `country` distinto |
+| Joint Venture | `fiscal_entity` con `purpose = "operational"` y eventualmente una `organization` propia si las dos partes deciden gestionarla en la plataforma |
+
+### 19.4 Contrato ABAC forward
+
+`AUTHORIZATION_SPEC.md` debe aceptar `fiscal_entity_id` como atributo ABAC contextual opcional. En v1.1, este claim es `null` para toda identidad (porque solo existe una entidad fiscal implícita). Cuando se materialice, las policies que ya lo referenciaban funcionan sin cambios.
+
+### 19.5 Implicaciones forward para Billing
+
+(Forward declarado; este spec NO desarrolla)
+
+- Una sola `organization` puede facturar a múltiples `fiscal_entities`: el Stripe customer y la dirección legal varían por entidad fiscal.
+- IVA y reverse charge se calculan por `fiscal_entity`, no por `organization`.
+- Cada `economic_event` del Transaction OS lleva opcionalmente `fiscal_entity_id` para asignarlo correctamente.
+
+### 19.6 Garantía de no-rotura
+
+`organization.tax_id` v1.1 sigue siendo válido. Cuando se introduzca `fiscal_entities`, el campo NO se elimina; queda como **shortcut** del campo equivalente en la primary fiscal entity (mantenido en sincronía vía evento `identity.fiscal_entity.updated`).
+
+---
+
 ## Cierre del spec
 
 Este documento es **fuente de verdad** sobre la plataforma de Identity de arroba.com. Cualquier desviación en código requiere bump de versión + propagación a `CHANGELOG.md`.
 
-**Versión actual**: `v1.0.0`.
-**Estado**: ✅ Cerrado. Pendiente aprobación del usuario antes de implementar.
-**Próxima fase**: 1.0.2 — `AUTHORIZATION_SPEC.md` (no se inicia sin aprobación).
+**Versión actual**: `v1.1.0`.
+**Estado**: ✅ Cerrado con patch forward-compatibility aplicado (Patches I.1-I.4). Pendiente aprobación del usuario antes de implementar.
+**Próxima fase**: 1.0.2 — `AUTHORIZATION_SPEC.md` (en redacción tras este patch).
 
 > **Fuentes canónicas referenciadas**:
 > - `/app/memory/ARROBA_PHILOSOPHY.md` (capa 1)
