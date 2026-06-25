@@ -1,11 +1,22 @@
-# arroba.com — Copilots Spec v1.0.0
+# arroba.com — Copilots Spec v1.1.0
 
 > **Capa canónica**: *Engines & Specs* (séptima capa, pendiente de propagación a `ARROBA_PHILOSOPHY.md` §13 al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.3 (tercero de 6 specs).
-> **Estado**: borrador para revisión humana.
+> **Estado**: borrador para revisión humana — v1.1.0 incorpora cierres del Sprint 0.5 Ciclo B sobre v1.0.0.
 > **Fecha**: 2026-06-25.
-> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.1.0`, `TRANSACTION_COPILOT_SPEC v1.0.0`.
+> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.2.0`, `TRANSACTION_COPILOT_SPEC v1.2.0`.
 > **Idioma**: español canónico, técnico.
+>
+> **CHANGELOG v1.1.0 (2026-06-25 — Sprint 0.5 Ciclo B)**:
+> - Cierre formal de `[OPEN-C2]` (tensión `voice/contributors` vs B6): metadatos técnicos, NO renderizados al usuario salvo modo debug administrativo. Confirmado en `TRANSACTION_COPILOT §3.2 v1.1.0`.
+> - Cierre formal de `[OPEN-C3]` (acceso a datos privados de Empresas no compradas): resuelto canónicamente en `MONETIZATION_SPEC §11 (eligibility rules)`.
+> - Cierre formal de `[OPEN-C4]` (agregados k-anonimizados cross-org): resuelto canónicamente en `MEMORY_ENGINE_SPEC §5.5` (k≥5 + Risk & Compliance Service).
+> - Cierre formal de `[OPEN-C5]` (valoración indicativa visible al Buyer pre-NDA): resuelto canónicamente en `TRANSACTION_OS_SPEC §8 (matriz visibilidad)`.
+> - Cierre formal de `[OPEN-C7]` (memoria Advisor cross-mandato): resuelto canónicamente en `MEMORY_ENGINE_SPEC §5.3 (regla B3 #3)`.
+> - Cierre formal de `[OPEN-C11]` (rol `arroba_team`): rol específico nuevo, NO hereda de `admin`. Confirmado en `TRANSACTION_OS [~~A9~~]` ya cerrado y propagado a `ENTITY_MODEL.md`.
+> - Cierre formal de `[OPEN-C12]` (`narrative_draft` viola B6?): NO; es insumo para el TC, no salida final. Resuelto interpretativamente en `COPILOTS_SPEC §9.2`.
+> - Cierre formal de `[OPEN-C13]` (TC invoca especialistas sin pregunta del usuario): SÍ, modo proactivo. Resuelto en `TRANSACTION_COPILOT_SPEC §10.1`.
+> - Cierre formal de `[OPEN-C14]` (audit retention sin Operation): 3 años post-última actividad. Resuelto en `MEMORY_ENGINE_SPEC §7.1`.
 >
 > Este documento define los **4 copilots especializados** del Transaction OS — **Company**, **Market**, **Valuation**, **Advisor** — y su **modelo de colaboración** con el Transaction Copilot (TC). Establece la organización por **dominio de conocimiento**, no por entidad o página. Define el contrato canónico de invocación, las políticas de memoria y audit, y el catálogo cerrado de capacidades L2.
 >
@@ -1775,20 +1786,20 @@ Total: 29. Algunas tienen co-propiedad cruzada (Company × Advisor; Valuation ×
 
 | ID | Pregunta | Propuesta de este spec | Estado |
 |---|---|---|---|
-| **C1** | Reinterpretación de `ARROBA_PHILOSOPHY.md §12` ("cada entidad puede disponer de un agente especializado") como "página activa contexto, especialista vive en dominio" | La página activa **contexto** y **prioridad de invocación** del especialista relevante, no una identidad conversacional separada (§2.7). Confirmar al cierre del Sprint 0 si se actualiza `ARROBA_PHILOSOPHY.md` para reflejar el matiz | **ABIERTO** — confirmar al cierre Sprint 0 |
-| **C2** | Tensión con `TRANSACTION_COPILOT_SPEC §3.2-3.4` (campos `voice` y `contributors` visibles) vs B6 (voz única, no atribución visible) | `voice` y `contributors` son **metadatos técnicos**, NO se renderizan al usuario salvo en modo debug administrativo (§12.6). Confirmar si se actualiza el spec 0.2 para reflejar esto explícitamente o se deja como está (B6 prevalece de facto) | **ABIERTO** — confirmar al cierre Sprint 0 |
-| **C3** | Acceso de Company Copilot a datos privados de Empresas no compradas en el plan del usuario | Propuesta: solo si `master_companies.visibility=public` o si el usuario pagó por enrich. Detalle final en `MONETIZATION_SPEC` | **ABIERTO** — se cierra en 0.6 |
-| **C4** | Uso de agregados anonimizados cross-organización por Market Copilot | Propuesta: solo agregados k-anonimizados y aprobados por `Risk & Compliance Service`. Detalle en `MEMORY_ENGINE_SPEC` (0.4) | **ABIERTO** — se cierra en 0.4 |
-| **C5** | Visibilidad de la valoración indicativa al Buyer pre-NDA | Propuesta: NO. Solo el rango opcional que el Seller decida exponer en el Teaser (decisión consistente con `TRANSACTION_OS_SPEC §8`) | **ABIERTO** — confirmar |
+| **C1** | Reinterpretación de `ARROBA_PHILOSOPHY.md §12` ("cada entidad puede disponer de un agente especializado") como "página activa contexto, especialista vive en dominio" | La página activa **contexto** y **prioridad de invocación** del especialista relevante, no una identidad conversacional separada (§2.7). **Aplicado en Sprint 0.5 Ciclo B**: `ARROBA_PHILOSOPHY §12` reescrito con 4 especialistas por dominio (Company, Market, Valuation, Advisor) + TC como orquestador | **PROPAGADO** Sprint 0.5 Ciclo B |
+| ~~C2~~ | Tensión con `TRANSACTION_COPILOT_SPEC §3.2-3.4` (campos `voice` y `contributors` visibles) vs B6 | `voice` y `contributors` son **metadatos técnicos**, NO se renderizan al usuario salvo en modo debug administrativo (§12.6). Confirmado en `TRANSACTION_COPILOT §3.2 v1.1.0` | **CERRADO** 2026-06-25 (G1) |
+| ~~C3~~ | Acceso de Company Copilot a datos privados de Empresas no compradas en el plan del usuario | Solo si `master_companies.visibility=public` o si el usuario pagó por enrich. Resuelto canónicamente en `MONETIZATION_SPEC §11 (eligibility rules)` | **CERRADO** 2026-06-25 (G1) |
+| ~~C4~~ | Uso de agregados anonimizados cross-organización por Market Copilot | Solo agregados k-anonimizados (k≥5) y aprobados por Risk & Compliance Service. Resuelto canónicamente en `MEMORY_ENGINE_SPEC §5.5` | **CERRADO** 2026-06-25 (G1) |
+| ~~C5~~ | Visibilidad de la valoración indicativa al Buyer pre-NDA | NO. Solo el rango opcional que el Seller decida exponer en el Teaser. Resuelto canónicamente en `TRANSACTION_OS_SPEC §8 (matriz visibilidad)` | **CERRADO** 2026-06-25 (G1) |
 | **C6** | Advisor Copilot operando **sin Advisor humano** asignado | Propuesta: SÍ a L1/L2 (asistencia + borradores); NO a L3/L4 que requieran vinculación contractual. Detalle final en `ADVISOR_LAYER_SPEC` (laguna P1 fuera del Sprint 0) | **ABIERTO** — pendiente spec dedicado |
-| **C7** | Memoria de Advisor cross-mandato: on dentro del mismo cliente; off entre clientes distintos del mismo advisor sin opt-in | Propuesta: confirmar consistente con regla §3.3 y formalizar en `MEMORY_ENGINE_SPEC` | **ABIERTO** — se cierra en 0.4 |
+| ~~C7~~ | Memoria de Advisor cross-mandato: on dentro del mismo cliente; off entre clientes distintos del mismo advisor sin opt-in | Consistente con regla §3.3. Resuelto canónicamente en `MEMORY_ENGINE_SPEC §5.3 (regla B3 #3)` | **CERRADO** 2026-06-25 (G1) |
 | **C8** | TTL del cache de idempotencia por `correlation_id` | Propuesta: 5 minutos default; configurable por capacidad | **ABIERTO** — operativo |
 | **C9** | Parámetros N (fallos consecutivos) y T (ventana) del circuit breaker | Propuesta: N=3, T=5 minutos default; configurable por especialista | **ABIERTO** — operativo |
 | **C10** | Risk & Compliance Service: cuándo se especifica | Spec dedicado fuera del Sprint 0; dependencia P0. ¿Crear en Sprint 1 o más tarde? Decisión de roadmap | **ABIERTO** — decisión de roadmap |
-| **C11** | Reorganización del enum `Role` para incluir `arroba_team` | Confirmar en `ENTITY_MODEL.md` al cierre del Sprint 0 (ya prevista en `TRANSACTION_OS_SPEC §14`). Aquí solo se refleja la decisión | **ABIERTO** — propagación a 0.1 + ENTITY_MODEL |
-| **C12** | ¿`narrative_draft` en `structured_output` es lícito o rompe el principio B6? | Decisión interpretativa: es **insumo** para el TC, no salida final. El TC puede reformularlo, resumirlo o ignorarlo. NO viola B6 mientras el TC sea el único que verbaliza al usuario. | **ABIERTO** — confirmación interpretativa |
-| **C13** | ¿El TC puede invocar a un especialista **sin que el usuario haya preguntado** (proactividad)? | Sí, dentro del modo proactivo descrito en `TRANSACTION_COPILOT_SPEC §10.1`. Los especialistas no inician proactividad; el TC sí | **ABIERTO** — confirmación interpretativa |
-| **C14** | Audit retention para invocaciones que no se atan a Operation | Propuesta: 3 años post-última actividad. Detalle en `MEMORY_ENGINE_SPEC` | **ABIERTO** — se cierra en 0.4 |
+| ~~C11~~ | Reorganización del enum `Role` para incluir `arroba_team` | Rol específico nuevo `arroba_team`; NO hereda de `admin`. Confirmado en `TRANSACTION_OS [~~A9~~]` y propagado a `ENTITY_MODEL.md` en Sprint 0.5 Ciclo B | **CERRADO** 2026-06-25 (G2) |
+| ~~C12~~ | ¿`narrative_draft` en `structured_output` es lícito o rompe el principio B6? | Decisión interpretativa: es **insumo** para el TC, no salida final. El TC puede reformularlo, resumirlo o ignorarlo. NO viola B6 mientras el TC sea el único que verbaliza al usuario | **CERRADO** 2026-06-25 (G1) |
+| ~~C13~~ | ¿El TC puede invocar a un especialista **sin que el usuario haya preguntado** (proactividad)? | SÍ, dentro del modo proactivo descrito en `TRANSACTION_COPILOT_SPEC §10.1`. Los especialistas no inician proactividad; el TC sí | **CERRADO** 2026-06-25 (G1) |
+| ~~C14~~ | Audit retention para invocaciones que no se atan a Operation | 3 años post-última actividad. Resuelto canónicamente en `MEMORY_ENGINE_SPEC §7.1` | **CERRADO** 2026-06-25 (G1) |
 | **C15** | Especialistas devolviendo `narrative_draft` en idioma del usuario | Propuesta: SÍ; el TC pasa `locale` en `context`. No forma parte de los campos obligatorios del request en §9.1 hoy; añadir o no | **ABIERTO** — decisión de operación |
 
 ### Lagunas estructurales a resolver en specs 0.4-0.6

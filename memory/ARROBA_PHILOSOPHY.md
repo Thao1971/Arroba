@@ -62,15 +62,17 @@ La ficha de empresa es uno de los activos más importantes de arroba.com. El Cop
 
 ⸻
 
-## 5. Oportunidad y Transacción
+## 5. Oportunidad, Match y Transacción
 
 La Oportunidad es una entidad de descubrimiento.
 
-La Transacción es una entidad de ejecución.
+El **Match** es una entidad canónica de primer nivel: representa el acuerdo bilateral entre Buyer y Seller que abre la puerta a la Operación.
 
-No todas las oportunidades se convierten en una transacción. Pero toda transacción nace de una oportunidad.
+La Transacción (Operación) es una entidad de ejecución.
 
-La secuencia correcta es: Oportunidad → Matching → Transacción.
+No todas las oportunidades se convierten en una transacción. Pero toda transacción nace de un Match aceptado.
+
+La secuencia correcta es: Oportunidad → Matching (mecanismo) → **Match** (entidad) → Operación.
 
 ⸻
 
@@ -80,21 +82,28 @@ La Transacción puede ser **Buy-side** o **Sell-side**.
 
 Dentro de una Transacción viven capacidades y fases.
 
-**Matching**: mecanismo que permite iniciar una operación. NO es una entidad.
+**Matching** es el mecanismo que activa Solicitudes. El **Match** (resultado del acuerdo bilateral) es la entidad que sella el acceso al Transaction Layer.
 
-### Fases de la operación
+### Fases canónicas del ciclo M&A
 
-Teaser → NDA → Information Memorandum → IOI → LOI → Due Diligence → Negociación → SPA → Cierre.
+El Transaction OS define el ciclo completo en **15 fases canónicas** organizadas en dos capas:
 
-Dentro de Due Diligence viven: Data Room, Q&A, Documentos.
+- **Discovery Layer**: T1 Análisis · T2 Estrategia · T3 Mandato · T4 Screening · T5 Match request · T6 Liberación al marketplace.
+- **Transaction Layer**: T7 Apertura de Operación · T8 IM · T9 Q&A · T10 LOI · T11 Due Diligence · T12 Negociación · T13 SPA · T14 Closing legal · T15 Integración post-deal.
+
+Dentro de Due Diligence (T11) viven: Data Room, Q&A, Documentos.
+
+> El detalle canónico de cada fase, sus eventos y su matriz de visibilidad vive en `/app/memory/specs/TRANSACTION_OS_SPEC.md v1.2.0`.
 
 ⸻
 
 ## 7. Qué NO son entidades
 
-NO son entidades principales: Workspace, Matching, Mandato, Data Room, Q&A, Equipo, Actividad, Documentos.
+NO son entidades principales: Workspace, Data Room, Q&A, Equipo, Actividad.
 
-Son capacidades o componentes.
+Son **capacidades o componentes** funcionales que viven dentro de entidades.
+
+> Reconciliación canónica con `ENTITY_MODEL.md`: **Match**, **Mandate** y **Document** **SÍ son entidades canónicas de primer orden**. La regla "Matching no es entidad" sigue siendo cierta para el **mecanismo** de matching, pero el **Match resultante** (acuerdo bilateral con estados `SOLICITADO`/`ACEPTADO`/`RECHAZADO`/`EXPIRADO`) es entidad de pleno derecho declarada en `TRANSACTION_OS_SPEC §4` y modelada en `ENTITY_MODEL.md`.
 
 ⸻
 
@@ -189,15 +198,18 @@ El usuario anónimo podrá ver: identidad, descripción, información básica, a
 
 Las capacidades avanzadas estarán protegidas mediante registro.
 
-### Company Advisor
+### Especialistas y Copilot orquestador
 
-Cada entidad podrá disponer de un agente especializado: Company Advisor, Sector Analyst, Territory Analyst, Valuation Advisor, Opportunity Advisor, Deal Advisor.
+El **Transaction Copilot** (TC) es el **orquestador único** que conversa con el usuario: la voz única (principio B6). Internamente delega a **cuatro copilots especializados por dominio de conocimiento** (no por entidad):
 
-El Copilot global existe, pero dentro de una entidad adopta una identidad especializada.
+- **Company Copilot** — narrativa, insights, riesgos y documentación de Empresa.
+- **Market Copilot** — análisis sectorial, territorial, matching y recomendaciones.
+- **Valuation Copilot** — valoraciones, comparables, sensibilidades y estructuras de precio.
+- **Advisor Copilot** — riesgos contractuales, LOI, DD asistida, checklists de cierre.
 
-Ejemplo: ✦ Company Advisor de Kitchen Studio.
+La página activa el **contexto** y la **prioridad de invocación** del especialista relevante. NO existe una identidad conversacional separada por entidad: el usuario siempre habla con el TC; el TC adopta el contexto especializado del dominio.
 
-La inteligencia es contextual.
+> El detalle canónico vive en `/app/memory/specs/COPILOTS_SPEC.md v1.1.0` y `/app/memory/specs/TRANSACTION_COPILOT_SPEC.md v1.2.0`.
 
 ### La ficha es la verdad
 
@@ -242,7 +254,7 @@ La conversación es temporal. La entidad es permanente.
 
 ## 13. Capas canónicas del proyecto
 
-El proyecto se estructura en **seis capas** conceptuales en orden estricto de prioridad:
+El proyecto se estructura en **siete capas** conceptuales en orden estricto de prioridad:
 
 1. **Blueprint Estratégico** — Visión, entidades, modelo de dominio. Documentado en `ARROBA_PHILOSOPHY.md` (este fichero) + Blueprint v1.0 (`/app/_design_intake/uploads/Arroba Com Blueprint Estrategico Arquitectonico V1.docx`).
 
@@ -250,21 +262,43 @@ El proyecto se estructura en **seis capas** conceptuales en orden estricto de pr
 
 3. **Entity Framework** — Arquitectura UX canónica: anatomía obligatoria de una ficha de entidad, los 12 módulos (Header, Hero, KPIs, Advisor, Insights, Análisis, Señales, Relaciones, Oportunidades, Documentación, Actividad, Acciones), orden top→bottom, reglas de composición y reutilización, ontología de datos. Documentado en `/app/memory/ENTITY_FRAMEWORK.md` (arquitectura) + `/app/memory/ENTITY_MODEL.md` (ontología). Canonizado en E1.5.6.
 
-4. **Design System** — Sistema visual canónico: tokens, tipografía, espaciados, componentes reutilizables, estados (loading/empty/error), microinteracciones, accesibilidad, responsive. Documentado en `/app/memory/DESIGN_SYSTEM.md`. Canonizado en E1.5.5.
+4. **Engines & Specs** — Especificaciones funcionales del Transaction OS y sus motores. Documentado en `/app/memory/specs/`:
+   - `TRANSACTION_OS_SPEC.md` — el ciclo M&A canónico (T1–T15).
+   - `TRANSACTION_COPILOT_SPEC.md` — el orquestador (voz única).
+   - `COPILOTS_SPEC.md` — los 4 copilots especializados.
+   - `MEMORY_ENGINE_SPEC.md` — el motor único de memoria.
+   - `AGENTIC_LAYERS_SPEC.md` — la autonomía controlada (L1–L4).
+   - `MONETIZATION_SPEC.md` — el contrato económico (productos, planes, fees).
 
-5. **Diseños (Claude)** — Mockups y especificaciones concretas pre-implementación.
+   Esta capa canoniza los **6 specs del Sprint 0** como **Canonical Baseline v1.0** (congelada 2026-06-25 tras Sprint 0.5 Ciclo B).
 
-6. **Implementación (Emergent)** — Código React/TS/Python ejecutable.
+5. **Design System** — Sistema visual canónico: tokens, tipografía, espaciados, componentes reutilizables, estados (loading/empty/error), microinteracciones, accesibilidad, responsive. Documentado en `/app/memory/DESIGN_SYSTEM.md`. Canonizado en E1.5.5.
+
+6. **Diseños (Claude)** — Mockups y especificaciones concretas pre-implementación.
+
+7. **Implementación (Emergent)** — Código React/TS/Python ejecutable.
 
 ### Regla de jerarquía
 
 Si hay conflicto entre dos capas, **prevalece la capa superior**.
 
-- Blueprint > UX Blueprint > **Entity Framework** > Design System > Diseños > Implementación.
+- Blueprint > UX Blueprint > Entity Framework > **Engines & Specs** > Design System > Diseños > Implementación.
 - La implementación NUNCA dicta UX. La UX NUNCA dicta Blueprint.
-- El Entity Framework sirve al UX Blueprint. El Design System sirve al Entity Framework.
+- El Entity Framework sirve al UX Blueprint. Engines & Specs sirve al Entity Framework. El Design System sirve a Engines & Specs y al Entity Framework.
 - Los componentes reutilizables NO se diseñan para encajar con el código existente; se diseñan para servir al patrón canónico de las entidades.
 
 ### Aplicación
 
-La ficha de Empresa (E1.5-REWORK) es el primer patrón implementado. El Design System se canonizó en E1.5.5 usándola como referencia. El Entity Framework se canoniza en E1.5.6 — define la anatomía + ontología que **todas** las entidades (Sector, Territorio, Valoración, Oportunidad, Persona, Advisor, Mandato, Operación) heredarán como composición de módulos base, no como rediseño.
+La ficha de Empresa (E1.5-REWORK) es el primer patrón implementado. El Design System se canonizó en E1.5.5 usándola como referencia. El Entity Framework se canoniza en E1.5.6 — define la anatomía + ontología que **todas las entidades del catálogo declarado en `ENTITY_MODEL.md`** (Empresa, Sector, Territorio, Valoración, Oportunidad, Persona, Advisor, Mandate, Operación, Documento, Organization, User, **Match**) heredarán como composición de módulos base, no como rediseño.
+
+⸻
+
+## 14. CHANGELOG
+
+- **v3.0 (2026-06-24)**: redacción original.
+- **v3.1 (2026-06-25)** — Sprint 0.5 Ciclo B:
+  - §5 reescrita para introducir **Match como entidad canónica de primer nivel** (matiz: Matching es mecanismo, Match es entidad resultante).
+  - §6 actualizada con las **15 fases canónicas T1–T15** (Discovery Layer + Transaction Layer).
+  - §7 reconciliada con `ENTITY_MODEL.md`: Mandate y Document **SÍ** son entidades canónicas de primer orden; Matching (mecanismo) NO; Match (entidad) SÍ.
+  - §12 reescrita: 4 copilots especializados por dominio + Transaction Copilot orquestador (sustituye las 6 identidades legacy).
+  - §13 ampliada a **siete capas** con la nueva capa **Engines & Specs** entre Entity Framework y Design System; añadidas referencias a los 6 specs del Sprint 0.

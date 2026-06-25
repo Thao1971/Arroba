@@ -1,7 +1,15 @@
-# arroba.com — Entity Model v1.0.0
+# arroba.com — Entity Model v1.1.0
 
 > **3ª capa canónica del proyecto** (parte 1 de 2). Ver [`ARROBA_PHILOSOPHY.md` §13](./ARROBA_PHILOSOPHY.md).
-> Última actualización: 2026-06-24 (E1.5.6 — canonización).
+> Última actualización: 2026-06-25 (Sprint 0.5 Ciclo B — Canonical Baseline v1.0).
+>
+> **CHANGELOG v1.1.0 (Sprint 0.5 Ciclo B)**:
+> - **Match pasa a ser una entidad canónica de primer nivel** (§3 + nueva §5.7). Encapsula el acuerdo bilateral Buyer↔Seller con estados `SOLICITADO → ACEPTADO | RECHAZADO | EXPIRADO`. Reconcilia con `ARROBA_PHILOSOPHY §7` (Matching mecanismo ≠ Match entidad).
+> - **`client` → `user`** (§3, §5.6, §5.8, §5.9, §5.10, §5.11, §5.12). Alias `client` deprecated por 6 meses (lectura tolerada).
+> - **Enum `Operation.current_phase`** actualizado a `nda → im → qa → loi → dd → negotiation → spa → closing → integration`. `ioi` queda como sub-estado opcional dentro de `loi`. Excluidos `matching` y `teaser` (pertenecen a Discovery Layer / Match).
+> - **Catálogo declarado como extensible**: eliminadas las referencias numéricas a una cardinalidad concreta del catálogo (no se habla más de "N tipos canónicos"). El catálogo es enumeración explícita y extensible.
+> - Renumeración interna §5.8 → §5.9, §5.9 → §5.10, §5.10 → §5.11, §5.11 → §5.12 para hacer hueco a Match.
+> - Roles canónicos del `user` documentados explícitamente (§5.12): `subscriber`, `corporate`, `investor`, `advisor`, `arroba_team`, `admin`. El rol `arroba_team` NO hereda de `admin`.
 >
 > Este documento define la **ontología de datos** de arroba.com. Qué entidades existen, qué campos comunes comparten, qué relaciones tienen, qué reglas de negocio aplican. Aquí NO se habla de pantallas (eso es `ENTITY_FRAMEWORK.md`) ni de implementación (eso es Mongo/Pydantic en `/app/backend/src/modules/...`).
 >
@@ -102,9 +110,10 @@ operaciones de lectura/escritura validan ambos.
 
 ## 3. Tipos de entidad
 
-arroba.com declara **12 tipos canónicos**. Cada tipo tiene su propio módulo
-backend (`/app/backend/src/modules/{type}s/`) y su propia colección Mongo
-cuando aplica.
+arroba.com declara el siguiente catálogo de tipos canónicos. Cada tipo
+tiene su propio módulo backend (`/app/backend/src/modules/{type}s/`) y su
+propia colección Mongo cuando aplica. **El catálogo es extensible**: las
+versiones futuras pueden añadir tipos sin modificar este principio.
 
 | Tipo | Singular | Descripción | URL canónica | Estado E1.5.6 |
 |---|---|---|---|---|
@@ -114,16 +123,19 @@ cuando aplica.
 | `person` | Persona | Individuo identificado (fundador, advisor, etc.) | `/persona/{slug}` | 🔵 backlog |
 | `advisor` | Advisor | Profesional acreditado en arroba (asesor M&A, valuator) | `/advisor/{slug}` | 🔵 backlog |
 | `mandate` | Mandato | Encargo formal de un cliente a un advisor (buy-side / sell-side) | `/mandato/{id}` | 🔵 backlog |
+| `match` | Match | Acuerdo bilateral Buyer↔Seller que abre la Operación | `/match/{id}` (vista histórica) | 🔵 E2.0 |
 | `operation` | Operación | Proceso M&A en ejecución (Transaction OS, multi-fase) | `/operacion/{id}` | 🔵 E2.0 |
 | `valuation` | Valoración | Estimación de valor (indicativa o avanzada) | `/valoracion/{id}` | 🔵 E1.8 |
 | `document` | Documento | PDF, memoria mercantil, teaser, IM, SPA, etc. | `/documento/{id}` | 🔵 backlog |
 | `opportunity` | Oportunidad | Tesis de inversión / desinversión, con candidatos | `/oportunidad/{id}` | 🔵 E1.9 |
-| `client` | Cliente | Persona física que ejecuta acciones (search, watchlist) | (sin ficha pública) | ✅ implementado como `users` |
+| `user` | Usuario | Persona física que ejecuta acciones (search, watchlist) | (sin ficha pública) | ✅ implementado como `users` |
 | `organization` | Organización | Cuenta multi-usuario (workspace owner) | `/org/{slug}` | ✅ implementado |
 
-**Nota**: `client` y `organization` son entidades **operacionales** del
-producto (autenticación, ownership), no entidades de dominio. Las otras 10
-son entidades de **dominio M&A**.
+**Match pasa a ser una entidad canónica de primer nivel** (decisión Sprint 0.5 Ciclo B). Encapsula el acuerdo bilateral Buyer↔Seller con estados `SOLICITADO → ACEPTADO | RECHAZADO | EXPIRADO`. La transición `ACEPTADO` genera la `operation` correspondiente. Modelo completo en `TRANSACTION_OS_SPEC §4` y ficha en `ENTITY_FRAMEWORK §11.13`.
+
+**Nota canónica sobre nomenclatura**: en versiones previas el tipo `client` referenciaba a "Persona física que ejecuta acciones". A partir de Sprint 0.5 Ciclo B se canoniza como `user` para alinear con la implementación actual (`users` en backend) y con los 6 specs del Sprint 0. **`client` queda como alias deprecated por 6 meses** (lectura tolerada; escritura desaconsejada).
+
+**Nota**: `user` y `organization` son entidades **operacionales** del producto (autenticación, ownership), no entidades de dominio M&A.
 
 ---
 
@@ -138,7 +150,7 @@ Todos los tipos comparten estos campos. Implementación canónica:
 |---|---|---|---|
 | `id` | string | ✅ | Identificador opaco interno (ej. `mc_kitchen_studio_5h2x`) |
 | `slug` | string | ✅ | Identificador humano único por tipo (ej. `kitchen-studio-sl`) |
-| `type` | enum | ✅ | Uno de los 12 tipos canónicos (§3) |
+| `type` | enum | ✅ | Uno de los tipos canónicos declarados en §3 |
 | `schema_version` | int | ✅ | Versión del esquema. Inicia en 1 |
 
 ### 4.2 Naming
@@ -254,62 +266,92 @@ explícita (ej. `company_sector_membership`).
 
 | Relación | Cardinalidad | Tipo | Notas |
 |---|---|---|---|
-| `client_id` | 1 | `client` | Persona que encarga el mandato. |
+| `user_id` | 1 | `user` | Usuario que encarga el mandato. |
 | `advisor_id` | 1 | `advisor` | Profesional que ejecuta. |
 | `target_company_ids` | N | `company[]` | Empresa(s) objeto del mandato. |
 | `side` | enum | — | `buy_side` \| `sell_side`. |
 | `operation_ids` | N | `operation[]` | Operaciones lanzadas desde este mandato. |
 
-### 5.7 Operación (`operation`)
+### 5.7 Match (`match`)
 
 | Relación | Cardinalidad | Tipo | Notas |
 |---|---|---|---|
-| `mandate_id` | 1 | `mandate` | Mandato origen. |
+| `buyer_user_id` | 1 | `user` | Buyer que activa la Solicitud. |
+| `seller_user_id` | 1 | `user` | Seller que acepta o rechaza. |
+| `target_company_id` | 1 | `company` | Empresa objeto del Match. |
+| `opportunity_id` | 0..1 | `opportunity` | Oportunidad origen del Buyer. |
+| `mandate_id` | 0..1 | `mandate` | Mandato origen (Buy-side o Sell-side). |
+| `operation_id` | 0..1 | `operation` | Operation generada al aceptarse. NULL si `RECHAZADO`/`EXPIRADO`. |
+| `status` | enum | — | `SOLICITADO` \| `ACEPTADO` \| `RECHAZADO` \| `EXPIRADO`. |
+| `requested_at` | datetime | — | Cuándo se solicitó. |
+| `accepted_at` | datetime | — | Cuándo se aceptó. NULL si no se llegó a aceptar. |
+| `expires_at` | datetime | — | TTL configurable; expiración automática. |
+
+> Modelo completo del Match en `TRANSACTION_OS_SPEC §4` y ficha en `ENTITY_FRAMEWORK §11.13`. El Match es la entidad puente entre Discovery Layer y Transaction Layer.
+
+### 5.8 Operación (`operation`)
+
+| Relación | Cardinalidad | Tipo | Notas |
+|---|---|---|---|
+| `match_id` | 1 | `match` | Match origen (canónico). Toda Operation nace de un Match `ACEPTADO`. |
+| `mandate_id` | 0..1 | `mandate` | Mandato origen si existe formalmente. |
 | `target_company_id` | 1 | `company` | Empresa objeto. |
 | `counterparty_company_ids` | N | `company[]` | Contrapartes (compradores/vendedores potenciales). |
-| `document_ids` | N | `document[]` | Teaser, NDA, IM, IOI, LOI, SPA. |
+| `document_ids` | N | `document[]` | NDA, IM, LOI, SPA, etc. |
 | `valuation_ids` | N | `valuation[]` | Valoraciones aplicadas en el proceso. |
-| `current_phase` | enum | — | `matching` \| `teaser` \| `nda` \| `im` \| `ioi` \| `loi` \| `dd` \| `qa` \| `spa` \| `closing`. |
+| `current_phase` | enum | — | `nda` \| `im` \| `qa` \| `loi` \| `dd` \| `negotiation` \| `spa` \| `closing` \| `integration`. |
 
-### 5.8 Valoración (`valuation`)
+> **Notas canónicas sobre `current_phase`** (Sprint 0.5 Ciclo B):
+> - Operation arranca en `nda` (la fase de Discovery Layer — `matching`, `teaser` — vive en el Match, no en Operation).
+> - `ioi` (Indication of Interest) es **sub-estado opcional dentro de `loi`**, no valor independiente del enum.
+> - `negotiation` se ubica entre `dd` y `spa`.
+> - `integration` cierra el ciclo tras `closing` (corresponde a T15 del Transaction OS).
+> - El detalle canónico vive en `TRANSACTION_OS_SPEC v1.2.0 §4.3 + §6 (T7-T15)`.
+
+### 5.9 Valoración (`valuation`)
 
 | Relación | Cardinalidad | Tipo | Notas |
 |---|---|---|---|
 | `target_company_id` | 1 | `company` | Empresa valorada. |
 | `comparable_company_ids` | N | `company[]` | Comparables utilizadas. |
-| `requested_by_id` | 1 | `client` \| `advisor` | Quién la pidió. |
+| `requested_by_id` | 1 | `user` \| `advisor` | Quién la pidió. |
 | `method` | enum | — | `revenue_multiple` \| `ebitda_multiple` \| `dcf` \| `comparable_transactions`. |
 | `mandate_id` | 0..1 | `mandate` | Si nace de un mandato concreto. |
 
-### 5.9 Documento (`document`)
+### 5.10 Documento (`document`)
 
 | Relación | Cardinalidad | Tipo | Notas |
 |---|---|---|---|
-| `subject_type` | enum | — | A qué entidad se asocia (`company`, `operation`, `mandate`, ...). |
+| `subject_type` | enum | — | A qué entidad se asocia (`company`, `operation`, `mandate`, `match`, ...). |
 | `subject_id` | 1 | depende | ID de la entidad sujeto. |
 | `kind` | enum | — | `mercantile_memory` \| `teaser` \| `nda` \| `im` \| `ioi` \| `loi` \| `dd_report` \| `spa` \| `other`. |
-| `signed_by_ids` | N | `client[]` \| `advisor[]` | Firmantes (cuando aplica). |
+| `signed_by_ids` | N | `user[]` \| `advisor[]` | Firmantes (cuando aplica). |
 
-### 5.10 Oportunidad (`opportunity`)
+### 5.11 Oportunidad (`opportunity`)
 
 | Relación | Cardinalidad | Tipo | Notas |
 |---|---|---|---|
-| `owner_user_id` | 1 | `client` | Usuario que define la tesis. |
+| `owner_user_id` | 1 | `user` | Usuario que define la tesis. |
 | `sector_ids` | N | `sector[]` | Sectores objetivo. |
 | `territory_ids` | N | `territory[]` | Territorios objetivo. |
 | `candidate_company_ids` | N | `company[]` | Candidatas detectadas. |
 | `pipeline_stage_by_company_id` | map | — | `company_id → 'identified' | 'contacted' | 'in_talks' | 'proposal' | 'closed'`. |
 | `mandate_id` | 0..1 | `mandate` | Si escala a mandato formal. |
 
-### 5.11 Cliente (`client`) / Organización (`organization`)
+### 5.12 Usuario (`user`) / Organización (`organization`)
 
 Operacionales. Ya implementados como `users` + `organizations` + `memberships`. Sus relaciones se enfocan a:
 
 | Relación | Cardinalidad | Notas |
 |---|---|---|
-| `client → organization[]` (memberships) | N | Multi-tenant. |
-| `client → watchlist company[]` | N | Empresas guardadas. |
-| `client → opportunity[]` (owned) | N | Tesis propias. |
+| `user → organization[]` (memberships) | N | Multi-tenant. |
+| `user → watchlist company[]` | N | Empresas guardadas. |
+| `user → opportunity[]` (owned) | N | Tesis propias. |
+| `user → match[]` (as buyer or seller) | N | Matches en los que participa. |
+
+> **Roles canónicos del `user`** (alineado con `TRANSACTION_OS_SPEC v1.2.0 §14`):
+> - `subscriber` · `corporate` · `investor` · `advisor` · `arroba_team` · `admin`
+> - El rol `arroba_team` es **específico nuevo** y **NO hereda** automáticamente de `admin` (decisión Sprint 0.5 Ciclo B sobre `[OPEN-C11]`).
 
 ---
 
@@ -341,13 +383,13 @@ Narrativa visual del grafo (top-to-bottom de dominio):
                           ┌───────────────────┘
                           ▼
                    ┌──────────────┐
-                   │   Operation  │◄───── Mandate ◄── Advisor ◄── Person
+                   │   Operation  │◄───── Match ◄── Mandate ◄── Advisor ◄── Person
                    └──────────────┘
                           ▲
                           │ may originate from
                           │
                    ┌──────┴───────┐
-                   │ Opportunity  │◄── Client (owner)
+                   │ Opportunity  │◄── User (owner)
                    └──────────────┘
 ```
 
@@ -355,12 +397,14 @@ Lecturas obligatorias:
 
 - Una **Empresa** vive en un **Sector** y un **Territorio**. Esos son los
   primeros dos ejes de navegación canónicos.
-- Una **Oportunidad** es la formalización de una tesis del **Cliente**; sus
+- Una **Oportunidad** es la formalización de una tesis del **Usuario**; sus
   candidatas son **Empresas**.
 - Un **Mandato** convierte una oportunidad informal en un encargo formal con
   un **Advisor** acreditado.
-- Una **Operación** es la ejecución de un mandato a través de las fases
-  Transaction OS (Matching → Cierre).
+- Un **Match** representa el acuerdo bilateral Buyer↔Seller (resultado del
+  mecanismo Matching). Cuando se acepta, genera la Operación.
+- Una **Operación** es la ejecución del proceso M&A a través de las fases
+  canónicas T7-T15 del Transaction OS (NDA → Integración).
 - Una **Valoración** se asocia a una **Empresa** y puede vivir embebida en
   su ficha o como entidad propia (si es avanzada / mandataria).
 - Un **Documento** se asocia a cualquier otra entidad (`subject_type` +
@@ -373,9 +417,10 @@ Lecturas obligatorias:
 ### 7.1 Cardinalidades obligatorias
 - Toda `company` debe tener `sector_id` y `territory_id`.
 - Todo `advisor` debe tener `person_id`.
-- Todo `mandate` debe tener `client_id` + `advisor_id` + al menos un
+- Todo `mandate` debe tener `user_id` + `advisor_id` + al menos un
   `target_company_id`.
-- Toda `operation` debe tener `mandate_id` + `target_company_id`.
+- Todo `match` debe tener `buyer_user_id` + `seller_user_id` + `target_company_id`.
+- Toda `operation` debe tener `match_id` + `target_company_id`.
 - Toda `valuation` debe tener `target_company_id` + `method`.
 
 ### 7.2 Visibility cascading

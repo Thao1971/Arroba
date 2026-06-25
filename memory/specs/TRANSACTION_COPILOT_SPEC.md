@@ -1,11 +1,17 @@
-# arroba.com — Transaction Copilot Spec v1.1.0
+# arroba.com — Transaction Copilot Spec v1.2.0
 
 > **Capa canónica**: *Engines & Specs* (séptima capa, pendiente de propagación a `ARROBA_PHILOSOPHY.md` §13 al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.2 (segundo de 6 specs).
-> **Estado**: borrador para revisión humana — v1.1.0 incorpora 5 patches canónicos tras la entrega de `COPILOTS_SPEC v1.0.0`.
+> **Estado**: borrador para revisión humana — v1.2.0 incorpora cierres del Sprint 0.5 Ciclo B sobre v1.1.0.
 > **Fecha**: 2026-06-25.
-> **Documento predecesor (lectura obligatoria previa)**: `TRANSACTION_OS_SPEC.md v1.1.0`.
+> **Documento predecesor (lectura obligatoria previa)**: `TRANSACTION_OS_SPEC.md v1.2.0`.
 > **Idioma**: español canónico técnico.
+>
+> **CHANGELOG v1.2.0 (2026-06-25 — Sprint 0.5 Ciclo B)**:
+> - Cierre formal de `[OPEN-B1]` (persistencia de Recomendaciones) tras resolución cruzada con `TRANSACTION_OS [A12]` y `COPILOTS §6.3`.
+> - Cierre formal de `[OPEN-B2]` (audit cross-user para fraude): NO por defecto; solo `arroba_team`/`admin` en mediación documentada.
+> - Cierre formal de `[OPEN-B5]` (timeouts TC↔especialistas): resuelto canónicamente en `COPILOTS_SPEC §9.4 + §13`.
+> - Cierre formal de `[OPEN-B7]` (TC pregunta antes de L2): NO; resuelto en `AGENTIC_LAYERS_SPEC §4.2`.
 >
 > **CHANGELOG v1.1.0 (2026-06-25)** — patches quirúrgicos tras `COPILOTS_SPEC v1.0.0`:
 > 1. **Voz única canonizada (B6)** declarada como principio canónico inviolable (§3.0).
@@ -1389,13 +1395,13 @@ Escalado: → `arroba_team` (mediación) → `admin` (intervención crítica).
 
 | ID | Pregunta | Propuesta de este spec | Estado |
 |---|---|---|---|
-| **B1** | Persistencia de Recomendaciones (fase 5): ¿efímeras o persistidas? | Persistir las accionadas y un buffer N de las propuestas recientes; efímeras el resto. Política exacta a definir | **ABIERTO** (relacionado con `[OPEN-A12]` del TOS spec) |
-| **B2** | ¿El Transaction Copilot puede leer audit logs de otros usuarios para detectar patrones (red flags, fraude)? | NO por defecto. Solo `arroba_team`/`admin` cuando se escala. El TC opera con datos de la(s) operación(es) del usuario actual | **ABIERTO** — confirmación negocio |
+| ~~B1~~ | Persistencia de Recomendaciones (T5): ¿efímeras o persistidas? | Persistir las accionadas y un buffer N de las propuestas recientes; efímeras el resto. Resuelto canónicamente con `COPILOTS_SPEC §6.3 + §16.30` y `TRANSACTION_OS_SPEC [OPEN-A12 cerrado]` | **CERRADO** 2026-06-25 (G1) |
+| ~~B2~~ | ¿El Transaction Copilot puede leer audit logs de otros usuarios para detectar patrones (red flags, fraude)? | **NO** por defecto. Solo `arroba_team`/`admin` cuando se escala con justificación documentada. El TC opera con datos de la(s) operación(es) del usuario actual. Decisión Sprint 0.5 (Ciclo B G2) | **CERRADO** 2026-06-25 (G2) |
 | **B3** | Memoria cross-deal de un mismo usuario | Por defecto aislada. ¿Permitir opt-in del usuario "el TC puede aprender de mis operaciones anteriores"? | **ABIERTO** — decisión de privacidad |
 | **B4** | Modelo LLM subyacente al TC | El TC debe ser **agnóstico de modelo** (interface uniforme). Soportar Claude Sonnet 4.6 (actual) + alternativas. Detalle de provider en factory backend, no en este spec | **ABIERTO** (operativo, no de producto) |
-| **B5** | Política de timeouts entre TC y especialistas | Propuesta: 12s por especialista, degradación elegante (fallback determinista cuando aplica). Detalle exacto en `COPILOTS_SPEC` | **ABIERTO** — a resolver en 0.3 |
+| ~~B5~~ | Política de timeouts entre TC y especialistas | Propuesta: 12s por especialista, degradación elegante (fallback determinista cuando aplica). Resuelto canónicamente en `COPILOTS_SPEC §9.4 + §13` | **CERRADO** 2026-06-25 (G1) |
 | **B6** | Cuándo el TC debe "ceder la palabra completamente" a un especialista | Propuesta: cuando la respuesta del especialista es estructurada (tabla, valoración, draft) y no requiere consolidación. Detalle UX en Design System. | **ABIERTO** — decisión UX |
-| **B7** | Política de "consulta al usuario" antes de actuar | El TC pregunta antes de acciones materiales (siempre L3), pero ¿pregunta antes de L2 que escribe memoria? Propuesta: NO; L2 son borradores etiquetados como tales | **ABIERTO** — confirmación |
+| ~~B7~~ | Política de "consulta al usuario" antes de actuar | El TC pregunta antes de acciones materiales (siempre L3); NO pregunta antes de L2 — los outputs L2 son borradores etiquetados como tales. Resuelto canónicamente en `AGENTIC_LAYERS_SPEC §4.2` | **CERRADO** 2026-06-25 (G1) |
 | **B8** | Multi-usuario en la misma sesión / Workspace | Si Buyer y Seller están simultáneamente en `/operacion/{id}`, ¿hablan al mismo TC? Propuesta: cada uno tiene su sesión privada pero el TC ve el estado compartido. Conversación cruzada se canaliza vía Q&A oficial, no chat conjunto | **ABIERTO** — modelo de presencia |
 | **B9** | Memoria de Advisor cross-mandato | Un Advisor opera varias operaciones. ¿El TC le permite aprovechar patrones cross-mandato? Por defecto NO (cada Mandate aislado); puede haber opt-in | **ABIERTO** — privacy + competitive |
 | **B10** | Fallback determinista del TC | Cuando el LLM falla, ¿qué responde el TC? Propuesta: respuesta determinista por fase (catálogo cerrado de "lo siento, no puedo procesar tu consulta ahora; te ofrezco las acciones disponibles en esta fase: …") | **ABIERTO** — implementación |

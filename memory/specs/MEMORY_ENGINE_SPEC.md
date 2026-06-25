@@ -1,11 +1,16 @@
-# arroba.com — Memory Engine Spec v1.0.0
+# arroba.com — Memory Engine Spec v1.1.0
 
 > **Capa canónica**: *Engines & Specs* (séptima capa, pendiente de propagación a `ARROBA_PHILOSOPHY.md` §13 al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.4 (cuarto de 6 specs).
-> **Estado**: borrador para revisión humana.
+> **Estado**: borrador para revisión humana — v1.1.0 incorpora cierres del Sprint 0.5 Ciclo B sobre v1.0.0.
 > **Fecha**: 2026-06-25.
-> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.1.0` · `TRANSACTION_COPILOT_SPEC v1.1.0` · `COPILOTS_SPEC v1.0.0`.
+> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.2.0` · `TRANSACTION_COPILOT_SPEC v1.2.0` · `COPILOTS_SPEC v1.1.0`.
 > **Idioma**: español canónico técnico.
+>
+> **CHANGELOG v1.1.0 (2026-06-25 — Sprint 0.5 Ciclo B)**:
+> - Cierre formal de `[OPEN-D10]` (multi-tenant físico): **Mongo compartido con aislamiento lógico estricto** (filtro `org_id` + `role_context` obligatorio en toda query). Decisión Sprint 0.5 (Ciclo B G2).
+> - Cierre formal de `[OPEN-D11]` (snapshot bajo demanda del usuario): **NO en v1.0**. El catálogo de 7 momentos canónicos en §6.3 es exclusivo; snapshot bajo demanda reservado para versión futura.
+> - Cierre formal de `[OPEN-D14]` (organización archivada y watchlists de otras orgs): watchlists referencian la `company` (no la `org`); el archivado de la org no afecta su contenido; las watchlists ven solo información pública de la company.
 >
 > Este documento define el **Memory Engine**: el **motor único de memoria** del Transaction OS. Especifica el catálogo cerrado de tipos de memoria, sus scopes, lifecycle, retención, las **4 reglas inviolables de aislamiento (B3)**, el contrato funcional de acceso (read/write/search/forget), la política GDPR y la trazabilidad. Define **contratos**, no tecnología.
 >
@@ -1201,11 +1206,11 @@ No se materializa en este spec. `[OPEN-D8]`: si añadir o no en versión posteri
 | **D7** | Contrato exacto entre Memory Engine y Risk & Compliance Service | Pendiente del spec dedicado al servicio | **ABIERTO** — dependencia spec externo |
 | **D8** | Knowledge Graph propio en versión posterior | No se materializa en v1.0.0. Reservar como extensión futura | **ABIERTO** — roadmap |
 | **D9** | ¿Quién genera los agregados k-anonimizados? Frecuencia | Sistema (jobs internos); frecuencia por sector según volumetría. `k ≥ 5` default | **ABIERTO** — política operativa |
-| **D10** | Política de **multi-tenant** físico (un Mongo compartido vs uno por org) | Decisión de implementación; este spec exige aislamiento lógico estricto a nivel de query (suficiente si se enforza correctamente) | **ABIERTO** — implementación |
+| ~~D10~~ | Política de **multi-tenant** físico (un Mongo compartido vs uno por org) | **Mongo compartido con aislamiento lógico estricto** (filtro `org_id` + `role_context` obligatorio en toda query). Reservar Mongo por org como upgrade futuro Corporate/Enterprise. Decisión Sprint 0.5 (Ciclo B G2) | **CERRADO** 2026-06-25 (G2) |
 | **D11** | ¿Se permite "snapshot bajo demanda" del usuario (no solo en momentos canónicos)? | Probable NO en v1.0.0 (los 7 momentos canónicos son suficientes; añadir más fragmenta). Reservar para versión futura | **ABIERTO** — confirmación |
 | **D12** | Política sobre embeddings: ¿se conservan permanentemente o se recalculan? | Probable: se conservan pero se invalidan cuando cambia el modelo de embedding (rebuild en background) | **ABIERTO** — operativa |
 | **D13** | Soft-delete vs hard-delete en purga | Default: soft-delete con flag `purged_at` durante 30 días de gracia; hard-delete tras grace period. GDPR puede pedir hard-delete inmediato | **ABIERTO** — confirmación GDPR |
-| **D14** | Cuando una Organization se archiva: ¿qué pasa con la memoria de sus Empresas que estaban en watchlists de otras orgs? | Las watchlists de otras orgs siguen referenciando, pero ven solo lo público. Confirmar | **ABIERTO** — confirmación |
+| ~~D14~~ | Cuando una Organization se archiva: ¿qué pasa con la memoria de sus Empresas que estaban en watchlists de otras orgs? | Las watchlists referencian la `company` (no la `org`); el archivado de la org no afecta su contenido. Las watchlists de otras orgs ven solo información pública. Decisión Sprint 0.5 (Ciclo B G2) | **CERRADO** 2026-06-25 (G2) |
 | **D15** | Política de migración de versiones del spec | Cambios menor: aplican automáticamente. Cambios mayor (v2.0.0): operaciones en curso completan con spec original; nuevas usan v2 | **ABIERTO** — alineado con TOS §12 |
 
 ### Lagunas estructurales a resolver en specs 0.5 / 0.6

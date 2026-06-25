@@ -1,12 +1,17 @@
-# arroba.com — Transaction OS Spec v1.1.0
+# arroba.com — Transaction OS Spec v1.2.0
 
 > **Capa canónica**: *Engines & Specs* (entre Entity Framework y Design System; ver `ARROBA_PHILOSOPHY.md` §13 — pendiente de actualización al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.1 (primero de 6 specs).
-> **Estado**: borrador para revisión humana — v1.1.0 incorpora correcciones canónicas del usuario sobre v1.0.0.
+> **Estado**: borrador para revisión humana — v1.2.0 incorpora correcciones del Sprint 0.5 Ciclo B sobre v1.1.0.
 > **Fecha**: 2026-06-25.
 > **Autor canónico**: usuario (decisiones) + redacción técnica del agente.
 >
 > Este documento define la arquitectura funcional del **Transaction Operating System** (TOS): el ciclo completo de una operación corporativa en arroba.com, desde el análisis inicial hasta la integración post-deal. No define implementación. No define visual. Define qué fases existen, qué entidades intervienen, qué artefactos se producen, qué actores participan, qué permisos rigen, qué eventos se registran y cómo se gobierna el ciclo.
+>
+> **Cambios v1.2.0 frente a v1.1.0** (Sprint 0.5 Ciclo B):
+> - Numeración canónica de fases: `T1`–`T15` reemplaza la notación "Fase N" / "fase N" en todo el documento (decisión Sprint 0.5 #8 NM-03/CX-09).
+> - Cierre formal de `[OPEN-A8]` con decisión del usuario: tokens JWT 24h · refresh 30d · sesión 1h inactiva.
+> - Cierre formal de `[OPEN-A12]` con resolución cruzada en `TRANSACTION_COPILOT_SPEC §12 B1` y `COPILOTS_SPEC §6.3`.
 >
 > **Cambios v1.1.0 frente a v1.0.0** (correcciones canónicas):
 > - Introducción de **Discovery Layer** y **Transaction Layer** como las dos etapas del mismo TOS.
@@ -194,7 +199,7 @@ Acuerdo de confidencialidad bilateral firmado en fase 7. Su firma desbloquea acc
 **Information Memorandum (IM)**
 Documento exhaustivo y estructurado sobre la empresa target. **Identifica** la empresa. Solo accesible post-NDA.
 
-**IOI (Indication of Interest)** *(sub-estado opcional dentro de fase 10 LOI/NBO)*
+**IOI (Indication of Interest)** *(sub-estado opcional dentro de T10 LOI/NBO)*
 Comunicación **no vinculante** del Buyer expresando interés tras revisar el IM. No es compromiso. Su uso es opcional. Compatibilidad hacia atrás con `ENTITY_MODEL.md` §5.7 (`current_phase` enum mantiene `ioi`).
 
 **LOI (Letter of Intent) / NBO (Non-Binding Offer)**
@@ -454,7 +459,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 - `Operation.current_phase` **arranca en `nda`**; no admite `matching` ni `teaser` (esos pertenecen al Discovery Layer / Match).
 - Valores nuevos respecto al enum actual de `ENTITY_MODEL.md` §5.7: `negotiation` (entre `dd` y `spa`) e `integration` (después de `closing`). La actualización formal se hace al cierre del Sprint 0.
-- `qa` se mantiene como fase tras `im`; el Q&A operativo de fase 11 (DD) reutiliza el mismo log con un sub-bloque "Q&A DD".
+- `qa` se mantiene como fase tras `im`; el Q&A operativo de T11 (DD) reutiliza el mismo log con un sub-bloque "Q&A DD".
 
 ### 4.4 Reglas de transición — quién puede disparar qué
 
@@ -494,7 +499,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 ### 🟦 DISCOVERY LAYER
 ═════════════════════════════════════════════════════════════════════════════
 
-### Fase 1 — Análisis inicial
+### T1 — Análisis inicial
 
 **Capa**: Discovery.
 **Propósito**: el usuario (Seller o Buyer) entiende el activo (su empresa o las empresas candidatas).
@@ -542,8 +547,8 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - Evento `company.analysis_refreshed`.
 
 **Transiciones permitidas**:
-- → Fase 2 (Valoración).
-- → Fase 3 (Identificación) si el usuario ya tiene el activo claro.
+- → T2 (Valoración).
+- → T3 (Identificación) si el usuario ya tiene el activo claro.
 - Sin transición (consulta puntual).
 
 **Riesgos / consideraciones**:
@@ -551,7 +556,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 2 — Valoración
+### T2 — Valoración
 
 **Capa**: Discovery.
 **Propósito**: cuantificar el valor económico del activo (indicativa o avanzada).
@@ -596,7 +601,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - Evento `valuation.created`.
 
 **Transiciones permitidas**:
-- → Fase 3 o Fase 5 según contexto.
+- → T3 o T5 según contexto.
 
 **Riesgos / consideraciones**:
 - Indicativa ≠ compromiso de precio.
@@ -604,7 +609,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 3 — Identificación y búsqueda de compradores/vendedores compatibles
+### T3 — Identificación y búsqueda de compradores/vendedores compatibles
 
 **Capa**: Discovery.
 **Propósito**: el usuario formaliza su intención en una `Opportunity` y arranca la búsqueda de contrapartes.
@@ -623,7 +628,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 **Herramientas utilizadas**:
 - Formulario de creación de Opportunity.
-- Skill `recommend` (alimenta motor de matching de fase 5).
+- Skill `recommend` (alimenta motor de matching de T5).
 
 **Motores de IA implicados**:
 - **Market Copilot** (análisis de mercado/sector/territorio).
@@ -649,7 +654,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `opportunity.created`, `opportunity.published`.
 
 **Transiciones permitidas**:
-- → Fase 4 cuando aparezcan candidatas / publicación al Marketplace.
+- → T4 cuando aparezcan candidatas / publicación al Marketplace.
 - `EN_PAUSA` o `ABANDONADA`.
 
 **Riesgos / consideraciones**:
@@ -657,7 +662,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 4 — Screening y priorización de candidatos
+### T4 — Screening y priorización de candidatos
 
 **Capa**: Discovery.
 **Propósito**: refinar candidatas, descartar inviables, priorizar por Compatibilidad.
@@ -700,20 +705,20 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `opportunity.candidate_added` / `_excluded` / `_priority_changed`.
 
 **Transiciones permitidas**:
-- → Fase 5 (Matching).
-- Vuelta a Fase 3 si la tesis necesita reformularse.
+- → T5 (Matching).
+- Vuelta a T3 si la tesis necesita reformularse.
 
 **Riesgos / consideraciones**:
 - Sesgo del motor. Override humano siempre disponible.
 
 ---
 
-### Fase 5 — Matching
+### T5 — Matching
 
 **Capa**: Discovery.
-**Propósito**: la plataforma genera **Recomendaciones** (sistema → usuario) y, en sell-side, publica el **Teaser anonimizado** en el Marketplace para que buyers cualificados lo descubran. El Match aún **no nace** aquí; solo se preparan las condiciones para que el Buyer lo solicite (sub-acción tras fase 6).
+**Propósito**: la plataforma genera **Recomendaciones** (sistema → usuario) y, en sell-side, publica el **Teaser anonimizado** en el Marketplace para que buyers cualificados lo descubran. El Match aún **no nace** aquí; solo se preparan las condiciones para que el Buyer lo solicite (sub-acción tras T6).
 
-**Estado inicial requerido**: `Opportunity.ACTIVA` con candidatas priorizadas (fase 4) y, si sell-side, Teaser preparado para publicación (ver fase 6).
+**Estado inicial requerido**: `Opportunity.ACTIVA` con candidatas priorizadas (T4) y, si sell-side, Teaser preparado para publicación (ver T6).
 **Estado final**: Recomendaciones visibles a actores cualificados; Teaser publicado al Marketplace (sell-side).
 **Actores principales**: Seller, Buyer cualificado, Advisor, Sistema, Market Copilot, Opportunity Advisor.
 
@@ -754,20 +759,20 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `marketplace.listing_published`.
 
 **Transiciones permitidas**:
-- → Fase 6 (consumo del Teaser).
-- Vuelta a Fase 4 si las recomendaciones son rechazadas en masa.
+- → T6 (consumo del Teaser).
+- Vuelta a T4 si las recomendaciones son rechazadas en masa.
 
 **Riesgos / consideraciones**:
 - Calidad del scoring. Se prioriza precision sobre recall en niveles iniciales del producto.
 
 ---
 
-### Fase 6 — Acceso al Teaser anonimizado público
+### T6 — Acceso al Teaser anonimizado público
 
 **Capa**: Discovery.
 **Propósito**: el Buyer cualificado consume el **Teaser anonimizado** del activo desde el Marketplace para decidir si **solicita un Match**. El Teaser **no identifica** la empresa; permite valorar el activo sin exponer la identidad del Seller.
 
-**Estado inicial requerido**: Teaser publicado al Marketplace (fase 5). El Buyer cumple criterios de cualificación.
+**Estado inicial requerido**: Teaser publicado al Marketplace (T5). El Buyer cumple criterios de cualificación.
 **Estado final**: el Buyer decide solicitar Match (ver sub-acción posterior) o declina.
 **Actores principales**: Buyer cualificado (lector), Seller (autor/aprobador previo), Advisor representando, Transaction Copilot.
 
@@ -823,7 +828,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 **Capa**: Discovery (cierra el bloque).
 **Propósito**: el Buyer dispara la creación de un `Match` en estado `SOLICITADO`. Es la única vía canónica para iniciar el camino hacia una Operation.
 
-**Estado inicial requerido**: Buyer cualificado ha consumido el Teaser (fase 6).
+**Estado inicial requerido**: Buyer cualificado ha consumido el Teaser (T6).
 **Estado final**: entidad `Match` creada en estado `SOLICITADO`, asociada a la `Opportunity` del Seller y al `Buyer`.
 **Actores principales**: Buyer (solicitante), Seller (receptor de la notificación), Advisor representando, Sistema, Transaction Copilot.
 
@@ -863,7 +868,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - **`match.solicited`** ★ inmutable crítico.
 
 **Transiciones permitidas**:
-- → Aceptación del Seller ⇒ `Match.ACEPTADO` ⇒ nace `Operation` ⇒ entra Transaction Layer (fase 7).
+- → Aceptación del Seller ⇒ `Match.ACEPTADO` ⇒ nace `Operation` ⇒ entra Transaction Layer (T7).
 - → Rechazo del Seller ⇒ `Match.RECHAZADO` (terminal sin Operation).
 - → Expiración del plazo de respuesta ⇒ `Match.EXPIRADO` (terminal sin Operation).
 
@@ -879,7 +884,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 >
 > A partir de aquí todas las fases trabajan sobre la entidad `Operation`. La entidad `Match` queda como **lineage histórico** (URL `/match/{id}` se conserva en modo solo-lectura).
 
-### Fase 7 — Firma del NDA
+### T7 — Firma del NDA
 
 **Capa**: Transaction.
 **Propósito**: ambas partes firman un Non-Disclosure Agreement que desbloquea el acceso al Information Memorandum y al Data Room.
@@ -927,7 +932,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - **`nda.fully_signed`** ★ inmutable crítico.
 
 **Transiciones permitidas**:
-- → Fase 8 (`current_phase = im`).
+- → T8 (`current_phase = im`).
 - Aborto: si una parte no firma en ventana acordada ⇒ `Operation.CERRADA_SIN_ÉXITO` (consecuencias menores; ver §10).
 
 **Riesgos / consideraciones**:
@@ -935,7 +940,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 8 — Acceso al Information Memorandum (IM)
+### T8 — Acceso al Information Memorandum (IM)
 
 **Capa**: Transaction.
 **Propósito**: el Buyer accede al IM, documento exhaustivo y **no anonimizado** sobre la empresa target.
@@ -984,8 +989,8 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `im.accessed_by_buyer`.
 
 **Transiciones permitidas**:
-- → Fase 9 (Q&A) — natural.
-- → Fase 10 (LOI/NBO) directamente si el Buyer tiene oferta clara.
+- → T9 (Q&A) — natural.
+- → T10 (LOI/NBO) directamente si el Buyer tiene oferta clara.
 - Aborto: `Operation.CERRADA_SIN_ÉXITO`.
 
 **Riesgos / consideraciones**:
@@ -993,7 +998,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 9 — Preguntas y respuestas (Q&A)
+### T9 — Preguntas y respuestas (Q&A)
 
 **Capa**: Transaction.
 **Propósito**: intercambio estructurado entre Buyer y Seller para aclarar puntos del IM antes de avanzar a oferta.
@@ -1039,7 +1044,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `qa.log_closed`.
 
 **Transiciones permitidas**:
-- → Fase 10 cuando Buyer emite oferta.
+- → T10 cuando Buyer emite oferta.
 - Pausa.
 - Aborto.
 
@@ -1048,13 +1053,13 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 10 — Presentación de la Oferta Indicativa (LOI / NBO)
+### T10 — Presentación de la Oferta Indicativa (LOI / NBO)
 
 **Capa**: Transaction.
 **Propósito**: el Buyer emite oferta. El sub-estado **IOI (opcional)** permite indicar interés no vinculante antes de la LOI/NBO vinculante.
 
 **Estado inicial requerido**: `current_phase = loi`.
-**Estado final**: LOI/NBO firmada por ambas partes ⇒ avance a fase 11 (`current_phase = dd`).
+**Estado final**: LOI/NBO firmada por ambas partes ⇒ avance a T11 (`current_phase = dd`).
 **Actores principales**: Buyer, Seller, Advisors, capability firma electrónica.
 
 #### Sub-estados de fase 10
@@ -1112,7 +1117,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - **`loi.fully_signed`** ★ inmutable crítico.
 
 **Transiciones permitidas**:
-- → Fase 11 (DD).
+- → T11 (DD).
 - `Operation.CERRADA_SIN_ÉXITO` si LOI rechazada y no reapertura.
 - Pausa.
 
@@ -1121,7 +1126,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 11 — Due Diligence (DD)
+### T11 — Due Diligence (DD)
 
 **Capa**: Transaction.
 **Propósito**: revisión exhaustiva del Buyer (y sus asesores) sobre la empresa target. Incluye **Data Room** + interacciones de análisis.
@@ -1174,7 +1179,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `dd.report_emitted`.
 
 **Transiciones permitidas**:
-- → Fase 12 (Negociación).
+- → T12 (Negociación).
 - Pausa.
 - `Operation.CERRADA_SIN_ÉXITO` si red flags terminales.
 
@@ -1183,7 +1188,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 12 — Negociación
+### T12 — Negociación
 
 **Capa**: Transaction.
 **Propósito**: ajuste final de términos del SPA: precio, estructura, earn-out, garantías, indemnities, condiciones suspensivas, no competencia.
@@ -1232,7 +1237,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `negotiation.closed`.
 
 **Transiciones permitidas**:
-- → Fase 13 (`current_phase = spa`).
+- → T13 (`current_phase = spa`).
 - Pausa.
 - `Operation.CERRADA_SIN_ÉXITO` si negociación rota.
 
@@ -1241,7 +1246,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 13 — Firma del SPA
+### T13 — Firma del SPA
 
 **Capa**: Transaction.
 **Propósito**: firma del SPA definitivo. Contrato vinculante final.
@@ -1285,7 +1290,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - **`spa.fully_signed`** ★ inmutable crítico.
 
 **Transiciones permitidas**:
-- → Fase 14 (`current_phase = closing`).
+- → T14 (`current_phase = closing`).
 - `Operation.CANCELADA` si condiciones suspensivas no cumplidas en plazo.
 
 **Riesgos / consideraciones**:
@@ -1293,7 +1298,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 14 — Closing legal
+### T14 — Closing legal
 
 **Capa**: Transaction.
 **Propósito**: ejecución de las contraprestaciones del SPA: pago, transferencia, formalización notarial, cumplimiento de suspensivas.
@@ -1343,7 +1348,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 - `monetization.fee_due`.
 
 **Transiciones permitidas**:
-- → Fase 15 (`current_phase = integration`).
+- → T15 (`current_phase = integration`).
 - `Operation.CANCELADA` si una suspensiva no se cumple en plazo definitivo.
 
 **Riesgos / consideraciones**:
@@ -1352,7 +1357,7 @@ Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage);
 
 ---
 
-### Fase 15 — Integración post-operación
+### T15 — Integración post-operación
 
 **Capa**: Transaction.
 **Propósito**: ejecución del plan de integración acordado. Su cierre marca el fin definitivo del ciclo de vida de la `Operation`.
@@ -1491,7 +1496,7 @@ El Deal Workspace **no almacena estado propio**: es **proyección** de la `Opera
 | 12 | Closing memo | `closing_memo` *(canónico nuevo)* | Transaction | 14 | 14-15 | Sí |
 | 13 | Integration plan | `integration_plan` *(canónico nuevo)* | Transaction | 15 | 15 | No (versionable) |
 | 14 | Match certificate | `match_certificate` *(canónico nuevo)* | Frontera | Sub-acción "Solicitud de Match" (al aceptarse) | Lineage permanente de la Operation | Sí (inmutable desde su creación) |
-| 15 | Mandate | (referencia a entidad) | Pre-fase 3 (opcional) | 3-15 | Inmutable post-firma cliente↔advisor |
+| 15 | Mandate | (referencia a entidad) | Pre-T3 (opcional) | 3-15 | Inmutable post-firma cliente↔advisor |
 | 16 | Audit log entries | (eventos) | Ambas | Todas las fases | Auditoría | **Sí siempre** |
 
 **Notas**:
@@ -1602,7 +1607,7 @@ Lista exhaustiva (extensible solo por nueva versión del spec):
 - `negotiation.closed`
 - **`spa.fully_signed`** ★ inmutable crítico
 - `closing.condition_met`
-- **`closing.declared`** ★ inmutable crítico (dispara billing y fase 15)
+- **`closing.declared`** ★ inmutable crítico (dispara billing y T15)
 - `monetization.fee_due`
 - `integration.milestone_completed`
 - **`integration.completed`** ★ inmutable crítico
@@ -1740,7 +1745,7 @@ Por fase, los copilots especializados invocados:
 Tipos de memoria referenciados:
 
 - **Memoria de empresa** (fases 1, 2, 6, 8, 11; lineage permanente).
-- **Memoria de valoración** (fase 2).
+- **Memoria de valoración** (T2).
 - **Memoria de oportunidad** (fases 3-5).
 - **Memoria de match** (sub-acción + fases que aún viven como Match; pasa a referencia tras conversión).
 - **Memoria de operación** (fases 7-15).
@@ -1897,16 +1902,16 @@ Lista consolidada de decisiones tras la corrección v1.1.0:
 |---|---|---|---|
 | ~~A1~~ | ¿Match es entidad o evento? | Entidad persistente de transición de ciclo corto | **CERRADO** 2026-06-25 |
 | ~~A2~~ | Cardinalidad Match ↔ Operation | 1 Match → 0..1 Operation | **CERRADO** 2026-06-25 |
-| ~~A3~~ | IOI vs LOI | IOI sub-estado opcional dentro de fase 10 | **CERRADO** 2026-06-25 |
-| ~~A4~~ | "Negociación" (fase 12) | Valor canónico `negotiation` del enum `Operation.current_phase` entre `dd` y `spa` | **CERRADO** 2026-06-25 |
-| ~~A5~~ | Integración: entidad nueva o fase de Operation | Fase 15 dentro de la misma `Operation` (no entidad nueva) | **CERRADO** 2026-06-25 |
+| ~~A3~~ | IOI vs LOI | IOI sub-estado opcional dentro de T10 | **CERRADO** 2026-06-25 |
+| ~~A4~~ | "Negociación" (T12) | Valor canónico `negotiation` del enum `Operation.current_phase` entre `dd` y `spa` | **CERRADO** 2026-06-25 |
+| ~~A5~~ | Integración: entidad nueva o fase de Operation | T15 dentro de la misma `Operation` (no entidad nueva) | **CERRADO** 2026-06-25 |
 | ~~A6~~ | Fases pre-Match (1-5): ¿parte formal del TOS o ciclo previo? | Discovery Layer (parte formal del TOS). Transaction Layer comienza tras Match aceptado | **CERRADO** 2026-06-25 |
 | ~~A7~~ | `Deal Workspace` URL canónica | URLs dobles: `/match/{id}` (Match Workspace) + `/operacion/{id}` (Deal Workspace). Coexisten | **CERRADO** 2026-06-25 |
-| **A8** | Política de caducidad | **Configurable.** Pendiente de decidir en spec dedicado o configuración dinámica. No fijar regla aquí | **ABIERTO** |
+| ~~A8~~ | Política de caducidad | **Tokens JWT 24h · refresh 30d · sesión 1h inactiva.** Decisión Sprint 0.5 (Ciclo B G2) | **CERRADO** 2026-06-25 |
 | ~~A9~~ | `arroba_team`: rol nuevo o sub-permiso de `admin` | Rol específico nuevo `arroba_team`. **NO hereda** automáticamente permisos de `admin` | **CERRADO** 2026-06-25 |
 | ~~A10~~ | Teaser accesible a usuarios anónimos | NO a anónimos en internet abierto. SÍ a **buyers cualificados** del Marketplace sin Match | **CERRADO** 2026-06-25 |
 | ~~A11~~ | Cuándo Match → Operation | Inmediatamente al **`Match.ACEPTADO`**. La Operation nace con `current_phase = nda`. LOI deja de ser punto de conversión | **CERRADO** 2026-06-25 |
-| **A12** | Persistencia de Recomendaciones (fase 5) | El spec no decide si son efímeras o persistidas. Probable: persistir las accionadas; efímeras las no accionadas | **ABIERTO** |
+| ~~A12~~ | Persistencia de Recomendaciones (T5) | Persistir las accionadas; efímeras las no accionadas. Resuelto en `TRANSACTION_COPILOT_SPEC §12 B1` + `COPILOTS_SPEC §6.3` | **CERRADO** 2026-06-25 |
 | **A13** | Reapertura tras `LOI_RECHAZADA` | El spec menciona "vuelta a Q&A si se reabre" pero no formaliza la transición de retroceso | **ABIERTO** |
 | **A14** | Doble Match competitivo (mismo Seller, varios Buyers) | El spec asume exclusividad post-LOI pero NO prohíbe múltiples Match.ACEPTADO simultáneos pre-LOI. Decisión pendiente | **ABIERTO** |
 
@@ -1921,7 +1926,7 @@ Lista consolidada de decisiones tras la corrección v1.1.0:
 - `DATAROOM_SPEC.md` — estructura, permisos por fase, watermarks. Fase 11.
 - `LOI_SPEC.md` — plantilla, comparator multi-bidder, exclusividad. Fase 10.
 - `MARKETPLACE_SPEC.md` — motor de matching, scoring Compatibilidad, anti-spam. Fase 5.
-- `BUYER_QUAL_SPEC.md` — cualificación del Buyer. Pre-fase 5 / fase 6.
+- `BUYER_QUAL_SPEC.md` — cualificación del Buyer. Pre-T5 / fase 6.
 - `SIGNALS_SPEC.md` — qué señales se calculan, cuándo se publican. Transversal.
 
 **P2 — sub-modelos avanzados**:

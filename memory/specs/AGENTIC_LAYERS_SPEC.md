@@ -1,11 +1,18 @@
-# arroba.com — Agentic Layers Spec v1.0.0
+# arroba.com — Agentic Layers Spec v1.1.0
 
 > **Capa canónica**: *Engines & Specs* (séptima capa, pendiente de propagación a `ARROBA_PHILOSOPHY.md` §13 al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.5 (quinto de 6 specs).
-> **Estado**: borrador para revisión humana.
+> **Estado**: borrador para revisión humana — v1.1.0 incorpora correcciones del Sprint 0.5 Ciclo B sobre v1.0.0.
 > **Fecha**: 2026-06-25.
-> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.1.0` · `TRANSACTION_COPILOT_SPEC v1.1.0` · `COPILOTS_SPEC v1.0.0` · `MEMORY_ENGINE_SPEC v1.0.0`.
+> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.2.0` · `TRANSACTION_COPILOT_SPEC v1.2.0` · `COPILOTS_SPEC v1.1.0` · `MEMORY_ENGINE_SPEC v1.1.0`.
 > **Idioma**: español canónico técnico.
+>
+> **CHANGELOG v1.1.0 (2026-06-25 — Sprint 0.5 Ciclo B)**:
+> - Renombre `team_arroba → arroba_team` (4 ocurrencias minoritarias) para alinear con la nomenclatura canónica.
+> - Corrección de conteos en §11.2: `max_level=L4` ahora explicita 6 capabilities; `criticality=Baja` ahora explicita 4 (consistente con tabla §11.1).
+> - Cierre formal de `[OPEN-E2]` y duplicado `[OPEN-E18]` (CAP-005 sub-nivel condicional): resuelto canónicamente por la política general de escalado §8.1.
+> - Cierre formal de `[OPEN-E3]` y duplicado `[OPEN-E19]` (compensación: capability aparte o lifecycle): catalogar aparte si tiene razonamiento propio. Resuelto en §9.
+> - Cierre formal de `[OPEN-E16]` (`admin` puede sobreescribir `current_level` sin §5.3): **NO**. Decisión Sprint 0.5 (Ciclo B G2). `admin` sigue siempre el flujo §5.3.
 >
 > Este documento define la **capa agéntica** del Transaction OS: los **4 niveles de autonomía** (L1–L4), el **schema canónico de declaración de capability** que incorpora autonomía + criticidad + reversibilidad, el **schema canónico de autorización L4**, el **kill-switch operacional**, las políticas de **escalado / degradación**, la **matriz `criticality × level`**, los **eventos canónicos de trazabilidad** y el **catálogo de las 29 capabilities** declaradas en `COPILOTS_SPEC §16` traducidas al nuevo modelo.
 >
@@ -889,18 +896,18 @@ Esto confirma que las dos dimensiones se mueven de forma independiente.
 |---|---|
 | Total capabilities | 29 |
 | max_level = L2 | 11 (CAP-001, 004, 006, 010, 011, 018, 020, 022, 025, 027 + nota) |
-| max_level = L3 | 13 (CAP-002 sube a L3, 007, 008, 009, 013, 016, 017, 019, 021, 024, 026, 028, 029) |
-| max_level = L4 | 5 (CAP-003, 005, 012, 014, 015, 023) — nótese: 6 en realidad; verificar tabla |
+| max_level = L3 | 12 (CAP-002, 007, 008, 009, 013, 016, 017, 019, 021, 024, 026, 028, 029) |
+| max_level = L4 | **6** (CAP-003, CAP-005, CAP-012, CAP-014, CAP-015, CAP-023) |
 | current_level = L2 todas | 29 (estado inicial v1.0.0) |
-| criticality = Baja | 3 (CAP-005, 010, 011, 014) |
+| criticality = Baja | **4** (CAP-005, CAP-010, CAP-011, CAP-014) |
 | criticality = Media | 13 |
-| criticality = Alta | 11 |
+| criticality = Alta | 10 |
 | criticality = Crítica | 2 (CAP-021, CAP-026) |
 | reversibility = reversible | 18 |
 | reversibility = compensable | 11 |
 | reversibility = irreversible | 0 (ninguna capability v1.0.0 cataloga como irreversible per se; las acciones contractualmente irreversibles — firma definitiva — viven en el TOS y no en capabilities) |
 
-> **Nota sobre conteo `max_level = L4`**: la tabla en §11.1 declara explícitamente como candidatas L4 las siguientes: **CAP-003, CAP-005, CAP-012, CAP-014, CAP-015, CAP-023**. Total 6. El resumen anterior debe leerse como tal.
+> **Nota canónica**: las cifras anteriores son consistentes con la tabla §11.1. Cualquier extensión futura del catálogo debe actualizar esta tabla en bloque.
 
 ### 11.3 Capabilities default-deny en L3+ (whitelist requerida)
 
@@ -933,7 +940,7 @@ Estas dos capabilities representan el punto donde la capa agéntica se encuentra
 | `overage policy` | Qué hace el sistema cuando un usuario supera la cuota: degradación a L1, bloqueo total, cobro automático (con confirmación). |
 | `revenue share Advisor / Plataforma` | Cuando una capability genera valor económico medible (ej. CAP-021 LOI firmada que devenga Success Fee), cómo se atribuye el coste / ingreso. |
 | `excepciones por criticidad Crítica` | Cuotas reforzadas o no-cuotificadas para capabilities críticas (CAP-021, CAP-026). |
-| `excepciones por plan team_arroba` | El equipo arroba.com puede tener cuotas internas distintas. |
+| `excepciones por plan arroba_team` | El equipo arroba.com puede tener cuotas internas distintas. |
 
 ### 12.2 Política operativa cuando cuota se agota
 
@@ -1114,7 +1121,7 @@ El Agentic Layer **define contratos**. La materialización tecnológica vive en 
 | Necesidad | Detalle |
 |---|---|
 | **Tarifa por capability ejecutada** | Cada capability declara `quota_credits` (§5.1). `MONETIZATION_SPEC` define la **tabla de tarifas** en créditos / EUR por capability y por nivel agéntico efectivo. Probable: L4 más caro que L3 (mayor auditoría); criticidad ≥ Alta más cara (mayor monitorización). |
-| **Cuotas por plan que afectan a frecuencia de invocación** | Cada plan (`subscriber`, `corporate`, `investor`, `advisor`, `team_arroba`) define cuotas mensuales por capability. `MONETIZATION_SPEC` proveerá la matriz `plan × capability × ventana_temporal → cuota_máxima`. |
+| **Cuotas por plan que afectan a frecuencia de invocación** | Cada plan (`subscriber`, `corporate`, `investor`, `advisor`, `arroba_team`) define cuotas mensuales por capability. `MONETIZATION_SPEC` proveerá la matriz `plan × capability × ventana_temporal → cuota_máxima`. |
 | **Política de overage** | Qué hace el sistema al superar la cuota: degradación a L1 (con verbalización), bloqueo total (con verbalización), cobro automático (con confirmación del usuario). El default debería ser **degradación**, salvo política explícita por plan. |
 | **Revenue share advisor/plataforma** | Cuando una capability con `owner_copilot = Advisor` genera valor económico (CAP-021 LOI que devenga Success Fee, CAP-026 SPA cerrado), `MONETIZATION_SPEC` define cómo se atribuye coste/ingreso entre Advisor y plataforma. |
 | **Excepciones por criticidad Crítica** | Cuotas reforzadas o no-cuotificadas para CAP-021, CAP-026. Posiblemente requieren plan `corporate` o superior. |
@@ -1146,12 +1153,12 @@ Este spec **no decide** tarifas concretas. No declara "CAP-014 cuesta 0.05 EUR p
 
 | ID | Pregunta | Propuesta de este spec | Estado |
 |---|---|---|---|
-| **E1** | ¿Las capabilities pueden tener `max_level` distinto según contexto (ej. una capability operando para `team_arroba` puede llegar a L4 aunque para usuarios normales solo llegue a L3)? | No en v1.0.0. `max_level` es **único por capability**. La diferenciación por plan se hace mediante `plan_eligibility[]` + cuotas, no via `max_level`. Reservar para v2.0.0 si se demuestra necesario. | ABIERTO — confirmación |
-| **E2** | ¿CAP-005 (clasificación de documentos) requiere sub-nivel "L3 condicional por confidence"? | Mejor cubierto por la política de escalado (§8.1) general: si `confidence < 0.6`, escala a L3 independientemente de `current_level`. No requiere sub-nivel especial. | ABIERTO — confirmación |
-| **E3** | ¿Las capabilities `compensation_capability_id` se catalogan como capabilities aparte (CAP-XXXb) o como parte del lifecycle de la entidad? | Catalogar como capabilities aparte si tienen su propio razonamiento (ej. "Retirar Teaser del Marketplace y notificar Buyers"); de lo contrario, documentarlas como procedimiento de undo dentro de la capability original. | ABIERTO — decisión técnica |
+| **E1** | ¿Las capabilities pueden tener `max_level` distinto según contexto (ej. una capability operando para `arroba_team` puede llegar a L4 aunque para usuarios normales solo llegue a L3)? | No en v1.0.0. `max_level` es **único por capability**. La diferenciación por plan se hace mediante `plan_eligibility[]` + cuotas, no via `max_level`. Reservar para v2.0.0 si se demuestra necesario. | ABIERTO — confirmación |
+| ~~E2~~ | ¿CAP-005 (clasificación de documentos) requiere sub-nivel "L3 condicional por confidence"? | Cubierto por escalado §8.1: si `confidence < 0.6`, escala a L3 independientemente de `current_level` | **CERRADO** 2026-06-25 (G1) |
+| ~~E3~~ | ¿Las capabilities `compensation_capability_id` se catalogan como capabilities aparte (CAP-XXXb) o como parte del lifecycle de la entidad? | Catalogar como capabilities aparte si tienen su propio razonamiento (ej. "Retirar Teaser del Marketplace y notificar Buyers"); de lo contrario, documentarlas como procedimiento de undo dentro de la capability original. Resuelto en §9 | **CERRADO** 2026-06-25 (G1) |
 | **E4** | ¿El schema persistido de capabilities y autorizaciones vive como tipo de memoria adicional en `MEMORY_ENGINE_SPEC §4` (12º tipo) o como sub-scope de `audit.global`? | Propuesta: `system.{capability_id}.schema` como sub-scope persistente (no efímero) que el Memory Engine reconoce; autorizaciones siguen en `audit.global` por su naturaleza inmutable. Requiere coordinación al cierre del Sprint 0. | ABIERTO — coordinación con 0.4 |
 | **E5** | ¿La granularidad "global" (per-user) del kill-switch (§7.3) debería requerir, además de doble confirmación, un cooldown (ej. 24h) antes de poder reanudar L4 globalmente? | Propuesta inicial: no. La reanudación requiere **nueva autorización por cada capability/Operation** (no es reanudación masiva). Esto ya provee el "cooldown" implícito al obligar a re-conceder explícitamente. | ABIERTO — confirmación |
-| **E6** | Tope máximo de `expires_at - granted_at` en autorizaciones L4 | Propuesta: 90 días en v1.0.0. Configurable por plan en `MONETIZATION_SPEC`; planes `corporate` o `team_arroba` podrían admitir hasta 365 días con doble confirmación. | ABIERTO — calibrar |
+| **E6** | Tope máximo de `expires_at - granted_at` en autorizaciones L4 | Propuesta: 90 días en v1.0.0. Configurable por plan en `MONETIZATION_SPEC`; planes `corporate` o `arroba_team` podrían admitir hasta 365 días con doble confirmación. | ABIERTO — calibrar |
 | **E7** | ¿Las whitelists `admin` para capabilities Críticas en L3+ (§3.12) se renuevan automáticamente o requieren revisión periódica? | Propuesta: revisión obligatoria cada 12 meses + revocación automática si la capability acumula `agentic.capability.failed` > umbral o `kill_switch.triggered` > umbral en una ventana. | ABIERTO — calibrar |
 | **E8** | ¿Los eventos del Agentic Layer son consultables por la UI del usuario directamente o solo vía el TC? | Propuesta: vía TC (voz única). UI puede mostrar resúmenes generados por el TC pero no acceso directo a `audit.global`. Excepción: vista de "mis autorizaciones L4" que es vista de **lectura controlada** (solo metadatos visibles al usuario). | ABIERTO — coherencia con B6 |
 | **E9** | Cuando una capability tiene varios `external_dependencies` (CAP-017 + LLM + Risk & Compliance), ¿el coste se atribuye separadamente o agregado? | Propuesta: agregado en la tarifa de la capability + auditoría detallada del consumo por dependencia. `MONETIZATION_SPEC` cierra el detalle. | ABIERTO — coordinación con 0.6 |
@@ -1163,8 +1170,8 @@ Este spec **no decide** tarifas concretas. No declara "CAP-014 cuesta 0.05 EUR p
 | **E15** | Versiones futuras: ¿añadir un nivel L0 (solo razonamiento, sin output al usuario)? | No. L1 ya cubre "razonamiento + verbal". L0 sería diagnóstico interno; eso vive en logs técnicos, no en el modelo agéntico. | CERRADO — no aplica |
 | **E16** | ¿El `admin` puede sobrescribir el `current_level` de una capability sin pasar por la política de cambio mayor del schema (§5.3)? | No. Cualquier cambio de `current_level` o `max_level` pasa por la política de §5.3. `admin` puede acelerar la revisión pero no saltarse el flujo. | ABIERTO — confirmación |
 | **E17** | Refinamiento futuro de la tabla §11.1 tras observación real | La tabla es propuesta inicial sujeta a revisión periódica (sugerido cada 6 meses) | ABIERTO — calibrar con uso |
-| **E18** | ¿CAP-005 (clasificación documentos) requiere sub-nivel "L3 condicional por confidence"? | Cubierto por escalado §8.1: si `confidence < 0.6`, escala a L3 independientemente de `current_level` | ABIERTO — confirmación |
-| **E19** | ¿Las acciones compensatorias (`compensation_capability_id`) se catalogan como capabilities aparte (CAP-XXXb) o como procedimiento de undo de la original? | Catalogar aparte si tienen razonamiento propio; documentar como procedimiento de undo si son atómicas | ABIERTO — decisión técnica |
+| ~~E18~~ | ¿CAP-005 (clasificación documentos) requiere sub-nivel "L3 condicional por confidence"? | Cubierto por escalado §8.1: si `confidence < 0.6`, escala a L3 independientemente de `current_level` | **CERRADO** 2026-06-25 (G1) |
+| ~~E19~~ | ¿Las acciones compensatorias (`compensation_capability_id`) se catalogan como capabilities aparte (CAP-XXXb) o como procedimiento de undo de la original? | Catalogar aparte si tienen razonamiento propio; documentar como procedimiento de undo si son atómicas | **CERRADO** 2026-06-25 (G1) |
 
 ### 16.1 Lagunas estructurales a resolver en `MONETIZATION_SPEC` (0.6)
 
@@ -1190,3 +1197,4 @@ Este spec **no decide** tarifas concretas. No declara "CAP-014 cuesta 0.05 EUR p
 ---
 
 > **Fin del documento.** — `v1.0.0` — pendiente de revisión humana.
+iente de revisión humana.

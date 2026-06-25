@@ -1,11 +1,16 @@
-# arroba.com — Monetization Spec v1.0.0
+# arroba.com — Monetization Spec v1.1.0
 
 > **Capa canónica**: *Engines & Specs* (séptima capa, pendiente de propagación a `ARROBA_PHILOSOPHY.md` §13 al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.6 (**último** de 6 specs).
-> **Estado**: borrador para revisión humana.
+> **Estado**: borrador para revisión humana — v1.1.0 incorpora cierres del Sprint 0.5 Ciclo B sobre v1.0.0.
 > **Fecha**: 2026-06-25.
-> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.1.0` · `TRANSACTION_COPILOT_SPEC v1.1.0` · `COPILOTS_SPEC v1.0.0` · `MEMORY_ENGINE_SPEC v1.0.0` · `AGENTIC_LAYERS_SPEC v1.0.0`.
+> **Documentos predecesores (lectura obligatoria)**: `TRANSACTION_OS_SPEC v1.2.0` · `TRANSACTION_COPILOT_SPEC v1.2.0` · `COPILOTS_SPEC v1.1.0` · `MEMORY_ENGINE_SPEC v1.1.0` · `AGENTIC_LAYERS_SPEC v1.1.0`.
 > **Idioma**: español canónico — **lenguaje de negocio** en secciones comerciales; lenguaje técnico solo donde se etiquete explícitamente.
+>
+> **CHANGELOG v1.1.0 (2026-06-25 — Sprint 0.5 Ciclo B)**:
+> - Cierre formal de `[OPEN-F6]` (tope `expires_at − granted_at` autorizaciones L4 en Subscriber): **30 días** (más bajo que tope general 90). Decisión Sprint 0.5 (Ciclo B G2).
+> - Cierre formal de `[OPEN-F34]` (modalidad freemium en v1.0 más allá de Anonymous): **NO**. Anonymous es el límite gratuito; Subscriber es el primer plan de pago. Decisión Sprint 0.5 (Ciclo B G2).
+> - Cierre formal de `[OPEN-F35]` (descuentos por volumen): **NO en Sprint 1**; evaluar Sprint 3+ con datos reales de uso. Decisión Sprint 0.5 (Ciclo B G2).
 >
 > Este documento es **el contrato económico** del Transaction OS. Está organizado **alrededor de productos, planes, créditos, fees y revenue share** que el usuario reconoce y compra. La arquitectura interna (capabilities, niveles agénticos, especialistas) es **transparente al usuario y a la factura**.
 >
@@ -1772,7 +1777,7 @@ La siguiente fase (fuera del Sprint 0) será la **actualización canónica** de 
 | **F3** | Precio anual del plan Subscriber con descuento por compromiso | `TBD (≈15% descuento sobre 12× mensual)` | ABIERTO — pricing |
 | **F4** | Créditos incluidos por mes en Subscriber | `TBD (sugerido: 50–100)` | ABIERTO — pricing |
 | **F5** | Precio del crédito unitario en overage Subscriber | `TBD` | ABIERTO — pricing |
-| **F6** | Tope máximo de `expires_at − granted_at` autorización L4 en Subscriber | 30 días (más bajo que tope general 90 días) | ABIERTO — confirmación |
+| ~~F6~~ | Tope máximo de `expires_at − granted_at` autorización L4 en Subscriber | **30 días** (más bajo que tope general 90 días). Decisión Sprint 0.5 (Ciclo B G2) | **CERRADO** 2026-06-25 (G2) |
 | **F7** | Precio mensual del plan Corporate | `TBD` | ABIERTO — pricing |
 | **F8** | Precio anual del plan Corporate con descuento | `TBD (≈20% descuento)` | ABIERTO — pricing |
 | **F9** | Créditos incluidos por mes en Corporate | `TBD (sugerido: 500–1000)` | ABIERTO — pricing |
@@ -1800,8 +1805,8 @@ La siguiente fase (fuera del Sprint 0) será la **actualización canónica** de 
 | **F31** | Prioridad de pasarelas adicionales tras Stripe | `TBD` — Adyen, PayPal, transferencia SEPA candidatos | ABIERTO — roadmap |
 | **F32** | Proveedor de KYC/AML elegido | `TBD` — Stripe Identity, Onfido, Sumsub candidatos | ABIERTO — implementación |
 | **F33** | Proveedor de facturación electrónica | `TBD` — depende de jurisdicción primaria | ABIERTO — implementación |
-| **F34** | ¿Existe modalidad freemium en v1.0.0 (más allá de Anonymous)? | Propuesta: no en v1.0.0; Anonymous es el límite gratuito | ABIERTO — confirmación |
-| **F35** | Política de descuentos por volumen (orgs con muchas Operations) | `TBD` — descuento progresivo por número de Operations cerradas | ABIERTO — política comercial |
+| ~~F34~~ | ¿Existe modalidad freemium en v1.0.0 (más allá de Anonymous)? | **NO**. Anonymous es el límite gratuito; Subscriber es el primer plan de pago. Decisión Sprint 0.5 (Ciclo B G2) | **CERRADO** 2026-06-25 (G2) |
+| ~~F35~~ | Política de descuentos por volumen (orgs con muchas Operations) | **NO en Sprint 1**; evaluar Sprint 3+ con datos reales de uso. Decisión Sprint 0.5 (Ciclo B G2) | **CERRADO** 2026-06-25 (G2) |
 | **F36** | ¿Cómo se factura cuando una Operation involucra entidades de jurisdicciones distintas? | Default: factura desde la jurisdicción de la plataforma (España); ajustar según residencia del cliente | ABIERTO — fiscal |
 | **F37** | Política de pagos partidos (Buyer y Seller comparten Finder/Success Fee) | Configurable en CIS; default 100% Buyer Finder + 100% Seller Success | ABIERTO — confirmación |
 | **F38** | ¿Productos hereditarios por mandato (un Advisor "regala" un add-on a su cliente)? | Posibilidad futura, no en v1.0.0 | ABIERTO — roadmap |
