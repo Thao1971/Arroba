@@ -1,12 +1,22 @@
-# arroba.com — Transaction OS Spec v1.0.0
+# arroba.com — Transaction OS Spec v1.1.0
 
 > **Capa canónica**: *Engines & Specs* (entre Entity Framework y Design System; ver `ARROBA_PHILOSOPHY.md` §13 — pendiente de actualización al cierre del Sprint 0).
 > **Fase del proyecto**: Sprint 0 · Fase 0.1 (primero de 6 specs).
-> **Estado**: borrador para revisión humana.
+> **Estado**: borrador para revisión humana — v1.1.0 incorpora correcciones canónicas del usuario sobre v1.0.0.
 > **Fecha**: 2026-06-25.
 > **Autor canónico**: usuario (decisiones) + redacción técnica del agente.
 >
 > Este documento define la arquitectura funcional del **Transaction Operating System** (TOS): el ciclo completo de una operación corporativa en arroba.com, desde el análisis inicial hasta la integración post-deal. No define implementación. No define visual. Define qué fases existen, qué entidades intervienen, qué artefactos se producen, qué actores participan, qué permisos rigen, qué eventos se registran y cómo se gobierna el ciclo.
+>
+> **Cambios v1.1.0 frente a v1.0.0** (correcciones canónicas):
+> - Introducción de **Discovery Layer** y **Transaction Layer** como las dos etapas del mismo TOS.
+> - **Teaser** pertenece al Discovery Layer y es visible a buyers cualificados del Marketplace **antes** del Match.
+> - El **Match aceptado por ambas partes crea inmediatamente la Operation** (la LOI deja de ser el punto de conversión).
+> - `Match` tiene ciclo de vida corto (SOLICITADO → ACEPTADO/RECHAZADO/EXPIRADO).
+> - `Operation.current_phase` arranca en `nda` y añade `negotiation` entre `dd` y `spa`.
+> - **`arroba_team`** queda formalizado como rol específico nuevo, **sin herencia** de permisos `admin`.
+> - URLs canónicas dobles: `/match/{id}` (workspace corto de Match) + `/operacion/{id}` (Deal Workspace completo de Operation).
+> - Política de caducidad NO fijada en este spec; queda como `[OPEN-A8]`.
 >
 > **Documentos del Sprint 0 (orden secuencial)**:
 > 1. **TRANSACTION_OS_SPEC** ← este documento
@@ -27,7 +37,7 @@
 3. [Principios arquitectónicos](#3-principios-arquitectónicos)
 4. [Máquina de estados global](#4-máquina-de-estados-global)
 5. [Las 15 fases canónicas](#5-las-15-fases-canónicas)
-6. [Deal Workspace](#6-deal-workspace)
+6. [Deal Workspace y Match Workspace](#6-deal-workspace-y-match-workspace)
 7. [Catálogo canónico de artefactos](#7-catálogo-canónico-de-artefactos)
 8. [Permisos y visibilidad progresiva](#8-permisos-y-visibilidad-progresiva)
 9. [Trazabilidad y audit](#9-trazabilidad-y-audit)
@@ -49,16 +59,38 @@ El TOS materializa la frase del usuario:
 
 > "arroba.com como Transaction Operating System: una infraestructura donde Arroba Copilot acompaña al usuario en el ciclo completo de una operación corporativa (analizar → valorar → encontrar → negociar → ejecutar → cerrar → integrar)."
 
-### 1.2 Qué NO es el Transaction OS
+### 1.2 Discovery Layer + Transaction Layer
+
+**El Transaction OS como sistema existe desde el principio.** Internamente se divide en **dos grandes etapas, ambas parte del mismo TOS**:
+
+- **Discovery Layer** (fases 1-6 + sub-acción "Solicitud de Match"): análisis, valoración, búsqueda, screening, matching, marketplace, card resumida, teaser anonimizado, solicitud de Match. **Todavía no existe una Operación.** La entidad activa puede ser `Company`, `Valuation`, `Opportunity` o `Match` (en estado `SOLICITADO`).
+- **Transaction Layer** (fases 7-15): comienza cuando existe un Match **aceptado por ambas partes**. A partir de ahí, comienza el proceso formal de la transacción. **Existe una Operación.** La entidad activa es `Operation`.
+
+La **frontera** entre las dos capas es la aceptación del Match: en el momento exacto en que el Seller acepta la solicitud de Match del Buyer, nace la `Operation` y el ciclo entra en el Transaction Layer.
+
+```
+Discovery Layer                    │  Transaction Layer
+───────────────────────────────────┼────────────────────────────────
+T1 → T2 → T3 → T4 → T5 → T6 + req  │  T7 → T8 → T9 → T10 → T11 →
+  Análisis,  ...  Marketplace,     │  NDA, IM, Q&A, LOI/NBO, DD,
+  Teaser, Solicitud de Match       │  T12 → T13 → T14 → T15
+                                   │  Negociación, SPA, Closing,
+                                   │  Integración
+                  ▲                │  ▲
+                  │                │  │
+           Match SOLICITADO  ──►   Match ACEPTADO ⇒ nace Operation
+```
+
+### 1.3 Qué NO es el Transaction OS
 
 El TOS **no es**:
 
-- **Un marketplace**. No es un tablón donde se publican deals y se navegan por filtros. La superficie de descubrimiento existe (Marketplace, ver bloque `e` del inventario), pero está subordinada al ciclo TOS.
-- **Un CRM**. No gestiona contactos sueltos, pipelines comerciales genéricos ni outreach masivo. El pipeline es contextual a una `Opportunity`, un `Match` o una `Operation`.
-- **Un Data Room aislado**. El Data Room es una **capacidad** dentro de la fase de Due Diligence; no es el producto. Vive subordinado a la `Operation`.
-- **Una suite de tres productos pegados con cinta** (marketplace + CRM + Data Room separados). Es **un sistema operativo transaccional unificado**: una sola máquina de estados, una sola memoria, un solo audit log, una sola capa agéntica que recorre todo el ciclo.
+- **Un marketplace**. El Marketplace es una **superficie de descubrimiento** dentro del Discovery Layer, no el producto. La transacción no se "compra del catálogo".
+- **Un CRM**. No gestiona contactos sueltos ni outreach masivo. El pipeline es contextual a una `Opportunity`, un `Match` o una `Operation`.
+- **Un Data Room aislado**. El Data Room es una **capacidad** dentro de la fase Due Diligence; vive subordinado a la `Operation`.
+- **Una suite de tres productos pegados con cinta** (marketplace + CRM + Data Room separados). Es **un sistema operativo transaccional unificado**: una máquina de estados, una memoria, un audit log, una capa agéntica que recorre todo el ciclo.
 
-### 1.3 Posición en las capas canónicas
+### 1.4 Posición en las capas canónicas
 
 `ARROBA_PHILOSOPHY.md` §13 declara seis capas. Este Sprint 0 incorpora una **séptima capa** entre Entity Framework y Design System, llamada **Engines & Specs**, donde vivirán los 6 specs:
 
@@ -80,11 +112,11 @@ Implementación
 
 La actualización formal de `ARROBA_PHILOSOPHY.md` §13 con esta capa adicional se ejecuta **al cierre del Sprint 0**, cuando los 6 specs estén aprobados. Hasta entonces, este spec asume la capa pero no modifica el documento jerárquico.
 
-### 1.4 Alcance funcional
+### 1.5 Alcance funcional
 
 El TOS define, sin ambigüedad:
 
-1. Qué fases existen en una operación M&A en arroba.com (las 15).
+1. Qué fases existen en una operación M&A en arroba.com (las 15) y a qué capa pertenece cada una.
 2. Qué entidades intervienen y cuándo (Empresa, Valoración, Oportunidad, **Match**, Operación, Documento, Mandato).
 3. Qué máquina de estados gobierna cada entidad transaccional.
 4. Qué artefactos canónicos se producen y consumen en cada fase.
@@ -106,13 +138,24 @@ El TOS **no define** (eso lo harán los specs 0.2-0.6):
 
 > Todos los términos definidos aquí tienen significado **exclusivo** en este spec. Si aparecen en otros documentos canónicos con un sentido distinto, prevalece el de este glosario para todo el dominio Transaction OS.
 
-### 2.1 Términos del flujo
+### 2.1 Capas del TOS
+
+**Discovery Layer**
+Primera etapa del TOS. Cubre fases 1-6 + sub-acción "Solicitud de Match". Aún no existe `Operation`. La entidad activa puede ser `Company`, `Valuation`, `Opportunity` o `Match` (en estado `SOLICITADO`). El Teaser anonimizado vive en esta capa y se publica al Marketplace cualificado.
+
+**Transaction Layer**
+Segunda etapa del TOS. Comienza con la aceptación mutua del Match. Cubre fases 7-15. La entidad activa es `Operation`.
+
+### 2.2 Términos del flujo
 
 **Recomendación**
-Sugerencia generada por la plataforma para emparejar un activo (empresa, oportunidad) con una contraparte potencial. Es **unidireccional** (sistema → usuario) y **no vinculante**. Una Recomendación expira si no es accionada. Genera 0..N intentos de match. **Una Recomendación no es un Match.**
+Sugerencia generada por la plataforma para emparejar un activo (empresa, oportunidad) con una contraparte potencial. Es **unidireccional** (sistema → usuario) y **no vinculante**. Una Recomendación expira si no es accionada. Genera 0..N intentos de Match. **Una Recomendación no es un Match.**
 
 **Compatibilidad**
-Score numérico que cuantifica el potencial de fit entre dos activos (por ejemplo, una `Opportunity` y una `Company` candidata). Es una **señal**, no un compromiso. La Compatibilidad alimenta el motor de Recomendaciones. **Una Compatibilidad no es un Match.**
+Score numérico que cuantifica el potencial de fit entre dos activos (por ejemplo, una `Opportunity` y una `Company` candidata). Es una **señal**, no un compromiso. La Compatibilidad alimenta el motor de Recomendaciones y la priorización del Marketplace. **Una Compatibilidad no es un Match.**
+
+**Marketplace**
+Superficie del Discovery Layer en la que buyers cualificados navegan **cards resumidas** (Teasers anonimizados) de activos publicados por sellers. El Marketplace **no es el producto**; es una superficie de descubrimiento dentro del TOS.
 
 **Match** *(definición canónica — cita textual al usuario)*
 > *"El Match representa el inicio formal de una posible operación. No representa una recomendación. No representa una similitud. No representa una oportunidad. Representa el momento en que comprador y vendedor aceptan mutuamente continuar. Desde ese instante nace una nueva entidad persistente dentro de arroba.com. A partir del Match comienza el Transaction OS."*
@@ -121,72 +164,81 @@ Aclaración canónica adicional aprobada por el usuario:
 
 > *"El Match NO es un evento puntual. Es una entidad persistente de transición. Representa el acuerdo mutuo entre comprador y vendedor para iniciar una posible operación. Tiene identidad propia, estado, participantes, fechas, condiciones y trazabilidad. La Operación nace únicamente cuando el Match evoluciona hacia una transacción."*
 
-Cardinalidad canónica: **1 `Opportunity` → N `Match` (0..N)** · **1 `Match` → 0..1 `Operation`**. Toda `Operation` nace de un `Match`. No toda `Opportunity` produce `Match`. No todo `Match` evoluciona a `Operation`.
+Cardinalidad canónica: **1 `Opportunity` → N `Match`** (0..N) · **1 `Match` → 0..1 `Operation`**. Toda `Operation` nace de un `Match`. No toda `Opportunity` produce `Match`. **Todo `Match` aceptado crea inmediatamente una `Operation`; ningún `Match` rechazado o expirado crea `Operation`.**
 
-`Match` es **entidad canónica de primer nivel** (su incorporación formal a `ENTITY_MODEL.md` se hace al cierre del Sprint 0).
+`Match` es **entidad canónica de primer nivel**, **de ciclo de vida corto** (su incorporación formal a `ENTITY_MODEL.md` se hace al cierre del Sprint 0). Sus estados son acotados: `SOLICITADO → ACEPTADO | RECHAZADO | EXPIRADO`. Tras la aceptación, el Match queda registrado de forma inmutable como `lineage` de la `Operation` recién creada.
+
+**Solicitud de Match**
+Acción del Buyer, **dentro del Discovery Layer**, que crea un `Match` en estado `SOLICITADO` apuntando a un activo cuyo Teaser ha consumido. La acción se dispara desde el Teaser anonimizado o desde la card del Marketplace. No es vinculante; el Seller puede aceptar, rechazar o dejar expirar.
 
 **Opportunity / Oportunidad**
-Entidad persistente que formaliza una **tesis de transacción potencial** (buy-side o sell-side) de un cliente. Una Opportunity puede no tener contraparte aún. Genera Recomendaciones que pueden o no derivar en Matches. Una Opportunity **puede abandonarse** sin haber generado ningún Match.
+Entidad persistente que formaliza una **tesis de transacción potencial** (buy-side o sell-side) de un cliente. Una Opportunity puede no tener contraparte aún. Genera Recomendaciones y publica en Marketplace si es sell-side. Una Opportunity **puede abandonarse** sin haber generado ningún Match.
 
 **Operation / Operación**
-Entidad persistente que representa la **ejecución completa de una transacción** desde el Match hasta el final de la integración post-deal. Es el contenedor central del TOS post-Match. Su `current_phase` recorre las fases canónicas declaradas en `ENTITY_MODEL.md` §5.7.
+Entidad persistente que representa la **ejecución completa de una transacción** desde el Match aceptado hasta el final de la integración post-deal. Es el contenedor central del Transaction Layer. **Nace inmediatamente al aceptarse el Match.** Su `current_phase` arranca en `nda` y recorre las fases declaradas en §4.3.
 
 **Transacción**
-Sinónimo coloquial de Operación en lenguaje de usuario. Técnicamente, el dominio usa **Operation**. Esta dualidad se mantiene por compatibilidad con `ARROBA_PHILOSOPHY.md` §5/§6.
+Sinónimo coloquial de Operación en lenguaje de usuario. Técnicamente, el dominio usa **Operation**.
 
-### 2.2 Artefactos del ciclo
+### 2.3 Artefactos del ciclo
 
-**Teaser**
-Documento anónimo (o semi-anónimo) que presenta una oportunidad de inversión sin revelar la identidad de la empresa. Se entrega tras Match. Visible al Buyer pre-NDA.
+**Card resumida**
+Vista mínima del activo en el Marketplace: rango sectorial, geografía aproximada, rango de revenue, tags. **No identifica** la empresa. Pertenece al Discovery Layer.
+
+**Teaser anonimizado público**
+Documento estructurado del Discovery Layer, **visible a buyers cualificados del Marketplace sin necesidad de Match**. No revela identidad de la empresa. Su propósito: permitir al buyer evaluar si solicitar un Match.
 
 **NDA (Non-Disclosure Agreement)**
-Acuerdo de confidencialidad bilateral. Firmado por ambas partes desbloquea acceso al Information Memorandum y al Data Room. Existen NDAs progresivos (escalonados por nivel de información revelada); el detalle vive en `NDA_SPEC.md` (laguna identificada).
+Acuerdo de confidencialidad bilateral firmado en fase 7. Su firma desbloquea acceso al Information Memorandum y al Data Room. Existen NDAs progresivos; el detalle vive en `NDA_SPEC.md` (laguna identificada).
 
 **Information Memorandum (IM)**
-Documento estructurado y exhaustivo sobre la empresa target, accesible solo post-NDA. Contiene datos financieros, comerciales, operativos, riesgos.
+Documento exhaustivo y estructurado sobre la empresa target. **Identifica** la empresa. Solo accesible post-NDA.
 
-**IOI (Indication of Interest)** *(sub-estado opcional dentro de fase LOI/NBO)*
-Comunicación **no vinculante** del Buyer expresando interés tras revisar el IM. No es un compromiso firme. Su uso es opcional; algunas operaciones saltan directamente a LOI/NBO. Compatibilidad hacia atrás con `ENTITY_MODEL.md` §5.7 (`current_phase` enum mantiene `ioi`).
+**IOI (Indication of Interest)** *(sub-estado opcional dentro de fase 10 LOI/NBO)*
+Comunicación **no vinculante** del Buyer expresando interés tras revisar el IM. No es compromiso. Su uso es opcional. Compatibilidad hacia atrás con `ENTITY_MODEL.md` §5.7 (`current_phase` enum mantiene `ioi`).
 
 **LOI (Letter of Intent) / NBO (Non-Binding Offer)**
-Oferta **vinculante** en términos económicos esenciales (precio, estructura, condiciones suspensivas) con cláusulas de exclusividad temporal. La LOI/NBO **firmada por ambas partes** es el punto canónico en que el `Match` evoluciona a `Operation` (ver `[OPEN-A11]` en §14 y §4.4).
+Oferta **vinculante** en términos económicos esenciales (precio, estructura, condiciones suspensivas) con cláusulas de exclusividad temporal. La LOI/NBO firmada por ambas partes **es una fase de la Operation**, no el momento en que la Operation nace.
 
 **Due Diligence (DD)**
-Fase de revisión exhaustiva de la empresa target por parte del Buyer y sus asesores. Incluye análisis financiero, legal, fiscal, comercial, técnico, ESG.
+Fase de revisión exhaustiva de la empresa target por parte del Buyer y sus asesores.
 
 **Data Room**
-Repositorio documental seguro con permisos granulares, watermarks, audit de accesos. **Es una capacidad** (no entidad canónica, ver `ARROBA_PHILOSOPHY.md` §7) que vive dentro de la fase DD de una `Operation`. Su spec detallado: `DATAROOM_SPEC.md` (laguna).
+Repositorio documental seguro con permisos granulares, watermarks, audit de accesos. **Es una capacidad** (no entidad canónica, ver `ARROBA_PHILOSOPHY.md` §7) que vive dentro de la fase DD de una `Operation`. Spec detallado: `DATAROOM_SPEC.md` (laguna).
 
 **Q&A log**
-Registro estructurado de preguntas del Buyer y respuestas del Seller durante DD. Inmutable una vez cerrado.
+Registro estructurado de preguntas del Buyer y respuestas del Seller durante Q&A y DD. Inmutable una vez cerrado.
 
 **SPA (Sale-Purchase Agreement)**
-Contrato de compraventa **vinculante y definitivo**. Su firma por ambas partes formaliza el acuerdo legal de la operación, sujeto a condiciones suspensivas (closing).
+Contrato de compraventa **vinculante y definitivo**. Su firma por ambas partes formaliza el acuerdo legal de la operación, sujeto a condiciones suspensivas.
 
 **Closing**
-Acto jurídico-económico en el que se ejecutan las contraprestaciones del SPA (pago, transferencia de acciones, formalización notarial). El Closing **cierra la fase legal** de la operación. **No cierra la entidad `Operation`**: la Operación permanece activa hasta el final de la integración post-deal.
+Acto jurídico-económico en el que se ejecutan las contraprestaciones del SPA (pago, transferencia de acciones, formalización notarial). El Closing **cierra la fase legal** de la operación. **No cierra la entidad `Operation`**: ésta permanece activa hasta el final de la integración post-deal.
 
 **Integración post-operación**
-Fase posterior al Closing en la que las partes ejecutan el plan de integración acordado (sistemas, equipos, gobernanza, sinergias). El cierre de esta fase es lo que termina el ciclo de vida de la `Operation` (estado `CERRADA_CON_ÉXITO`).
+Fase posterior al Closing en la que las partes ejecutan el plan de integración acordado. Su cierre marca el fin del ciclo de vida de la `Operation` (estado `CERRADA_CON_ÉXITO`).
 
-### 2.3 Actores
+### 2.4 Actores
 
 **Seller**
-Parte vendedora. Puede ser una persona física propietaria, un equipo directivo, un fondo, una sociedad mercantil representada por sus apoderados. En el TOS, el Seller actúa típicamente desde una `Opportunity` sell-side o como dueño de una `Company` susceptible de venta.
+Parte vendedora.
 
 **Buyer**
-Parte compradora. Puede ser un industrial, un fondo, un family office, un comprador estratégico. Actúa típicamente desde una `Opportunity` buy-side.
+Parte compradora. Para acceder al Marketplace y ver Teasers anonimizados debe ser un **Buyer cualificado** (criterios de elegibilidad — ver `BUYER_QUAL_SPEC.md`, laguna P1).
 
 **Advisor**
-Profesional acreditado (M&A advisor, valuator, due-diligencer). En el TOS puede actuar **representando** al Seller, **representando** al Buyer, o **operando** un Mandato propio. Tiene su entidad canónica `advisor` (`ENTITY_MODEL.md` §3) y un copilot dedicado (`Advisor Copilot`, ver `COPILOTS_SPEC.md`).
+Profesional acreditado (M&A advisor, valuator). En el TOS puede actuar representando al Seller, al Buyer, o operando un Mandato propio. Tiene entidad canónica `advisor` (`ENTITY_MODEL.md` §3) y copilot dedicado (`Advisor Copilot`, ver `COPILOTS_SPEC.md`).
 
 **Equipo arroba** *(`arroba_team`)*
-Operadores internos de la plataforma. Intervienen en moderación, mediación de disputas, validación de hitos críticos (NDA, SPA), soporte de incidencias. Marcar `[OPEN-A9]`: ¿es un rol Pydantic nuevo (`Role.arroba_team`) o sub-permiso del rol `admin`?
+**Rol específico nuevo** dentro de `Role` (`ENTITY_MODEL.md` pendiente de actualización al cierre del Sprint 0). Operadores internos de la plataforma. **NO hereda automáticamente los permisos de `admin`.** Sus capacidades están **acotadas**: lectura para mediación, anotaciones en audit log, congelar entidad temporalmente, escalado a `admin`. No firma artefactos legales en nombre de las partes. Sus accesos a información sensible quedan registrados visibles a las partes.
+
+**Admin**
+Rol de superusuario de plataforma. Capacidades amplias (auditoría regulatoria, archivado, intervención excepcional). No es sinónimo de `arroba_team`.
 
 **Sistema** *(`system`)*
 Actor no-humano que ejecuta acciones automatizadas autorizadas (notificaciones, transiciones automáticas, indexaciones, cobros). Las acciones del Sistema **siempre** dejan traza en el audit log.
 
-### 2.4 Conceptos transversales
+### 2.5 Conceptos transversales
 
 **Trazabilidad**
 Capacidad de reconstruir, en cualquier momento, qué actor hizo qué acción sobre qué entidad/artefacto, cuándo y con qué consecuencia. Es **obligatoria** en todas las fases del TOS.
@@ -194,14 +246,19 @@ Capacidad de reconstruir, en cualquier momento, qué actor hizo qué acción sob
 **Audit log**
 Estructura inmutable que registra cada **evento canónico** (ver §9). Una entrada del audit log no puede modificarse ni borrarse — sólo añadirse otra entrada que la rectifica (con referencia explícita).
 
+**Match Workspace**
+**Vista UX mínima** sobre una entidad `Match` activa en el Discovery Layer. URL canónica `/match/{id}`. Espacio corto donde se gestionan: solicitud, revisión por el Seller, aceptación o rechazo, y conversión a Operation. Cierra al transitar `Match → ACEPTADO`.
+
 **Deal Workspace**
-**Vista UX orquestadora** sobre una `Operation` (o sobre un `Match` activo aún no convertido en `Operation`). No es entidad canónica nueva (`ARROBA_PHILOSOPHY.md` §8: "Workspace = memoria, persistencia, contexto, entorno de trabajo. No es entidad."). Ver §6 para detalle.
+**Vista UX orquestadora** sobre una entidad `Operation`. URL canónica `/operacion/{id}`. Espacio completo del Transaction Layer. Ver §6.
+
+Ambas vistas son **proyecciones** de la entidad subyacente, no entidades nuevas (respeta `ARROBA_PHILOSOPHY.md` §8: "Workspace = memoria/persistencia/contexto, no entidad").
 
 **Reversibilidad acotada**
-Política según la cual algunas transiciones permiten retroceder y otras no. Ej: pasar de IM a NDA no es legítimo (el conocimiento ya está revelado), pero pausar una operación en DD y reanudarla en DD sí lo es.
+Política según la cual algunas transiciones permiten retroceder y otras no.
 
 **Permisos progresivos**
-Modelo de visibilidad que **se abre** a medida que avanzan las fases y se firman los artefactos correspondientes. Antes de NDA: visibilidad mínima. Post-NDA: visibilidad ampliada. Post-LOI: visibilidad casi total. Post-Closing: cualquier información sigue siendo accesible solo a las partes (no se vuelve pública).
+Modelo de visibilidad que **se abre** a medida que avanzan las fases y se firman los artefactos correspondientes. En el Discovery Layer la visibilidad de la ficha sobre la empresa target está anonimizada (Teaser). En el Transaction Layer post-NDA: visibilidad ampliada. Post-LOI: visibilidad casi total. Post-Closing: la información sigue siendo accesible solo a las partes.
 
 ---
 
@@ -213,37 +270,45 @@ Match, Operation y los artefactos canónicos (Teaser, NDA, IM, IOI, LOI, DD repo
 
 ### 3.2 Estado explícito
 
-Cada entidad transaccional (`Opportunity`, `Match`, `Operation`) tiene **un estado declarado** dentro de un enum cerrado. Las transiciones son explícitas, no implícitas. Nunca un estado se infiere de la presencia de un documento o de un timestamp.
+Cada entidad transaccional (`Opportunity`, `Match`, `Operation`) tiene **un estado declarado** dentro de un enum cerrado. Las transiciones son explícitas, no implícitas.
 
 ### 3.3 Permisos progresivos
 
-Lo que ve cada actor en cada momento depende de **(fase + estado + consentimiento explícito + artefactos firmados)**. La visibilidad **se abre** con el avance del proceso; nunca se "expande mágicamente" por inferencia del LLM.
+Lo que ve cada actor en cada momento depende de **(capa + fase + estado + artefactos firmados + cualificación previa)**. La visibilidad se abre con el avance del proceso; nunca se expande por inferencia del LLM. El Teaser anonimizado del Discovery Layer es visible a **buyers cualificados**, no a usuarios anónimos en internet abierto.
 
 ### 3.4 Trazabilidad total
 
-Toda acción que tenga consecuencia material en el ciclo (creación de entidad, transición de estado, firma de artefacto, invitación a contraparte, abandono, pausa) genera **al menos un** evento de audit log. Sin excepciones. Esta es la base de la auditabilidad legal del TOS.
+Toda acción con consecuencia material (creación de entidad, transición de estado, firma de artefacto, invitación a contraparte, abandono, pausa) genera **al menos un** evento de audit log. Sin excepciones.
 
-### 3.5 Recomendación ≠ Match ≠ Operation
+### 3.5 Recomendación ≠ Compatibilidad ≠ Match ≠ Operation
 
-Tres conceptos distintos del ciclo de vida, con cardinalidades específicas:
+Cuatro conceptos distintos del ciclo de vida:
 
 ```
-Opportunity  ──genera──►  Recomendaciones  ──pueden originar──►  Match  ──puede evolucionar a──►  Operation
-   (1)                          (N)                              (0..N)                          (0..1)
+Opportunity ──genera──► Recomendaciones ──exposición──► Marketplace ──Buyer solicita──► Match (SOLICITADO)
+   (1)                       (N)                        (Teaser)                          (0..N)
+                                                                                              │
+                                                                                  Seller acepta│
+                                                                                              ▼
+                                                                                       Operation (0..1)
 ```
 
-**Una Recomendación nunca se convierte directamente en Operation.** El paso por Match es obligatorio (ver §4 máquina de estados).
+**Una Recomendación nunca se convierte directamente en Operation.** El paso por Match (solicitado + aceptado) es obligatorio.
 
-### 3.6 Reversibilidad acotada
+### 3.6 Discovery Layer + Transaction Layer son dos etapas del mismo TOS
+
+Las dos capas no son productos distintos. Son **dos etapas** del mismo sistema operativo transaccional, con la **misma máquina de eventos**, **el mismo audit log**, **la misma memoria continua** y **el mismo Transaction Copilot** orquestando ambas. El paso entre ellas es la aceptación del Match.
+
+### 3.7 Reversibilidad acotada
 
 Las transiciones del TOS se clasifican en:
 
 - **Hacia adelante** (avance): permitidas si se cumplen condiciones (artefacto firmado, validación humana, etc.).
-- **Pausa**: permitidas casi siempre (`EN_PAUSA`); la operación reanuda en el mismo estado.
-- **Retroceso explícito**: permitidas **solo** en transiciones específicas declaradas en §4 y §10. La mayoría de transiciones **no admiten retroceso**.
+- **Pausa**: permitidas casi siempre (`EN_PAUSA`); reanudar requiere acuerdo bilateral.
+- **Retroceso explícito**: permitidas **solo** en transiciones específicas declaradas en §4 y §10.
 - **Aborto / cancelación**: permitida en casi cualquier fase con consecuencias específicas (ver §10).
 
-### 3.7 Inteligencia delegada
+### 3.8 Inteligencia delegada
 
 El TOS define **qué fases existen** y **qué transiciones son legítimas**, pero **no define cómo razona** la inteligencia dentro de una fase. La capa agéntica vive en:
 
@@ -253,14 +318,14 @@ El TOS define **qué fases existen** y **qué transiciones son legítimas**, per
 
 El TOS los **referencia**, no los define.
 
-### 3.8 Boundary First
+### 3.9 Boundary First
 
 Las interacciones con sistemas externos se modelan como **contratos abstractos**, no como implementaciones de proveedor:
 
-- **Firma electrónica** → capability "Firma con valor legal y trazabilidad probatoria". Proveedor concreto (DocuSign, EU eIDAS, etc.) se decide en implementación.
-- **CIS (Contrato Inicial de Servicios)** → capability "Aceptación de condiciones plataforma vinculadas a Organization". Detalle en `CIS_SPEC.md` (laguna).
-- **Billing** → capability "Captura de pagos + emisión de eventos económicos". Detalle en `MONETIZATION_SPEC.md`.
-- **Almacenamiento de documentos** → capability "Object storage con permisos granulares y watermarks". Detalle en `DATAROOM_SPEC.md` (laguna).
+- **Firma electrónica** → capability "Firma con valor legal y trazabilidad probatoria".
+- **CIS (Contrato Inicial de Servicios)** → capability "Aceptación de condiciones plataforma vinculadas a Organization".
+- **Billing** → capability "Captura de pagos + emisión de eventos económicos".
+- **Almacenamiento de documentos** → capability "Object storage con permisos granulares y watermarks".
 
 Este principio replica el `Boundary First` ya usado en `agency_tool_adapter` (ver `_INVENTORY_2026.md` §2.4).
 
@@ -268,183 +333,180 @@ Este principio replica el `Boundary First` ya usado en `agency_tool_adapter` (ve
 
 ## 4. Máquina de estados global
 
-### 4.1 Estados de `Opportunity` (pre-Match)
+> Notación: la máquina se divide en dos bloques visuales correspondientes a Discovery Layer y Transaction Layer. El `Match` es la **frontera** entre ambas.
+
+### 4.1 Estados de `Opportunity` (Discovery Layer)
 
 ```
                      ┌──────────────────┐
-                     │     BORRADOR     │   tesis aún no publicada / sin candidatas
+                     │     BORRADOR     │   tesis aún no publicada
                      └────────┬─────────┘
                               │ publicar
                               ▼
                      ┌──────────────────┐
-              ┌─────►│      ACTIVA      │   genera Recomendaciones, screening en curso
-              │      └────────┬─────────┘
+              ┌─────►│      ACTIVA      │   visible/operativa; puede publicar al Marketplace
+              │      └────────┬─────────┘   (si sell-side) y generar Recomendaciones
               │ reactivar     │
               │               ├──► EN_PAUSA  ──reanudar──► ACTIVA
               │               │
-              │               │ uno o más Matches creados
+              │               │ uno o más Matches solicitados
               │               ▼
               │      ┌──────────────────┐
               │      │  CON_MATCH(ES)   │   ≥1 Match vivo. La Opportunity sigue activa
               │      └────────┬─────────┘   (puede generar más Matches en paralelo)
               │               │
-              │               │ abandono
+              │               │ abandono / archivado
               │               ▼
               └──────┐ ┌──────────────────┐
-                     │ │    ABANDONADA    │   terminal — el cliente decide cerrar la tesis
+                     │ │    ABANDONADA    │   terminal — el cliente cierra la tesis
                      │ └──────────────────┘
                      │
                      └─ archivar (admin) ──► ARCHIVADA (terminal)
 ```
 
-### 4.2 Estados de `Match` (la mini-máquina aprobada por el usuario)
+### 4.2 Estados de `Match` (frontera Discovery → Transaction)
+
+`Match` es una entidad **de ciclo corto**. Sus estados son acotados:
 
 ```
-                  Opportunity activa genera Recomendaciones
+        Buyer ve Teaser en Marketplace y dispara "Solicitud de Match"
                               │
-                              │ Recomendación accionada por ambas partes
                               ▼
                      ┌──────────────────┐
-                     │  PROPUESTO       │   una parte ha aceptado, la otra pendiente
-                     └────────┬─────────┘
-                              │ aceptación mutua
-                              ▼
-                     ┌──────────────────┐
-              ┌─────►│     ACTIVO       │   acuerdo formal de continuar (Match canónico)
-              │      └────────┬─────────┘
-              │               │
-   reanudar   │               ├──► EN_PAUSA  ──reanudar──► ACTIVO
-              │               │
-              │               │ progresan a Teaser / NDA / IM / Q&A / IOI
-              │               ▼
-              │      ┌────────────────────┐
-              │      │   EN_EVOLUCIÓN     │   intercambio activo de información (T6→T9)
-              │      └────────┬───────────┘
-              │               │
-              │               │ LOI/NBO firmada por ambas partes (fase 10)
-              │               ▼
-              │      ┌────────────────────────────┐
-              │      │ CONVERTIDO_EN_OPERACIÓN    │   terminal exitoso del Match;
-              │      └────────────────────────────┘   nace la Operation con `mandate_id` y
-              │                                       hereda el Match.id como lineage
-              │
-              └──────────────► ABANDONADO (terminal) ── alguna parte se retira pre-LOI
-                                                       o no se cumple condición temporal
+                     │   SOLICITADO     │   Match creado; el Seller revisa al Buyer cualificado
+                     └────────┬─────────┘   y decide
+                              │
+       ┌──────────────────────┼──────────────────────┐
+       │ Seller acepta        │ Seller rechaza       │ ventana de respuesta expirada
+       ▼                      ▼                      ▼
+┌─────────────┐        ┌────────────┐         ┌────────────┐
+│  ACEPTADO   │        │ RECHAZADO  │ (term.) │  EXPIRADO  │ (terminal)
+└──────┬──────┘        └────────────┘         └────────────┘
+       │ Sistema crea Operation INMEDIATAMENTE
+       ▼
+  (Operation nace con current_phase = `nda` y Match.id queda en lineage)
+       │
+       └──► el Match queda CERRADO/archivado tras la conversión; no admite reapertura
 ```
 
-Estados terminales de `Match`: `CONVERTIDO_EN_OPERACIÓN` (éxito) · `ABANDONADO` (no éxito) · `ARCHIVADO` (admin).
+`ACEPTADO` es estado **terminal positivo** del Match: cierra el Match e inicia la `Operation`.
+`RECHAZADO` y `EXPIRADO` son estados terminales sin Operation.
 
-### 4.3 Estados de `Operation` (post-Match)
+Tras `ACEPTADO`, la URL `/match/{id}` queda como **vista histórica** (lineage); la URL activa de trabajo es `/operacion/{id}`.
+
+### 4.3 Estados de `Operation` (Transaction Layer)
+
+`Operation.current_phase` (enum canónico — actualizable en `ENTITY_MODEL.md` al cierre del Sprint 0):
 
 ```
-       Match.estado = CONVERTIDO_EN_OPERACIÓN
-                  │
-                  ▼
+       Match.estado = ACEPTADO  ⇒  Operation creada con current_phase = `nda`
+                                                  │
+                                                  ▼
+              ┌──────────┐
+              │   nda    │ ──► NDA firmado por ambas partes
+              └────┬─────┘
+                   ▼
+              ┌──────────┐
+              │    im    │ ──► IM liberado al Buyer; consumo
+              └────┬─────┘
+                   ▼
+              ┌──────────┐
+              │    qa    │ ──► Q&A activo
+              └────┬─────┘
+                   ▼
+              ┌──────────────────────────────┐
+              │   loi  (con sub-estado IOI   │ ──► LOI/NBO firmada por ambas partes
+              │   opcional)                  │
+              └────┬─────────────────────────┘
+                   ▼
+              ┌──────────┐
+              │    dd    │ ──► Data Room abierto + DD report emitido
+              └────┬─────┘
+                   ▼
+              ┌──────────────┐
+              │ negotiation  │ ──► SPA draft consensuado    [enum nuevo]
+              └────┬─────────┘
+                   ▼
+              ┌──────────┐
+              │   spa    │ ──► SPA firmado por ambas partes
+              └────┬─────┘
+                   ▼
+              ┌──────────┐
+              │ closing  │ ──► Condiciones suspensivas cumplidas + Closing declarado
+              └────┬─────┘
+                   ▼
+              ┌──────────────┐
+              │ integration  │ ──► Plan ejecutado; integración declarada completada
+              └────┬─────────┘     [enum nuevo]
+                   ▼
        ┌────────────────────────┐
-       │  FORMALIZACIÓN_INICIAL │   se materializa el contenedor Operation; LOI ya firmada
-       └──────────┬─────────────┘
-                  │
-                  ▼
-       ┌────────────────────────┐
-       │   DD_EN_CURSO          │   fase 11: Due Diligence + Data Room + Q&A
-       └──────────┬─────────────┘
-                  │
-                  ▼
-       ┌────────────────────────┐
-       │   NEGOCIACIÓN          │   fase 12: ajustes finales, cláusulas, earn-out (ver [OPEN-A4])
-       └──────────┬─────────────┘
-                  │
-                  ▼
-       ┌────────────────────────┐
-       │   SPA_FIRMADO          │   fase 13: contrato definitivo firmado, pendiente closing
-       └──────────┬─────────────┘
-                  │
-                  ▼
-       ┌────────────────────────┐
-       │   CLOSING_LEGAL        │   fase 14: ejecución jurídica (notaría, transferencias)
-       └──────────┬─────────────┘
-                  │
-                  ▼
-       ┌────────────────────────┐
-       │ INTEGRACIÓN_EN_CURSO   │   fase 15: ejecución del plan post-deal
-       └──────────┬─────────────┘
-                  │
-                  ▼
-       ┌────────────────────────┐
-       │ CERRADA_CON_ÉXITO      │   terminal positivo
+       │  CERRADA_CON_ÉXITO     │  terminal positivo
        └────────────────────────┘
 
-       Transiciones laterales desde cualquier estado activo:
-         ──► EN_PAUSA            (reanudable al mismo estado)
-         ──► CERRADA_SIN_OPERACIÓN  (terminal — alguna parte se retira post-LOI)
-         ──► CANCELADA           (terminal — cancelación administrativa/legal)
+       Transiciones laterales desde cualquier fase activa:
+         ──► EN_PAUSA               (reanudable al mismo estado)
+         ──► CERRADA_SIN_ÉXITO      (terminal — alguna parte se retira con consecuencias)
+         ──► CANCELADA              (terminal — cancelación administrativa o legal)
+         ──► ARCHIVADA              (terminal admin)
 ```
 
-Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACIÓN` · `CANCELADA` · `ARCHIVADA` (admin).
+**Notas sobre el enum `Operation.current_phase`**:
 
-### 4.4 Punto de transición `Match → Operation` (decisión canónica)
+- `Operation.current_phase` **arranca en `nda`**; no admite `matching` ni `teaser` (esos pertenecen al Discovery Layer / Match).
+- Valores nuevos respecto al enum actual de `ENTITY_MODEL.md` §5.7: `negotiation` (entre `dd` y `spa`) e `integration` (después de `closing`). La actualización formal se hace al cierre del Sprint 0.
+- `qa` se mantiene como fase tras `im`; el Q&A operativo de fase 11 (DD) reutiliza el mismo log con un sub-bloque "Q&A DD".
 
-**Propuesta canónica de este spec** (cubre `[OPEN-A11]`):
-
-> El `Match` evoluciona a `Operation` en el momento en que la **LOI/NBO está firmada por ambas partes** (final de la fase 10).
-
-**Razón**:
-
-- Antes de la LOI/NBO, las partes están en exploración: pueden retirarse libremente sin consecuencias contractuales mayores. El Match cubre esa exploración bajo un acuerdo formal de continuar (`ACTIVO` / `EN_EVOLUCIÓN`).
-- La LOI/NBO es el primer instrumento **vinculante** del proceso (con cláusulas de exclusividad, condiciones suspensivas, breakage fee si aplica). En este punto el compromiso es ya "una operación".
-- Esta elección es **compatible** con `ENTITY_MODEL.md` §5.7, donde `Operation.current_phase` arranca en `matching` o posterior. El cambio canónico que introduce este spec: `matching` deja de ser un valor válido de `Operation.current_phase` (ese estado pasa a `Match`). El primer valor válido para `Operation.current_phase` es **`loi` (cuando la LOI/NBO está firmada por ambas partes)**.
-
-**Alternativas consideradas y descartadas**:
-
-- *Match → Operation tras NDA firmado (fase 7)*: demasiado pronto. Un NDA no compromete económicamente; las partes pueden retirarse sin obligación material. Tratarlo como Operation infla el conteo de operaciones reales.
-- *Match → Operation tras SPA firmado (fase 13)*: demasiado tarde. Toda la DD, Q&A y negociación quedaría modelada como Match, lo que rompe la semántica del Match como "transición exploratoria" y carga al Match con responsabilidades que la entidad `Operation` debe asumir.
-
-`[OPEN-A11]` queda abierto para confirmación del usuario; mi propuesta es la línea base de este spec.
-
-### 4.5 Reglas de transición — quién puede disparar qué
+### 4.4 Reglas de transición — quién puede disparar qué
 
 > Notación: ✓ permitido sin condición · 🔒 permitido con condición declarada · ✗ prohibido.
 
 | Transición | Seller | Buyer | Advisor (cualquier lado) | Equipo arroba | Sistema |
 |---|---|---|---|---|---|
 | Crear `Opportunity` | ✓ (sell-side) | ✓ (buy-side) | 🔒 con `Mandate` | ✗ | ✗ |
-| `Opportunity.publicar` | ✓ | ✓ | 🔒 con `Mandate` | ✗ | ✗ |
-| Generar Recomendaciones | ✗ | ✗ | ✗ | ✗ | ✓ (motor de matching) |
-| Aceptar Recomendación → `Match.PROPUESTO` | ✓ | ✓ | 🔒 representando | ✗ | ✗ |
-| `Match.PROPUESTO → ACTIVO` (aceptación mutua) | 🔒 (segunda parte) | 🔒 (segunda parte) | 🔒 representando | ✗ | ✓ (al detectar segunda firma) |
-| `Match → EN_EVOLUCIÓN` (firma NDA) | 🔒 firma | 🔒 firma | 🔒 representando | ✗ | ✓ |
-| `Match → CONVERTIDO_EN_OPERACIÓN` (LOI firmada) | 🔒 firma | 🔒 firma | 🔒 representando | 🔒 validación opcional | ✓ |
-| `Operation → DD_EN_CURSO` | ✓ | ✓ | ✓ | ✗ | ✓ |
-| `Operation → SPA_FIRMADO` | 🔒 firma | 🔒 firma | ✗ (solo asiste) | 🔒 validación opcional | ✓ |
-| `Operation → CLOSING_LEGAL → INTEGRACIÓN` | 🔒 cumplir suspensivas | 🔒 cumplir suspensivas | ✗ | 🔒 verificación | ✓ |
-| `Operation → CERRADA_CON_ÉXITO` | 🔒 ambas confirman | 🔒 ambas confirman | ✗ | 🔒 validación | ✓ |
-| `Operation → CERRADA_SIN_OPERACIÓN` | ✓ unilateral post-LOI | ✓ unilateral post-LOI | ✗ | 🔒 mediación | ✗ |
-| Cancelar (`Match` o `Operation → CANCELADA`) | ✓ unilateral | ✓ unilateral | ✗ | ✓ administrativa | ✗ |
+| Publicar `Opportunity` (Marketplace si sell-side) | ✓ | ✓ | 🔒 con `Mandate` | ✗ | ✗ |
+| Generar Recomendaciones / Compatibility scoring | ✗ | ✗ | ✗ | ✗ | ✓ (motor) |
+| Publicar Teaser anonimizado al Marketplace | ✓ Seller | ✗ | 🔒 representando | ✗ | ✗ |
+| Solicitar Match (`Match → SOLICITADO`) | ✗ | ✓ (cualificado) | 🔒 representando | ✗ | ✗ |
+| Aceptar Match (`Match → ACEPTADO`) ⇒ crea Operation | ✓ Seller | ✗ | 🔒 representando | ✗ | ✓ (al detectar aceptación, crea `Operation`) |
+| Rechazar Match (`Match → RECHAZADO`) | ✓ Seller | ✗ | 🔒 representando | ✗ | ✗ |
+| Expirar Match (`Match → EXPIRADO`) | ✗ | ✗ | ✗ | ✗ | ✓ (al vencer ventana, ver `[OPEN-A8]`) |
+| `Operation.current_phase = nda → im` (NDA firmado) | 🔒 firma | 🔒 firma | 🔒 representando | ✗ | ✓ |
+| `Operation → spa` (LOI firmada) | 🔒 firma | 🔒 firma | 🔒 representando | ✗ | ✓ |
+| `Operation → closing` (SPA firmado) | 🔒 firma | 🔒 firma | ✗ (solo asiste) | 🔒 validación opcional | ✓ |
+| `Operation → integration` (Closing declarado) | 🔒 condiciones suspensivas | 🔒 condiciones suspensivas | ✗ | 🔒 verificación | ✓ |
+| `Operation → CERRADA_CON_ÉXITO` (integración completada) | 🔒 ambas confirman | 🔒 ambas confirman | ✗ | 🔒 validación | ✓ |
+| `Operation → CERRADA_SIN_ÉXITO` | ✓ unilateral post-LOI | ✓ unilateral post-LOI | ✗ | 🔒 mediación | ✗ |
+| `Match` o `Operation → CANCELADA` | ✓ unilateral | ✓ unilateral | ✗ | ✓ administrativa | ✗ |
 | Pausar (`EN_PAUSA`) | ✓ | ✓ | 🔒 representando | ✓ | ✗ |
 | Reanudar de `EN_PAUSA` | 🔒 ambas partes | 🔒 ambas partes | 🔒 representando | ✓ | ✗ |
-| Archivar (terminal admin) | ✗ | ✗ | ✗ | ✓ (`admin`) | ✗ |
+| Archivar (terminal admin) | ✗ | ✗ | ✗ | ✗ | ✗ (solo `admin`) |
 
 ---
 
 ## 5. Las 15 fases canónicas
 
-> Las fases **1–5 son pre-Match**: trabajan sobre Empresa, Valoración, Oportunidad y Recomendaciones. El TOS formal aún no ha arrancado.
-> Las fases **6–15 son post-Match**: trabajan inicialmente sobre `Match`. A partir del momento en que la LOI/NBO se firma (final de fase 10), el contenedor activo pasa a ser `Operation`.
+> Las fases se agrupan en dos capas. La **frontera** es la aceptación del Match: en el instante en que el Seller acepta, nace la `Operation` y entramos al Transaction Layer.
+>
+> **Discovery Layer (fases 1-6 + sub-acción "Solicitud de Match")** — sobre `Company`, `Valuation`, `Opportunity`, `Match.SOLICITADO`.
+> **Transaction Layer (fases 7-15)** — sobre `Operation`.
 
----
+═════════════════════════════════════════════════════════════════════════════
+### 🟦 DISCOVERY LAYER
+═════════════════════════════════════════════════════════════════════════════
 
 ### Fase 1 — Análisis inicial
 
-**Propósito**: el usuario (Seller o Buyer) entiende el activo (su empresa o las empresas candidatas). Es el punto de entrada al ecosistema arroba.
+**Capa**: Discovery.
+**Propósito**: el usuario (Seller o Buyer) entiende el activo (su empresa o las empresas candidatas).
 
 **Estado inicial requerido**: usuario autenticado con visibilidad a la ficha de Empresa.
-**Estado final**: ficha de Empresa con `analisis` (narrative) actualizado, KPIs visibles, score y señales presentes.
+**Estado final**: ficha de Empresa con `analisis` (narrative) actualizado, KPIs visibles, señales presentes.
 **Actores principales**: Seller (sobre su empresa) o Buyer (sobre candidatas), Sistema, Company Copilot.
 
 **Información consumida**:
 - Datos de la ficha Empresa (Agency Tool / `master_companies_mock`).
-- Histórico de conversaciones previas sobre la empresa (memoria de empresa).
-- Señales públicas (`signals`).
+- Histórico de conversaciones previas sobre la empresa.
+- Señales públicas.
 
 **Información generada / artefactos**:
 - Análisis narrativo (sección `narrative` de la ficha).
@@ -452,393 +514,447 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 - Conversación persistida (`company_conversations`).
 
 **Herramientas utilizadas**:
-- `Skill analyze` (existente).
+- Skill `analyze` (existente).
 - Bloques: NarrativeBlock, MetricsBlock, CompanyCard.
 
 **Motores de IA implicados**:
 - **Company Copilot** (L1 conversacional, L2 preparación de análisis). Detalle en `COPILOTS_SPEC.md`.
 
 **Acciones automáticas**:
-- Hidratar la ficha desde `EnrichCompanyAdapter`.
+- Hidratar ficha desde `EnrichCompanyAdapter`.
 - Registrar consulta en historial del usuario.
 
 **Acciones con aprobación explícita del usuario**:
-- "Refrescar análisis" (rate-limited, generador de narrative).
+- "Refrescar análisis" (rate-limited).
 - Guardar empresa en `watchlist`.
 
 **Memoria utilizada**:
-- **Memoria de empresa** (lectura/escritura): conversaciones, narrativas previas.
-- **Memoria de usuario** (lectura/escritura): historial de consultas. Detalle en `MEMORY_ENGINE_SPEC.md`.
+- **Memoria de empresa** (lectura/escritura).
+- **Memoria de usuario** (lectura/escritura).
 
 **Permisos por rol**:
 - Anónimo: ficha pública parcial.
 - Subscriber/Buyer/Seller/Advisor autenticado: ficha completa.
-- Admin/`arroba_team`: ficha completa + metadatos de auditoría.
+- `arroba_team`/Admin: ficha completa + metadatos auditoría.
 
 **Trazabilidad**:
-- Evento `company.viewed` (qué usuario, qué empresa, cuándo).
-- Evento `company.analysis_refreshed` (rate limiter + LLM call).
+- Evento `company.viewed`.
+- Evento `company.analysis_refreshed`.
 
 **Transiciones permitidas**:
-- → Fase 2 (Valoración) si el usuario quiere cuantificar.
-- → Fase 3 (Identificación) si el usuario ya tiene el activo claro y busca contrapartes.
-- Sin transición (consulta puntual sin progresión).
+- → Fase 2 (Valoración).
+- → Fase 3 (Identificación) si el usuario ya tiene el activo claro.
+- Sin transición (consulta puntual).
 
 **Riesgos / consideraciones**:
-- Análisis basado en `mock` (Agency Tool no productivo). La calidad del análisis está condicionada por la fuente.
+- Análisis basado en `mock` (Agency Tool no productivo todavía).
 
 ---
 
 ### Fase 2 — Valoración
 
-**Propósito**: cuantificar el valor económico potencial del activo. Indicativa (rápida, deterministic) o avanzada (LLM/expert-assisted).
+**Capa**: Discovery.
+**Propósito**: cuantificar el valor económico del activo (indicativa o avanzada).
 
-**Estado inicial requerido**: Empresa identificada y con datos financieros mínimos.
+**Estado inicial requerido**: Empresa identificada con datos financieros mínimos.
 **Estado final**: entidad `Valuation` persistida y asociada a la `Company`.
-**Actores principales**: Seller, Buyer, Advisor (cualquier rol con interés legítimo), Valuation Copilot.
+**Actores principales**: Seller, Buyer, Advisor, Valuation Copilot.
 
 **Información consumida**:
-- Datos financieros de la Empresa (revenue, EBITDA, etc.).
-- Comparables (otras empresas del sector).
-- Método elegido (`revenue_multiple` · `ebitda_multiple` · `dcf` · `comparable_transactions`).
+- Datos financieros de la Empresa.
+- Comparables.
+- Método (`revenue_multiple` · `ebitda_multiple` · `dcf` · `comparable_transactions`).
 
 **Información generada / artefactos**:
-- Entidad `Valuation` (con valor central + banda).
+- Entidad `Valuation` (valor central + banda).
 - Documento `Valuation report` (opcional).
-- Bloque `ValuationBlock` en la ficha de Empresa.
+- Bloque `ValuationBlock` en la ficha.
 
 **Herramientas utilizadas**:
-- `Skill value` (existente, determinista).
-- Skills futuros: DCF, múltiplos personalizados, screening por buyer profile (laguna en `_INVENTORY_2026.md` §5.2.1).
+- Skill `value` (existente, determinista).
+- Skills futuros: DCF, múltiplos personalizados.
 
 **Motores de IA implicados**:
-- **Valuation Copilot** (L2 preparación: borradores de valoraciones avanzadas).
+- **Valuation Copilot** (L2 borradores de valoraciones avanzadas).
 
 **Acciones automáticas**:
-- Calcular valoración indicativa con `Skill value`.
+- Calcular valoración indicativa.
 
 **Acciones con aprobación explícita del usuario**:
-- "Solicitar valoración avanzada" (toast "Próximamente: E1.8" en el código actual; capability futura).
-- Aceptar/rechazar resultado de valoración.
+- "Solicitar valoración avanzada".
+- Aceptar/rechazar resultado.
 
 **Memoria utilizada**:
-- **Memoria de empresa**: histórico de valoraciones.
-- **Memoria de valoración** (si la valoración tiene ficha propia).
+- **Memoria de empresa** (histórico de valoraciones).
+- **Memoria de valoración** (si tiene ficha propia).
 
 **Permisos por rol**:
 - Valoración indicativa: cualquier autenticado.
-- Valoración avanzada: solo dueño de la Empresa, Advisor con Mandato, o Buyer con `Match.ACTIVO` sobre la Empresa.
+- Valoración avanzada: solo dueño Empresa, Advisor con Mandato, o Buyer con `Match.ACEPTADO` (post-Match) sobre la Empresa.
 
 **Trazabilidad**:
-- Evento `valuation.created` (id, method, central_value, requested_by).
+- Evento `valuation.created`.
 
 **Transiciones permitidas**:
-- → Fase 3 (identificación de contrapartes).
-- → Fase 5 (Matching directo si la valoración alimentaba una Opportunity ya activa).
-- Sin transición (valoración puntual de referencia).
+- → Fase 3 o Fase 5 según contexto.
 
 **Riesgos / consideraciones**:
-- Valoración indicativa no debe interpretarse como compromiso de precio.
-- Auditoría legal: la `Valuation` debe quedar fechada y referenciada en `lineage` si llega a usarse en una LOI.
+- Indicativa ≠ compromiso de precio.
+- Auditoría legal: la Valuation queda fechada y referenciada en `lineage` si se usa en LOI.
 
 ---
 
 ### Fase 3 — Identificación y búsqueda de compradores/vendedores compatibles
 
-**Propósito**: el usuario formaliza su intención (vender o comprar) en una `Opportunity` y arranca el motor de búsqueda de contrapartes.
+**Capa**: Discovery.
+**Propósito**: el usuario formaliza su intención en una `Opportunity` y arranca la búsqueda de contrapartes.
 
-**Estado inicial requerido**: usuario autenticado con plan que habilite creación de `Opportunity` (ver `MONETIZATION_SPEC`).
-**Estado final**: entidad `Opportunity` creada en estado `ACTIVA`.
-**Actores principales**: Seller o Buyer, Advisor (si actúa con `Mandate`), Market Copilot, Opportunity Advisor.
+**Estado inicial requerido**: usuario con plan que habilite creación de Opportunity.
+**Estado final**: entidad `Opportunity` en estado `ACTIVA`.
+**Actores principales**: Seller, Buyer, Advisor con Mandate, Market Copilot, Opportunity Advisor.
 
 **Información consumida**:
-- La Empresa target (sell-side) o los criterios de búsqueda (buy-side: sectores, territorios, ticket size, tesis).
-- Mandato (si el Advisor actúa en representación).
+- Empresa target (sell-side) o criterios (buy-side).
+- Mandato si aplica.
 
 **Información generada / artefactos**:
 - Entidad `Opportunity`.
-- Tesis formalizada (texto narrativo + criterios estructurados).
+- Tesis formalizada.
 
 **Herramientas utilizadas**:
-- Formulario de creación de Opportunity (UX).
-- `Skill recommend` (existente, alimenta el motor de matching de la fase 5).
+- Formulario de creación de Opportunity.
+- Skill `recommend` (alimenta motor de matching de fase 5).
 
 **Motores de IA implicados**:
-- **Market Copilot** (análisis de mercado / sector / territorio): contexto para definir tesis.
-- **Opportunity Advisor** (copilot especializado de la entidad Opportunity, ver `COPILOTS_SPEC.md`).
+- **Market Copilot** (análisis de mercado/sector/territorio).
+- **Opportunity Advisor** (copilot especializado de la Opportunity, ver `COPILOTS_SPEC.md`).
 
 **Acciones automáticas**:
-- Inicialización de candidatas en `Opportunity.candidate_company_ids` (vacío o pre-poblado).
+- Inicializar `Opportunity.candidate_company_ids`.
 
 **Acciones con aprobación explícita del usuario**:
 - Publicar Opportunity (de `BORRADOR` a `ACTIVA`).
 - Definir criterios de exclusión.
 
 **Memoria utilizada**:
-- **Memoria de usuario**: tesis previas, sectores favoritos.
-- **Memoria de oportunidad**: se inicializa aquí.
+- **Memoria de usuario** (tesis previas).
+- **Memoria de oportunidad** (se inicializa).
 
 **Permisos por rol**:
-- Seller: crea sell-side Opportunity sobre su propia empresa o empresa que controle.
-- Buyer: crea buy-side Opportunity con criterios libres.
-- Advisor: crea cualquier side con `Mandate` válido.
+- Seller: crea sell-side sobre su empresa.
+- Buyer: crea buy-side con criterios libres.
+- Advisor: con `Mandate` válido.
 
 **Trazabilidad**:
-- Evento `opportunity.created`.
-- Evento `opportunity.published`.
+- `opportunity.created`, `opportunity.published`.
 
 **Transiciones permitidas**:
-- → Fase 4 (Screening) cuando aparezcan candidatas.
-- → `EN_PAUSA` (pausar la búsqueda).
-- → `ABANDONADA` (cerrar la tesis).
+- → Fase 4 cuando aparezcan candidatas / publicación al Marketplace.
+- `EN_PAUSA` o `ABANDONADA`.
 
 **Riesgos / consideraciones**:
-- Tesis ambiguas generan recomendaciones malas. El Market Copilot debe ayudar a estructurar.
+- Tesis ambiguas → recomendaciones malas. Market Copilot ayuda a estructurar.
 
 ---
 
 ### Fase 4 — Screening y priorización de candidatos
 
-**Propósito**: refinar la lista de candidatas, descartar las inviables, priorizar por compatibilidad.
+**Capa**: Discovery.
+**Propósito**: refinar candidatas, descartar inviables, priorizar por Compatibilidad.
 
-**Estado inicial requerido**: `Opportunity.ACTIVA` con al menos 1 candidata.
-**Estado final**: `Opportunity.candidate_company_ids` filtrada y priorizada; `pipeline_stage_by_company_id` actualizado.
+**Estado inicial requerido**: `Opportunity.ACTIVA` con ≥1 candidata.
+**Estado final**: candidatas filtradas y priorizadas; `pipeline_stage_by_company_id` actualizado.
 **Actores principales**: dueño de la Opportunity, Advisor (si aplica), Market Copilot.
 
 **Información consumida**:
-- Datos enriquecidos de candidatas (ficha Empresa).
-- Compatibilidad (score del motor de matching).
-- Criterios del usuario (exclusiones, tags).
+- Datos enriquecidos.
+- Compatibility scores.
+- Criterios y exclusiones del usuario.
 
 **Información generada / artefactos**:
-- Lista priorizada de candidatas (`Opportunity.candidate_company_ids` ordenada).
+- Lista priorizada de candidatas.
 - Razones de descarte (auditadas).
 
 **Herramientas utilizadas**:
-- Skill recommend (existente).
-- Skills futuros: screenings avanzados.
+- Skill `recommend`.
+- Skills futuros: screenings avanzados, screening por buyer profile.
 
 **Motores de IA implicados**:
-- **Opportunity Advisor / Market Copilot**: razonamientos de fit, riesgo, exclusiones.
+- **Opportunity Advisor / Market Copilot**.
 
 **Acciones automáticas**:
-- Cálculo continuo de Compatibilidad para candidatas nuevas.
-- Sugerencia de descartes evidentes (filtros duros).
+- Cálculo continuo de Compatibility para candidatas nuevas.
+- Sugerencia de descartes obvios.
 
 **Acciones con aprobación explícita del usuario**:
 - Aprobar/rechazar candidata.
 - Reordenar prioridad.
-- Marcar candidata como `out_of_scope`.
 
 **Memoria utilizada**:
-- **Memoria de oportunidad**: razones de descarte, conversaciones de screening.
+- **Memoria de oportunidad** (razones de descarte, conversaciones).
 
 **Permisos por rol**:
-- Solo el dueño de la Opportunity y su Advisor (si tiene Mandate vinculado).
+- Dueño Opportunity + su Advisor.
 
 **Trazabilidad**:
-- Evento `opportunity.candidate_added`.
-- Evento `opportunity.candidate_excluded` (con motivo).
-- Evento `opportunity.candidate_priority_changed`.
+- `opportunity.candidate_added` / `_excluded` / `_priority_changed`.
 
 **Transiciones permitidas**:
-- → Fase 5 (Matching) cuando el dueño decide accionar candidatas concretas.
-- → Vuelta a fase 3 si la tesis necesita reformularse.
+- → Fase 5 (Matching).
+- Vuelta a Fase 3 si la tesis necesita reformularse.
 
 **Riesgos / consideraciones**:
-- Sesgo del motor de matching. Se debe permitir override humano siempre.
+- Sesgo del motor. Override humano siempre disponible.
 
 ---
 
 ### Fase 5 — Matching
 
-**Propósito**: la plataforma genera **Recomendaciones** (sistema → usuario) entre la `Opportunity` y candidatas priorizadas. Si una recomendación obtiene **aceptación mutua** del Seller y el Buyer correspondientes, **nace un `Match`** (estado inicial `ACTIVO`).
+**Capa**: Discovery.
+**Propósito**: la plataforma genera **Recomendaciones** (sistema → usuario) y, en sell-side, publica el **Teaser anonimizado** en el Marketplace para que buyers cualificados lo descubran. El Match aún **no nace** aquí; solo se preparan las condiciones para que el Buyer lo solicite (sub-acción tras fase 6).
 
-**Estado inicial requerido**: `Opportunity.ACTIVA` con candidatas priorizadas (fase 4 ejecutada).
-**Estado final (positivo)**: ≥ 1 `Match` en estado `ACTIVO` asociado a la `Opportunity`.
-**Actores principales**: Seller y Buyer (ambos requeridos para aceptación mutua), Advisor (representando), Sistema (motor de matching), Market Copilot, Opportunity Advisor.
+**Estado inicial requerido**: `Opportunity.ACTIVA` con candidatas priorizadas (fase 4) y, si sell-side, Teaser preparado para publicación (ver fase 6).
+**Estado final**: Recomendaciones visibles a actores cualificados; Teaser publicado al Marketplace (sell-side).
+**Actores principales**: Seller, Buyer cualificado, Advisor, Sistema, Market Copilot, Opportunity Advisor.
 
 **Información consumida**:
 - Compatibility scores.
-- Disponibilidad/interés activo de la contraparte.
+- Criterios de Marketplace (sectores, geografías, tamaños).
 - Restricciones de exclusividad existentes.
 
 **Información generada / artefactos**:
-- Recomendaciones (efímeras o persistidas según política).
-- **Entidad `Match`** (estado inicial `PROPUESTO`, transita a `ACTIVO` con aceptación mutua).
+- **Recomendaciones** (sistema → buyer / sistema → seller). Persistencia configurable.
+- Publicación al Marketplace (sell-side).
 
 **Herramientas utilizadas**:
 - Motor de matching (`MARKETPLACE_SPEC.md` — laguna).
-- UI de aceptación de Recomendación.
+- UI de descubrimiento (cards resumidas).
 
 **Motores de IA implicados**:
-- **Market Copilot / Opportunity Advisor** (L2 preparación de las Recomendaciones con razones).
-- **Sistema** ejecuta el matching scoring.
+- **Market Copilot / Opportunity Advisor** (L2 razones de recomendación).
+- **Sistema** ejecuta scoring.
 
 **Acciones automáticas**:
-- Generar Recomendaciones según criterios.
-- Detectar aceptación mutua y transitar `Match.PROPUESTO → ACTIVO`.
+- Generar Recomendaciones.
+- Indexar Teasers en Marketplace.
 
 **Acciones con aprobación explícita del usuario**:
-- Aceptar una Recomendación (paso 1: una parte).
-- Aceptar la contra-Recomendación (paso 2: la otra parte → nace `Match.ACTIVO`).
-- Rechazar Recomendación (con motivo, opcional).
+- Buyer: revisar Recomendaciones / navegar Marketplace.
+- Seller: aprobar publicación al Marketplace.
 
 **Memoria utilizada**:
-- **Memoria de oportunidad**: histórico de recomendaciones y aceptaciones.
-- **Memoria de match**: se inicializa al transicionar a `ACTIVO`.
+- **Memoria de oportunidad** (histórico recomendaciones).
 
 **Permisos por rol**:
 - Recomendaciones visibles solo al dueño de la Opportunity correspondiente.
-- Aceptación mutua: requiere acción explícita de ambas partes (no se infiere).
-- Equipo arroba puede mediar pero no aceptar en nombre de las partes.
+- Marketplace visible a buyers cualificados (rol + criterios).
 
 **Trazabilidad**:
-- Evento `recommendation.generated`.
-- Evento `recommendation.accepted_by_party` (qué parte).
-- Evento **`match.created`** (inmutable, ver §9).
+- `recommendation.generated`.
+- `marketplace.listing_published`.
 
 **Transiciones permitidas**:
-- → Fase 6 (Teaser) automáticamente al transicionar `Match → ACTIVO`.
-- Vuelta a fase 4 si todas las recomendaciones son rechazadas.
+- → Fase 6 (consumo del Teaser).
+- Vuelta a Fase 4 si las recomendaciones son rechazadas en masa.
 
 **Riesgos / consideraciones**:
-- Garantizar que la aceptación es **mutua y consciente** — no inferible por silencio.
-- Anti-spam: una parte que rechaza N veces a la misma contraparte debe poder bloquearla.
+- Calidad del scoring. Se prioriza precision sobre recall en niveles iniciales del producto.
 
 ---
 
-### Fase 6 — Acceso al Teaser
+### Fase 6 — Acceso al Teaser anonimizado público
 
-**Propósito**: el Buyer accede al Teaser anónimo o semi-anónimo del activo. El Seller controla qué se revela en este nivel.
+**Capa**: Discovery.
+**Propósito**: el Buyer cualificado consume el **Teaser anonimizado** del activo desde el Marketplace para decidir si **solicita un Match**. El Teaser **no identifica** la empresa; permite valorar el activo sin exponer la identidad del Seller.
 
-**Estado inicial requerido**: `Match.ACTIVO`.
-**Estado final**: Buyer ha consumido el Teaser; `Match` transita conceptualmente a `EN_EVOLUCIÓN` (si decide avanzar) o `ABANDONADO` (si declina).
-**Actores principales**: Buyer (lector), Seller (autor / aprobador), Advisor (si lo asiste), Transaction Copilot.
+**Estado inicial requerido**: Teaser publicado al Marketplace (fase 5). El Buyer cumple criterios de cualificación.
+**Estado final**: el Buyer decide solicitar Match (ver sub-acción posterior) o declina.
+**Actores principales**: Buyer cualificado (lector), Seller (autor/aprobador previo), Advisor representando, Transaction Copilot.
 
 **Información consumida**:
-- Ficha de Empresa (extractos anonimizables).
+- Datos de la ficha Empresa (extracciones anonimizadas).
 - Valoración (si el Seller decide exponer rango).
 
 **Información generada / artefactos**:
-- **Artefacto `Teaser`** (Documento canónico, ver §7).
-- Registro de acceso del Buyer al Teaser.
+- **Artefacto `Teaser anonimizado público`** (Documento canónico, ver §7).
+- Registro de visualización por buyer (con watermark anonimizado).
 
 **Herramientas utilizadas**:
-- Skill futuro: "Generar teaser anónimo" (laguna, L2 preparación).
-- Anonimizador de campos.
+- Skill futuro: "Generar teaser anónimo" (L2).
+- Anonimizador de campos (capability).
 
 **Motores de IA implicados**:
-- **Transaction Copilot** (L2 preparación del Teaser draft).
-- **Company Copilot** (fuente de datos de la empresa).
+- **Transaction Copilot** (L2 borrador del Teaser).
+- **Company Copilot** (datos fuente).
 
 **Acciones automáticas**:
-- Registro de acceso al Teaser.
-- Watermarks por usuario consumidor.
+- Registrar acceso al Teaser.
+- Watermarks por usuario (no identifican empresa, identifican consumidor).
 
 **Acciones con aprobación explícita del usuario**:
-- Seller: aprobar Teaser para liberación.
-- Buyer: solicitar avance al NDA.
-- Buyer: declinar (transita el Match a `ABANDONADO`).
+- Seller: aprobar el Teaser para publicación.
+- Buyer: solicitar Match (ver sub-acción) o declinar.
 
 **Memoria utilizada**:
-- **Memoria de match**: conversaciones, accesos.
-- **Memoria de empresa**: lineage del teaser (qué datos se incluyeron).
+- **Memoria de empresa**: lineage del Teaser (qué datos se incluyeron, qué se anonimizó).
+- **Memoria de oportunidad** (sell-side).
 
 **Permisos por rol**:
-- Buyer del Match: lectura.
-- Seller del Match: lectura + edición pre-aprobación.
-- Equipo arroba: lectura (auditoría).
+- **Buyer cualificado** (subscriber/buyer/corporate/investor que cumpla criterios Marketplace): **lectura** del Teaser sin necesidad de Match. **No** se expone a usuarios anónimos en internet abierto.
+- Seller: lectura + edición pre-aprobación.
+- `arroba_team`: lectura (auditoría).
 - Resto: prohibido.
 
 **Trazabilidad**:
-- Evento `teaser.released`.
-- Evento `teaser.accessed_by_buyer`.
-- Evento `match.entered_evolution` (al solicitar avance al NDA).
+- `teaser.released_to_marketplace`.
+- `teaser.accessed_by_buyer` (con buyer_id + watermark).
 
 **Transiciones permitidas**:
-- → Fase 7 (NDA) si el Buyer solicita avanzar.
-- `Match → ABANDONADO` si el Buyer declina.
-- Pausa.
+- → Sub-acción "Solicitud de Match" (siguiente bloque).
+- Sin transición (buyer declina; no se crea Match).
 
 **Riesgos / consideraciones**:
-- Filtración de identidad si el Teaser no está bien anonimizado. **`[OPEN-A10]`**: ¿el Teaser puede mostrarse a usuarios no registrados? Propuesta inicial: **NO** — el Teaser solo es visible post-Match. Para superficie pública, se usa la ficha pública parcial (sin Teaser propietario).
+- Calidad de la anonimización: si el Teaser revela inadvertidamente la identidad, se viola la confidencialidad del Seller. **Capability obligatoria**: revisor automático de anonimización + revisor humano (Equipo arroba) para Teasers de alto valor.
 
 ---
 
-### Fase 7 — Firma del NDA
+### Sub-acción — Solicitud de Match (frontera entre Discovery y Transaction)
 
-**Propósito**: ambas partes firman un Non-Disclosure Agreement que desbloquea el acceso al Information Memorandum y al Data Room.
+**Capa**: Discovery (cierra el bloque).
+**Propósito**: el Buyer dispara la creación de un `Match` en estado `SOLICITADO`. Es la única vía canónica para iniciar el camino hacia una Operation.
 
-**Estado inicial requerido**: `Match.EN_EVOLUCIÓN`, Teaser consumido, Buyer ha solicitado avance.
-**Estado final**: NDA firmado por ambas partes; visibilidad expandida automáticamente.
-**Actores principales**: Buyer, Seller, Advisor (si actúa por delegación), Equipo arroba (testigo opcional), capability de firma electrónica.
+**Estado inicial requerido**: Buyer cualificado ha consumido el Teaser (fase 6).
+**Estado final**: entidad `Match` creada en estado `SOLICITADO`, asociada a la `Opportunity` del Seller y al `Buyer`.
+**Actores principales**: Buyer (solicitante), Seller (receptor de la notificación), Advisor representando, Sistema, Transaction Copilot.
 
 **Información consumida**:
-- Plantilla NDA (Boundary First: proveedor de plantilla / firma se decide en impl).
-- Identidades de ambas partes.
+- Teaser consumido.
+- Datos de cualificación del Buyer.
 
 **Información generada / artefactos**:
-- **Documento `NDA`** (canónico, `Document.kind = "nda"`, `signed_by_ids = [seller, buyer]`).
-- Evento `nda.signed` (inmutable, ver §9).
+- **Entidad `Match`** (estado `SOLICITADO`).
+- Notificación al Seller.
+
+**Herramientas utilizadas**:
+- UI "Solicitar Match" desde el Teaser o desde la card del Marketplace.
+- Validador de cualificación del Buyer.
+
+**Motores de IA implicados**:
+- **Transaction Copilot** (L1 conversacional, L2 ayuda al Buyer a redactar nota de solicitud opcional).
+
+**Acciones automáticas**:
+- Crear `Match.SOLICITADO`.
+- Notificar al Seller (y a su Advisor si aplica).
+- Iniciar contador de ventana de respuesta (plazo de aceptación — ver `[OPEN-A8]` política de caducidad configurable).
+
+**Acciones con aprobación explícita del usuario**:
+- Buyer: enviar Solicitud de Match.
+- Seller (en respuesta): aceptar, rechazar o dejar expirar.
+
+**Memoria utilizada**:
+- **Memoria de match**: se inicializa.
+- **Memoria de oportunidad**: registra el match solicitado.
+
+**Permisos por rol**:
+- Buyer cualificado: solicitar.
+- Seller: ver lista de Match.SOLICITADOS sobre su Opportunity.
+
+**Trazabilidad**:
+- **`match.solicited`** ★ inmutable crítico.
+
+**Transiciones permitidas**:
+- → Aceptación del Seller ⇒ `Match.ACEPTADO` ⇒ nace `Operation` ⇒ entra Transaction Layer (fase 7).
+- → Rechazo del Seller ⇒ `Match.RECHAZADO` (terminal sin Operation).
+- → Expiración del plazo de respuesta ⇒ `Match.EXPIRADO` (terminal sin Operation).
+
+**Riesgos / consideraciones**:
+- Spam de solicitudes por buyer no cualificado: capa de cualificación obligatoria (`BUYER_QUAL_SPEC.md` — laguna P1).
+- Anti-abuso: un buyer que recibe N rechazos consecutivos del mismo seller queda **bloqueado** para ese seller. Detalle en `MARKETPLACE_SPEC.md`.
+
+═════════════════════════════════════════════════════════════════════════════
+### 🟥 TRANSACTION LAYER
+═════════════════════════════════════════════════════════════════════════════
+
+> **Frontera operativa**: el Seller acepta la Solicitud de Match ⇒ `Match.ACEPTADO` ⇒ Sistema crea inmediatamente la `Operation` con `current_phase = nda` ⇒ entra Transaction Layer.
+>
+> A partir de aquí todas las fases trabajan sobre la entidad `Operation`. La entidad `Match` queda como **lineage histórico** (URL `/match/{id}` se conserva en modo solo-lectura).
+
+### Fase 7 — Firma del NDA
+
+**Capa**: Transaction.
+**Propósito**: ambas partes firman un Non-Disclosure Agreement que desbloquea el acceso al Information Memorandum y al Data Room.
+
+**Estado inicial requerido**: `Operation.current_phase = nda` (recién creada).
+**Estado final**: NDA firmado por ambas partes; visibilidad expandida automáticamente; `current_phase = im`.
+**Actores principales**: Buyer, Seller, Advisor (si actúa por delegación), `arroba_team` (auditoría), capability firma electrónica.
+
+**Información consumida**:
+- Plantilla NDA (Boundary First).
+- Identidades de ambas partes (ahora visibles entre sí — el Match aceptado las revela).
+
+**Información generada / artefactos**:
+- **Documento `NDA`** (`Document.kind = "nda"`, `signed_by_ids = [seller, buyer]`).
+- Evento `nda.fully_signed`.
 
 **Herramientas utilizadas**:
 - Capability firma electrónica.
-- Plantilla NDA (estándar inicial; `NDA_SPEC.md` — laguna).
+- Plantilla NDA (estándar inicial; `NDA_SPEC.md` — laguna P0).
 
 **Motores de IA implicados**:
 - **Transaction Copilot** (L3 ejecución asistida: "Confirmar firma" con aprobación humana explícita).
-- **Advisor Copilot** (L2 revisión de la plantilla).
+- **Advisor Copilot** (L2 revisión de plantilla).
 
 **Acciones automáticas**:
 - Abrir acceso a IM y Data Room una vez verificada la doble firma.
 - Notificar a contraparte y advisors.
+- Transicionar `current_phase = im`.
 
 **Acciones con aprobación explícita del usuario**:
-- Cada parte firma (acción manual con consentimiento informado).
+- Cada parte firma (consentimiento informado).
 
 **Memoria utilizada**:
-- **Memoria de match**: el NDA firmado queda referenciado.
-- **Memoria de empresa**: opcional — el Seller ve qué buyers tienen NDA activo.
+- **Memoria de operación**: NDA firmado.
+- **Memoria de empresa**: opcional — qué buyers tienen NDA activo.
 
 **Permisos por rol**:
-- Buyer y Seller del Match: ambos deben firmar.
-- Advisors: pueden revisar pero no firmar en nombre (excepto con poder específico documentado).
-- Equipo arroba: lectura (auditoría).
+- Buyer y Seller: firman.
+- Advisors: revisan; firman sólo con poder específico documentado.
+- `arroba_team`: lectura (auditoría).
 
 **Trazabilidad**:
-- Evento `nda.template_loaded`.
-- Evento `nda.signed_by_party` (cada parte).
-- Evento **`nda.fully_signed`** (inmutable, dispara expansión de permisos).
+- `nda.template_loaded`.
+- `nda.signed_by_party`.
+- **`nda.fully_signed`** ★ inmutable crítico.
 
 **Transiciones permitidas**:
-- → Fase 8 (IM) al completar la doble firma.
-- Aborto: `Match.ABANDONADO` si una parte no firma en ventana acordada.
+- → Fase 8 (`current_phase = im`).
+- Aborto: si una parte no firma en ventana acordada ⇒ `Operation.CERRADA_SIN_ÉXITO` (consecuencias menores; ver §10).
 
 **Riesgos / consideraciones**:
-- NDA progresivo: estructura de NDAs por nivel de revelación (NDA-básico, NDA-completo). Detalle en `NDA_SPEC.md` (laguna P0).
+- NDA progresivo (niveles de revelación). Detalle en `NDA_SPEC.md`.
 
 ---
 
 ### Fase 8 — Acceso al Information Memorandum (IM)
 
-**Propósito**: el Buyer accede al Information Memorandum: documento exhaustivo y estructurado sobre la empresa target.
+**Capa**: Transaction.
+**Propósito**: el Buyer accede al IM, documento exhaustivo y **no anonimizado** sobre la empresa target.
 
-**Estado inicial requerido**: NDA firmado por ambas partes (`nda.fully_signed`).
-**Estado final**: Buyer ha consumido el IM; decisión de avanzar (a Q&A / IOI / LOI) o declinar.
-**Actores principales**: Buyer (consumidor), Seller (autor), Advisor (si asiste), Transaction Copilot.
+**Estado inicial requerido**: `current_phase = im`. NDA firmado (`nda.fully_signed`).
+**Estado final**: el Buyer ha consumido el IM; decisión de avanzar (Q&A / IOI / LOI) o declinar.
+**Actores principales**: Buyer (consumidor), Seller (autor), Advisor, Transaction Copilot.
 
 **Información consumida**:
 - Datos completos de la ficha Empresa.
 - Valoraciones aplicables.
-- Documentos asociados (memoria mercantil, financieros).
+- Documentos asociados.
 
 **Información generada / artefactos**:
-- **Documento `Information Memorandum`** (canónico, `Document.kind = "im"`).
-- Registro de accesos del Buyer.
+- **Documento `Information Memorandum`** (`Document.kind = "im"`).
+- Registro de accesos.
 
 **Herramientas utilizadas**:
-- Skill futuro: "Generar IM draft" (L2 preparación).
+- Skill futuro: "Generar IM draft" (L2).
 - Editor estructurado de IM.
 
 **Motores de IA implicados**:
@@ -846,133 +962,134 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 - **Company Copilot** (datos fuente).
 
 **Acciones automáticas**:
-- Indexar IM en el Data Room.
+- Indexar IM en el Data Room (preparatoria de DD).
 - Watermarks por acceso.
+- Transición a `current_phase = qa` cuando el Buyer pasa a preguntas o salta directo a LOI.
 
 **Acciones con aprobación explícita del usuario**:
 - Seller: aprobar IM para liberación.
-- Buyer: solicitar avance a Q&A / oferta.
+- Buyer: solicitar avance.
 
 **Memoria utilizada**:
-- **Memoria de match**: histórico de accesos y conversaciones sobre el IM.
+- **Memoria de operación**: histórico de accesos y conversaciones sobre el IM.
 
 **Permisos por rol**:
 - Buyer post-NDA: lectura completa.
 - Seller: lectura + edición pre-aprobación.
 - Advisors (con NDA propio): lectura.
-- Equipo arroba: lectura (auditoría).
+- `arroba_team`: lectura (auditoría).
 
 **Trazabilidad**:
-- Evento `im.released`.
-- Evento `im.accessed_by_buyer` (cada acceso, con timestamp).
+- `im.released`.
+- `im.accessed_by_buyer`.
 
 **Transiciones permitidas**:
 - → Fase 9 (Q&A) — natural.
-- → Fase 10 (LOI/NBO) directamente si el Buyer tiene clara su oferta.
-- Aborto: `Match.ABANDONADO`.
+- → Fase 10 (LOI/NBO) directamente si el Buyer tiene oferta clara.
+- Aborto: `Operation.CERRADA_SIN_ÉXITO`.
 
 **Riesgos / consideraciones**:
-- Filtración: el IM es el documento más sensible pre-LOI. Watermarks + audit log obligatorios.
+- Filtración: el IM es el documento más sensible pre-LOI. Watermarks + audit obligatorios.
 
 ---
 
 ### Fase 9 — Preguntas y respuestas (Q&A)
 
+**Capa**: Transaction.
 **Propósito**: intercambio estructurado entre Buyer y Seller para aclarar puntos del IM antes de avanzar a oferta.
 
-**Estado inicial requerido**: IM consumido por el Buyer.
-**Estado final**: Q&A log cerrado o pausado; el Buyer dispone de información suficiente para emitir oferta.
-**Actores principales**: Buyer (preguntador), Seller (respondedor), Advisors de ambos lados, Transaction Copilot.
+**Estado inicial requerido**: `current_phase = qa`.
+**Estado final**: Q&A log cerrado o pausado.
+**Actores principales**: Buyer, Seller, Advisors de ambos lados, Transaction Copilot.
 
 **Información consumida**:
-- Preguntas del Buyer (libre o pre-estructuradas).
+- Preguntas del Buyer.
 - Datos de la Empresa, IM, valoraciones.
 
 **Información generada / artefactos**:
-- **Artefacto `Q&A log`** (estructurado, asociado al Match).
+- **Artefacto `Q&A log`** (estructurado).
 
 **Herramientas utilizadas**:
 - UI de preguntas estructuradas.
-- Skill futuro: "DD questions auto" (L2 — generador de preguntas estándar).
+- Skill futuro: "DD questions auto" (L2).
 
 **Motores de IA implicados**:
 - **Transaction Copilot** (L2 sugerencia de preguntas estándar por sector).
 - **Advisor Copilot** (L2 ayuda al Seller a estructurar respuestas).
 
 **Acciones automáticas**:
-- Indexar Q&A log con tags por categoría (financieros, legales, comerciales, etc.).
+- Indexar Q&A log con tags por categoría.
 
 **Acciones con aprobación explícita del usuario**:
 - Buyer envía pregunta.
-- Seller envía respuesta (con aprobación de su Advisor opcional).
-- Cierre del Q&A log (mutuo).
+- Seller envía respuesta.
+- Cierre del log (mutuo).
 
 **Memoria utilizada**:
-- **Memoria de match**: Q&A log persistido.
-- Posiblemente **Memoria de empresa**: respuestas relevantes generales se propagan al lineage.
+- **Memoria de operación**: Q&A log persistido.
 
 **Permisos por rol**:
-- Buyer y Seller del Match: lectura/escritura.
-- Advisors: lectura/escritura representando a su parte.
-- Equipo arroba: lectura (auditoría).
+- Buyer y Seller: lectura/escritura.
+- Advisors: lectura/escritura representando.
+- `arroba_team`: lectura (auditoría).
 
 **Trazabilidad**:
-- Evento `qa.question_posted`.
-- Evento `qa.answer_posted`.
-- Evento `qa.log_closed`.
+- `qa.question_posted`.
+- `qa.answer_posted`.
+- `qa.log_closed`.
 
 **Transiciones permitidas**:
-- → Fase 10 (LOI/NBO) cuando el Buyer está listo para emitir oferta.
+- → Fase 10 cuando Buyer emite oferta.
 - Pausa.
 - Aborto.
 
 **Riesgos / consideraciones**:
-- Sesgo: el Seller puede omitir o demorar respuestas críticas. El audit log preserva la evidencia.
+- Sesgo del Seller (omisiones). El audit preserva la evidencia.
 
 ---
 
 ### Fase 10 — Presentación de la Oferta Indicativa (LOI / NBO)
 
-**Propósito**: el Buyer emite una oferta. El sub-estado **IOI (opcional)** permite indicar interés no vinculante antes de la LOI/NBO vinculante. La LOI/NBO firmada por ambas partes es el **punto canónico de transición `Match → Operation`**.
+**Capa**: Transaction.
+**Propósito**: el Buyer emite oferta. El sub-estado **IOI (opcional)** permite indicar interés no vinculante antes de la LOI/NBO vinculante.
 
-**Estado inicial requerido**: Q&A suficiente o Buyer dispuesto a saltar Q&A.
-**Estado final**: LOI/NBO firmada por ambas partes ⇒ nace la `Operation` (transición canónica).
-**Actores principales**: Buyer (emisor), Seller (receptor + contraoferente), Advisors, capability de firma electrónica.
+**Estado inicial requerido**: `current_phase = loi`.
+**Estado final**: LOI/NBO firmada por ambas partes ⇒ avance a fase 11 (`current_phase = dd`).
+**Actores principales**: Buyer, Seller, Advisors, capability firma electrónica.
 
 #### Sub-estados de fase 10
 
 ```
-[IOI (opcional)] ──► LOI_PRESENTADA ──► LOI_ACEPTADA            ╗
-                                  ──► LOI_NEGOCIADA ──► ...     ║ punto de transición
-                                  ──► LOI_RECHAZADA             ╝ Match → Operation
+[IOI (opcional)] ──► LOI_PRESENTADA ──► LOI_ACEPTADA       ──► current_phase = dd
+                                  ──► LOI_NEGOCIADA ──► ...
+                                  ──► LOI_RECHAZADA ──► Operation.CERRADA_SIN_ÉXITO
 ```
 
-- **IOI** (opcional, no vinculante): el Buyer comunica interés con un rango de precio. No es compromiso.
-- **LOI_PRESENTADA**: el Buyer firma una oferta vinculante con cláusulas (precio, exclusividad, condiciones suspensivas).
-- **LOI_ACEPTADA**: el Seller la firma sin cambios ⇒ transición `Match → Operation` (`Operation.current_phase = loi`).
-- **LOI_NEGOCIADA**: el Seller propone contra-condiciones; vuelve a `LOI_PRESENTADA` con nuevos términos.
-- **LOI_RECHAZADA**: el Seller la rechaza; `Match → ABANDONADO` (o vuelta a Q&A).
+- **IOI**: no vinculante; opcional. El Buyer comunica interés con rango de precio.
+- **LOI_PRESENTADA**: el Buyer firma oferta vinculante.
+- **LOI_ACEPTADA**: el Seller firma sin cambios ⇒ avance a fase 11.
+- **LOI_NEGOCIADA**: Seller propone contra-condiciones; vuelve a `LOI_PRESENTADA`.
+- **LOI_RECHAZADA**: Seller rechaza ⇒ Operation termina sin éxito (o vuelta a Q&A si se reabre).
 
 **Información consumida**:
-- IM, Q&A log, Valoración(es) de referencia.
+- IM, Q&A log, Valoraciones de referencia.
 
 **Información generada / artefactos**:
 - (opcional) **Documento `IOI`** (`Document.kind = "ioi"`).
 - **Documento `LOI/NBO`** (`Document.kind = "loi"`, `signed_by_ids = [buyer, seller]`).
-- **Entidad `Operation`** (nace al firmar ambas partes).
 
 **Herramientas utilizadas**:
 - Plantilla LOI (`LOI_SPEC.md` — laguna).
 - Capability firma electrónica.
-- Skill futuro: "LOI draft" (L2 preparación).
+- Skill futuro: "LOI draft" (L2).
 
 **Motores de IA implicados**:
-- **Transaction Copilot** (L2 draft LOI, comparator si hay multi-bidder).
-- **Advisor Copilot** (L2 revisión de cláusulas).
+- **Transaction Copilot** (L2 draft LOI; comparator multi-bidder si aplica).
+- **Advisor Copilot** (L2 revisión cláusulas).
 
 **Acciones automáticas**:
-- Verificar doble firma → crear `Operation` y migrar contexto del `Match` (memoria, accesos, audit).
-- Notificar a partes interesadas.
+- Verificar doble firma → transicionar `current_phase = dd`.
+- Activar cláusulas de exclusividad declaradas.
 
 **Acciones con aprobación explícita del usuario**:
 - Buyer: presentar IOI/LOI.
@@ -980,49 +1097,47 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 - Ambos: firmar LOI definitiva.
 
 **Memoria utilizada**:
-- **Memoria de match**: LOI lineage.
-- **Memoria de operación**: nace al firmar.
+- **Memoria de operación**: LOI lineage.
 
 **Permisos por rol**:
 - Buyer y Seller: emitir/recibir.
 - Advisors: revisar.
-- Equipo arroba: validación opcional crítica (ver §10).
+- `arroba_team`: lectura (auditoría); validación opcional crítica (ver §10).
 
 **Trazabilidad**:
-- Evento `ioi.presented` (opcional).
-- Evento `loi.presented`.
-- Evento `loi.negotiated`.
-- Evento `loi.rejected` (terminal del Match).
-- Evento **`loi.fully_signed`** (inmutable, dispara transición `Match → Operation`).
-- Evento **`match.converted_to_operation`** (inmutable, ver §9).
-- Evento `operation.created`.
+- `ioi.presented` (opcional).
+- `loi.presented`.
+- `loi.negotiated`.
+- `loi.rejected`.
+- **`loi.fully_signed`** ★ inmutable crítico.
 
 **Transiciones permitidas**:
-- → Fase 11 (DD) tras LOI firmada.
-- `Match.ABANDONADO` si LOI rechazada y no hay reapertura.
+- → Fase 11 (DD).
+- `Operation.CERRADA_SIN_ÉXITO` si LOI rechazada y no reapertura.
 - Pausa.
 
 **Riesgos / consideraciones**:
-- Exclusividad temporal: la LOI suele incluir cláusula de exclusividad. La plataforma debe **prevenir** que el Seller acepte LOIs simultáneas de varios Buyers durante el plazo de exclusividad.
+- Exclusividad temporal: la LOI suele incluir cláusula. La plataforma debe **prevenir** que el Seller acepte LOIs simultáneas durante el plazo.
 
 ---
 
 ### Fase 11 — Due Diligence (DD)
 
-**Propósito**: revisión exhaustiva del Buyer (y sus asesores) sobre la empresa target. Incluye **Data Room** como repositorio central + interacciones de análisis.
+**Capa**: Transaction.
+**Propósito**: revisión exhaustiva del Buyer (y sus asesores) sobre la empresa target. Incluye **Data Room** + interacciones de análisis.
 
-**Estado inicial requerido**: `Operation.FORMALIZACIÓN_INICIAL`.
-**Estado final**: DD report emitido, hallazgos consolidados.
-**Actores principales**: Buyer + advisors del Buyer (financieros, legales, fiscales, técnicos), Seller (proveedor de información), Transaction Copilot.
+**Estado inicial requerido**: `current_phase = dd`.
+**Estado final**: DD report emitido; transición a `current_phase = negotiation`.
+**Actores principales**: Buyer + advisors del Buyer, Seller (proveedor de información), Transaction Copilot, Advisor Copilot.
 
 **Información consumida**:
-- Documentos del Data Room (financieros completos, contratos, laboral, fiscal, propiedad intelectual, ESG, etc.).
+- Documentos del Data Room (financieros, contratos, laboral, fiscal, IP, ESG).
 - Q&A log fase 9.
 
 **Información generada / artefactos**:
 - **Documento `DD report`** (`Document.kind = "dd_report"`).
-- **Q&A log de DD** (continuación del de fase 9 o nuevo).
-- Hallazgos clasificados (red flags, yellow flags, ok).
+- Q&A log de DD (continuación o nuevo).
+- Hallazgos clasificados (red flags / yellow flags / ok).
 
 **Herramientas utilizadas**:
 - Data Room (`DATAROOM_SPEC.md` — laguna).
@@ -1030,60 +1145,61 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 - Skill futuro: "Comparación de contratos" (L2).
 
 **Motores de IA implicados**:
-- **Transaction Copilot** (L2 análisis automatizado de documentos).
+- **Transaction Copilot** (L2 análisis automatizado de documentos, L4 notificaciones de hitos autorizadas).
 - **Advisor Copilot** (L2 estructura de hallazgos).
 
 **Acciones automáticas**:
-- Indexar documentos del Data Room.
+- Indexar documentos.
 - Watermarks por usuario y por documento.
 - Audit de cada acceso.
 
 **Acciones con aprobación explícita del usuario**:
-- Subir documento al Data Room (Seller).
+- Subir documento (Seller).
 - Solicitar documento adicional (Buyer).
-- Cerrar DD (Buyer, con o sin red flags).
+- Cerrar DD (Buyer).
 
 **Memoria utilizada**:
 - **Memoria de operación**: hallazgos, Q&A.
-- **Memoria de empresa**: documentos relevantes pueden quedar en lineage de la ficha (con flags de confidencialidad).
+- **Memoria de empresa**: documentos relevantes con flags de confidencialidad.
 
 **Permisos por rol**:
-- Buyer + advisors del Buyer: lectura del Data Room.
-- Seller + advisors del Seller: escritura del Data Room.
-- Equipo arroba: lectura (auditoría).
+- Buyer + advisors Buyer: lectura del Data Room.
+- Seller + advisors Seller: escritura del Data Room.
+- `arroba_team`: lectura (auditoría).
 
 **Trazabilidad**:
-- Evento `dataroom.opened`.
-- Evento `dataroom.document_uploaded`.
-- Evento `dataroom.document_accessed` (cada acceso, por usuario).
-- Evento `dd.report_emitted`.
+- `dataroom.opened`.
+- `dataroom.document_uploaded`.
+- `dataroom.document_accessed`.
+- `dd.report_emitted`.
 
 **Transiciones permitidas**:
-- → Fase 12 (Negociación) tras DD report.
+- → Fase 12 (Negociación).
 - Pausa.
-- `Operation.CERRADA_SIN_OPERACIÓN` si red flags terminales.
+- `Operation.CERRADA_SIN_ÉXITO` si red flags terminales.
 
 **Riesgos / consideraciones**:
-- DD prolongada erosiona el deal. La plataforma debe tracker el "tiempo en DD" como KPI visible.
+- DD prolongada erosiona el deal. Tracker de tiempo en DD como KPI.
 
 ---
 
 ### Fase 12 — Negociación
 
-**Propósito**: ajuste final de términos del SPA: precio, estructura, earn-out, garantías, indemnities, condiciones suspensivas, cláusulas de no competencia. **`[OPEN-A4]`**: ¿se añade como valor `current_phase = "negotiation"` al enum o se modela como sub-estado interno entre `dd` y `spa`? Propuesta del spec: **añadir** `negotiation` al enum, ya que el usuario la declara explícitamente como fase canónica.
+**Capa**: Transaction.
+**Propósito**: ajuste final de términos del SPA: precio, estructura, earn-out, garantías, indemnities, condiciones suspensivas, no competencia.
 
-**Estado inicial requerido**: DD report emitido.
-**Estado final**: términos del SPA acordados, draft listo para firma.
-**Actores principales**: Buyer, Seller, Advisors de ambos lados (centrales en esta fase), Transaction Copilot, Advisor Copilot.
+**Estado inicial requerido**: `current_phase = negotiation`. DD report emitido. (`negotiation` es valor canónico del enum `Operation.current_phase`, añadido entre `dd` y `spa`.)
+**Estado final**: términos consensuados; draft SPA listo para firma; transición a `current_phase = spa`.
+**Actores principales**: Buyer, Seller, Advisors (centrales), Transaction Copilot, Advisor Copilot.
 
 **Información consumida**:
 - DD report.
-- LOI/NBO vinculante.
-- Valoraciones de referencia actualizadas.
+- LOI/NBO firmada.
+- Valoraciones actualizadas.
 
 **Información generada / artefactos**:
-- Drafts del SPA (versionados).
-- Acuerdos parciales (earn-out, ajustes, garantías).
+- Drafts SPA versionados.
+- Acuerdos parciales (earn-out, garantías).
 
 **Herramientas utilizadas**:
 - Editor colaborativo de SPA draft.
@@ -1095,7 +1211,7 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 - **Transaction Copilot** (L1 conversacional, L2 resúmenes).
 
 **Acciones automáticas**:
-- Versionado automático del SPA draft.
+- Versionado automático del draft.
 - Diff entre versiones.
 
 **Acciones con aprobación explícita del usuario**:
@@ -1108,30 +1224,31 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 **Permisos por rol**:
 - Buyer + Advisors Buyer: lectura/escritura representando.
 - Seller + Advisors Seller: lectura/escritura representando.
-- Equipo arroba: lectura (auditoría).
+- `arroba_team`: lectura (auditoría).
 
 **Trazabilidad**:
-- Evento `spa.draft_versioned` (con autor + diff).
-- Evento `spa.clause_agreed`.
-- Evento `negotiation.closed`.
+- `spa.draft_versioned`.
+- `spa.clause_agreed`.
+- `negotiation.closed`.
 
 **Transiciones permitidas**:
-- → Fase 13 (firma SPA).
+- → Fase 13 (`current_phase = spa`).
 - Pausa.
-- `Operation.CERRADA_SIN_OPERACIÓN` si negociación rota.
+- `Operation.CERRADA_SIN_ÉXITO` si negociación rota.
 
 **Riesgos / consideraciones**:
-- Conflictos de interés Advisor ↔ parte representada. El audit debe registrar quién propuso qué.
+- Conflictos de interés Advisor ↔ representado. Audit registra quién propuso qué.
 
 ---
 
 ### Fase 13 — Firma del SPA
 
-**Propósito**: ambas partes firman el SPA (Sale-Purchase Agreement) definitivo. Es el contrato vinculante final.
+**Capa**: Transaction.
+**Propósito**: firma del SPA definitivo. Contrato vinculante final.
 
-**Estado inicial requerido**: SPA draft consensuado.
-**Estado final**: SPA firmado por ambas partes; condiciones suspensivas activas.
-**Actores principales**: Buyer, Seller (firmantes), Advisors (testigos), Equipo arroba (validación crítica), capability firma electrónica con valor legal.
+**Estado inicial requerido**: `current_phase = spa`. SPA draft consensuado.
+**Estado final**: SPA firmado por ambas partes; condiciones suspensivas activas; transición a `current_phase = closing`.
+**Actores principales**: Buyer, Seller (firmantes), Advisors (testigos), `arroba_team` (validación crítica), capability firma electrónica con valor legal.
 
 **Información consumida**:
 - SPA draft consensuado.
@@ -1141,48 +1258,49 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 - **Documento `SPA`** (`Document.kind = "spa"`, `signed_by_ids = [seller, buyer]`).
 
 **Herramientas utilizadas**:
-- Capability firma electrónica con valor legal (notarial si aplica).
+- Capability firma electrónica con valor legal.
 
 **Motores de IA implicados**:
 - **Advisor Copilot** (L2 último review pre-firma).
-- **Transaction Copilot** (L3 ejecución asistida — coordinación de la firma).
+- **Transaction Copilot** (L3 ejecución asistida — coordinación).
 
 **Acciones automáticas**:
 - Verificación de doble firma.
-- Bloquear edición del documento firmado (inmutabilidad post-firma, `ENTITY_MODEL.md` §7.3).
+- Bloqueo de edición (inmutabilidad post-firma, `ENTITY_MODEL.md` §7.3).
 - Activar condiciones suspensivas declaradas.
 
 **Acciones con aprobación explícita del usuario**:
-- Cada firma (con consentimiento informado).
+- Cada firma (consentimiento informado).
 
 **Memoria utilizada**:
-- **Memoria de operación**: SPA firmado queda en lineage permanente.
+- **Memoria de operación**: SPA firmado en lineage permanente.
 
 **Permisos por rol**:
 - Buyer y Seller: firman.
 - Advisors: revisión final.
-- Equipo arroba: validación crítica opcional (sello de auditoría externa).
+- `arroba_team`: validación crítica opcional (sello de auditoría externa).
 
 **Trazabilidad**:
-- Evento `spa.signed_by_party`.
-- Evento **`spa.fully_signed`** (inmutable, crítico).
+- `spa.signed_by_party`.
+- **`spa.fully_signed`** ★ inmutable crítico.
 
 **Transiciones permitidas**:
-- → Fase 14 (Closing legal).
-- `Operation.CANCELADA` si no se cumplen condiciones suspensivas en plazo.
+- → Fase 14 (`current_phase = closing`).
+- `Operation.CANCELADA` si condiciones suspensivas no cumplidas en plazo.
 
 **Riesgos / consideraciones**:
-- Inmutabilidad post-firma estricta. Cualquier modificación posterior es addendum versionado, no edición.
+- Inmutabilidad post-firma estricta. Modificaciones posteriores son addenda versionados.
 
 ---
 
 ### Fase 14 — Closing legal
 
-**Propósito**: ejecución de las contraprestaciones del SPA: pago, transferencia de acciones/participaciones, formalización notarial, cumplimiento de condiciones suspensivas.
+**Capa**: Transaction.
+**Propósito**: ejecución de las contraprestaciones del SPA: pago, transferencia, formalización notarial, cumplimiento de suspensivas.
 
-**Estado inicial requerido**: SPA firmado, condiciones suspensivas cumpliéndose.
-**Estado final**: Closing declarado; cierre jurídico de la operación. **La `Operation` NO pasa a estado terminal aquí.**
-**Actores principales**: Buyer, Seller (ejecutores), Advisors, Notario / fedatario (Boundary), Banco (Boundary).
+**Estado inicial requerido**: `current_phase = closing`. SPA firmado.
+**Estado final**: Closing declarado. **La `Operation` NO pasa a estado terminal aquí.** Transición a `current_phase = integration`.
+**Actores principales**: Buyer, Seller, Advisors, Notario / fedatario (Boundary), Banco (Boundary).
 
 **Información consumida**:
 - SPA.
@@ -1190,21 +1308,21 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 - Confirmaciones bancarias / notariales.
 
 **Información generada / artefactos**:
-- **Documento `Closing memo`** (registro del cierre con todas las pruebas).
+- **Documento `Closing memo`** (registro del cierre con pruebas).
 - Confirmaciones de pago y transferencia.
 
 **Herramientas utilizadas**:
 - Capability boundary con notaría / fedatario.
-- Capability boundary con bancos (eventos de pago).
+- Capability boundary con bancos.
 - Tracker de condiciones suspensivas.
 
 **Motores de IA implicados**:
-- **Transaction Copilot** (L1 explicaciones al usuario sobre el cierre).
-- **Sistema** (verificación automática de hitos).
+- **Transaction Copilot** (L1 explicaciones, L4 verificación autorizada de hitos).
+- **Sistema** (verificación automática).
 
 **Acciones automáticas**:
 - Marcar cada condición suspensiva cumplida.
-- Disparar evento `monetization.closing_event` (ver `MONETIZATION_SPEC`).
+- Disparar `monetization.fee_due` (ver `MONETIZATION_SPEC`).
 
 **Acciones con aprobación explícita del usuario**:
 - Confirmación de pago recibido (Seller).
@@ -1217,49 +1335,50 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 **Permisos por rol**:
 - Buyer y Seller: ejecutan y confirman.
 - Advisors: asisten.
-- Equipo arroba: validación obligatoria (sello).
+- `arroba_team`: validación obligatoria (sello).
 
 **Trazabilidad**:
-- Evento `closing.condition_met` (por cada condición).
-- Evento **`closing.declared`** (inmutable, dispara billing y transición a fase 15).
-- Evento `monetization.fee_due` (ver `MONETIZATION_SPEC`).
+- `closing.condition_met`.
+- **`closing.declared`** ★ inmutable crítico.
+- `monetization.fee_due`.
 
 **Transiciones permitidas**:
-- → Fase 15 (Integración) — automática tras Closing declarado.
-- `Operation.CANCELADA` si una condición suspensiva no se cumple en plazo definitivo.
+- → Fase 15 (`current_phase = integration`).
+- `Operation.CANCELADA` si una suspensiva no se cumple en plazo definitivo.
 
 **Riesgos / consideraciones**:
-- Fee de cierre (Finder Fee / Success Fee) se devenga aquí (detalle en `MONETIZATION_SPEC.md`).
-- Ausencia del Closing no equivale a cancelación inmediata — hay margen de plazo.
+- Fee de cierre (Finder Fee / Success Fee) se devenga aquí (`MONETIZATION_SPEC.md`).
+- Ausencia del Closing en plazo ≠ cancelación inmediata.
 
 ---
 
 ### Fase 15 — Integración post-operación
 
-**Propósito**: ejecución del plan de integración post-deal acordado entre las partes (sistemas, equipos, gobernanza, sinergias). Su cierre marca el fin definitivo del ciclo de vida de la `Operation`.
+**Capa**: Transaction.
+**Propósito**: ejecución del plan de integración acordado. Su cierre marca el fin definitivo del ciclo de vida de la `Operation`.
 
-**Estado inicial requerido**: `Closing.declared`.
-**Estado final**: `Operation.CERRADA_CON_ÉXITO` cuando la integración se declara completada.
-**Actores principales**: Buyer (típicamente lidera), Seller (apoyo decreciente), Advisors (asisten), Transaction Copilot.
+**Estado inicial requerido**: `current_phase = integration` (Closing declarado).
+**Estado final**: `Operation.CERRADA_CON_ÉXITO`.
+**Actores principales**: Buyer (típicamente lidera), Seller (apoyo decreciente), Advisors, Transaction Copilot.
 
 **Información consumida**:
 - SPA (cláusulas de integración).
 - Plan de integración acordado.
 
 **Información generada / artefactos**:
-- **Documento `Integration plan`** (con hitos, owners, deadlines).
+- **Documento `Integration plan`** (hitos, owners, deadlines).
 - Reportes de progreso periódicos.
 
 **Herramientas utilizadas**:
 - Tracker de hitos.
-- Skill futuro: "Integración post-deal" (L2 — automatización de check-ins).
+- Skill futuro: "Integración post-deal" (L2 automatización de check-ins).
 
 **Motores de IA implicados**:
-- **Transaction Copilot** (L1 conversacional, L2 borradores de reportes, L4 recordatorios autorizados).
+- **Transaction Copilot** (L1, L2, L4 recordatorios autorizados).
 
 **Acciones automáticas**:
-- Recordatorios de hitos (L4, previa autorización del usuario).
-- Reportes periódicos de progreso.
+- Recordatorios de hitos (L4 previa autorización).
+- Reportes periódicos.
 
 **Acciones con aprobación explícita del usuario**:
 - Marcar hito cumplido.
@@ -1267,56 +1386,71 @@ Estados terminales de `Operation`: `CERRADA_CON_ÉXITO` · `CERRADA_SIN_OPERACI�
 
 **Memoria utilizada**:
 - **Memoria de operación**: cierre permanente.
-- **Memoria de empresa**: la operación queda en el lineage de la empresa target.
+- **Memoria de empresa**: la operación queda en lineage de la empresa target.
 
 **Permisos por rol**:
 - Buyer + Seller: ejecutores.
 - Advisors: asistencia.
-- Equipo arroba: lectura (auditoría).
+- `arroba_team`: lectura (auditoría).
 
 **Trazabilidad**:
-- Evento `integration.milestone_completed`.
-- Evento **`integration.completed`** (inmutable, dispara `Operation.CERRADA_CON_ÉXITO`).
-- Evento `operation.closed_with_success`.
+- `integration.milestone_completed`.
+- **`integration.completed`** ★ inmutable crítico.
+- `operation.closed_with_success`.
 
 **Transiciones permitidas**:
-- → `Operation.CERRADA_CON_ÉXITO` (terminal positivo).
+- → `Operation.CERRADA_CON_ÉXITO`.
 - Pausa.
-- `Operation.CERRADA_SIN_OPERACIÓN` si la integración aborta tras Closing (caso atípico, requiere intervención Equipo arroba).
+- `Operation.CERRADA_SIN_ÉXITO` si la integración aborta tras Closing (caso atípico; requiere intervención `arroba_team`).
 
 **Riesgos / consideraciones**:
-- Esta fase suele extenderse meses o años. El TOS debe permitir reducir intensidad de seguimiento progresivamente.
-- En caso de integración fallida post-Closing, la entidad `Operation` queda registrada como ejecutada legalmente (SPA firmado, Closing declarado) pero con integración no exitosa. Esa distinción es legalmente relevante.
+- Fase larga (meses/años). Reducir intensidad de seguimiento progresivamente.
+- Integración fallida post-Closing: la `Operation` queda registrada como ejecutada legalmente pero con integración no exitosa. Distinción legalmente relevante.
 
 ---
 
-## 6. Deal Workspace
+## 6. Deal Workspace y Match Workspace
 
-### 6.1 Naturaleza
+### 6.1 Match Workspace (Discovery Layer)
 
-El **Deal Workspace** es la **vista UX orquestadora** sobre una entidad transaccional activa (`Match` en fases 6-10 antes de la conversión, o `Operation` en fases 10-15). **No es entidad canónica nueva.** Respeta `ARROBA_PHILOSOPHY.md` §8 ("Workspace = memoria/persistencia/contexto; no es entidad").
+**Vista UX mínima** sobre la entidad `Match` en estado `SOLICITADO`. URL canónica **`/match/{id}`**. Discovery Layer.
 
-`[OPEN-A7]`: ¿la URL canónica es `/operacion/{id}` (Entity Framework §11.8 ya declarado) y el "Deal Workspace" es simplemente el nombre que damos a la composición de los 12 módulos del Entity Framework sobre Operation? Propuesta inicial del spec: **sí**, no se crea URL nueva. El "Deal Workspace" es **la ficha `/operacion/{id}`**. Cuando el contenedor activo es aún `Match` (fases 6-10 pre-LOI), la URL es `/match/{id}` (ruta nueva a declarar al cierre del Sprint 0).
+**Capacidades**:
+- Buyer: ver el estado de su Solicitud, el Teaser referenciado, contraargumentos opcionales.
+- Seller: revisar la cualificación del Buyer, aceptar, rechazar o dejar expirar.
+- Advisor representando: asistir a su parte.
+- `arroba_team`: lectura (auditoría).
 
-### 6.2 Acceso y vistas por actor
+**Ciclo de vida del Match Workspace**:
+- Se crea con `match.solicited`.
+- Cierra (modo solo-lectura) al transitar el Match a un estado terminal:
+  - `ACEPTADO` → la actividad migra al Deal Workspace (`/operacion/{id}`); `/match/{id}` queda como referencia histórica.
+  - `RECHAZADO` o `EXPIRADO` → `/match/{id}` queda como registro histórico.
+
+**Composición**: subconjunto mínimo de los módulos del Entity Framework (Header con anonimización parcial, Hero con la propuesta, Acciones).
+
+### 6.2 Deal Workspace (Transaction Layer)
+
+**Vista UX orquestadora** sobre una entidad `Operation`. URL canónica **`/operacion/{id}`**. Transaction Layer. **No es entidad canónica nueva.** Respeta `ARROBA_PHILOSOPHY.md` §8.
+
+### 6.3 Vistas por actor
 
 Cada actor ve un Deal Workspace **proyectado** según su rol y la fase actual:
 
 | Actor | Vista del Deal Workspace |
 |---|---|
-| **Buyer** | Foco en Teaser → IM → Q&A → DD findings → SPA negotiation. Acceso al Data Room (lectura). |
+| **Buyer** | Foco en IM → Q&A → DD findings → SPA negotiation. Acceso al Data Room (lectura). |
 | **Seller** | Foco en estado del proceso, contrapartes activas, documentos pendientes. Acceso al Data Room (escritura). |
-| **Advisor** | Vista de su lado representado (Buyer o Seller); más herramientas de copilot. |
-| **Equipo arroba** | Vista completa con audit visible. Sin capacidad de firmar en nombre. |
+| **Advisor** | Vista del lado representado; más herramientas de copilot. |
+| **`arroba_team`** | Vista completa con audit visible. **No** firma. |
 | **Sistema** | No-vista; ejecuta jobs. |
 
-### 6.3 Composición por fase
+### 6.4 Composición por fase
 
 El Deal Workspace **reutiliza los 12 módulos del Entity Framework** (`ENTITY_FRAMEWORK.md` §11.8 para Operation). Activos por fase:
 
 | Fase | Módulos clave activos |
 |---|---|
-| 6 Teaser | Header (anonimizado) · Hero (resumen) · Documentación (Teaser único) · Acciones ("Solicitar avance al NDA") |
 | 7 NDA | Header · Documentación (NDA pendiente) · Acciones ("Firmar") · Actividad |
 | 8 IM | Header · Documentación (IM disponible) · Análisis · Acciones |
 | 9 Q&A | Header · Actividad (Q&A timeline) · Acciones |
@@ -1327,40 +1461,42 @@ El Deal Workspace **reutiliza los 12 módulos del Entity Framework** (`ENTITY_FR
 | 14 Closing | Header · KPIs (condiciones suspensivas) · Actividad · Acciones |
 | 15 Integración | Header · KPIs (hitos) · Actividad (progreso) · Acciones |
 
-### 6.4 Conexión con Memory Engine y Copilots
+### 6.5 Conexión con Memory Engine y Copilots
 
 El Deal Workspace **lee y escribe** en:
 
-- **Memoria de match** (fases 6-10 pre-LOI).
-- **Memoria de operación** (post-LOI hasta cierre).
-- **Memoria compartida entre copilots** (cuando intervienen Company / Market / Valuation / Advisor copilots — ver `COPILOTS_SPEC.md`).
+- **Memoria de operación** (post-Match aceptado hasta cierre).
+- **Memoria de match** (referencia histórica, solo lectura).
+- **Memoria compartida entre copilots** (ver `COPILOTS_SPEC.md`).
 
-El Deal Workspace **no almacena estado propio**: es **proyección** de la entidad subyacente.
+El Deal Workspace **no almacena estado propio**: es **proyección** de la `Operation` subyacente.
 
 ---
 
 ## 7. Catálogo canónico de artefactos
 
-| # | Artefacto | Document.kind | Fase que lo produce | Fase(s) consumidoras | Inmutable post-firma |
-|---|---|---|---|---|---|
-| 1 | Memoria mercantil | `mercantile_memory` | Fase 1 (fuente externa) | 1, 2, 6, 8 | No (snapshot por descarga) |
-| 2 | Valuation report | (anexo) | 2 | 5, 10, 12 | No (versionable) |
-| 3 | Teaser | `teaser` | 6 | 6, 7 | Sí, cuando se libera |
-| 4 | NDA | `nda` | 7 | 7-15 | **Sí** (post-firma) |
-| 5 | Information Memorandum (IM) | `im` | 8 | 8-13 | Sí, cuando se libera |
-| 6 | Q&A log | (estructurado, no doc) | 9 + 11 | 9-15 (referencias) | Inmutable al cerrarse |
-| 7 | IOI (opcional) | `ioi` | 10 (sub-estado) | 10 | Sí, cuando se emite |
-| 8 | LOI / NBO | `loi` | 10 | 10-15 | **Sí** (post-firma) |
-| 9 | DD report | `dd_report` | 11 | 11-15 | Sí, cuando se emite |
-| 10 | SPA | `spa` | 12 (drafts) → 13 (firma) | 13-15 | **Sí** (post-firma) |
-| 11 | Closing memo | (canónico nuevo) | 14 | 14-15 | Sí |
-| 12 | Integration plan | (canónico nuevo) | 15 | 15 | No (versionable) |
-| 13 | Match certificate | (canónico nuevo) | Fin de fase 5 | 6-15 | Sí (inmutable desde su creación) |
-| 14 | Mandate | (referencia a entidad) | Pre-fase 3 (opcional) | 3-15 | Inmutable post-firma cliente↔advisor |
-| 15 | Audit log entries | (eventos) | Todas las fases | Auditoría | **Sí siempre** |
+| # | Artefacto | Document.kind | Capa | Fase que lo produce | Fase(s) consumidoras | Inmutable post-firma |
+|---|---|---|---|---|---|---|
+| 1 | Memoria mercantil | `mercantile_memory` | Discovery | 1 (fuente externa) | 1, 2, 6, 8 | No (snapshot) |
+| 2 | Valuation report | (anexo `valuation`) | Discovery | 2 | 5, 10, 12 | No (versionable) |
+| 3 | Card resumida (Marketplace) | (vista, no documento) | Discovery | 5 | 6 | n/a |
+| 4 | **Teaser anonimizado público** | `teaser` | **Discovery** | 6 | 6 (consumido por buyers cualificados sin Match) | Sí, cuando se libera |
+| 5 | NDA | `nda` | Transaction | 7 | 7-15 | **Sí** (post-firma) |
+| 6 | Information Memorandum (IM) | `im` | Transaction | 8 | 8-13 | Sí, cuando se libera |
+| 7 | Q&A log | (estructurado) | Transaction | 9 + 11 | 9-15 | Inmutable al cerrarse |
+| 8 | IOI (opcional) | `ioi` | Transaction | 10 (sub-estado) | 10 | Sí, cuando se emite |
+| 9 | LOI / NBO | `loi` | Transaction | 10 | 10-15 | **Sí** (post-firma) |
+| 10 | DD report | `dd_report` | Transaction | 11 | 11-15 | Sí, cuando se emite |
+| 11 | SPA | `spa` | Transaction | 12 (drafts) → 13 (firma) | 13-15 | **Sí** (post-firma) |
+| 12 | Closing memo | `closing_memo` *(canónico nuevo)* | Transaction | 14 | 14-15 | Sí |
+| 13 | Integration plan | `integration_plan` *(canónico nuevo)* | Transaction | 15 | 15 | No (versionable) |
+| 14 | Match certificate | `match_certificate` *(canónico nuevo)* | Frontera | Sub-acción "Solicitud de Match" (al aceptarse) | Lineage permanente de la Operation | Sí (inmutable desde su creación) |
+| 15 | Mandate | (referencia a entidad) | Pre-fase 3 (opcional) | 3-15 | Inmutable post-firma cliente↔advisor |
+| 16 | Audit log entries | (eventos) | Ambas | Todas las fases | Auditoría | **Sí siempre** |
 
 **Notas**:
-- Los `Document.kind` con asterisco (Closing memo, Integration plan, Match certificate) son **kinds canónicos nuevos** a añadir al enum de `ENTITY_MODEL.md` §5.9 al cierre del Sprint 0.
+- Los `Document.kind` marcados como *canónico nuevo* (Closing memo, Integration plan, Match certificate) se añaden al enum de `ENTITY_MODEL.md` §5.9 al cierre del Sprint 0.
+- "Teaser" del Discovery Layer **NO es** equivalente al "Teaser" entendido como artefacto post-NDA en otros modelos M&A. Es **anonimizado** y **visible a buyers cualificados sin Match**.
 - "Inmutable post-firma" sigue `ENTITY_MODEL.md` §7.3.
 
 ---
@@ -1371,40 +1507,59 @@ El Deal Workspace **no almacena estado propio**: es **proyección** de la entida
 
 Notación: `R` lectura · `W` escritura · `S` firma · `─` sin acceso.
 
-| Artefacto | Pre-Match (público) | Match.PROPUESTO | Match.ACTIVO (T6) | Post-NDA (T7+) | Post-LOI (Operation T10+) | Post-SPA (T13+) | Post-Closing | Post-Integración |
-|---|---|---|---|---|---|---|---|---|
-| Ficha pública Empresa | `R` (todos) | `R` | `R` | `R` | `R` | `R` | `R` | `R` |
-| Datos completos Empresa | `─` | `─` Buyer · `R` Seller | `R` Buyer · `R` Seller | `R` ambos | `R` ambos | `R` ambos | `R` ambos | `R` ambos |
-| Teaser | `─` | `─` | `R` Buyer · `RW` Seller | `R` | `R` | `R` | `R` | `R` |
-| NDA | `─` | `─` | `─` | `RS` ambos | `R` (firmado) | `R` | `R` | `R` |
-| IM | `─` | `─` | `─` | `R` Buyer · `RW` Seller | `R` ambos | `R` | `R` | `R` |
-| Q&A log | `─` | `─` | `─` | `RW` ambos | `RW` ambos | `R` (cerrado) | `R` | `R` |
-| IOI | `─` | `─` | `─` | `─` | `R` ambos | `R` | `R` | `R` |
-| LOI | `─` | `─` | `─` | `─` | `RWS` ambos | `R` (firmada) | `R` | `R` |
-| Data Room | `─` | `─` | `─` | `─` | `R` Buyer · `RW` Seller | `R` ambos | `R` ambos | `R` ambos |
-| DD report | `─` | `─` | `─` | `─` | `─` | `RW` (en fase 11) | `R` | `R` |
-| SPA (draft) | `─` | `─` | `─` | `─` | `─` | `RW` ambos (T12) | `R` (firmado) | `R` |
-| SPA (firmado) | `─` | `─` | `─` | `─` | `─` | `─` | `R` | `R` |
-| Closing memo | `─` | `─` | `─` | `─` | `─` | `─` | `R` | `R` |
-| Integration plan | `─` | `─` | `─` | `─` | `─` | `─` | `─` | `RW` ambos |
-| Audit log (sus propias acciones) | `R` | `R` | `R` | `R` | `R` | `R` | `R` | `R` |
-| Audit log (completo del Match/Operation) | `─` | `─` | `─` | `─` | `─` | `─` | `R` parte | `R` parte |
+| Artefacto | Anónimo internet | Buyer cualificado Marketplace (sin Match) | Match.SOLICITADO | Match.ACEPTADO ⇒ Operation T7+ | Post-NDA (T8+) | Post-LOI (T11+) | Post-SPA (T13+) | Post-Closing | Post-Integración |
+|---|---|---|---|---|---|---|---|---|---|
+| Ficha pública Empresa | `R` | `R` | `R` | `R` | `R` | `R` | `R` | `R` | `R` |
+| Datos completos Empresa | `─` | `─` | `─` Buyer · `R` Seller | `R` Buyer · `R` Seller | `R` ambos | `R` ambos | `R` ambos | `R` ambos | `R` ambos |
+| Card resumida Marketplace | `─` | `R` | `R` | n/a | n/a | n/a | n/a | n/a | n/a |
+| **Teaser anonimizado público** | `─` | **`R`** (cualquier buyer cualificado) | `R` | `R` Buyer del Match | `R` | `R` | `R` | `R` | `R` |
+| Cualificación del Buyer | `─` | (sus propios datos) | `R` Seller | `R` Seller, ambos advisors | `R` | `R` | `R` | `R` | `R` |
+| Match metadatos | `─` | `─` | `RW` Buyer · `RW` Seller | `R` (histórico) | `R` | `R` | `R` | `R` | `R` |
+| NDA | `─` | `─` | `─` | `RS` ambos (T7) | `R` (firmado) | `R` | `R` | `R` | `R` |
+| IM | `─` | `─` | `─` | `─` (T7) | `R` Buyer · `RW` Seller | `R` ambos | `R` | `R` | `R` |
+| Q&A log | `─` | `─` | `─` | `─` | `RW` ambos (T9) | `R` (cerrado) | `R` | `R` | `R` |
+| IOI | `─` | `─` | `─` | `─` | `─` | `R` ambos (T10) | `R` | `R` | `R` |
+| LOI | `─` | `─` | `─` | `─` | `─` | `RWS` ambos | `R` (firmada) | `R` | `R` |
+| Data Room | `─` | `─` | `─` | `─` | `─` | `R` Buyer · `RW` Seller (T11) | `R` ambos | `R` ambos | `R` ambos |
+| DD report | `─` | `─` | `─` | `─` | `─` | `─` | `RW` (T11) → `R` | `R` | `R` |
+| SPA (draft) | `─` | `─` | `─` | `─` | `─` | `─` | `RW` ambos (T12) | `R` (firmado) | `R` |
+| SPA (firmado) | `─` | `─` | `─` | `─` | `─` | `─` | `─` | `R` | `R` |
+| Closing memo | `─` | `─` | `─` | `─` | `─` | `─` | `─` | `R` | `R` |
+| Integration plan | `─` | `─` | `─` | `─` | `─` | `─` | `─` | `─` | `RW` ambos |
+| Audit log (sus propias acciones) | `R` (sólo evento `company.viewed` propio) | `R` propio | `R` propio | `R` propio | `R` propio | `R` propio | `R` propio | `R` propio | `R` propio |
+| Audit log (completo del Match/Operation) | `─` | `─` | `─` (parte) | `─` (sólo eventos sobre uno mismo) | `─` (parte) | `─` (parte) | `─` (parte) | `R` parte | `R` parte |
 
-### 8.2 Reglas de gating canónicas
+### 8.2 Permisos del rol `arroba_team`
 
-- **Identidad Empresa target** queda anonimizada en Teaser; se revela tras NDA firmado.
+`arroba_team` es **rol específico nuevo, sin herencia de `admin`**. Sus capacidades son **acotadas**:
+
+| Acción | `arroba_team` | `admin` |
+|---|---|---|
+| Lectura de cualquier audit log | ✓ (con marca `arroba_team.accessed`) | ✓ |
+| Lectura de artefactos pre-firma | 🔒 sólo en mediación de disputa | ✓ |
+| Lectura de artefactos post-Closing | ✓ | ✓ |
+| Firma de NDA/LOI/SPA en nombre de partes | ✗ | ✗ |
+| Validación crítica (sello) en NDA / SPA / Closing | ✓ (opcional) | ✓ |
+| Congelar `Match` o `Operation` temporalmente | ✓ | ✓ |
+| Archivar `Match` / `Operation` (terminal) | ✗ | ✓ |
+| Cancelación administrativa | 🔒 con aprobación de `admin` | ✓ |
+| Acceso a memoria global de copilots para mediación | ✓ (auditado) | ✓ |
+
+### 8.3 Reglas de gating canónicas
+
+- **Card resumida** y **Teaser anonimizado** del Discovery Layer son visibles a **buyers cualificados** del Marketplace; NO a usuarios anónimos en internet abierto; NO requieren Match.
+- **Identidad de la Empresa target** se revela **al aceptarse el Match** (transición a Transaction Layer). El NDA refuerza la confidencialidad legal.
 - **IM** no visible hasta NDA firmado (`nda.fully_signed`).
-- **Data Room** no visible hasta LOI firmada (`loi.fully_signed`) ⇒ `Operation` activa.
+- **Q&A log** no escribible hasta IM consumido.
+- **Data Room** no visible hasta LOI firmada (`loi.fully_signed`).
 - **SPA draft** no editable hasta DD report emitido.
 - **Closing memo** no accesible hasta `closing.declared`.
 - **Integration plan** se materializa post-Closing.
 
-### 8.3 Excepciones controladas
+### 8.4 Excepciones controladas
 
-- **Equipo arroba** puede consultar artefactos pre-firma para mediación de disputas, con audit visible a las partes (`audit.team_arroba_accessed`).
-- **Admin** puede acceder a cualquier artefacto **post-Closing** para auditoría regulatoria; cualquier acceso queda en audit.
-
-`[OPEN-A10]` Teaser anónimo: ¿permitir vista pública del Teaser anonimizado? Propuesta canónica de este spec: **NO**. Pre-Match no hay Teaser; la superficie pública sólo expone la ficha parcial estándar.
+- **`arroba_team`** puede consultar artefactos pre-firma para mediación de disputas, con audit visible a las partes (`audit.arroba_team_accessed`).
+- **`admin`** puede acceder a cualquier artefacto **post-Closing** para auditoría regulatoria; cualquier acceso queda en audit.
 
 ---
 
@@ -1414,7 +1569,7 @@ Notación: `R` lectura · `W` escritura · `S` firma · `─` sin acceso.
 
 Lista exhaustiva (extensible solo por nueva versión del spec):
 
-**Pre-Match**:
+**Discovery Layer**:
 - `company.viewed`
 - `company.analysis_refreshed`
 - `valuation.created`
@@ -1422,25 +1577,25 @@ Lista exhaustiva (extensible solo por nueva versión del spec):
 - `opportunity.published`
 - `opportunity.candidate_added` / `_excluded` / `_priority_changed`
 - `recommendation.generated`
-- `recommendation.accepted_by_party`
+- `marketplace.listing_published`
+- `teaser.released_to_marketplace`
+- `teaser.accessed_by_buyer`
 
-**Match**:
-- **`match.created`** ★ inmutable crítico
-- `match.entered_active`
-- `match.entered_evolution`
-- `match.paused` / `match.resumed`
-- `match.abandoned`
-- **`match.converted_to_operation`** ★ inmutable crítico
+**Frontera (Match)**:
+- **`match.solicited`** ★ inmutable crítico
+- **`match.accepted`** ★ inmutable crítico (dispara `operation.created`)
+- `match.rejected` ★ (terminal sin Operation)
+- `match.expired` ★ (terminal sin Operation)
 
-**Fases TOS post-Match**:
-- `teaser.released` / `teaser.accessed_by_buyer`
+**Transaction Layer**:
+- `operation.created`
+- `nda.template_loaded` / `nda.signed_by_party`
 - **`nda.fully_signed`** ★ inmutable crítico
 - `im.released` / `im.accessed_by_buyer`
 - `qa.question_posted` / `qa.answer_posted` / `qa.log_closed`
 - `ioi.presented`
 - `loi.presented` / `loi.negotiated` / `loi.rejected`
-- **`loi.fully_signed`** ★ inmutable crítico (dispara nacimiento de Operation)
-- `operation.created`
+- **`loi.fully_signed`** ★ inmutable crítico
 - `dataroom.opened` / `dataroom.document_uploaded` / `dataroom.document_accessed`
 - `dd.report_emitted`
 - `spa.draft_versioned` / `spa.clause_agreed`
@@ -1453,7 +1608,7 @@ Lista exhaustiva (extensible solo por nueva versión del spec):
 - **`integration.completed`** ★ inmutable crítico
 - `operation.closed_with_success`
 - `operation.closed_without_success`
-- `operation.cancelled` (genérico)
+- `operation.cancelled`
 - `operation.paused` / `operation.resumed`
 
 **Gobierno**:
@@ -1464,16 +1619,16 @@ Lista exhaustiva (extensible solo por nueva versión del spec):
 
 Los eventos marcados con ★ son **inmutables y críticos**. Una vez emitidos no pueden modificarse ni eliminarse. Cualquier rectificación se hace con un evento adicional explícito que cite el evento original.
 
-Resto de eventos: inmutables por defecto. Cualquier necesidad de "rectificación" genera un nuevo evento de tipo `audit.correction` con referencia al `event_id` corregido.
+Resto de eventos: inmutables por defecto. Rectificaciones generan `audit.correction` con referencia al `event_id` corregido.
 
 ### 9.3 Acceso al audit log
 
 | Quién | Qué ve |
 |---|---|
-| Cada parte | Sus propias acciones + acciones que la afectan (NDA firmado por contraparte, LOI presentada hacia ella, etc.) |
+| Cada parte | Sus propias acciones + acciones que la afectan (solicitud de match recibida, NDA firmado por contraparte, LOI presentada, etc.) |
 | Advisor representando | Lo mismo que su parte representada |
-| Equipo arroba | Vista parcial relevante para mediación (cuando hay incidencia) |
-| Admin | Acceso total (con `admin.audit_accessed` registrado) |
+| `arroba_team` | Vista parcial relevante para mediación (cuando hay incidencia), con marca de acceso |
+| `admin` | Acceso total (con `admin.audit_accessed` registrado) |
 
 ### 9.4 Retención
 
@@ -1485,34 +1640,36 @@ Audit log se conserva **mínimo 10 años** post-cierre de la Operation (complian
 
 ### 10.1 Inicio de operación
 
-Quién puede iniciar el ciclo TOS (es decir, crear una `Opportunity` o aceptar una Recomendación que genere un Match):
+Quién puede iniciar el ciclo TOS:
 
-- **Subscriber/Corporate/Investor**: con plan activo que habilite (ver `MONETIZATION_SPEC`).
+- **Subscriber/Corporate/Investor**: con plan activo (ver `MONETIZATION_SPEC`).
 - **Advisor**: con `Mandate` válido.
-- **Equipo arroba / Admin**: no inician operaciones (sólo intervienen para soporte/moderación).
+- **`arroba_team` / `admin`**: no inician operaciones (sólo intervienen para soporte/moderación).
 
 ### 10.2 Aborto y cancelación
 
 - **Cancelar `Opportunity`** (pre-Match): unilateral, sin consecuencias.
-- **Abandonar `Match`** (pre-LOI): unilateral, queda en audit; la contraparte se notifica.
-- **Cancelar `Operation` post-LOI**: con consecuencias contractuales declaradas en LOI/NBO (breakage fee, exclusividad rota). El sistema persiste el estado `CERRADA_SIN_OPERACIÓN` con motivo.
-- **Cancelación administrativa** (`Equipo arroba` / `Admin`): por incumplimiento de términos plataforma, fraude detectado, requerimiento legal. Audit y notificación obligatorios.
+- **Abandonar `Match`** (pre-aceptación): el Buyer puede retirar la Solicitud antes de la respuesta del Seller; el Seller puede `RECHAZAR` o dejar `EXPIRAR`.
+- **Cancelar `Operation` pre-LOI**: unilateral, consecuencias menores (audit + reputación).
+- **Cancelar `Operation` post-LOI**: con consecuencias contractuales declaradas en LOI/NBO (breakage fee, exclusividad rota). El sistema persiste `CERRADA_SIN_ÉXITO` con motivo.
+- **Cancelación administrativa** (`arroba_team` con aprobación `admin` / `admin`): por incumplimiento, fraude detectado, requerimiento legal. Audit y notificación obligatorios.
 
 ### 10.3 Pausa
 
 - Cualquier parte puede solicitar pausa.
 - La pausa **conserva** estado, artefactos, accesos.
-- Reanudar requiere acción de **ambas** partes (excepto pausa unilateral en fases pre-NDA).
-- Pausa indefinida (> 12 meses): auto-cancelación con notificación previa. `[OPEN-A8]` confirmar plazo.
+- Reanudar requiere acción de **ambas** partes.
+- **`[OPEN-A8]` Política de caducidad configurable.** Pendiente de decidir en spec dedicado o configuración dinámica. No se fija aquí ningún plazo absoluto.
 
 ### 10.4 Abandono unilateral
 
-- **Pre-NDA**: libre. Audit registra.
-- **Post-NDA**: la parte que abandona queda registrada; consecuencias reputacionales (ver bloque `j` del inventario).
-- **Post-LOI**: implicaciones legales según LOI/NBO firmada.
+- **Pre-Match**: libre. Audit registra.
+- **Post-Match / pre-NDA**: la parte que abandona queda registrada; consecuencias reputacionales (ver bloque `j` del inventario).
+- **Post-NDA / pre-LOI**: implicaciones contractuales del NDA.
+- **Post-LOI**: implicaciones legales según LOI/NBO.
 - **Post-SPA**: implicaciones legales según SPA (típicamente penalizaciones severas).
 
-### 10.5 Intervención Equipo arroba
+### 10.5 Intervención `arroba_team`
 
 Se activa por:
 
@@ -1520,7 +1677,7 @@ Se activa por:
 - Detección automática de incidencia (red flag por el motor).
 - Petición legal / regulatoria.
 
-Capacidades de Equipo arroba: lectura, anotaciones, congelar entidad temporalmente, escalar a Admin. **No firma en nombre.**
+Capacidades: lectura, anotaciones, congelar entidad temporalmente, escalar a `admin`. **No firma en nombre.** **No archiva.** **No cancela administrativamente sin aprobación de `admin`.**
 
 ### 10.6 Intervención Advisor
 
@@ -1536,9 +1693,10 @@ Transiciones reversibles (con condiciones):
 |---|---|---|
 | Cualquier estado activo → EN_PAUSA → mismo estado | ✓ | ambas partes acuerdan reanudar |
 | LOI_PRESENTADA → LOI_NEGOCIADA → LOI_PRESENTADA | ✓ | negociación iterativa |
+| Match.SOLICITADO → eliminado | ✗ | una vez creado el Match, su estado terminal queda en audit |
 | NDA firmado → "olvidar" NDA | ✗ | información ya revelada, irreversible |
-| LOI firmada → "deshacer" LOI | ✗ | salir solo vía LOI_RECHAZADA → Match.ABANDONADO o cancelación |
-| SPA firmado → "deshacer" SPA | ✗ | solo vía addendum versionado |
+| LOI firmada → "deshacer" LOI | ✗ | salir solo vía cancelación con consecuencias |
+| SPA firmado → "deshacer" SPA | ✗ | sólo vía addendum versionado |
 | Closing declarado → reabrir | ✗ | irreversible salvo orden judicial |
 
 ---
@@ -1547,80 +1705,84 @@ Transiciones reversibles (con condiciones):
 
 ### 11.1 Conexión con `TRANSACTION_COPILOT_SPEC` (0.2)
 
-El TRANSACTION_COPILOT_SPEC definirá el comportamiento del **Transaction Copilot** como orquestador conversacional general dentro del TOS. Este spec le entrega:
+El TRANSACTION_COPILOT_SPEC definirá el Transaction Copilot como orquestador conversacional general del TOS. Este spec le entrega:
 
-- El catálogo de fases (§5) que debe conocer.
+- El catálogo de fases (§5) y la división Discovery/Transaction.
 - La máquina de estados (§4) que debe respetar.
 - Los artefactos (§7) que puede ayudar a producir.
 - Los eventos canónicos (§9) que debe emitir cuando dispare acciones.
 
 ### 11.2 Conexión con `COPILOTS_SPEC` (0.3)
 
-El COPILOTS_SPEC definirá los **5 copilots especializados**: Company / Market / Valuation / Transaction / Advisor. Este spec declara, por fase, cuáles intervienen:
+Por fase, los copilots especializados invocados:
 
-| Fase | Copilots invocados |
-|---|---|
-| 1 Análisis | Company |
-| 2 Valoración | Valuation, Company |
-| 3 Identificación | Market, Opportunity (sub-variante de Market) |
-| 4 Screening | Market, Opportunity |
-| 5 Matching | Market, Opportunity |
-| 6 Teaser | Transaction, Company |
-| 7 NDA | Transaction, Advisor |
-| 8 IM | Transaction, Company |
-| 9 Q&A | Transaction, Advisor |
-| 10 LOI | Transaction, Advisor, Valuation |
-| 11 DD | Transaction, Advisor, Company |
-| 12 Negociación | Advisor (central), Transaction |
-| 13 SPA | Advisor, Transaction |
-| 14 Closing | Transaction |
-| 15 Integración | Transaction |
+| Fase | Capa | Copilots invocados |
+|---|---|---|
+| 1 Análisis | Discovery | Company |
+| 2 Valoración | Discovery | Valuation, Company |
+| 3 Identificación | Discovery | Market, Opportunity (variante Market) |
+| 4 Screening | Discovery | Market, Opportunity |
+| 5 Matching | Discovery | Market, Opportunity |
+| 6 Teaser | Discovery | Transaction, Company |
+| Sub-acción Solicitud de Match | Frontera | Transaction |
+| 7 NDA | Transaction | Transaction, Advisor |
+| 8 IM | Transaction | Transaction, Company |
+| 9 Q&A | Transaction | Transaction, Advisor |
+| 10 LOI | Transaction | Transaction, Advisor, Valuation |
+| 11 DD | Transaction | Transaction, Advisor, Company |
+| 12 Negociación | Transaction | Advisor (central), Transaction |
+| 13 SPA | Transaction | Advisor, Transaction |
+| 14 Closing | Transaction | Transaction |
+| 15 Integración | Transaction | Transaction |
 
 ### 11.3 Conexión con `MEMORY_ENGINE_SPEC` (0.4)
 
-Tipos de memoria que el MEMORY_ENGINE_SPEC debe definir y este spec referencia:
+Tipos de memoria referenciados:
 
 - **Memoria de empresa** (fases 1, 2, 6, 8, 11; lineage permanente).
-- **Memoria de valoración** (fase 2; vinculada a empresa).
+- **Memoria de valoración** (fase 2).
 - **Memoria de oportunidad** (fases 3-5).
-- **Memoria de match** (fases 5-10 pre-LOI).
-- **Memoria de operación** (fases 10-15).
-- **Memoria de usuario** (transversal a todas las fases para personalización).
-- **Memoria de advisor** (asociada al rol; histórico transversal).
+- **Memoria de match** (sub-acción + fases que aún viven como Match; pasa a referencia tras conversión).
+- **Memoria de operación** (fases 7-15).
+- **Memoria de usuario** (transversal).
+- **Memoria de advisor** (transversal).
 - **Memoria compartida entre copilots** (capa de contexto cruzado).
 - **Audit log** (persistencia inmutable, retención 10 años).
 
 ### 11.4 Conexión con `AGENTIC_LAYERS_SPEC` (0.5)
 
-Por fase, los niveles agénticos permitidos (referencia, detalle en AGENTIC_LAYERS_SPEC):
+Niveles agénticos permitidos por fase:
 
-| Fase | L1 | L2 | L3 | L4 |
-|---|---|---|---|---|
-| 1 Análisis | ✓ | ✓ | — | — |
-| 2 Valoración | ✓ | ✓ | — | — |
-| 3 Identificación | ✓ | ✓ | — | — |
-| 4 Screening | ✓ | ✓ | ✓ | — |
-| 5 Matching | ✓ | ✓ | ✓ | — |
-| 6 Teaser | ✓ | ✓ | — | — |
-| 7 NDA | ✓ | ✓ | ✓ | — |
-| 8 IM | ✓ | ✓ | — | — |
-| 9 Q&A | ✓ | ✓ | ✓ | — |
-| 10 LOI | ✓ | ✓ | ✓ | — |
-| 11 DD | ✓ | ✓ | ✓ | ✓ (notificaciones) |
-| 12 Negociación | ✓ | ✓ | ✓ | — |
-| 13 SPA | ✓ | ✓ | ✓ | — |
-| 14 Closing | ✓ | ✓ | — | ✓ (verificación condiciones suspensivas) |
-| 15 Integración | ✓ | ✓ | ✓ | ✓ (recordatorios hitos) |
+| Fase | Capa | L1 | L2 | L3 | L4 |
+|---|---|---|---|---|---|
+| 1 Análisis | Discovery | ✓ | ✓ | — | — |
+| 2 Valoración | Discovery | ✓ | ✓ | — | — |
+| 3 Identificación | Discovery | ✓ | ✓ | — | — |
+| 4 Screening | Discovery | ✓ | ✓ | ✓ | — |
+| 5 Matching | Discovery | ✓ | ✓ | ✓ | — |
+| 6 Teaser | Discovery | ✓ | ✓ | — | — |
+| Sub-acción Solicitud de Match | Frontera | ✓ | ✓ | ✓ | — |
+| 7 NDA | Transaction | ✓ | ✓ | ✓ | — |
+| 8 IM | Transaction | ✓ | ✓ | — | — |
+| 9 Q&A | Transaction | ✓ | ✓ | ✓ | — |
+| 10 LOI | Transaction | ✓ | ✓ | ✓ | — |
+| 11 DD | Transaction | ✓ | ✓ | ✓ | ✓ (notificaciones) |
+| 12 Negociación | Transaction | ✓ | ✓ | ✓ | — |
+| 13 SPA | Transaction | ✓ | ✓ | ✓ | — |
+| 14 Closing | Transaction | ✓ | ✓ | — | ✓ (verificación condiciones) |
+| 15 Integración | Transaction | ✓ | ✓ | ✓ | ✓ (recordatorios) |
 
-Convención: ✓ permitido por política · — no aplicable o explícitamente prohibido en esta fase. Detalle del **scope de L4** en cada fase: `AGENTIC_LAYERS_SPEC.md`.
+Detalle de scope de L4 por fase: `AGENTIC_LAYERS_SPEC.md`.
 
 ### 11.5 Conexión con `MONETIZATION_SPEC` (0.6)
 
-Eventos del TOS que generan eventos económicos (detalle de pricing, splits, taxes en MONETIZATION_SPEC):
+Eventos del TOS que disparan eventos económicos (detalle de pricing en MONETIZATION_SPEC):
 
 | Evento canónico | Tipo de cobro | Quién paga | Quién recibe |
 |---|---|---|---|
-| `match.created` | (Opcional) Match fee | Buyer y/o Seller | Plataforma |
+| `marketplace.listing_published` | (Opcional) Listing fee | Seller | Plataforma |
+| `match.solicited` | (Opcional) Solicitation fee | Buyer | Plataforma |
+| `match.accepted` ⇒ `operation.created` | (Opcional) Match fee | Buyer y/o Seller | Plataforma |
 | `nda.fully_signed` | (Opcional) Access fee al IM | Buyer | Plataforma |
 | `loi.fully_signed` | (Opcional) Engagement fee | Buyer | Plataforma |
 | **`closing.declared`** | **Success Fee / Finder Fee** | Seller (típicamente) o ambos | Plataforma + Advisors (revenue share) |
@@ -1632,9 +1794,8 @@ Eventos del TOS que generan eventos económicos (detalle de pricing, splits, tax
 - `CIS_SPEC.md` (P0): condiciones generales plataforma, aceptación por organización.
 - `DATAROOM_SPEC.md` (P1): permisos, watermarks, índices.
 - `LOI_SPEC.md` (P1): plantilla LOI, comparator multi-bidder.
-- `MARKETPLACE_SPEC.md` (P1): motor de matching, scoring.
-
-Estos specs **no son** parte del Sprint 0 — son lagunas P0/P1 declaradas en `_INVENTORY_2026.md` §7.
+- `MARKETPLACE_SPEC.md` (P1): motor de matching, scoring, anti-spam.
+- `BUYER_QUAL_SPEC.md` (P1): cualificación del Buyer pre-Marketplace.
 
 ---
 
@@ -1642,23 +1803,25 @@ Estos specs **no son** parte del Sprint 0 — son lagunas P0/P1 declaradas en `_
 
 ### 12.1 Versión del TOS
 
-Este documento es **`v1.0.0`**. Cambios futuros:
+Este documento es **`v1.1.0`** (sucede a `v1.0.0` con las 7 correcciones canónicas del usuario).
 
-- **v1.0.x (patch)**: clarificaciones, correcciones tipográficas, ajustes en redacción sin cambio funcional.
+Cambios futuros:
+
+- **v1.1.x (patch)**: clarificaciones, correcciones tipográficas, ajustes en redacción sin cambio funcional.
 - **v1.x.0 (menor)**: ajuste interno a una fase existente (más detalle, refinamiento de permisos, nuevo evento de audit). No cambia el contrato externo.
 - **v2.0.0 (mayor)**: cambio en el conjunto de fases (añadir/eliminar/reordenar), cambio en la máquina de estados global, cambio en la cadena `Opportunity → Match → Operation`. Requiere migración explícita de operaciones en curso.
 
 ### 12.2 Operaciones en curso al cambiar de versión
 
 - Cambios **patch** y **menor**: las operaciones en curso continúan con el spec activo en su creación; los cambios se aplican automáticamente.
-- Cambios **mayor (v2.0)**: las operaciones en curso **se completan con su spec original** salvo que el usuario solicite migración explícita y la migración esté formalizada en un `migration_plan` del documento.
+- Cambios **mayor (v2.0)**: las operaciones en curso **se completan con su spec original** salvo migración explícita formalizada en `migration_plan`.
 
 ### 12.3 Política de deprecaciones
 
-Una fase del flujo no puede eliminarse "en silencio". Si se decide eliminarla:
+Una fase no se elimina "en silencio":
 
-1. Marcar la fase como `deprecated` en el documento.
-2. Mantener compatibilidad **2 versiones menores** mínimo (operaciones nuevas no la usan; en curso siguen).
+1. Marcar como `deprecated` en el documento.
+2. Mantener compatibilidad **2 versiones menores** mínimo.
 3. Eliminar en v2.0.0 explícita.
 
 ---
@@ -1666,130 +1829,121 @@ Una fase del flujo no puede eliminarse "en silencio". Si se decide eliminarla:
 ## 13. Anexo — Diagrama del ciclo completo
 
 ```
-═══════════════════════════════════════════════════════════════════════════════
-                            CICLO TRANSACTION OS — 15 FASES
-═══════════════════════════════════════════════════════════════════════════════
+═════════════════════════════════════════════════════════════════════════════════
+                          CICLO TRANSACTION OS — 15 FASES
+═════════════════════════════════════════════════════════════════════════════════
 
-──── PRE-MATCH ────────────────────────────────────────────────────────────────
-
-  Empresa     Valoración    Opportunity    Opportunity   Opportunity+Match
-    │             │              │              │              │
-    ▼             ▼              ▼              ▼              ▼
-  [ T1 ]  ──►  [ T2 ]  ──►   [ T3 ]   ──►   [ T4 ]   ──►   [ T5 ]
-  Análisis    Valoración    Identif.       Screening    Matching
-   inicial                  + búsqueda     + prioriz.   (genera
-                            contrapartes                Recomend.
-                                                        → MATCH)
-
-──── TRANSACTION OS FORMAL (sobre Match, luego Operation) ─────────────────────
-
-   ┌─────────────────────────── MATCH activo ──────────────────────────────┐
-   │                                                                       │
-   ▼                                                                       │
-[ T6 ] ──► [ T7 ] ──► [ T8 ] ──► [ T9 ] ──► [ T10 ] ╗                      │
- Teaser     NDA        IM        Q&A         IOI    ║ ◄── transición       │
-                                            (opt)  ║      Match → Operation│
-                                             LOI/   ║      (LOI fully_signed)
-                                             NBO    ║                      │
-                                                    ╚══════════════════════╝
-                                                              │
-                                  ────── OPERATION activa ────┘
-                                                              ▼
-                                                          [ T11 ]
-                                                           DD + Data Room
-                                                              │
-                                                              ▼
-                                                          [ T12 ]
-                                                           Negociación
-                                                              │
-                                                              ▼
-                                                          [ T13 ]
-                                                           SPA firmado
-                                                              │
-                                                              ▼
-                                                          [ T14 ]
-                                                           Closing legal
-                                                              │
-                                                              ▼
-                                                          [ T15 ]
-                                                           Integración
-                                                              │
-                                                              ▼
-                                                   ┌─────────────────────┐
-                                                   │ CERRADA_CON_ÉXITO   │
-                                                   └─────────────────────┘
+┌─────────────────────── DISCOVERY LAYER ────────────────────────────────────────┐
+│                                                                                │
+│  Empresa     Valoración   Opportunity   Opportunity   Opp+Recom    Buyer       │
+│    │             │             │              │            │      cualif.     │
+│    ▼             ▼             ▼              ▼            ▼         ▼         │
+│  [ T1 ] ─► [ T2 ] ─►       [ T3 ] ─►      [ T4 ] ─►   [ T5 ] ─►  [ T6 ]        │
+│  Análisis  Valoración    Identif.        Screening   Matching   Teaser         │
+│   inicial                  + búsqueda      + prioriz. (Recom.   anonimizado    │
+│                            contrapartes               + Market)  público       │
+│                                                                    │           │
+│                                                                    ▼           │
+│                                                            ┌───────────────┐   │
+│                                                            │ Sub-acción:   │   │
+│                                                            │ Solicitud     │   │
+│                                                            │ de Match      │   │
+│                                                            └───────┬───────┘   │
+│                                                                    │           │
+│                                                          Match.SOLICITADO     │
+└────────────────────────────────────────────────────────────────────┬───────────┘
+                                                                     │
+                              ◄─── FRONTERA: SELLER ACEPTA ──────────┘
+                              │
+                  Match.ACEPTADO  ⇒  Sistema crea Operation INMEDIATAMENTE
+                              │       (current_phase = `nda`)
+                              ▼
+┌─────────────────────── TRANSACTION LAYER ──────────────────────────────────────┐
+│                                                                                │
+│   [ T7 ] ─► [ T8 ] ─► [ T9 ] ─► [ T10 ] ─► [ T11 ] ─► [ T12 ] ─►              │
+│     NDA      IM        Q&A      IOI/LOI     DD          Negociación           │
+│                                              + Data Room                       │
+│                                                                                │
+│   ─► [ T13 ] ─► [ T14 ] ─► [ T15 ]                                            │
+│        SPA       Closing    Integración                                        │
+│       firmado    legal      post-deal                                          │
+│                                  │                                             │
+│                                  ▼                                             │
+│                       ┌─────────────────────┐                                  │
+│                       │ CERRADA_CON_ÉXITO   │                                  │
+│                       └─────────────────────┘                                  │
+└────────────────────────────────────────────────────────────────────────────────┘
 
 Estados terminales alternativos en cualquier fase activa:
-  EN_PAUSA  (reanudable)
-  CERRADA_SIN_OPERACIÓN  (alguna parte se retira post-LOI)
-  CANCELADA  (administrativa / legal)
-  ARCHIVADA  (admin)
+  EN_PAUSA                  (reanudable, ver [OPEN-A8] política de caducidad)
+  CERRADA_SIN_ÉXITO         (alguna parte se retira post-LOI / fallos suspensivos)
+  CANCELADA                 (administrativa / legal)
+  ARCHIVADA                 (admin)
 
 Eventos críticos inmutables (★):
-  match.created · match.converted_to_operation · nda.fully_signed ·
-  loi.fully_signed · spa.fully_signed · closing.declared · integration.completed
+  match.solicited · match.accepted · nda.fully_signed · loi.fully_signed ·
+  spa.fully_signed · closing.declared · integration.completed
 
-═══════════════════════════════════════════════════════════════════════════════
+═════════════════════════════════════════════════════════════════════════════════
 ```
 
 ---
 
 ## 14. Anexo — Open Questions
 
-Lista consolidada de decisiones funcionales que este documento **no resuelve** y deben cerrarse en pasos posteriores. Marcar resolución con fecha y referencia al spec que la cierra.
+Lista consolidada de decisiones tras la corrección v1.1.0:
 
-| ID | Pregunta | Propuesta del spec | Estado |
+| ID | Pregunta | Resolución / Propuesta | Estado |
 |---|---|---|---|
-| ~~A1~~ | ¿Match es entidad o evento? | Entidad persistente de transición | **CERRADO** por usuario 2026-06-25 |
-| ~~A2~~ | Cardinalidad Match ↔ Operation | 1 Match → 0..1 Operation | **CERRADO** por usuario 2026-06-25 |
-| ~~A3~~ | IOI vs LOI: separadas o fusionadas | IOI sub-estado opcional dentro de fase LOI/NBO | **CERRADO** por usuario 2026-06-25 |
-| **A4** | "Negociación" (fase 12): ¿enum valor en `Operation.current_phase` o sub-estado interno? | Añadir `negotiation` al enum entre `dd` y `spa` | **ABIERTO** — confirmación usuario |
-| ~~A5~~ | Integración post-deal: entidad nueva o fase de Operation | Fase 15 dentro de la misma `Operation` | **CERRADO** por usuario 2026-06-25 |
-| **A6** | Fases pre-Match (1-5): ¿son parte formal del TOS o "ciclo previo"? | TOS formal arranca en T6. T1-T5 son ciclo previo que reutiliza entidades Empresa/Valoración/Oportunidad | **ABIERTO** — confirmación usuario |
-| **A7** | `Deal Workspace` URL canónica | Reutilizar `/operacion/{id}` (Entity Framework §11.8); para Match activo pre-conversión usar `/match/{id}` | **ABIERTO** — confirmación usuario |
-| **A8** | Pausa indefinida: ¿qué plazo dispara auto-cancelación? | Propuesta: 12 meses sin actividad | **ABIERTO** — pendiente decisión negocio |
-| **A9** | `Equipo arroba`: ¿rol nuevo (`Role.arroba_team`) o sub-permiso del `admin`? | Rol nuevo `arroba_team` con permisos acotados de mediación/auditoría | **ABIERTO** — definirá `COPILOTS_SPEC` y `SUBSCRIPTION_SPEC` |
-| **A10** | ¿Teaser accesible a usuarios no registrados? | NO. Teaser solo post-Match. Superficie pública = ficha pública parcial estándar | **ABIERTO** — confirmación usuario |
-| **A11** | ¿En qué fase exacta el Match se convierte en Operation? | Tras LOI/NBO firmada por ambas partes (fin de fase 10) | **ABIERTO** — confirmación usuario (decisión canónica propuesta del spec) |
+| ~~A1~~ | ¿Match es entidad o evento? | Entidad persistente de transición de ciclo corto | **CERRADO** 2026-06-25 |
+| ~~A2~~ | Cardinalidad Match ↔ Operation | 1 Match → 0..1 Operation | **CERRADO** 2026-06-25 |
+| ~~A3~~ | IOI vs LOI | IOI sub-estado opcional dentro de fase 10 | **CERRADO** 2026-06-25 |
+| ~~A4~~ | "Negociación" (fase 12) | Valor canónico `negotiation` del enum `Operation.current_phase` entre `dd` y `spa` | **CERRADO** 2026-06-25 |
+| ~~A5~~ | Integración: entidad nueva o fase de Operation | Fase 15 dentro de la misma `Operation` (no entidad nueva) | **CERRADO** 2026-06-25 |
+| ~~A6~~ | Fases pre-Match (1-5): ¿parte formal del TOS o ciclo previo? | Discovery Layer (parte formal del TOS). Transaction Layer comienza tras Match aceptado | **CERRADO** 2026-06-25 |
+| ~~A7~~ | `Deal Workspace` URL canónica | URLs dobles: `/match/{id}` (Match Workspace) + `/operacion/{id}` (Deal Workspace). Coexisten | **CERRADO** 2026-06-25 |
+| **A8** | Política de caducidad | **Configurable.** Pendiente de decidir en spec dedicado o configuración dinámica. No fijar regla aquí | **ABIERTO** |
+| ~~A9~~ | `arroba_team`: rol nuevo o sub-permiso de `admin` | Rol específico nuevo `arroba_team`. **NO hereda** automáticamente permisos de `admin` | **CERRADO** 2026-06-25 |
+| ~~A10~~ | Teaser accesible a usuarios anónimos | NO a anónimos en internet abierto. SÍ a **buyers cualificados** del Marketplace sin Match | **CERRADO** 2026-06-25 |
+| ~~A11~~ | Cuándo Match → Operation | Inmediatamente al **`Match.ACEPTADO`**. La Operation nace con `current_phase = nda`. LOI deja de ser punto de conversión | **CERRADO** 2026-06-25 |
+| **A12** | Persistencia de Recomendaciones (fase 5) | El spec no decide si son efímeras o persistidas. Probable: persistir las accionadas; efímeras las no accionadas | **ABIERTO** |
+| **A13** | Reapertura tras `LOI_RECHAZADA` | El spec menciona "vuelta a Q&A si se reabre" pero no formaliza la transición de retroceso | **ABIERTO** |
+| **A14** | Doble Match competitivo (mismo Seller, varios Buyers) | El spec asume exclusividad post-LOI pero NO prohíbe múltiples Match.ACEPTADO simultáneos pre-LOI. Decisión pendiente | **ABIERTO** |
 
 ### Lagunas documentales detectadas (fuera del Sprint 0)
 
-Lagunas que este spec **no cubre** y que aparecen como dependencias en el ciclo TOS. Referenciadas en el inventario `_INVENTORY_2026.md` §7.
-
 **P0 — bloquean implementación de fases concretas**:
-
-- `NDA_SPEC.md` — plantillas, NDA progresivo, niveles de revelación. Necesario para fases 7 y 8.
-- `CIS_SPEC.md` — condiciones generales plataforma, aceptación por Organization. Necesario para Onboarding pre-fase 3.
-- Especificación de **firma electrónica** (capability Boundary): proveedor concreto, evidencia probatoria, archivo notarial. Necesario para fases 7, 10, 13.
+- `NDA_SPEC.md` — plantillas, NDA progresivo, niveles de revelación. Fases 7-8.
+- `CIS_SPEC.md` — condiciones generales plataforma. Onboarding pre-fase 3.
+- Especificación de **firma electrónica** (Boundary): proveedor concreto, evidencia probatoria, archivo notarial. Fases 7, 10, 13.
 
 **P1 — bloquean superficies concretas**:
-
-- `DATAROOM_SPEC.md` — estructura, permisos por fase, watermarks. Necesario para fase 11.
-- `LOI_SPEC.md` — plantilla, comparator multi-bidder, exclusividad. Necesario para fase 10.
-- `MARKETPLACE_SPEC.md` — motor de matching, scoring Compatibilidad. Necesario para fase 5.
-- `BUYER_QUAL_SPEC.md` — calificación del Buyer (KYC, tesis, fondos). Necesario antes de fase 5.
+- `DATAROOM_SPEC.md` — estructura, permisos por fase, watermarks. Fase 11.
+- `LOI_SPEC.md` — plantilla, comparator multi-bidder, exclusividad. Fase 10.
+- `MARKETPLACE_SPEC.md` — motor de matching, scoring Compatibilidad, anti-spam. Fase 5.
+- `BUYER_QUAL_SPEC.md` — cualificación del Buyer. Pre-fase 5 / fase 6.
 - `SIGNALS_SPEC.md` — qué señales se calculan, cuándo se publican. Transversal.
 
 **P2 — sub-modelos avanzados**:
-
-- `EARNOUT_SPEC.md` — cláusulas, fórmulas. Necesario para fase 12.
-- `ADVISOR_LAYER_SPEC.md` — flujo del advisor humano y revenue share. Necesario para varias fases.
+- `EARNOUT_SPEC.md` — cláusulas, fórmulas. Fase 12.
+- `ADVISOR_LAYER_SPEC.md` — flujo del advisor humano y revenue share. Varias fases.
 
 ### Decisiones canónicas pendientes de propagar al cierre del Sprint 0
 
 Cuando los 6 specs del Sprint 0 estén aprobados, se actualizan:
 
 1. **`ENTITY_MODEL.md`**:
-   - Añadir entidad `match` como tipo canónico nº 13.
+   - Añadir entidad `match` como tipo canónico (ciclo corto: `SOLICITADO → ACEPTADO/RECHAZADO/EXPIRADO`).
    - Añadir relaciones `opportunity → matches[]` (1:N), `match → operation` (1:0..1).
-   - Renombrar / consolidar el enum `Operation.current_phase` para reflejar las fases del TOS (eliminar `matching` del enum y añadir `negotiation`, `closing`, `integration`).
+   - Reescribir el enum `Operation.current_phase` (eliminar `matching`, mantener `nda`, `im`, `qa`, `ioi`, `loi`, `dd`; añadir `negotiation`, `closing`, `integration`).
    - Añadir nuevos `Document.kind`: `closing_memo`, `integration_plan`, `match_certificate`.
+   - Añadir rol `arroba_team` al `Role` enum.
 2. **`ARROBA_PHILOSOPHY.md`**:
-   - §6: añadir `negotiation` e `integración post-operación` a la enumeración de fases.
-   - §7: revisar la frase "Matching no es entidad" — el Matching como mecanismo NO es entidad, pero el `Match` resultante SÍ es entidad. Aclarar la distinción.
+   - §5/§6: actualizar la enumeración de fases incluyendo `negotiation` e `integración post-operación`.
+   - §7: aclarar la distinción "Matching (mecanismo) no es entidad / `Match` (resultado) sí es entidad de ciclo corto".
    - §13: añadir la capa "Engines & Specs" entre Entity Framework y Design System.
 3. **`ENTITY_FRAMEWORK.md`**:
-   - Añadir §11.13 (Match) con los módulos canónicos activos.
-   - Actualizar §11.8 (Operation) si las fases del TOS modifican su definición.
+   - Añadir §11.13 (Match): módulos canónicos mínimos del Match Workspace.
+   - Actualizar §11.8 (Operation): reflejar que `current_phase` arranca en `nda` y reflejar `negotiation` e `integration`.
 
-> **Fin del documento.** — `v1.0.0` — pendiente de revisión humana.
+> **Fin del documento.** — `v1.1.0` — pendiente de revisión humana.
