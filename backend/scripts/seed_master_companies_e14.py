@@ -72,7 +72,7 @@ COMPANIES = [
         "confidence": 0.83,
         "lineage": "normalized",
     },
-    # ---------------------------- HOTELES (1) ----------------------------
+    # ---------------------------- HOTELES (2) ----------------------------
     {
         "master_company_id": "mc_atlantica",
         "legal_name": "Cadena Hotelera Atlántica, S.L.",
@@ -87,6 +87,22 @@ COMPANIES = [
             "fiscal_year": 2024,
         },
         "confidence": 0.86,
+        "lineage": "normalized",
+    },
+    {
+        "master_company_id": "mc_olmedo",
+        "legal_name": "Grupo Olmedo Hoteles, S.L.",
+        "cif": "B47820150",
+        "sector": "Hoteles",
+        "region": "Castilla y León",
+        "country": "ES",
+        "financials": {
+            "revenue": 6_410_000,
+            "ebitda": 1_858_900,
+            "employees": 82,
+            "fiscal_year": 2024,
+        },
+        "confidence": 0.89,
         "lineage": "normalized",
     },
     # ---------------------------- INDUSTRIA (2) --------------------------
@@ -122,7 +138,7 @@ COMPANIES = [
         "confidence": 0.74,
         "lineage": "normalized",
     },
-    # ---------------------------- SALUD (2) ------------------------------
+    # ---------------------------- SALUD (3) ------------------------------
     {
         "master_company_id": "mc_vitalis",
         "legal_name": "Clínicas Vitalis, S.L.",
@@ -137,6 +153,22 @@ COMPANIES = [
             "fiscal_year": 2024,
         },
         "confidence": 0.9,
+        "lineage": "normalized",
+    },
+    {
+        "master_company_id": "mc_valles",
+        "legal_name": "Clínica Veterinaria Vallés, S.L.",
+        "cif": "B08540200",
+        "sector": "Salud",
+        "region": "Cataluña",
+        "country": "ES",
+        "financials": {
+            "revenue": 2_150_000,
+            "ebitda": 322_500,
+            "employees": 18,
+            "fiscal_year": 2024,
+        },
+        "confidence": 0.81,
         "lineage": "normalized",
     },
     {

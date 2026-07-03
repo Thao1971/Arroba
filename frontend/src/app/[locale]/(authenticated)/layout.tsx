@@ -4,7 +4,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { AuthHeader } from '@/components/layout/AuthHeader';
 import { Spinner } from '@/components/ds';
-import { CopilotProvider, CopilotDock } from '@/components/copilot';
 
 /**
  * Routes that exempt from the "must finish onboarding first" rule.
@@ -17,16 +16,17 @@ import { CopilotProvider, CopilotDock } from '@/components/copilot';
 const ONBOARDING_EXEMPT_PREFIX = '/onboarding';
 
 export default function AuthenticatedLayout({ children }: { children: ReactNode }) {
+  // NOTA (Regla 1 · SPRINT 1): CopilotProvider + CopilotDock ya no viven
+  // aquí — se han promovido al layout raíz `[locale]/layout.tsx` para que
+  // el Composer persista al navegar a /empresa/{cif} (fuera del segment
+  // autenticado). El Dock se auto-oculta para usuarios anónimos.
   return (
-    <CopilotProvider>
-      <div className="min-h-screen flex flex-col bg-bg text-text">
-        <AuthHeader />
-        <main className="flex-1">
-          <OnboardingGuard>{children}</OnboardingGuard>
-        </main>
-        <CopilotDock />
-      </div>
-    </CopilotProvider>
+    <div className="min-h-screen flex flex-col bg-bg text-text">
+      <AuthHeader />
+      <main className="flex-1">
+        <OnboardingGuard>{children}</OnboardingGuard>
+      </main>
+    </div>
   );
 }
 

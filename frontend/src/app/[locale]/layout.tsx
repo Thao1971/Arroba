@@ -8,6 +8,7 @@ import { isLocale, locales } from '@/i18n/config';
 import { PRE_PAINT_THEME_SCRIPT } from '@/lib/theme';
 import { tokens } from '@/lib/tokens';
 import { AuthProvider } from '@/contexts/auth-context';
+import { CopilotProvider, CopilotDock } from '@/components/copilot';
 import '../globals.css';
 
 const spaceGrotesk = Space_Grotesk({
@@ -65,7 +66,12 @@ export default async function LocaleLayout({
       </head>
       <body>
         <NextIntlClientProvider messages={messages} locale={locale}>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <CopilotProvider>
+              {children}
+              <CopilotDock />
+            </CopilotProvider>
+          </AuthProvider>
         </NextIntlClientProvider>
       </body>
     </html>

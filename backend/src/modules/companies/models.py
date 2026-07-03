@@ -136,6 +136,83 @@ class GetConversationResponse(BaseModel):
 WatchlistVisibility = Literal["private", "team"]
 
 
+# ---------------------------------------------------------------------------
+# Sprint 1 — Módulos canónicos §3.7-§3.12 del ENTITY_FRAMEWORK (aditivos).
+# Contratos estables desde el primer día para forward-compatibility.
+# ---------------------------------------------------------------------------
+class SignalItem(BaseModel):
+    """Un evento externo (BORME, contratos públicos, cambios directivos)."""
+    model_config = ConfigDict(extra="forbid")
+    kind: str  # ej. "borme", "public_contract", "press"
+    dated_at: datetime | None = None
+    headline: str
+    severity: Literal["info", "warning", "critical"] = "info"
+
+
+class SignalsSection(BaseModel):
+    """Sección Señales del ENTITY_FRAMEWORK §3.7.
+
+    En Sprint 1 este objeto queda intencionalmente vacío: la fuente externa
+    (BORME) está pendiente de REQ-008; el frontend renderiza
+    `UnavailableBlock` cuando `unavailable=true`.
+    """
+    model_config = ConfigDict(extra="forbid")
+    items: list[SignalItem] = Field(default_factory=list)
+    unavailable: bool = True
+    req: str | None = "REQ-008"
+    eta: str | None = "Post-Sprint 1"
+
+
+class DocumentItem(BaseModel):
+    """Un documento en la sección Documentación §3.10."""
+    model_config = ConfigDict(extra="forbid")
+    doc_id: str
+    kind: Literal["memoria_mercantil", "cuentas_anuales", "teaser", "otro"] = "otro"
+    display_name: str
+    size_bytes: int | None = None
+    uploaded_at: datetime | None = None
+    download_url: str | None = None
+
+
+class DocumentsSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[DocumentItem] = Field(default_factory=list)
+
+
+class ActivityItem(BaseModel):
+    """Un evento del timeline de Actividad §3.11."""
+    model_config = ConfigDict(extra="forbid")
+    event_id: str
+    kind: Literal[
+        "watchlist_added", "watchlist_removed",
+        "analysis_refreshed", "valuation_refreshed",
+        "comparables_refreshed", "conversation_message",
+    ]
+    at: datetime
+    actor_label: str | None = None  # display name del actor si aplica
+    summary: str | None = None
+
+
+class ActivitySection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[ActivityItem] = Field(default_factory=list)
+
+
+class NextBestAction(BaseModel):
+    """Card de la sección Next Best Actions §3.12."""
+    model_config = ConfigDict(extra="forbid")
+    id: Literal[
+        "value_company",
+        "find_buyers",
+        "activate_opportunity",
+        "compare_with_other",
+    ]
+    title: str
+    description: str
+    icon: str  # canonical icon name; frontend maps to lucide-react
+    disabled: bool = False
+
+
 class CompanyWatchlistEntry(BaseModel):
     model_config = ConfigDict(extra="ignore")
     watchlist_id: str = Field(default_factory=new_watchlist_id)
@@ -200,7 +277,7 @@ class CompanyHeaderInfo(BaseModel):
 
 
 class CompanySections(BaseModel):
-    """The eight materialised sections of the company page. Each is either a
+    """The materialised sections of the company page. Each is either a
     BlockSpec the frontend already knows how to render, or null when the
     user does not have access to it."""
     model_config = ConfigDict(extra="forbid")
@@ -220,6 +297,17 @@ class CompanySections(BaseModel):
     valuation: ValuationBlock | None = None
     # Section 7 — Análisis del Copilot (locked for anonymous).
     narrative: NarrativeBlock | None = None
+    # Sprint 1 — módulos 7-12 del ENTITY_FRAMEWORK §3 (aditivos).
+    # Todos son estables por contrato incluso cuando su contenido está
+    # vacío o pendiente (REQ-008 en el caso de signals).
+    signals: SignalsSection | None = None
+    documents: DocumentsSection = Field(
+        default_factory=lambda: DocumentsSection(items=[])
+    )
+    activity: ActivitySection = Field(
+        default_factory=lambda: ActivitySection(items=[])
+    )
+    next_best_actions: list["NextBestAction"] = Field(default_factory=list)
 
 
 class CompanyDetailResponse(BaseModel):
@@ -270,6 +358,8 @@ class RefreshComparablesResponse(BaseModel):
 
 __all__ = [
     "ANONYMOUS_LOCKED_FLAGS",
+    "ActivityItem",
+    "ActivitySection",
     "CompanyAnalysisRefresh",
     "CompanyConversation",
     "CompanyConversationMessage",
@@ -278,8 +368,11 @@ __all__ = [
     "CompanyIdentity",
     "CompanySections",
     "CompanyWatchlistEntry",
+    "DocumentItem",
+    "DocumentsSection",
     "GetConversationResponse",
     "LOCKED_SECTIONS_FOR_ANONYMOUS",
+    "NextBestAction",
     "RefreshAnalysisResponse",
     "RefreshComparablesResponse",
     "RefreshValuationResponse",
@@ -288,6 +381,8 @@ __all__ = [
     "SendMessageRequest",
     "SendMessageResponse",
     "ShareToggleResponse",
+    "SignalItem",
+    "SignalsSection",
     "SuggestedAction",
     "WatchlistToggleResponse",
     "WatchlistVisibility",

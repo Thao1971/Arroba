@@ -63,7 +63,11 @@ interface Captured {
   loading: boolean;
   history: Array<{ role: string; text: string }>;
   workspace: unknown;
-  currentEntity: { type: string; cif: string; name: string | null } | null;
+  currentEntity: {
+    entity_type: string;
+    entity_id: string;
+    entity_name: string | null;
+  } | null;
 }
 
 function HarnessProbe({
@@ -98,9 +102,9 @@ describe('CopilotProvider — entity_context mode', () => {
       </CopilotProvider>,
     );
     expect(api!.currentEntity).toEqual({
-      type: 'company',
-      cif: 'B86540112',
-      name: null,
+      entity_type: 'company',
+      entity_id: 'B86540112',
+      entity_name: null,
     });
   });
 

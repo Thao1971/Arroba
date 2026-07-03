@@ -142,3 +142,45 @@ mongosh arroba_com --eval "db.users.deleteMany({email: /e11-flow/}); db.organiza
   `email_already_registered`, `invitation_email_mismatch`, `admin_required`,
   `master_company_not_found`, `master_company_duplicate_unique_field`, etc.).
 - Header en respuestas del Agency Tool adapter: `X-Source: mock` (en E0.4) o `X-Source: real` (post-REQ-001).
+
+---
+
+## Sprint 1 — Primer flujo vertical (2026-06)
+
+### Cuentas recomendadas para el flujo E2E
+
+| Escenario | Email | Password | Rol | Notas |
+|---|---|---|---|---|
+| **Usuario autenticado (recomendado para C1-C15)** | `buyer@arroba.com` | `Arroba2026!` | `subscriber` | Con membership activa. Skipea onboarding. |
+| Admin (solo para C14/C15/API admin) | `admin@arroba.dev` | `Admin1234!` | `admin` | |
+| Viewer anónimo (para C7) | — | — | — | Sin login. Solo acceso a secciones 1-3 públicas. |
+
+### Empresas de test disponibles en `master_companies_mock`
+
+| Nombre | CIF | Sector | Uso en tests |
+|---|---|---|---|
+| **Grupo Olmedo Hoteles, S.L.** | **B47820150** | Hoteles | Empresa principal del brief. Usar para C4/C5/C6/C8. |
+| Kitchen Studio, S.L. | B86540112 | Software | Empresa secundaria para disambiguator. |
+| Clínica Veterinaria Vallés, S.L. | B08540200 | Salud | Empresa alternativa para C13 (Next Best Actions). |
+| Cadena Hotelera Atlántica, S.L. | B36710222 | Hoteles | Comparable de Olmedo. |
+| Bodegas Riojana Norte, S.A. | A26320888 | Alimentación | Test de CIF con letra `A`. |
+
+### Flujo E2E esperado (feliz path)
+
+1. Login con `buyer@arroba.com` / `Arroba2026!` → aterrizar en `/es`.
+2. Home privada visible con saludo dinámico. Composer permanente inferior visible.
+3. Click en tarjeta "Analizar una empresa" → Composer se expande.
+4. Escribir `Grupo Olmedo` en el Composer → resuelve → navega a `/es/empresa/B47820150`.
+5. Ficha carga con 12 módulos (verificable por `data-testid="entity-section-*"`).
+6. Header dock muestra "✦ Company Advisor de Grupo Olmedo Hoteles, S.L.".
+7. Click en `RefreshButton` de sección Análisis → animación `animate-section-pulse` 700ms + nuevo `NarrativeBlock`.
+8. Click en watchlist toggle → persiste + reload confirma persistencia.
+
+### Regenerar seeds
+```bash
+cd /app/backend
+python scripts/seed_admin.py
+python scripts/seed_demo_users.py
+python scripts/seed_master_companies_e14.py
+```
+

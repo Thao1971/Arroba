@@ -49,10 +49,31 @@ export interface CopilotMessage {
   ts: number;
 }
 
+export type EntityType =
+  | 'company'
+  | 'sector'
+  | 'territory'
+  | 'person'
+  | 'advisor'
+  | 'mandate'
+  | 'match'
+  | 'operation'
+  | 'valuation'
+  | 'document'
+  | 'opportunity';
+
+/**
+ * Normalised entity context published by any Entity Page and read by the
+ * permanent Composer to adapt its identity + prompt (Regla 1 del brief
+ * SPRINT 1). Multi-tipo desde el primer día: en Sprint 1 solo `company`
+ * es emitido pero el shape acepta los 11 tipos canónicos.
+ */
 export interface EntityContext {
-  type: 'company';
-  cif: string;
-  name: string | null;
+  entity_type: EntityType;
+  entity_id: string;
+  entity_name: string | null;
+  /** Solo para Match Workspace / Deal Workspace en sprints futuros. */
+  workspace_id?: string;
 }
 
 interface CopilotState {
@@ -175,7 +196,7 @@ function reducer(state: CopilotState, action: Action): CopilotState {
       // the Company Advisor scoped to THIS entity (the hydration call adds
       // the persistent thread right after). When leaving, history is wiped
       // too so the dock returns to the ephemeral session.
-      if (state.currentEntity?.cif === action.entity?.cif) {
+      if (state.currentEntity?.entity_id === action.entity?.entity_id) {
         // Same entity (only name might have changed) → just update meta.
         return { ...state, currentEntity: action.entity };
       }
@@ -227,6 +248,11 @@ interface CopilotContextValue extends CopilotState {
   /** Used by /empresa/[cif]/page.tsx to load the prior conversation thread
    *  into the dock and to attach the company's display name. */
   hydrateEntityConversation: (messages: CopilotMessage[], name: string) => void;
+  /** Publica un contexto de entidad genérico (Regla 1 · Sprint 1). Cualquier
+   *  Entity Page llama a este método al montar; el Composer se adapta. */
+  setEntityContext: (entity: EntityContext | null) => void;
+  /** Alias explícito para limpiar el contexto en el unmount de la página. */
+  clearEntityContext: () => void;
   dispatch: Dispatch<Action>;
 }
 
@@ -259,12 +285,18 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'set_workspace_anchored', workspaceId: anchoredId });
   }, [anchoredId]);
 
-  // Track which entity we're contextualised on (E1.5-REWORK).
+  // Track which entity we're contextualised on. The URL extraction is only
+  // a fallback: the canonical way (Regla 1) is that each Entity Page calls
+  // `setEntityContext()` on mount. When the page unmounts or navigates
+  // elsewhere, the URL regex kicks back in and produces `null` for
+  // non-entity routes.
   const entityCif = useMemo(() => extractEntityCifFromPath(pathname), [pathname]);
   useEffect(() => {
     dispatch({
       type: 'set_entity_context',
-      entity: entityCif ? { type: 'company', cif: entityCif, name: null } : null,
+      entity: entityCif
+        ? { entity_type: 'company', entity_id: entityCif, entity_name: null }
+        : null,
     });
   }, [entityCif]);
 
@@ -320,9 +352,9 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       // Entity-context mode (E1.5-REWORK): hit /companies/{cif}/messages.
       // The reply carries `section_updates[]` that the host page consumes via
       // a CustomEvent — the dock thread only shows the textual response.
-      if (state.currentEntity?.type === 'company') {
+      if (state.currentEntity?.entity_type === 'company') {
         try {
-          const cif = state.currentEntity.cif;
+          const cif = state.currentEntity.entity_id;
           const res = await apiClient.companies.sendMessage(cif, {
             query: text,
             context: { locale: 'es', pathname },
@@ -388,6 +420,22 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
             workspace: null,
           });
         }
+        return;
+      }
+
+      // Ephemeral mode: shortcut CIF puro → naveación directa a la ficha.
+      // Regla 1 · Sprint 1 · F4.4: si el usuario tipea "B47820150" en el
+      // Composer, saltamos el orquestador cliente y navegamos a la ficha
+      // directamente. No consume tokens LLM ni endpoint copilot.
+      const cifMatch = text.trim().match(/^([A-Za-z][0-9]{7}[0-9A-Ja-j])$/);
+      if (cifMatch) {
+        const cif = cifMatch[1]!.toUpperCase();
+        dispatch({
+          type: 'resolve',
+          assistant: `Te llevo a la empresa ${cif}.`,
+          workspace: null,
+        });
+        router.push(`/empresa/${cif}`);
         return;
       }
 
@@ -488,12 +536,29 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       if (entityCif) {
         dispatch({
           type: 'set_entity_context',
-          entity: { type: 'company', cif: entityCif, name },
+          entity: {
+            entity_type: 'company',
+            entity_id: entityCif,
+            entity_name: name,
+          },
         });
       }
     },
     [entityCif],
   );
+
+  /**
+   * Publish/clear an entity context from a page. This is the canonical way
+   * for any Entity Page (Sprint 1: Company; Sprint 2+: Sector, Territory,
+   * Operation, Match, …) to bind the permanent Composer to its scope.
+   */
+  const setEntityContext = useCallback((entity: EntityContext | null) => {
+    dispatch({ type: 'set_entity_context', entity });
+  }, []);
+
+  const clearEntityContext = useCallback(() => {
+    dispatch({ type: 'set_entity_context', entity: null });
+  }, []);
 
   const value = useMemo<CopilotContextValue>(
     () => ({
@@ -507,6 +572,8 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       promoteToWorkspace,
       hydratePersistent,
       hydrateEntityConversation,
+      setEntityContext,
+      clearEntityContext,
       dispatch,
     }),
     [
@@ -516,10 +583,31 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       promoteToWorkspace,
       hydratePersistent,
       hydrateEntityConversation,
+      setEntityContext,
+      clearEntityContext,
     ],
   );
 
   return <CopilotContext.Provider value={value}>{children}</CopilotContext.Provider>;
+}
+
+/**
+ * useEntityContext — hook canónico para páginas de entidad.
+ *
+ * Uso típico dentro de una Entity Page:
+ *
+ *     const { publish } = useEntityContext();
+ *     useEffect(() => {
+ *       publish({ entity_type: 'company', entity_id: cif, entity_name: name });
+ *       return () => publish(null);
+ *     }, [cif, name]);
+ */
+export function useEntityContext(): {
+  context: EntityContext | null;
+  publish: (ctx: EntityContext | null) => void;
+} {
+  const { currentEntity, setEntityContext } = useCopilot();
+  return { context: currentEntity, publish: setEntityContext };
 }
 
 function inferWorkspaceTypeFromWorkspace(

@@ -39,3 +39,12 @@ export type {
   MetricsGridProps,
   MetricItem,
 } from './MetricsGrid';
+// Sprint 1 — módulos §3.7 · §3.10 · §3.11 · §3.2 (Identity sub-card)
+export { IdentityCard } from './IdentityCard';
+export type { IdentityCardProps, IdentityCardIdentity } from './IdentityCard';
+export { SignalsTimeline } from './SignalsTimeline';
+export type { SignalsTimelineProps, SignalItem } from './SignalsTimeline';
+export { DocumentList } from './DocumentList';
+export type { DocumentListProps, DocumentItem } from './DocumentList';
+export { ActivityTimeline } from './ActivityTimeline';
+export type { ActivityTimelineProps, ActivityItem } from './ActivityTimeline';

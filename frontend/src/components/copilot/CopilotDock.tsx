@@ -50,6 +50,13 @@ export function CopilotDock() {
     [pathname, isAuthenticated]
   );
 
+  // Regla 1 · SPRINT 1: el Composer permanente vive en el layout raíz
+  // pero SOLO se renderiza para usuarios autenticados. Anónimos no lo ven
+  // ni siquiera al aterrizar en /empresa/{cif} (secciones 1-3 públicas
+  // sin dock).
+  const hooksAllRegistered = true;  // sanity comment
+  void hooksAllRegistered;
+
   // Global hotkeys
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -79,6 +86,11 @@ export function CopilotDock() {
   // Whether to show suggestion chips: only when the conversation hasn't
   // really started.
   const showChips = history.length === 0;
+
+  // ---- gate visual: no dock para usuarios anónimos ----
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // ---- minimised FAB ----
   if (!open) {
@@ -130,7 +142,7 @@ export function CopilotDock() {
         onClose={closeDock}
         onClear={clear}
         clearDisabled={loading || history.length === 0}
-        entityName={currentEntity?.name ?? null}
+        entityName={currentEntity?.entity_name ?? null}
       />
       <ConversationThread />
       <footer className="border-t border-border bg-surface-2 px-4 py-3" data-testid="copilot-dock-footer">

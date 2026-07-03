@@ -37,6 +37,8 @@ from src.modules.companies.advisor import (
 )
 from src.modules.companies.models import (
     ANONYMOUS_LOCKED_FLAGS,
+    ActivityItem,
+    ActivitySection,
     CompanyConversation,
     CompanyConversationMessage,
     CompanyDetailResponse,
@@ -44,8 +46,11 @@ from src.modules.companies.models import (
     CompanyIdentity,
     CompanySections,
     CompanyWatchlistEntry,
+    DocumentsSection,
     GetConversationResponse,
+    NextBestAction,
     SendMessageResponse,
+    SignalsSection,
     WatchlistVisibility,
     new_block_id,
     new_conversation_id,
@@ -430,6 +435,114 @@ def build_header(company: EnrichedCompany) -> CompanyHeaderInfo:
 # ---------------------------------------------------------------------------
 # Public read — full ficha
 # ---------------------------------------------------------------------------
+def build_next_best_actions(*, authenticated: bool) -> list[NextBestAction]:
+    """4 acciones canónicas de la sección §3.12 del ENTITY_FRAMEWORK.
+
+    Autenticados ven las 4 habilitadas. Anónimos las ven pero deshabilitadas;
+    el frontend renderiza LockedSectionBlur sobre la sección completa.
+    """
+    disabled = not authenticated
+    return [
+        NextBestAction(
+            id="value_company",
+            title="Valorar",
+            description="Estimación indicativa por múltiplos y sensibilidades.",
+            icon="trending-up",
+            disabled=disabled,
+        ),
+        NextBestAction(
+            id="find_buyers",
+            title="Buscar compradores",
+            description="Compradores estratégicos y fondos con encaje.",
+            icon="handshake",
+            disabled=disabled,
+        ),
+        NextBestAction(
+            id="activate_opportunity",
+            title="Activar oportunidad",
+            description="Abre un caso buy-side o sell-side sobre esta empresa.",
+            icon="target",
+            disabled=disabled,
+        ),
+        NextBestAction(
+            id="compare_with_other",
+            title="Comparar con otra",
+            description="Análisis comparado con una empresa del sector.",
+            icon="layers",
+            disabled=disabled,
+        ),
+    ]
+
+
+async def _build_activity_for_user(
+    *, user_id: str, master_company_id: str, limit: int = 20
+) -> list[ActivityItem]:
+    """Ensambla el timeline de Actividad §3.11 desde 3 fuentes canónicas:
+
+    - `company_watchlists` (toggle add/remove)
+    - `company_analysis_refreshes` (refresh de Análisis / Valoración /
+      Comparables — hoy comparten la misma colección con un discriminador)
+    - `company_conversations` messages (turnos assistant recientes)
+
+    Cada fuente aporta a lo sumo `limit/3` eventos; agregación final se
+    ordena por `at` desc y se recorta a `limit`.
+    """
+    db = get_db()
+    items: list[ActivityItem] = []
+    # Watchlist entry (a lo sumo 1).
+    wl = await db.company_watchlists.find_one(
+        {"master_company_id": master_company_id, "saved_by": user_id},
+        {"_id": 0},
+    )
+    if wl and wl.get("saved_at"):
+        items.append(
+            ActivityItem(
+                event_id=wl.get("watchlist_id", "wl_current"),
+                kind="watchlist_added",
+                at=wl["saved_at"],
+                actor_label="Tú",
+                summary="Guardada en tu watchlist.",
+            )
+        )
+    # Analysis refresh (a lo sumo 1).
+    refresh = await db.company_analysis_refreshes.find_one(
+        {"master_company_id": master_company_id, "user_id": user_id},
+        {"_id": 0},
+    )
+    if refresh and refresh.get("last_refresh_at"):
+        items.append(
+            ActivityItem(
+                event_id=f"ar_{master_company_id}_{user_id}",
+                kind="analysis_refreshed",
+                at=refresh["last_refresh_at"],
+                actor_label="Arroba Copilot",
+                summary="Análisis del Copilot refrescado.",
+            )
+        )
+    # Últimos mensajes assistant (hasta 3).
+    conv = await db.company_conversations.find_one(
+        {"master_company_id": master_company_id, "user_id": user_id},
+        {"_id": 0},
+    )
+    if conv:
+        cursor = db.company_conversation_messages.find(
+            {"conversation_id": conv["conversation_id"], "role": "assistant"},
+            {"_id": 0},
+        ).sort("created_at", -1).limit(3)
+        async for msg in cursor:
+            items.append(
+                ActivityItem(
+                    event_id=msg.get("message_id", "msg"),
+                    kind="conversation_message",
+                    at=msg["created_at"],
+                    actor_label="Arroba Copilot",
+                    summary=(msg.get("content") or "")[:120],
+                )
+            )
+    items.sort(key=lambda i: i.at, reverse=True)
+    return items[:limit]
+
+
 async def get_company_detail(
     cif: str,
     *,
@@ -465,6 +578,10 @@ async def get_company_detail(
             comparables=None,
             valuation=None,
             narrative=None,
+            signals=SignalsSection(),  # unavailable=True por default (REQ-008)
+            documents=DocumentsSection(items=[]),
+            activity=ActivitySection(items=[]),
+            next_best_actions=build_next_best_actions(authenticated=False),
         )
         log.info(
             "[MOCK] companies.detail (anon)",
@@ -499,6 +616,14 @@ async def get_company_detail(
         comparables=comparables,
         valuation=valuation,
         narrative=narrative,
+        signals=SignalsSection(),  # REQ-008 pendiente
+        documents=DocumentsSection(items=[]),  # sin upload en Sprint 1
+        activity=ActivitySection(
+            items=await _build_activity_for_user(
+                user_id=user_id, master_company_id=company.master_company_id
+            )
+        ),
+        next_best_actions=build_next_best_actions(authenticated=True),
     )
 
     # Conversation hydrate (lazy-create row).
@@ -751,6 +876,50 @@ async def _get_watchlist_entry(
     )
 
 
+async def list_user_watchlist(
+    *, user_id: str, org_id: str | None
+) -> list[dict[str, Any]]:
+    """Lista las empresas guardadas por el user en su org activa.
+
+    Devuelve items en el shape genérico `EntityLookupResult`-compatible:
+        { type: "company", id: cif, display_name, secondary_label, icon,
+          added_at }
+
+    El wrapper de router construirá el objeto final; aquí solo devolvemos
+    los datos crudos ordenados por `saved_at` descendente.
+    """
+    if not org_id:
+        return []
+    db = get_db()
+    cursor = db.company_watchlists.find(
+        {"org_id": org_id, "saved_by": user_id},
+        {"_id": 0},
+    ).sort("saved_at", -1)
+    entries = await cursor.to_list(length=200)
+    # Enriquecer con sector/region tomándolo del master_companies_mock.
+    out: list[dict[str, Any]] = []
+    for entry in entries:
+        secondary_parts: list[str] = []
+        doc = await _doc_by_master_id(entry["master_company_id"])
+        if doc:
+            if doc.get("sector"):
+                secondary_parts.append(doc["sector"])
+            if doc.get("region"):
+                secondary_parts.append(doc["region"])
+        out.append(
+            {
+                "type": "company",
+                "id": entry.get("cif") or entry["master_company_id"],
+                "display_name": entry.get("legal_name") or "(Sin nombre)",
+                "secondary_label": " · ".join(secondary_parts) or None,
+                "icon": "building",
+                "added_at": entry.get("saved_at"),
+                "visibility": entry.get("visibility", "private"),
+            }
+        )
+    return out
+
+
 async def toggle_watchlist(
     *, user_id: str, org_id: str | None, cif: str,
     adapter: EnrichCompanyAdapter | None = None,
@@ -837,6 +1006,7 @@ __all__ = [
     "get_conversation",
     "get_enriched_by_cif",
     "get_or_create_conversation",
+    "list_user_watchlist",
     "refresh_analysis",
     "refresh_comparables",
     "refresh_valuation",

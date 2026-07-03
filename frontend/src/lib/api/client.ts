@@ -48,6 +48,57 @@ import type {
   WatchlistToggleResponse,
 } from '@/lib/companies/types';
 
+/**
+ * EntityLookupType — catálogo canónico multi-tipo (Regla 2 · Sprint 1).
+ * En este sprint solo `company` retorna resultados; los demás son stubs
+ * silenciosos.
+ */
+export type EntityLookupType =
+  | 'company'
+  | 'sector'
+  | 'territory'
+  | 'person'
+  | 'advisor'
+  | 'mandate'
+  | 'match'
+  | 'operation'
+  | 'valuation'
+  | 'document'
+  | 'opportunity';
+
+export interface EntityLookupResult {
+  type: EntityLookupType;
+  id: string;
+  display_name: string;
+  secondary_label: string | null;
+  icon: string;
+}
+
+export interface EntityLookupResponse {
+  query: string;
+  results: EntityLookupResult[];
+}
+
+/**
+ * Response canónica de `GET /api/users/me/watchlist`. Contract genérico
+ * (`type: 'company'` desde ya) para que Sprints futuros puedan añadir
+ * `sector | opportunity | ...` sin cambiar el shape.
+ */
+export interface WatchlistItem {
+  type: 'company';
+  id: string;
+  display_name: string;
+  secondary_label: string | null;
+  icon: 'building';
+  added_at: string | null;
+  visibility: 'private' | 'team';
+}
+
+export interface WatchlistListResponse {
+  items: WatchlistItem[];
+  total: number;
+}
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -253,6 +304,35 @@ export const apiClient = {
           headers: { 'X-Active-Org': activeOrg },
         },
       ),
+  },
+  entities: {
+    /**
+     * Resolución genérica multi-tipo (Sprint 1). En este sprint solo
+     * `company` está poblado; los demás tipos devuelven [] sin fallar.
+     */
+    lookup: (params: {
+      q: string;
+      types?: readonly EntityLookupType[];
+      limit?: number;
+    }) => {
+      const qp = new URLSearchParams({ q: params.q });
+      if (params.types && params.types.length > 0) {
+        qp.set('types', params.types.join(','));
+      }
+      if (typeof params.limit === 'number') {
+        qp.set('limit', String(params.limit));
+      }
+      return request<EntityLookupResponse>(
+        `/api/entities/lookup?${qp.toString()}`,
+      );
+    },
+  },
+  users: {
+    getMe: () => request<MeResponse>('/api/auth/me'),
+    getMyWatchlist: (activeOrg?: string | null) =>
+      request<WatchlistListResponse>('/api/users/me/watchlist', {
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
   },
 };
 

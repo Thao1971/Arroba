@@ -32,6 +32,15 @@ class SkillContext(BaseModel):
     pathname: str = Field(default="/", max_length=512)
     user_id: str | None = Field(default=None, max_length=100)
     org_id: str | None = Field(default=None, max_length=100)
+    # Entity context (Sprint 1, Regla 1): declarado cuando el usuario está
+    # sobre la ficha de una entidad. El TC/Copilot lo usa para grounding.
+    # Opcional y retrocompatible: si no se envía, el copilot razona sin
+    # contexto de entidad.
+    entity_type: Literal[
+        "company", "sector", "territory", "person", "advisor",
+        "mandate", "match", "operation", "valuation", "document", "opportunity",
+    ] | None = None
+    entity_id: str | None = Field(default=None, max_length=80)
 
 
 class SearchSkillRequest(BaseModel):
