@@ -180,10 +180,11 @@ export const apiClient = {
       }),
     mine: () => request<OrgWithMembership[]>('/api/organizations/mine'),
   },
-  agencyTool: {
-    /** Public — unauthenticated home page consumer. Throws ApiError(404) when
-     *  the singleton is not seeded yet. */
-    platformStats: () => request<PlatformStats>('/api/agency-tool/platform-stats'),
+  platform: {
+    /** Público — home page anónima. Devuelve `provenance: 'demo' | 'live'`
+     *  en cuerpo y header `X-Provenance`. Lanza `ApiError(404)` cuando el
+     *  singleton no está aún seedeado. */
+    stats: () => request<PlatformStats>('/api/platform/stats'),
   },
   copilot: {
     /** Public — works with or without auth. Returns a Workspace spec. */

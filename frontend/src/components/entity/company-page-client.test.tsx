@@ -1,13 +1,15 @@
 /**
- * CompanyPageClient — E1.5-REWORK regression tests.
+ * CompanyPageClient — regresión del refactor F6 (SPRINT 1).
  *
- * Pins the philosophy v3.0 §12 invariants:
- *   - Anonymous: 3 public sections (resumen/identidad/financieros) + 5
- *     LockedSectionBlur teasers (score/comparables/valuation/narrative/actions).
- *   - Authenticated: all 8 sections rendered; no LockedSectionBlur.
- *   - When `CustomEvent("arroba:company-section-update")` fires with a
- *     `narrative` update, ONLY the narrative section re-renders.
- *   - Refresh button surfaces 429 cooldown.
+ * Ancla los contratos post-Entity Framework v1.0:
+ *   - Anonymous: hero/kpis/insights ready + analisis/senales/relaciones/
+ *     oportunidades/acciones locked + documentacion/actividad unavailable.
+ *   - Authenticated: los 10 módulos canónicos del flujo se renderizan
+ *     (algunos ready, `senales/documentacion/actividad` unavailable en
+ *     Sprint 1). Sin `LockedSectionBlur`.
+ *   - `CustomEvent("arroba:company-section-update")` con `narrative`
+ *     refresca SOLO la sección `analisis` in-place.
+ *   - Refresh 429 → cooldown visible en el botón.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
@@ -39,12 +41,13 @@ vi.mock('@/lib/workspaces/useActiveOrg', () => ({
   }),
 }));
 
-// Wraps the component inside the CopilotProvider since CompanyPageClient
-// calls useCopilot() — but here we only need the consumer behaviour.
+// Copilot mock: el componente publica EntityContext y pide hidratar la
+// conversación pero no depende del provider real en tests unitarios.
 vi.mock('../copilot/CopilotProvider', async () => {
   const actual = await vi.importActual<
     typeof import('../copilot/CopilotProvider')
   >('../copilot/CopilotProvider');
+  const publish = vi.fn();
   return {
     ...actual,
     useCopilot: () => ({
@@ -54,7 +57,11 @@ vi.mock('../copilot/CopilotProvider', async () => {
       workspace: null,
       lastQuery: null,
       currentWorkspaceId: null,
-      currentEntity: { type: 'company', cif: 'B86540112', name: 'Kitchen Studio' },
+      currentEntity: {
+        entity_type: 'company',
+        entity_id: 'B86540112',
+        entity_name: 'Kitchen Studio, S.L.',
+      },
       toggle: vi.fn(),
       openDock: vi.fn(),
       closeDock: vi.fn(),
@@ -64,7 +71,17 @@ vi.mock('../copilot/CopilotProvider', async () => {
       promoteToWorkspace: vi.fn(),
       hydratePersistent: vi.fn(),
       hydrateEntityConversation: vi.fn(),
+      setEntityContext: publish,
+      clearEntityContext: vi.fn(),
       dispatch: vi.fn(),
+    }),
+    useEntityContext: () => ({
+      context: {
+        entity_type: 'company',
+        entity_id: 'B86540112',
+        entity_name: 'Kitchen Studio, S.L.',
+      },
+      publish,
     }),
     COMPANY_SECTION_UPDATE_EVENT: 'arroba:company-section-update',
   };
@@ -145,11 +162,7 @@ function authedFixture(): CompanyDetailResponse {
         type: 'metrics',
         props: { title: 'Financieros', items: [{ label: 'EBITDA', value: '480k €' }] },
       },
-      score_block: {
-        id: 'blk_score',
-        type: 'hero',
-        props: { eyebrow: 'Score', title: 'Score 92', tone: 'info' },
-      },
+      score_block: null,
       comparables: {
         id: 'blk_comp',
         type: 'company_cards_grid',
@@ -191,7 +204,7 @@ function authedFixture(): CompanyDetailResponse {
     in_watchlist: false,
     watchlist_visibility: null,
     conversation_id: 'conv_1',
-    source: 'mock',
+    provenance: 'demo',
   };
 }
 
@@ -215,61 +228,91 @@ beforeEach(() => {
   global.fetch = vi.fn();
 });
 
-describe('CompanyPageClient — anonymous', () => {
-  it('renders the 3 public sections and 5 LockedSectionBlur teasers', () => {
+describe('CompanyPageClient — anonymous (F6 declarative)', () => {
+  it('renderiza los 10 módulos canónicos: 3 públicos ready + 5 locked + 2 unavailable', () => {
     render(
       withIntl(
-        <CompanyPageClient cif="B86540112" initial={anonymousFixture()} authenticated={false} />,
+        <CompanyPageClient
+          cif="B86540112"
+          initial={anonymousFixture()}
+          authenticated={false}
+        />,
       ),
     );
-    // Public sections present
-    expect(screen.getByTestId('entity-section-resumen')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-identidad')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-financieros')).toBeInTheDocument();
-    // 5 locked teasers (score, comparables, valuation, narrative, actions)
-    expect(screen.getByTestId('company-score-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('company-comparables-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('company-valuation-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('company-narrative-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('company-actions-locked')).toBeInTheDocument();
-    // Refresh button absent for anonymous
+
+    // Módulos públicos (ready) — hero, kpis, insights
+    expect(screen.getByTestId('entity-section-hero')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-kpis')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-insights')).toBeInTheDocument();
+    expect(screen.getByTestId('company-identity-card')).toBeInTheDocument();
+
+    // Módulos locked — analisis, senales, relaciones, oportunidades, acciones
+    expect(screen.getByTestId('entity-section-analisis-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-senales-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-relaciones-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-oportunidades-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-acciones-locked')).toBeInTheDocument();
+
+    // Módulos unavailable — documentacion, actividad
+    expect(screen.getByTestId('entity-section-documentacion')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-actividad')).toBeInTheDocument();
+
+    // Refresh button ausente
     expect(screen.queryByTestId('company-refresh-analysis')).not.toBeInTheDocument();
   });
 });
 
-describe('CompanyPageClient — authenticated', () => {
-  it('renders all 8 sections with no LockedSectionBlur', () => {
+describe('CompanyPageClient — authenticated (F6 declarative)', () => {
+  it('renderiza los 10 módulos: 7 ready + 3 unavailable, sin locks', () => {
     render(
       withIntl(
-        <CompanyPageClient cif="B86540112" initial={authedFixture()} authenticated={true} />,
+        <CompanyPageClient
+          cif="B86540112"
+          initial={authedFixture()}
+          authenticated={true}
+        />,
       ),
     );
-    expect(screen.getByTestId('entity-section-resumen')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-identidad')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-financieros')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-score')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-comparables')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-valoracion')).toBeInTheDocument();
+
+    // Ready modules
+    expect(screen.getByTestId('entity-section-hero')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-kpis')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-insights')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-analisis')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-relaciones')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-oportunidades')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-acciones')).toBeInTheDocument();
-    expect(screen.queryByTestId('company-narrative-locked')).not.toBeInTheDocument();
+
+    // Unavailable modules — senales/documentacion/actividad
+    expect(screen.getByTestId('entity-section-senales')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-documentacion')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-actividad')).toBeInTheDocument();
+
+    // No locks para autenticados
+    expect(screen.queryByTestId('entity-section-analisis-locked')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('entity-section-acciones-locked')).not.toBeInTheDocument();
+
+    // Refresh button y acciones presentes
     expect(screen.getByTestId('company-refresh-analysis')).toBeInTheDocument();
-    expect(screen.getByTestId('company-next-best-actions')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-actions')).toBeInTheDocument();
   });
 
-  it('updates the narrative section in-place when CustomEvent fires', async () => {
+  it('actualiza la sección analisis in-place al recibir CustomEvent', async () => {
     render(
       withIntl(
-        <CompanyPageClient cif="B86540112" initial={authedFixture()} authenticated={true} />,
+        <CompanyPageClient
+          cif="B86540112"
+          initial={authedFixture()}
+          authenticated={true}
+        />,
       ),
     );
 
-    // Initial narrative shows the initial summary.
+    // Estado inicial de la narrativa.
     expect(
       screen.getByText('Resumen inicial de la empresa.'),
     ).toBeInTheDocument();
 
-    // Dispatch the CustomEvent the CopilotProvider would emit.
     const newBlock = makeNarrativeBlock(
       'Riesgos: dependencia de talento clave; concentración geográfica en Madrid.',
     );
@@ -291,17 +334,21 @@ describe('CompanyPageClient — authenticated', () => {
         ),
       ).toBeInTheDocument();
     });
-    // Other sections should NOT be affected (header still shows the name).
+    // El resto de la ficha permanece intacto.
     expect(screen.getByTestId('company-header-name')).toHaveTextContent(
       'Kitchen Studio, S.L.',
     );
     expect(screen.getAllByText(/2,4M €/).length).toBeGreaterThan(0);
   });
 
-  it('ignores CustomEvents for a different cif', async () => {
+  it('ignora CustomEvents dirigidos a otro CIF', async () => {
     render(
       withIntl(
-        <CompanyPageClient cif="B86540112" initial={authedFixture()} authenticated={true} />,
+        <CompanyPageClient
+          cif="B86540112"
+          initial={authedFixture()}
+          authenticated={true}
+        />,
       ),
     );
     const block = makeNarrativeBlock('SHOULD_NOT_RENDER');
@@ -321,12 +368,8 @@ describe('CompanyPageClient — authenticated', () => {
     ).toBeInTheDocument();
   });
 
-  it('refresh analysis 429 — shows cooldown countdown in the button label', async () => {
+  it('429 en refresh muestra countdown en el botón', async () => {
     const user = userEvent.setup();
-    // fetch mock returns 429 with a Retry-After detail. We need
-    // mockImplementation (not mockResolvedValue) so the FIRST call
-    // (hydrateEntityConversation's GET /conversation) gets a benign empty
-    // response and the SECOND call (refreshAnalysis POST) gets the 429.
     let call = 0;
     global.fetch = vi.fn().mockImplementation(async (url: string) => {
       call += 1;
@@ -339,7 +382,6 @@ describe('CompanyPageClient — authenticated', () => {
           { status: 429, headers: { 'Content-Type': 'application/json' } },
         );
       }
-      // Fallback: empty conversation.
       return new Response(
         JSON.stringify({
           conversation_id: 'conv_1',
@@ -352,7 +394,11 @@ describe('CompanyPageClient — authenticated', () => {
 
     render(
       withIntl(
-        <CompanyPageClient cif="B86540112" initial={authedFixture()} authenticated={true} />,
+        <CompanyPageClient
+          cif="B86540112"
+          initial={authedFixture()}
+          authenticated={true}
+        />,
       ),
     );
     const btn = screen.getByTestId('company-refresh-analysis');
@@ -367,7 +413,7 @@ describe('CompanyPageClient — authenticated', () => {
     expect(call).toBeGreaterThan(0);
   });
 
-  it('refresh analysis success — locks button client-side for 60s (optimistic cooldown)', async () => {
+  it('refresh 200 bloquea el botón 60s (cooldown optimista) y actualiza narrativa', async () => {
     const user = userEvent.setup();
     global.fetch = vi.fn().mockImplementation(async (url: string) => {
       if (typeof url === 'string' && url.includes('/skills/analyze')) {
@@ -386,7 +432,7 @@ describe('CompanyPageClient — authenticated', () => {
               },
             },
             generated_at: new Date().toISOString(),
-            source: 'real',
+            provenance: 'live',
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
@@ -403,12 +449,15 @@ describe('CompanyPageClient — authenticated', () => {
 
     render(
       withIntl(
-        <CompanyPageClient cif="B86540112" initial={authedFixture()} authenticated={true} />,
+        <CompanyPageClient
+          cif="B86540112"
+          initial={authedFixture()}
+          authenticated={true}
+        />,
       ),
     );
     const btn = screen.getByTestId('company-refresh-analysis');
     await user.click(btn);
-    // After a successful refresh, the button must lock for 60s.
     await waitFor(
       () => {
         expect(btn).toHaveTextContent(/Espera 60s/);
@@ -416,7 +465,6 @@ describe('CompanyPageClient — authenticated', () => {
       { timeout: 3000 },
     );
     expect(btn).toBeDisabled();
-    // And the narrative content updated.
     expect(
       screen.getByText('Nueva narrativa refrescada.'),
     ).toBeInTheDocument();

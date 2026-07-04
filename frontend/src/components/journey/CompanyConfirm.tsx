@@ -1,14 +1,14 @@
 'use client';
 import { Check } from 'lucide-react';
-import type { MockCompany } from '@/lib/journey/data';
+import type { DemoCompany } from '@/lib/journey/data';
 
 export interface CompanyConfirmProps {
-  company: MockCompany;
+  company: DemoCompany;
   onConfirm: () => void;
   onReject: () => void;
 }
 
-/** Confirmation card for a picked mock company. Port of CompanyConfirm. */
+/** Confirmation card for a picked demo company. Port of CompanyConfirm. */
 export function CompanyConfirm({ company, onConfirm, onReject }: CompanyConfirmProps) {
   const rows: ReadonlyArray<readonly [string, string]> = [
     ['Razón social', company.razon],

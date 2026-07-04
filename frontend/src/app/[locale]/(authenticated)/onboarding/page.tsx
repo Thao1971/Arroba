@@ -25,7 +25,7 @@ import {
   ABOUT_OPTIONS,
   FLOWS,
   type IntentId,
-  type MockCompany,
+  type DemoCompany,
 } from '@/lib/journey/data';
 import type { JourneyState } from '@/lib/journey/derive';
 import { apiClient, ApiError } from '@/lib/api/client';
@@ -66,7 +66,7 @@ function OnboardingInner() {
   const [branchIdx, setBranchIdx] = useState(0);
   const [multiSel, setMultiSel] = useState<string[]>([]);
   const [state, setState] = useState<JourneyState>({ intent: null, about: null });
-  const [pending, setPending] = useState<MockCompany | null>(null);
+  const [pending, setPending] = useState<DemoCompany | null>(null);
   const [exploreName, setExploreName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,7 +167,7 @@ function OnboardingInner() {
     }
   }
 
-  function pickCompany(c: MockCompany) {
+  function pickCompany(c: DemoCompany) {
     pushUser(c.name);
     setPending(c);
     copilotThen(
@@ -175,7 +175,7 @@ function OnboardingInner() {
       () => setStage('confirm')
     );
   }
-  function confirmCompany(c: MockCompany) {
+  function confirmCompany(c: DemoCompany) {
     pushUser('Sí, es esta');
     setState((s) => ({
       ...s,

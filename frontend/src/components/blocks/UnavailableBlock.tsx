@@ -1,7 +1,7 @@
 'use client';
 /**
  * UnavailableBlock — placeholder canónico para secciones cuyos datos
- * dependen de un REQ-XXX externo (Agency Tool real, signals, etc.).
+ * dependen de un REQ-XXX externo (proveedor de datos real, señales, etc.).
  *
  * Distinto de:
  *   - LockedSectionBlur: el dato existe pero requiere registro.

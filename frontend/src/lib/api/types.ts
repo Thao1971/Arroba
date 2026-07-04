@@ -98,7 +98,7 @@ export interface CreateOrgResponse {
   membership: MembershipPublic;
 }
 
-// ===================== Agency Tool =====================
+// ===================== Platform =====================
 
 export type Lineage = 'raw' | 'normalized' | 'inferred' | 'ai_generated';
 
@@ -115,5 +115,7 @@ export interface PlatformStats {
   confidence: number;
   lineage: Lineage;
   valid_until: string | null;
-  source: string;
+  /** Nomenclatura canónica: `demo` (dataset de demostración local) o
+   *  `live` (proveedor real en producción). */
+  provenance: 'demo' | 'live';
 }

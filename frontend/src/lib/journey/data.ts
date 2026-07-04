@@ -3,8 +3,8 @@
  *
  * Port directo de /app/_design_intake/registro/rj-data.js a TypeScript.
  * El contenido es **scripted** (no LLM): el orquestador sigue la conversación
- * paso a paso. La interactividad de empresas usa la lista mock de abajo
- * (cinco empresas demo); el agency-tool real entra en E1.2+.
+ * paso a paso. La interactividad de empresas usa la lista de demo de abajo
+ * (cinco empresas demo); el proveedor de datos real entra en E1.2+.
  */
 
 export type IntentId = 'comprar' | 'vender' | 'financiar' | 'explorar';
@@ -25,7 +25,7 @@ export interface AboutOption {
   icon: 'building' | 'trend' | 'users' | 'compass';
 }
 
-export interface MockCompany {
+export interface DemoCompany {
   id: string;
   name: string;
   razon: string;
@@ -76,7 +76,7 @@ export const ABOUT_OPTIONS: readonly AboutOption[] = [
   { id: 'empezando', title: 'Estoy empezando', desc: 'Aún estoy explorando qué puedo hacer en arroba.', icon: 'compass' },
 ];
 
-export const COMPANIES_MOCK: readonly MockCompany[] = [
+export const COMPANIES_DEMO: readonly DemoCompany[] = [
   { id: 'kitchen', name: 'Kitchen', razon: 'Kitchen Studio, S.L.', cif: 'B-86 540 112', forma: 'Sociedad Limitada', sector: 'Tecnología y software', city: 'Madrid', province: 'Madrid', cnae: '6201', web: 'kitchen.studio', revenue: '5,4M€', ebitda: '1,1M€', employees: 47, desc: 'Estudio de producto digital y desarrollo de software a medida para grandes marcas.' },
   { id: 'olmedo', name: 'Grupo Olmedo Hoteles', razon: 'Grupo Olmedo Hoteles, S.L.', cif: 'B-47 594 478', forma: 'Sociedad Limitada', sector: 'Hoteles y turismo termal', city: 'Olmedo', province: 'Valladolid', cnae: '5510', web: 'castillatermal.com', revenue: '32,0M€', ebitda: '8,2M€', employees: 81, desc: 'Holding hotelero especializado en turismo termal.' },
   { id: 'munoz', name: 'Muñoz Comunicación', razon: 'Muñoz Comunicación, S.L.', cif: 'B-85 412 003', forma: 'Sociedad Limitada', sector: 'Marketing y publicidad', city: 'Madrid', province: 'Madrid', cnae: '7311', web: 'munozcomunicacion.es', revenue: '4,2M€', ebitda: '0,76M€', employees: 38, desc: 'Agencia independiente de comunicación y publicidad.' },

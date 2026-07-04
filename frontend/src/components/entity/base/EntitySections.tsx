@@ -84,7 +84,9 @@ export function EntitySections({
           id={s.id}
           title={s.title}
           description={s.description}
-          action={s.state === 'ready' ? s.action : null}
+          action={
+            s.state === 'ready' || s.state === 'updating' ? s.action : null
+          }
           testId={`entity-section-${s.id}`}
         >
           {renderFallback(s)}

@@ -85,7 +85,10 @@ export interface CompanyDetailResponse {
   in_watchlist: boolean;
   watchlist_visibility: WatchlistVisibility | null;
   conversation_id: string | null;
-  source: 'mock' | 'real';
+  /** Origen del dato: `demo` (dataset de demostración local) o `live`
+   *  (proveedor real en producción). El backend puede seguir emitiendo
+   *  el campo legacy `source`; el cliente lo mapea a `provenance`. */
+  provenance: 'demo' | 'live';
 }
 
 export interface CompanyConversationMessage {

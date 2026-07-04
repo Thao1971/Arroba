@@ -183,7 +183,7 @@ export interface SearchSkillResponse {
    *  on the legacy/exploratory path. Null when the response is an
    *  entity-resolution (navigate_to) or disambiguation. */
   workspace: Workspace | null;
-  source: 'mock' | 'real';
+  provenance: 'demo' | 'live';
   query: string;
   /** E1.5-REWORK: when present, the client should `router.push(navigate_to)`
    *  to land on the entity page. */
@@ -200,7 +200,7 @@ export interface AnalyzeSkillRequest {
 }
 export interface AnalyzeSkillResponse {
   workspace: Workspace;
-  source: 'mock' | 'real';
+  provenance: 'demo' | 'live';
   query: string;
 }
 
@@ -210,7 +210,7 @@ export interface ValueSkillRequest {
 }
 export interface ValueSkillResponse {
   workspace: Workspace;
-  source: 'mock' | 'real';
+  provenance: 'demo' | 'live';
   query: string;
 }
 
@@ -220,7 +220,7 @@ export interface RecommendSkillRequest {
 }
 export interface RecommendSkillResponse {
   workspace: Workspace;
-  source: 'mock' | 'real';
+  provenance: 'demo' | 'live';
   query: string;
 }
 

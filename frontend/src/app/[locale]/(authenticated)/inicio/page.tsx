@@ -58,12 +58,11 @@ function HomeContent() {
   const items: CompanyCardsGridItem[] = useMemo(() => {
     if (!data?.items) return [];
     return data.items.map((wl) => ({
-      cif: wl.id,
-      legal_name: wl.display_name,
-      sector: wl.secondary_label ?? undefined,
+      masterCompanyId: wl.id,
+      name: wl.display_name,
+      sector: wl.secondary_label ?? null,
       region: null,
-      score: null,
-      href: `/empresa/${wl.id}`,
+      score: 1,
     }));
   }, [data]);
 

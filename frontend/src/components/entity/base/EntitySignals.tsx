@@ -4,7 +4,7 @@
  *
  * Today: thin shell that delegates to `UnavailableBlock` (REQ-008 — BORME,
  * contratación pública, cambios societarios). Future (E1.6+): becomes a
- * `SignalsTimeline` primitive when the Agency Tool real ingests the data.
+ * `SignalsTimeline` primitive when the real data provider ingests the feed.
  *
  * See ENTITY_FRAMEWORK.md §3.7 — Señales module.
  *

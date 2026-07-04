@@ -12,12 +12,12 @@ import {
 } from './copilot-demo-script';
 
 /**
- * Pre-recorded Copilot demo embedded on the public home. Visually mimics the
- * future global dock (E1.3) but uses a deterministic script (no LLM). The
- * shape of each "turn" matches the future Copilot/Skill protocol so the swap
- * to real LLM later is trivial.
+ * Demo del Copilot embebida en la home pública. Visualmente imita el dock
+ * global (E1.3) pero usa un guion determinístico (sin LLM). El shape de
+ * cada "turn" replica el protocolo Copilot/Skill futuro para que el
+ * cambio a LLM real sea trivial.
  *
- * NO backend dependency. Renders inline (not docked).
+ * SIN dependencia de backend. Renderiza inline (no docked).
  */
 interface Message {
   role: 'user' | 'copilot';
@@ -31,7 +31,7 @@ const INTRO: Message[] = [
   { role: 'copilot', text: DEMO_INTRO_COPILOT, cards: DEMO_INTRO_CARDS },
 ];
 
-export function CopilotDemoMock() {
+export function CopilotDemoTeaser() {
   const [messages, setMessages] = useState<Message[]>(INTRO);
   const [usedChips, setUsedChips] = useState<Set<string>>(new Set());
   const [typing, setTyping] = useState(false);
@@ -68,7 +68,7 @@ export function CopilotDemoMock() {
 
   return (
     <section
-      data-testid="copilot-demo-mock"
+      data-testid="copilot-demo-teaser"
       className="rounded-2xl border border-border bg-surface overflow-hidden"
     >
       <header className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border bg-surface-2">

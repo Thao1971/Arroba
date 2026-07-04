@@ -28,7 +28,7 @@ import {
   FeatureCardBlock,
 } from '@/components/blocks';
 import { PublicFooter } from '@/components/home/PublicFooter';
-import { CopilotDemoMock } from '@/components/home/CopilotDemoMock';
+import { CopilotDemoTeaser } from '@/components/home/CopilotDemoTeaser';
 
 const HERO_PLACEHOLDERS = [
   '¿Cuánto vale mi empresa?',
@@ -95,10 +95,12 @@ export default function HomePage() {
   const { isAuthenticated, isLoading, memberships } = useAuth();
   const router = useRouter();
 
-  // Authenticated users get routed away from the marketing landing.
+  // Authenticated users get routed to the private dashboard (Sprint 1 · F5).
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
-    router.replace(memberships && memberships.length === 0 ? '/onboarding' : '/organizaciones');
+    router.replace(
+      memberships && memberships.length === 0 ? '/onboarding' : '/inicio',
+    );
   }, [isAuthenticated, isLoading, memberships, router]);
 
   return (
@@ -134,7 +136,7 @@ export default function HomePage() {
             </>
           }
         >
-          <HeroSearchMock />
+          <HeroSearchTeaser />
         </HeroBlock>
       </section>
 
@@ -170,7 +172,7 @@ export default function HomePage() {
             testId="home-metrics"
           />
           <p className="text-center text-xs text-text-subtle mt-6">
-            Datos agregados del Agency Tool · Fuente actual: mock · Confianza 1.0
+            Datos agregados de arroba.com · Origen actual: datos demo · Confianza 1.0
           </p>
         </div>
       </section>
@@ -249,7 +251,7 @@ export default function HomePage() {
           subtitle="Te muestro cómo el Copilot orquesta capas, señales y oportunidades en pocos segundos."
         />
         <div className="mt-8">
-          <CopilotDemoMock />
+          <CopilotDemoTeaser />
         </div>
         <p className="text-center text-xs text-text-subtle mt-5">
           Demo determinista pre-grabada. El Copilot real con IA conversacional
@@ -320,11 +322,11 @@ function SectionHeader({
   );
 }
 
-/** Decorative search field — static, not functional. Search Skill lands in E1.4. */
-function HeroSearchMock() {
+/** Buscador decorativo — estático, no funcional. El Search Skill real llega en E1.4. */
+function HeroSearchTeaser() {
   return (
     <div
-      data-testid="home-hero-search-mock"
+      data-testid="home-hero-search-teaser"
       className="mx-auto max-w-xl flex items-center gap-2 px-4 h-14 rounded-[14px] border-[1.5px] border-border-strong bg-surface shadow-sm"
     >
       <Compass size={18} strokeWidth={1.6} className="text-text-subtle shrink-0" />

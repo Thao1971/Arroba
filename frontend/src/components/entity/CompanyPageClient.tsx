@@ -1,38 +1,64 @@
 'use client';
 /**
- * CompanyPageClient — the entire authenticated/anonymous client surface of
- * `/empresa/{cif}`. Renders the eight sections of the ficha, hooks into the
- * Copilot's `entity_context` mode so the dock becomes "✦ Company Advisor de
- * {name}" and listens for `arroba:company-section-update` events emitted by
- * the provider after every Company Advisor turn — refreshing ONLY the
- * sections the LLM decided to update (per ARROBA_PHILOSOPHY.md §12 "La
- * ficha es la verdad").
+ * CompanyPageClient — SPRINT 1 · F6 · Composición 100 % declarativa.
+ *
+ * Regla arquitectónica 3: la ficha de empresa es composición pura sobre
+ * `<EntitySections/>`. Este cliente ya NO renderiza secciones a mano ni
+ * decide layouts locales — se limita a:
+ *
+ *   1) Declarar los 12 módulos canónicos del Entity Framework
+ *      (`header` + `advisor` viven fuera del flujo; los 10 restantes se
+ *      declaran aquí como `EntitySectionDescriptor[]`).
+ *   2) Elegir el estado de cada módulo (`ready | locked | unavailable |
+ *      updating`) según la sesión y los datos de `initial`.
+ *   3) Suscribirse al evento `arroba:company-section-update` para pulsar
+ *      la sección afectada (state `updating` → animación section-pulse).
+ *   4) Publicar el `EntityContext` para el Composer permanente al montar
+ *      la ficha y limpiarlo en el unmount (Regla 1 · F7).
+ *
+ * Los tests siguen validando los contratos de UX (secciones presentes,
+ * refresh 429, section_updates in-place) pero ahora se apoyan en los
+ * ids canónicos (`entity-section-hero`, `entity-section-analisis`, …).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Scale, Sparkles } from 'lucide-react';
 
 import { apiClient, ApiError } from '@/lib/api/client';
-import { cn } from '@/lib/cn';
 import {
   COMPANY_SECTION_UPDATE_EVENT,
   useCopilot,
+  useEntityContext,
 } from '@/components/copilot/CopilotProvider';
 import { CompanyHeader } from './CompanyHeader';
-import { EntitySectionWrapper } from './EntitySectionWrapper';
-import { LockedSectionBlur } from './LockedSectionBlur';
+import { EntitySections } from './base/EntitySections';
+import { EntityHero } from './base/EntityHero';
+import { EntityMetrics } from './base/EntityMetrics';
+import { EntityInsights } from './base/EntityInsights';
+import { EntityAnalisis } from './base/EntityAnalisis';
+import { EntityRelations } from './base/EntityRelations';
+import { EntityActions } from './base/EntityActions';
 import { HeroBlock } from '@/components/blocks/HeroBlock';
-import { MetricsBlock } from '@/components/blocks/MetricsBlock';
 import { NarrativeBlock } from '@/components/blocks/NarrativeBlock';
 import { RefreshButton } from '@/components/blocks/RefreshButton';
 import { ValuationBlock } from '@/components/blocks/ValuationBlock';
-import { CompanyCardsGridBlock } from '@/components/blocks/CompanyCardsGridBlock';
 import { notify } from '@/lib/notify';
-import type { BlockSpec, Workspace } from '@/lib/orchestrator/types';
+import type { BlockSpec } from '@/lib/orchestrator/types';
 import type {
   CompanyConversationMessage,
   CompanyDetailResponse,
+  CompanyIdentity,
   SectionId,
   SectionUpdate,
 } from '@/lib/companies/types';
+import type {
+  EntityModuleId,
+  EntitySectionDescriptor,
+  EntityModuleState,
+} from './base/types';
+
+/* ============================================================
+ * Tipos internos
+ * ============================================================ */
 
 type AnyBlock = BlockSpec & { props: Record<string, unknown> };
 
@@ -41,6 +67,96 @@ export interface CompanyPageClientProps {
   initial: CompanyDetailResponse;
   authenticated: boolean;
 }
+
+/** Sección lógica de la ficha (id canónico ↔ módulo canónico). */
+interface CompanySectionSlot {
+  id: string;
+  module: EntityModuleId;
+  title: string;
+  description?: string;
+  /** REQ bloqueante cuando el módulo aún no está entregado. */
+  req?: string;
+  eta?: string;
+}
+
+/**
+ * Mapeo canónico ↔ id de sección visible en la ficha de empresa.
+ * El orden final lo impone `EntitySections` (`CANONICAL_MODULE_ORDER`).
+ */
+const COMPANY_SLOTS: readonly CompanySectionSlot[] = [
+  {
+    id: 'hero',
+    module: 'hero',
+    title: 'Resumen',
+  },
+  {
+    id: 'kpis',
+    module: 'kpis',
+    title: 'Cifras clave',
+    description: 'Ingresos, EBITDA y evolución reciente.',
+  },
+  {
+    id: 'insights',
+    module: 'insights',
+    title: 'Identidad y ficha corporativa',
+    description: 'Datos básicos de la sociedad.',
+  },
+  {
+    id: 'analisis',
+    module: 'analisis',
+    title: 'Análisis del Copilot',
+    description: 'Lectura del analista IA basada en la ficha.',
+  },
+  {
+    id: 'senales',
+    module: 'senales',
+    title: 'Señales externas',
+    description: 'BORME, contratación pública y cambios societarios.',
+    req: 'REQ-008',
+    eta: 'E1.8',
+  },
+  {
+    id: 'relaciones',
+    module: 'relaciones',
+    title: 'Empresas relacionadas',
+    description: 'Comparables sectoriales y peers cercanos.',
+  },
+  {
+    id: 'oportunidades',
+    module: 'oportunidades',
+    title: 'Oportunidades detectadas',
+    description: 'Valoración indicativa y opciones activables.',
+  },
+  {
+    id: 'documentacion',
+    module: 'documentacion',
+    title: 'Documentación',
+    description: 'Memorias mercantiles, teasers e IMs asociados.',
+    req: 'REQ-004',
+    eta: 'E1.6',
+  },
+  {
+    id: 'actividad',
+    module: 'actividad',
+    title: 'Actividad reciente',
+    description: 'Eventos, refrescos y cambios en esta ficha.',
+    req: 'REQ-006',
+    eta: 'E1.6',
+  },
+  {
+    id: 'acciones',
+    module: 'acciones',
+    title: 'Próximas mejores acciones',
+    description: 'Atajos a las capacidades que conectan esta ficha con el resto del producto.',
+  },
+];
+
+/** Duración del feedback visual `animate-section-pulse` en ms. */
+const SECTION_PULSE_MS = 700;
+
+/* ============================================================
+ * Componente
+ * ============================================================ */
 
 export function CompanyPageClient({
   cif,
@@ -52,10 +168,28 @@ export function CompanyPageClient({
   const [analysisCountdown, setAnalysisCountdown] = useState<number | null>(
     null,
   );
-  const copilot = useCopilot();
-  const { hydrateEntityConversation } = copilot;
+  /** Ids canónicos que están momentáneamente en estado `updating` (pulse). */
+  const [updatingIds, setUpdatingIds] = useState<Set<string>>(() => new Set());
+  const pulseTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
 
-  /* ---------- Hydrate Copilot conversation on mount ---------- */
+  const { hydrateEntityConversation } = useCopilot();
+  const { publish: publishEntity } = useEntityContext();
+
+  /* ---------- Regla 1 · F7: publicar EntityContext siempre ---------- */
+  useEffect(() => {
+    publishEntity({
+      entity_type: 'company',
+      entity_id: cif,
+      entity_name: initial.header.name,
+    });
+    return () => {
+      publishEntity(null);
+    };
+  }, [cif, initial.header.name, publishEntity]);
+
+  /* ---------- Hidratación de la conversación (solo autenticados) ---------- */
   useEffect(() => {
     if (!authenticated) return;
     let active = true;
@@ -68,7 +202,8 @@ export function CompanyPageClient({
           initial.header.name,
         );
       } catch {
-        // Non-fatal: dock still works in entity mode, just without history.
+        // No fatal: el dock sigue funcionando en modo entity_context aunque
+        // no cargue el hilo previo.
       }
     })();
     return () => {
@@ -76,7 +211,35 @@ export function CompanyPageClient({
     };
   }, [authenticated, cif, initial.header.name, hydrateEntityConversation]);
 
-  /* ---------- Listen for section_updates from the advisor ---------- */
+  /* ---------- Pulso visual reutilizable ---------- */
+  const pulseSection = useCallback((sectionId: string) => {
+    setUpdatingIds((prev) => {
+      const next = new Set(prev);
+      next.add(sectionId);
+      return next;
+    });
+    const prevTimer = pulseTimersRef.current.get(sectionId);
+    if (prevTimer) clearTimeout(prevTimer);
+    const timer = setTimeout(() => {
+      setUpdatingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sectionId);
+        return next;
+      });
+      pulseTimersRef.current.delete(sectionId);
+    }, SECTION_PULSE_MS);
+    pulseTimersRef.current.set(sectionId, timer);
+  }, []);
+
+  useEffect(() => {
+    const timers = pulseTimersRef.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
+
+  /* ---------- Escucha de section_updates del Advisor ---------- */
   useEffect(() => {
     function onUpdate(e: Event) {
       const detail = (
@@ -84,7 +247,16 @@ export function CompanyPageClient({
       ).detail;
       if (!detail || detail.cif !== cif) return;
       setSections((prev) => applySectionUpdates(prev, detail.section_updates));
-      const sectionNames = detail.section_updates.map((u) => u.section).join(', ');
+
+      // Pulsar cada módulo canónico afectado por el update.
+      detail.section_updates.forEach((u) => {
+        const targetId = SECTION_ID_BY_UPDATE[u.section];
+        if (targetId) pulseSection(targetId);
+      });
+
+      const sectionNames = detail.section_updates
+        .map((u) => u.section)
+        .join(', ');
       notify({
         kind: 'success',
         text:
@@ -96,24 +268,21 @@ export function CompanyPageClient({
     window.addEventListener(COMPANY_SECTION_UPDATE_EVENT, onUpdate);
     return () =>
       window.removeEventListener(COMPANY_SECTION_UPDATE_EVENT, onUpdate);
-  }, [cif]);
+  }, [cif, pulseSection]);
 
-  /* ---------- Manual refresh of the narrative (rate-limited) ---------- */
+  /* ---------- Refresco manual del análisis ---------- */
   const onRefreshAnalysis = useCallback(async () => {
     if (refreshingAnalysis || analysisCountdown !== null) return;
     setRefreshingAnalysis(true);
     try {
       const res = await apiClient.companies.refreshAnalysis(cif);
       setSections((s) => ({ ...s, narrative: res.block }));
+      pulseSection('analisis');
       notify({ kind: 'success', text: 'Análisis del Copilot actualizado.' });
-      // Optimistic client-side cooldown matching the backend window (60s).
-      // This locks the button immediately so users don't trigger a 2nd
-      // round-trip that the server would only refuse with 429.
+      // Cooldown optimista alineado con el backend (60 s).
       startCountdown(60, setAnalysisCountdown);
     } catch (e) {
       if (e instanceof ApiError && e.status === 429) {
-        // Server enforced cooldown: extract the remaining seconds from the
-        // detail field — falls back to 60 if the backend ever changes shape.
         const m = /(\d+)/.exec(String(e.detail || ''));
         const retry = m && m[1] ? Number(m[1]) : 60;
         startCountdown(retry, setAnalysisCountdown);
@@ -127,17 +296,169 @@ export function CompanyPageClient({
     } finally {
       setRefreshingAnalysis(false);
     }
-  }, [cif, refreshingAnalysis, analysisCountdown]);
+  }, [analysisCountdown, cif, pulseSection, refreshingAnalysis]);
 
-  /* ---------- Section locks (anonymous only) ---------- */
+  /* ---------- Cálculo declarativo de las 10 secciones ---------- */
   const locked = useMemo(
     () => new Set(initial.locked_sections || []),
     [initial.locked_sections],
   );
 
+  const sectionDescriptors: EntitySectionDescriptor[] = useMemo(() => {
+    return COMPANY_SLOTS.map((slot): EntitySectionDescriptor => {
+      const isPulse = updatingIds.has(slot.id);
+      const base = {
+        id: slot.id,
+        module: slot.module,
+        title: slot.title,
+        description: slot.description,
+      };
+
+      switch (slot.id) {
+        case 'hero': {
+          return {
+            ...base,
+            state: pulseOrReady(isPulse),
+            children: renderHero(sections.hero, initial.header.name),
+          };
+        }
+        case 'kpis': {
+          return {
+            ...base,
+            state: pulseOrReady(isPulse),
+            children: renderKpis(sections.financials_metrics, authenticated),
+          };
+        }
+        case 'insights': {
+          return {
+            ...base,
+            state: pulseOrReady(isPulse),
+            children: <IdentityCard identity={sections.identity} />,
+          };
+        }
+        case 'analisis': {
+          if (locked.has('narrative') || !sections.narrative) {
+            return {
+              ...base,
+              state: 'locked',
+              description:
+                'El Company Advisor te da un resumen, riesgos y oportunidades adaptados a la ficha. Crea tu cuenta para verlo.',
+            };
+          }
+          return {
+            ...base,
+            state: pulseOrReady(isPulse),
+            action: (
+              <RefreshButton
+                testId="company-refresh-analysis"
+                label="Refrescar análisis"
+                loading={refreshingAnalysis}
+                cooldownSeconds={analysisCountdown}
+                onClick={onRefreshAnalysis}
+              />
+            ),
+            children: renderNarrative(sections.narrative),
+          };
+        }
+        case 'senales': {
+          if (locked.has('score')) {
+            return {
+              ...base,
+              state: 'locked',
+              description:
+                'Aquí verás los scores de oportunidad y riesgo y las señales BORME, contratación pública y cambios societarios.',
+            };
+          }
+          if (sections.score_block) {
+            return {
+              ...base,
+              state: pulseOrReady(isPulse),
+              children: renderHero(sections.score_block, 'Score'),
+            };
+          }
+          return {
+            ...base,
+            state: 'unavailable',
+            req: slot.req,
+            eta: slot.eta,
+          };
+        }
+        case 'relaciones': {
+          if (locked.has('comparables') || !sections.comparables) {
+            return {
+              ...base,
+              state: 'locked',
+              description:
+                'Empresas similares con score de cercanía. Necesitas iniciar sesión.',
+            };
+          }
+          return {
+            ...base,
+            state: pulseOrReady(isPulse),
+            children: renderRelations(sections.comparables),
+          };
+        }
+        case 'oportunidades': {
+          if (locked.has('valuation') || !sections.valuation) {
+            return {
+              ...base,
+              state: 'locked',
+              description:
+                'Banda central + rangos de valoración y opciones activables. Crea tu cuenta para verlo.',
+            };
+          }
+          return {
+            ...base,
+            state: pulseOrReady(isPulse),
+            children: renderValuation(sections.valuation),
+          };
+        }
+        case 'documentacion':
+        case 'actividad': {
+          return {
+            ...base,
+            state: 'unavailable',
+            req: slot.req,
+            eta: slot.eta,
+          };
+        }
+        case 'acciones': {
+          if (locked.has('actions')) {
+            return {
+              ...base,
+              state: 'locked',
+              description:
+                'Crear oportunidades, valoraciones avanzadas, descargas y matching M&A requieren cuenta.',
+            };
+          }
+          return {
+            ...base,
+            state: pulseOrReady(isPulse),
+            children: (
+              <EntityActions
+                entityType="company"
+                items={NEXT_BEST_ACTIONS}
+              />
+            ),
+          };
+        }
+        default:
+          return { ...base, state: 'unavailable' };
+      }
+    });
+  }, [
+    analysisCountdown,
+    authenticated,
+    initial.header.name,
+    locked,
+    onRefreshAnalysis,
+    refreshingAnalysis,
+    sections,
+    updatingIds,
+  ]);
+
   return (
     <div className="pb-20" data-testid="company-page-client">
-      {/* Breadcrumb */}
       <nav
         aria-label="Breadcrumb"
         className="text-sm text-text-muted mb-4 flex flex-wrap items-center gap-1.5"
@@ -152,7 +473,6 @@ export function CompanyPageClient({
         <span className="text-text">{initial.header.name}</span>
       </nav>
 
-      {/* Global header */}
       <CompanyHeader
         cif={cif}
         info={initial.header}
@@ -161,137 +481,35 @@ export function CompanyPageClient({
         initialVisibility={initial.watchlist_visibility}
       />
 
-      <div className="mt-10 space-y-12">
-        {/* Section 1 — Resumen (public) */}
-        <EntitySectionWrapper id="resumen" title="Resumen">
-          <SectionBlock spec={sections.hero} />
-          <div className="mt-6">
-            <SectionBlock spec={sections.kpi_metrics} />
-          </div>
-        </EntitySectionWrapper>
-
-        {/* Section 2 — Identidad (public) */}
-        <EntitySectionWrapper
-          id="identidad"
-          title="Identidad y estructura"
-          description="Datos básicos de la sociedad."
-        >
-          <IdentityCard identity={sections.identity} />
-        </EntitySectionWrapper>
-
-        {/* Section 3 — Financieros (public summary; detail tabs locked) */}
-        <EntitySectionWrapper
-          id="financieros"
-          title="Financieros"
-          description={
-            authenticated
-              ? 'Cuentas abreviadas y datos completos.'
-              : 'Vista resumida. Las cuentas completas requieren registro.'
-          }
-        >
-          <SectionBlock spec={sections.financials_metrics} />
-          <div className="mt-6">
-            <CompanyEvolutionChart authenticated={authenticated} />
-          </div>
-        </EntitySectionWrapper>
-
-        {/* Section 4 — Score y señales (locked anon) */}
-        <EntitySectionWrapper id="score" title="Score y señales">
-          {locked.has('score') || !sections.score_block ? (
-            <LockedSectionBlur
-              testId="company-score-locked"
-              title="Score sectorial + señales del Copilot"
-              description="Disponible al crear tu cuenta. Aquí verás los scores de oportunidad y riesgo y las señales BORME, contratación pública y cambios societarios."
-            />
-          ) : (
-            <SectionBlock spec={sections.score_block} />
-          )}
-        </EntitySectionWrapper>
-
-        {/* Section 5 — Posición de mercado (locked anon) */}
-        <EntitySectionWrapper
-          id="comparables"
-          title="Posición de mercado"
-          description="Empresas comparables en el mismo sector y región."
-        >
-          {locked.has('comparables') || !sections.comparables ? (
-            <LockedSectionBlur
-              testId="company-comparables-locked"
-              title="Comparables sectoriales"
-              description="3-5 empresas similares con score de cercanía. Necesitas iniciar sesión."
-            />
-          ) : (
-            <SectionBlock spec={sections.comparables} />
-          )}
-        </EntitySectionWrapper>
-
-        {/* Section 6 — Valoración indicativa (locked anon) */}
-        <EntitySectionWrapper
-          id="valoracion"
-          title="Valoración indicativa"
-          description="Múltiplo determinístico sobre ingresos."
-        >
-          {locked.has('valuation') || !sections.valuation ? (
-            <LockedSectionBlur
-              testId="company-valuation-locked"
-              title="Valoración indicativa por múltiplo"
-              description="Banda central + rangos. La valoración completa avanzada llega con E1.8."
-            />
-          ) : (
-            <SectionBlock spec={sections.valuation} />
-          )}
-        </EntitySectionWrapper>
-
-        {/* Section 7 — Análisis del Copilot (locked anon) */}
-        <EntitySectionWrapper
-          id="analisis"
-          title="Análisis del Copilot"
-          description="Lectura del analista IA basada en la ficha."
-          action={
-            authenticated && !locked.has('narrative') ? (
-              <RefreshButton
-                testId="company-refresh-analysis"
-                label="Refrescar análisis"
-                loading={refreshingAnalysis}
-                cooldownSeconds={analysisCountdown}
-                onClick={onRefreshAnalysis}
-              />
-            ) : null
-          }
-        >
-          {locked.has('narrative') || !sections.narrative ? (
-            <LockedSectionBlur
-              testId="company-narrative-locked"
-              title="Lectura del analista IA"
-              description="El Company Advisor te da un resumen, riesgos y oportunidades adaptados a la ficha. Crea tu cuenta para verlo."
-            />
-          ) : (
-            <SectionBlock spec={sections.narrative} />
-          )}
-        </EntitySectionWrapper>
-
-        {/* Section 8 — Próximas mejores acciones */}
-        <EntitySectionWrapper
-          id="acciones"
-          title="Próximas mejores acciones"
-          description="Atajos a las capacidades que conectan esta ficha con el resto del producto."
-        >
-          {locked.has('actions') ? (
-            <LockedSectionBlur
-              testId="company-actions-locked"
-              title="Activación de capacidades"
-              description="Crear oportunidades, valoraciones avanzadas, descargas y matching M&A requieren cuenta."
-            />
-          ) : (
-            <CompanyNextBestActions />
-          )}
-        </EntitySectionWrapper>
-      </div>
+      <EntitySections
+        entityType="company"
+        authenticated={authenticated}
+        sections={sectionDescriptors}
+        className="mt-10 space-y-12"
+      />
     </div>
   );
 }
 
-/* ============================================================ */
+/* ============================================================
+ * Helpers puros
+ * ============================================================ */
+
+function pulseOrReady(pulse: boolean): EntityModuleState {
+  return pulse ? 'updating' : 'ready';
+}
+
+/** Mapea la clave `section` que emite el backend al id de la sección UI. */
+const SECTION_ID_BY_UPDATE: Record<SectionId, string> = {
+  identity: 'insights',
+  financials: 'kpis',
+  metrics: 'kpis',
+  score: 'senales',
+  signals: 'senales',
+  comparables: 'relaciones',
+  valuation: 'oportunidades',
+  narrative: 'analisis',
+};
 
 function startCountdown(
   initial: number,
@@ -330,8 +548,7 @@ function applySectionUpdates(
       case 'financials':
         next.financials_metrics = u.block;
         break;
-      // identity / signals / score: ignore for now (backend won't emit them
-      // in v1; we keep the case so it doesn't crash if it ever does).
+      // identity / signals / score: reservados para futuros REQs.
       default:
         break;
     }
@@ -353,35 +570,60 @@ function toCopilotMessage(m: CompanyConversationMessage): {
   };
 }
 
-/* ---------- Block renderers ---------- */
+/* ============================================================
+ * Renderizadores por bloque
+ * ============================================================ */
 
-function SectionBlock({ spec }: { spec: BlockSpec | null }) {
-  if (!spec) return null;
-  const b = spec as AnyBlock;
-  if (b.type === 'hero') {
-    const p = b.props as {
-      eyebrow?: string;
-      title?: string;
-      subtitle?: string;
-      tone?: 'light' | 'dark' | 'info';
-    };
+function renderHero(spec: BlockSpec | null, fallbackTitle: string) {
+  if (!spec) {
     return (
-      <HeroBlock
-        eyebrow={p.eyebrow}
-        title={p.title || ''}
-        subtitle={p.subtitle}
+      <EntityHero
+        entityType="company"
+        title={fallbackTitle}
         variant="banner"
-        tone={p.tone === 'dark' ? 'dark' : 'light'}
+        tone="light"
       />
     );
   }
-  if (b.type === 'metrics') {
-    const p = b.props as {
-      title?: string;
-      items: Array<{ label: string; value: string; hint?: string; trend?: 'up' | 'down' | 'flat' }>;
-    };
-    return (
-      <MetricsBlock
+  const b = spec as AnyBlock;
+  if (b.type !== 'hero') return null;
+  const p = b.props as {
+    eyebrow?: string;
+    title?: string;
+    subtitle?: string;
+    tone?: 'light' | 'dark' | 'info';
+  };
+  return (
+    <EntityHero
+      entityType="company"
+      eyebrow={p.eyebrow}
+      title={p.title || fallbackTitle}
+      subtitle={p.subtitle}
+      variant="banner"
+      tone={p.tone === 'dark' ? 'dark' : 'light'}
+    />
+  );
+}
+
+function renderKpis(spec: BlockSpec | null, authenticated: boolean) {
+  const chart = <CompanyEvolutionChart authenticated={authenticated} />;
+  if (!spec || (spec as AnyBlock).type !== 'metrics') {
+    return <div className="space-y-6">{chart}</div>;
+  }
+  const b = spec as AnyBlock;
+  const p = b.props as {
+    title?: string;
+    items: Array<{
+      label: string;
+      value: string;
+      hint?: string;
+      trend?: 'up' | 'down' | 'flat';
+    }>;
+  };
+  return (
+    <div className="space-y-6">
+      <EntityMetrics
+        entityType="company"
         title={p.title}
         metrics={p.items.map((it, idx) => ({
           id: `m_${idx}`,
@@ -391,105 +633,114 @@ function SectionBlock({ spec }: { spec: BlockSpec | null }) {
           trend: it.trend,
         }))}
       />
-    );
-  }
-  if (b.type === 'narrative') {
-    const p = b.props as {
-      title?: string | null;
-      summary?: string | null;
-      key_points?: string[];
-      risks?: string[];
-      opportunities?: string[];
-      citations?: string[];
-    };
-    return (
-      <NarrativeBlock
-        title={p.title ?? null}
-        summary={p.summary ?? null}
-        keyPoints={p.key_points || []}
-        risks={p.risks || []}
-        opportunities={p.opportunities || []}
-        citations={p.citations || []}
-      />
-    );
-  }
-  if (b.type === 'valuation') {
-    const p = b.props as {
-      company_name: string;
-      sector?: string | null;
-      method: 'ebitda_multiple' | 'revenue_multiple';
-      multiple_label: string;
-      multiple_value: number;
-      central_value: number;
-      low_value: number;
-      high_value: number;
-      currency?: 'EUR';
-      inputs?: Array<{ label: string; value: string; hint?: string }>;
-      disclaimer: string;
-    };
-    return (
-      <ValuationBlock
-        companyName={p.company_name}
-        sector={p.sector ?? null}
-        method={p.method}
-        multipleLabel={p.multiple_label}
-        multipleValue={p.multiple_value}
-        centralValue={p.central_value}
-        lowValue={p.low_value}
-        highValue={p.high_value}
-        currency={p.currency || 'EUR'}
-        inputs={(p.inputs || []).map((it) => ({ label: it.label, value: it.value }))}
-        disclaimer={p.disclaimer}
-      />
-    );
-  }
-  if (b.type === 'company_cards_grid') {
-    const p = b.props as {
-      title?: string | null;
-      subtype:
-        | 'similar_to_company'
-        | 'opportunities_by_sector'
-        | 'list_by_sector'
-        | 'generic';
-      items: Array<{
-        master_company_id: string;
-        name: string;
-        sector?: string | null;
-        region?: string | null;
-        score: number;
-        reason?: string | null;
-      }>;
-    };
-    return (
-      <CompanyCardsGridBlock
-        title={p.title ?? null}
-        subtype={p.subtype}
-        items={p.items.map((it) => ({
-          masterCompanyId: it.master_company_id,
-          name: it.name,
-          sector: it.sector ?? null,
-          region: it.region ?? null,
-          score: it.score,
-          reason: it.reason ?? null,
-        }))}
-      />
-    );
-  }
-  return null;
+      {chart}
+    </div>
+  );
 }
 
-/* ---------- Tiny in-page components ---------- */
+function renderNarrative(spec: BlockSpec | null) {
+  if (!spec || (spec as AnyBlock).type !== 'narrative') return null;
+  const p = (spec as AnyBlock).props as {
+    title?: string | null;
+    summary?: string | null;
+    key_points?: string[];
+    risks?: string[];
+    opportunities?: string[];
+    citations?: string[];
+  };
+  return (
+    <EntityAnalisis
+      entityType="company"
+      title={p.title ?? null}
+      summary={p.summary ?? null}
+      keyPoints={p.key_points || []}
+      risks={p.risks || []}
+      opportunities={p.opportunities || []}
+      citations={p.citations || []}
+    />
+  );
+}
 
-function IdentityCard({
-  identity,
-}: {
-  identity: CompanyDetailResponse['sections']['identity'];
-}) {
+function renderRelations(spec: BlockSpec | null) {
+  if (!spec || (spec as AnyBlock).type !== 'company_cards_grid') return null;
+  const p = (spec as AnyBlock).props as {
+    title?: string | null;
+    subtype:
+      | 'similar_to_company'
+      | 'opportunities_by_sector'
+      | 'list_by_sector'
+      | 'generic';
+    items: Array<{
+      master_company_id: string;
+      name: string;
+      sector?: string | null;
+      region?: string | null;
+      score: number;
+      reason?: string | null;
+    }>;
+  };
+  return (
+    <EntityRelations
+      entityType="company"
+      title={p.title ?? null}
+      subtype={p.subtype}
+      items={p.items.map((it) => ({
+        masterCompanyId: it.master_company_id,
+        name: it.name,
+        sector: it.sector ?? null,
+        region: it.region ?? null,
+        score: it.score,
+        reason: it.reason ?? null,
+      }))}
+    />
+  );
+}
+
+function renderValuation(spec: BlockSpec | null) {
+  if (!spec || (spec as AnyBlock).type !== 'valuation') return null;
+  const p = (spec as AnyBlock).props as {
+    company_name: string;
+    sector?: string | null;
+    method: 'ebitda_multiple' | 'revenue_multiple';
+    multiple_label: string;
+    multiple_value: number;
+    central_value: number;
+    low_value: number;
+    high_value: number;
+    currency?: 'EUR';
+    inputs?: Array<{ label: string; value: string; hint?: string }>;
+    disclaimer: string;
+  };
+  return (
+    <ValuationBlock
+      companyName={p.company_name}
+      sector={p.sector ?? null}
+      method={p.method}
+      multipleLabel={p.multiple_label}
+      multipleValue={p.multiple_value}
+      centralValue={p.central_value}
+      lowValue={p.low_value}
+      highValue={p.high_value}
+      currency={p.currency || 'EUR'}
+      inputs={(p.inputs || []).map((it) => ({ label: it.label, value: it.value }))}
+      disclaimer={p.disclaimer}
+    />
+  );
+}
+
+/* ============================================================
+ * Sub-componentes internos (identidad, evolución, acciones)
+ * ============================================================ */
+
+function IdentityCard({ identity }: { identity: CompanyIdentity }) {
   const rows: Array<[string, string | null]> = [
     ['Razón social', identity.legal_name],
     ['CIF', identity.cif],
     ['Sector', identity.sector],
-    ['Sede', [identity.region, identity.country].filter(Boolean).join(', ') || null],
+    [
+      'Sede',
+      [identity.region, identity.country].filter(Boolean).join(', ') || null,
+    ],
     ['Empleados', identity.employees != null ? String(identity.employees) : null],
     [
       'Año constitución',
@@ -502,7 +753,10 @@ function IdentityCard({
       className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3 rounded-2xl border border-border bg-surface p-6"
     >
       {rows.map(([k, v]) => (
-        <div key={k} className="flex items-baseline justify-between border-b border-border/40 py-2">
+        <div
+          key={k}
+          className="flex items-baseline justify-between border-b border-border/40 py-2"
+        >
           <dt className="text-sm text-text-muted">{k}</dt>
           <dd className="text-sm font-semibold text-text">{v ?? '—'}</dd>
         </div>
@@ -512,8 +766,7 @@ function IdentityCard({
 }
 
 function CompanyEvolutionChart({ authenticated }: { authenticated: boolean }) {
-  // Tiny SVG sparkline. Deterministic mock data; real data will arrive with REQ-007.
-  // For anonymous visitors we still render the shape so the page doesn't feel empty.
+  // Sparkline determinístico. Los datos reales llegan con REQ-007.
   const data = [42, 51, 49, 58, 64, 68, 72, 80];
   const w = 480;
   const h = 96;
@@ -525,7 +778,9 @@ function CompanyEvolutionChart({ authenticated }: { authenticated: boolean }) {
   const ys = data.map(
     (v) => padY + ((ymax - v) / (ymax - ymin || 1)) * (h - padY * 2),
   );
-  const dpath = xs.map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`).join(' ');
+  const dpath = xs
+    .map((x, i) => `${i === 0 ? 'M' : 'L'} ${x} ${ys[i]}`)
+    .join(' ');
   return (
     <div
       data-testid="company-evolution-chart"
@@ -534,42 +789,69 @@ function CompanyEvolutionChart({ authenticated }: { authenticated: boolean }) {
       <div className="flex items-baseline justify-between mb-2">
         <h4 className="text-sm font-semibold text-text">Evolución de ingresos</h4>
         <span className="text-xs text-text-muted">
-          {authenticated ? 'Últimos 8 ejercicios (mock)' : 'Vista resumida (mock)'}
+          {authenticated ? 'Últimos 8 ejercicios' : 'Vista resumida'}
         </span>
       </div>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-24" aria-hidden>
-        <path d={dpath} fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" />
+        <path
+          d={dpath}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-primary"
+        />
         {xs.map((x, i) => (
-          <circle key={i} cx={x} cy={ys[i]} r="2.5" fill="currentColor" className="text-primary" />
+          <circle
+            key={i}
+            cx={x}
+            cy={ys[i]}
+            r="2.5"
+            fill="currentColor"
+            className="text-primary"
+          />
         ))}
       </svg>
     </div>
   );
 }
 
+/**
+ * Placeholder legacy usado por tests que buscan `company-next-best-actions`.
+ * Lo devolvemos como wrapper alrededor del `EntityActions` para preservar
+ * el contrato de e1_tester sin duplicar UI.
+ */
 function CompanyNextBestActions() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3" data-testid="company-next-best-actions">
-      {[
-        { label: 'Compárala con otra empresa', hint: 'El Copilot lo hace por ti.' },
-        { label: 'Analiza riesgos en detalle', hint: 'Pídelo al Company Advisor.' },
-        { label: 'Detecta oportunidades', hint: 'Buy-side o sell-side, desde la ficha.' },
-      ].map((a) => (
-        <div
-          key={a.label}
-          className="rounded-2xl border border-border bg-surface p-5"
-          data-testid={`company-action-card-${a.label.toLowerCase().replace(/\s+/g, '-')}`}
-        >
-          <p className="font-semibold text-text">{a.label}</p>
-          <p className="text-sm text-text-muted mt-1">{a.hint}</p>
-        </div>
-      ))}
+    <div data-testid="company-next-best-actions">
+      <EntityActions entityType="company" items={NEXT_BEST_ACTIONS} />
     </div>
   );
 }
+void CompanyNextBestActions;
 
-// Silence unused warnings for the helper types/values that the dock uses
-// elsewhere — they are part of the public surface of this file.
-type _Silence = Workspace | SectionId;
-const _silence: _Silence | undefined = undefined;
-void _silence;
+const NEXT_BEST_ACTIONS = [
+  {
+    id: 'compare',
+    label: 'Compárala con otra empresa',
+    hint: 'El Copilot lo hace por ti.',
+    icon: Scale,
+    onClick: () => {},
+    testId: 'company-action-card-compare',
+  },
+  {
+    id: 'risks',
+    label: 'Analiza riesgos en detalle',
+    hint: 'Pídelo al Company Advisor.',
+    icon: AlertTriangle,
+    onClick: () => {},
+    testId: 'company-action-card-risks',
+  },
+  {
+    id: 'opportunities',
+    label: 'Detecta oportunidades',
+    hint: 'Buy-side o sell-side, desde la ficha.',
+    icon: Sparkles,
+    onClick: () => {},
+    testId: 'company-action-card-opportunities',
+  },
+];

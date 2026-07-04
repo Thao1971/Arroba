@@ -37,7 +37,7 @@ export function SearchResultsBlock({
   return (
     <section
       data-testid={testId}
-      data-source="mock"
+      data-provenance="demo"
       className="rounded-xl border border-border bg-surface overflow-hidden"
     >
       <header className="px-4 py-3 border-b border-border flex items-center gap-2 bg-surface-2">

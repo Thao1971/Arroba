@@ -1,6 +1,7 @@
 /**
- * Pre-recorded script used by <CopilotDemoMock />. The shape mirrors the
- * future real Copilot+Skill protocol so the demo can be swapped trivially:
+ * Guion pre-grabado usado por <CopilotDemoTeaser />. La forma replica el
+ * protocolo real de Copilot+Skill futuro, para que la demo pueda cambiarse
+ * de forma trivial cuando el flujo real esté disponible.
  *
  *   - `chip_id`         : stable id of the suggestion chip
  *   - `user_message`    : text appearing as the user's message when clicked

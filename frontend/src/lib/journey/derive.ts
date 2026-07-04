@@ -1,5 +1,5 @@
-import type { IntentId, MockCompany } from './data';
-import { COMPANIES_MOCK, INTENTS, PLAZO_LONG } from './data';
+import type { IntentId, DemoCompany } from './data';
+import { COMPANIES_DEMO, INTENTS, PLAZO_LONG } from './data';
 
 /** NFD normalisation + lowercase + trim, for accent-insensitive company search. */
 export function normalizeES(s: string): string {
@@ -41,12 +41,12 @@ function renderNarrative(intent: IntentId | null, ctx: { company: string; goals:
   return `${ctx.company}: tu espacio personal de inteligencia y operaciones.`;
 }
 
-/** Local fuzzy search on the mock companies list (no backend call). */
-export function searchCompanies(q: string): MockCompany[] {
+/** Búsqueda difusa local sobre las empresas demo (sin llamada al backend). */
+export function searchCompanies(q: string): DemoCompany[] {
   const nq = normalizeES(q);
   if (nq.length === 0) return [];
   const nqCif = nq.replace(/[\s.\-]/g, '');
-  return COMPANIES_MOCK.filter((c) => {
+  return COMPANIES_DEMO.filter((c) => {
     const cifClean = normalizeES(c.cif).replace(/[\s.\-]/g, '');
     return (
       normalizeES(c.name).includes(nq) ||

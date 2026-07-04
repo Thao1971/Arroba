@@ -2,22 +2,22 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Search } from 'lucide-react';
 import { searchCompanies } from '@/lib/journey/derive';
-import type { MockCompany } from '@/lib/journey/data';
+import type { DemoCompany } from '@/lib/journey/data';
 import { Spinner } from '@/components/ds';
 
 export interface CompanyPickerProps {
   hint: string;
   allowFree?: boolean;
-  onPick: (c: MockCompany) => void;
+  onPick: (c: DemoCompany) => void;
   onFreeText?: (text: string) => void;
 }
 
-/** Live-search picker over mock companies. Port of CompanyPicker (rj-app.jsx). */
+/** Live-search picker sobre las empresas demo. Port de CompanyPicker (rj-app.jsx). */
 export function CompanyPicker({ hint, allowFree, onPick, onFreeText }: CompanyPickerProps) {
   const [q, setQ] = useState('');
   const [focused, setFocused] = useState(false);
   const [state, setState] = useState<'idle' | 'loading' | 'results' | 'empty'>('idle');
-  const [results, setResults] = useState<MockCompany[]>([]);
+  const [results, setResults] = useState<DemoCompany[]>([]);
   const reqRef = useRef(0);
 
   useEffect(() => {

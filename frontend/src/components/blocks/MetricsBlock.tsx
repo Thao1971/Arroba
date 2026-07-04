@@ -14,7 +14,7 @@ import { formatNumber } from '@/lib/format';
  *    KPIs synchronously; loading/error states never appear (static data).
  *
  * 2. **Data**: pass `mode="data"` (and no `metrics`). The block fetches
- *    `GET /api/agency-tool/platform-stats` via SWR and maps the 8 fields to
+ *    `GET /api/platform/stats` via SWR and maps the 8 fields to
  *    KPI tiles. Loading → empty → error → success.
  *
  * The block always renders within a styled card grid; the title/eyebrow are
@@ -78,7 +78,7 @@ export function MetricsBlock({
 
 function DataModeInner({ testId }: { testId: string }) {
   const { data, error, isLoading, mutate } = useSWR<PlatformStats, ApiError>(
-    '/api/agency-tool/platform-stats',
+    '/api/platform/stats',
     swrFetcher,
     { revalidateOnFocus: false, dedupingInterval: 60_000 }
   );
@@ -105,7 +105,7 @@ function DataModeInner({ testId }: { testId: string }) {
         testId={`${testId}-unavailable`}
         icon={LineChart}
         title="Datos no disponibles"
-        description="Las métricas agregadas todavía no están seedeadas. Cuando el Agency Tool entregue, este bloque se actualizará automáticamente."
+        description="Las métricas agregadas todavía no están seedeadas. Cuando el proveedor externo entregue, este bloque se actualizará automáticamente."
       />
     ) : (
       <div
@@ -136,7 +136,7 @@ function DataModeInner({ testId }: { testId: string }) {
     );
   }
   const platformMetrics = mapPlatformStats(data);
-  return <MetricsGrid metrics={platformMetrics} dataAttr={data.source} />;
+  return <MetricsGrid metrics={platformMetrics} dataAttr={data.provenance} />;
 }
 
 function MetricsLayout({
@@ -182,7 +182,7 @@ function MetricsGrid({
 }) {
   return (
     <div
-      data-source={dataAttr}
+      data-provenance={dataAttr}
       className={cn(
         'grid gap-3',
         metrics.length <= 4

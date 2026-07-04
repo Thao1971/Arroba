@@ -847,3 +847,79 @@ confirmado en el root.
     ├── PRD.md                este archivo
     └── test_credentials.md   cuentas para e1_tester
 ```
+
+---
+
+## ✅ Sprint 1 — Primer flujo vertical arroba.com (F0-F9 CERRADO · 2026-07-04)
+
+Materialización de las 5 reglas arquitectónicas del brief E2E (Composer permanente en layout, `entities/lookup` genérico, Ficha declarativa vía `EntitySections`, cero acoplamiento FE→Agency Tool, C16 grep limpio).
+
+### Resumen de cierre por fase
+
+| Fase | Entregable | Estado | Notas |
+|---|---|---|---|
+| F0 | Seed Grupo Olmedo + Clínica Vet Vallés + `test_credentials.md` actualizado | ✅ | Fork anterior |
+| F1 | Backend endpoints: `GET /api/entities/lookup` genérico multi-tipo, `GET /api/companies/{cif}` DTO extendido aditivo, `GET /api/users/me/watchlist` | ✅ | Fork anterior · 154 tests verde |
+| F2 | 4 primitives frontend (`IdentityCard`, `SignalsTimeline`, `DocumentList`, `ActivityTimeline`) | ✅ | Fork anterior |
+| F3 | `CopilotProvider` extendido con `useEntityContext()` hook + tipo `EntityContext` multi-tipo | ✅ | Fork anterior |
+| F4 | Composer permanente hoisted al layout raíz `[locale]/layout.tsx` (Regla 1) | ✅ | Fork anterior + verificación en este sprint |
+| F5 | Home privada (`/inicio`) con saludo dinámico + `FeatureCardBlock` shell + `CompanyCardsGridBlock` watchlist (cuando existe) | ✅ | **Movida de `/` a `/inicio` para resolver colisión con landing público. `(public)/page.tsx` redirige auth users a `/inicio`.** |
+| F6 | `CompanyPageClient.tsx` refactor 100 % declarativo vía `<EntitySections/>` con **12 módulos canónicos** (header/hero/kpis/insights/analisis/senales/relaciones/oportunidades/documentacion/actividad/acciones/advisor). Módulos no entregados en estado `unavailable` con `req`/`eta`. | ✅ | Sección analisis lleva `RefreshButton` en slot `action`. Sección oportunidades acoge la valoración indicativa. Senales/documentacion/actividad quedan `unavailable`. |
+| F7 | `useEntityContext().publish()` en mount + `publish(null)` en unmount (Regla 1). `animate-section-pulse` 700 ms al recibir `section_updates` o refresh de análisis (state `updating` en EntitySections). | ✅ | Publica para autenticados y anónimos por igual. |
+| F8 | **Nomenclatura canónica**: `source: 'mock'\|'real'` → `provenance: 'demo'\|'live'` en tipos frontend + alias backend `GET /api/platform/stats` (Regla 4: FE nunca habla lenguaje del proveedor). `CopilotDemoMock` → `CopilotDemoTeaser`. `home-hero-search-mock` → `home-hero-search-teaser`. Todos los comentarios "Agency Tool" purgados. Journey `MockCompany`/`COMPANIES_MOCK` → `DemoCompany`/`COMPANIES_DEMO`. | ✅ | **C16 grep: 0 ocurrencias de `agency\|adapter\|mock` en `frontend/src` fuera de tests.** |
+| F9 | Suites completas verde | ✅ | **Backend 157/157 pytest** (154 previos + 3 nuevos alias) · **Frontend 165/165 vitest** · `next build` verde · `tsc --noEmit` limpio. |
+
+### Reglas arquitectónicas verificadas
+
+1. **Regla 1** — Composer vive en `[locale]/layout.tsx` (raíz), no en la página. Se adapta al contexto vía `useEntityContext()` que cualquier Entity Page publica en mount. ✅
+2. **Regla 2** — `GET /api/entities/lookup` acepta `types=company,sector,territory,...` (11 tipos canónicos). ✅
+3. **Regla 3** — `CompanyPageClient` es composición 100 % declarativa. NO decide layouts locales. Solo elige el estado (`ready`/`locked`/`unavailable`/`updating`) de cada uno de los 12 módulos canónicos y delega a `<EntitySections/>`. ✅
+4. **Regla 4** — Ningún URL frontend contiene `agency-tool`. El alias `/api/platform/stats` es la única superficie que el frontend consume. Legacy `agency-tool` sigue vivo en backend para retrocompat interna. ✅
+5. **Regla 5 (C16)** — grep `agency\|adapter\|mock` en `frontend/src` product code: **0 hits**. ✅
+
+### Ficheros clave modificados/creados
+
+**Backend**:
+- `src/modules/platform/{__init__,router}.py` — nuevo módulo alias `/api/platform/stats`.
+- `src/main.py` — includes `platform_router`.
+- `tests/test_platform_stats_alias.py` — 3 tests: 404 sin seed, mapping `source:mock`→`provenance:demo`, `source:real`→`provenance:live` (via monkeypatch de `ADAPTER_MODE`).
+
+**Frontend**:
+- `src/components/entity/CompanyPageClient.tsx` — reescrito completo (~600 líneas) en modo declarativo.
+- `src/components/entity/company-page-client.test.tsx` — 5 tests actualizados a canonical section IDs.
+- `src/components/entity/base/EntitySections.tsx` — el `action` slot se conserva también en state `updating` (para que RefreshButton no desaparezca durante el pulse).
+- `src/components/copilot/CopilotProvider.tsx` — sin cambios en esta fase (extendido en F3).
+- `src/lib/companies/types.ts` — `source: 'mock'|'real'` → `provenance: 'demo'|'live'`.
+- `src/lib/orchestrator/types.ts` — mismo cambio en 4 respuestas de skill.
+- `src/lib/api/types.ts` — `PlatformStats.source` → `.provenance` + comentario limpio.
+- `src/lib/api/client.ts` — `apiClient.agencyTool.platformStats` → `apiClient.platform.stats` hitting `/api/platform/stats`.
+- `src/components/blocks/{MetricsBlock,SearchResultsBlock,UnavailableBlock}.tsx` — copy + endpoint + data attrs actualizados.
+- `src/components/home/CopilotDemoTeaser.tsx` (renombrado desde `CopilotDemoMock.tsx`) + `copilot-demo-teaser.test.tsx` (renombrado).
+- `src/app/[locale]/(public)/page.tsx` — copy hero + redirect auth users a `/inicio`.
+- `src/app/[locale]/(authenticated)/inicio/page.tsx` — Home privada (movida de `/` para resolver colisión).
+- `src/lib/journey/{data,derive}.ts`, `components/journey/{CompanyConfirm,CompanyPicker}.tsx`, `app/[locale]/(authenticated)/onboarding/page.tsx` — `MockCompany`→`DemoCompany`, `COMPANIES_MOCK`→`COMPANIES_DEMO`, comentarios limpios.
+- `src/components/entity/base/EntitySignals.tsx` — comentario "Agency Tool real" → "real data provider".
+- `src/components/copilot/copilot-dock.test.tsx` — mocks `useAuth` autenticado + `useActiveOrg` + fetch router por URL para test isolation.
+
+### Rutas para lanzar `e1_tester`
+
+- **Preview URL**: la definida en `REACT_APP_BACKEND_URL` del pod actual (Next runs on 3000; ingress route `/api/*` to 8001).
+- **Landing público (marketing)**: `/` → `/es` (`data-testid="public-home"`).
+- **Home privada (dashboard)**: `/inicio` → `/es/inicio` (`data-testid="home-privada"`). Requiere sesión.
+- **Ficha empresa canonical**: `/empresa/B47820150` → `/es/empresa/B47820150` (Grupo Olmedo Hoteles, S.L.). CIF alternativo: `B08540200` (Clínica Veterinaria Vallés).
+- **Testids clave** para `e1_tester`:
+  - Home privada: `home-privada`, `home-privada-greeting`, `home-privada-card-analyze`, `home-privada-card-value`, `home-privada-card-operation`, `home-privada-cartera` (cuando watchlist tiene items).
+  - Ficha empresa (autenticado): `entity-section-hero`, `entity-section-kpis`, `entity-section-insights`, `entity-section-analisis`, `entity-section-senales`, `entity-section-relaciones`, `entity-section-oportunidades`, `entity-section-documentacion`, `entity-section-actividad`, `entity-section-acciones`, `company-refresh-analysis`, `entity-actions`, `company-header-name`.
+  - Ficha empresa (anónimo): `entity-section-{analisis,senales,relaciones,oportunidades,acciones}-locked`.
+
+### Credenciales (sin cambios respecto al fork anterior)
+
+Ver `/app/memory/test_credentials.md` sección "Sprint 1".
+
+### Riesgos residuales / cosas que NO se han tocado
+
+1. La ficha de empresa mantiene el layout `[locale]/empresa/[cif]/layout.tsx` con su **propio** `CopilotProvider + CopilotDock` (mixed-access sin `(authenticated)`/`(public)` groups). Esto duplica el provider raíz. Funciona (React tolera Providers anidados) pero es candidato a limpieza en un sprint futuro (P2 · consolidación).
+2. `POST /api/copilot/skills/analyze` sigue devolviendo campo `source` (no `provenance`) en el body — el frontend nunca lo consume, así que no hay bug funcional, pero el body sigue teniendo un campo "legacy". Cambiar el shape del body es breaking change para consumidores externos, se deja para un sprint futuro.
+3. El módulo `agency_tool_adapter` sigue existiendo en el backend con endpoints `/api/agency-tool/*` (para retrocompat interna). No se elimina — solo el frontend deja de hablarlo. Renombrado o retiro programado para un Sprint futuro cuando el proveedor real (REQ-001) entregue.
+4. **Screenshot smoke**: en localhost `next start` el fetch a `/api/companies/...` devuelve 404 porque no hay proxy interno; sí funciona a través del ingress del preview URL. Los tests unit-level cubren con fixtures deterministas.
+
