@@ -18,8 +18,10 @@ import { NextIntlClientProvider } from 'next-intl';
 import { Bookmark, Share2 } from 'lucide-react';
 
 import {
+  CANONICAL_MODULE_ORDER,
   EntityHeader,
   EntitySections,
+  MODULE_DEFAULTS,
   type EntityHeaderAction,
   type EntitySectionDescriptor,
 } from './index';
@@ -290,5 +292,75 @@ describe('EntitySections', () => {
     const root = screen.getByTestId('entity-sections');
     expect(root).toHaveAttribute('data-entity-type', 'sector');
     expect(root).toHaveAttribute('data-authenticated', 'false');
+  });
+
+  it('resuelve `req` y `eta` desde MODULE_DEFAULTS cuando el descriptor los omite', () => {
+    // Regla 3 · Sprint 1: cualquier módulo canónico en estado `unavailable`
+    // debe emitir SIEMPRE el mismo REQ/ETA independientemente de la entidad
+    // concreta o del payload. La fuente única es `MODULE_DEFAULTS`.
+    render(
+      <EntitySections
+        entityType="company"
+        authenticated
+        sections={[
+          {
+            id: 'senales',
+            module: 'senales',
+            title: 'Señales',
+            state: 'unavailable',
+          },
+          {
+            id: 'documentacion',
+            module: 'documentacion',
+            title: 'Documentación',
+            state: 'unavailable',
+          },
+          {
+            id: 'actividad',
+            module: 'actividad',
+            title: 'Actividad',
+            state: 'unavailable',
+          },
+        ]}
+      />,
+    );
+    const reqs = screen.getAllByTestId('block-unavailable-req');
+    const etas = screen.getAllByTestId('block-unavailable-eta');
+    expect(reqs.map((n) => n.textContent)).toEqual(['REQ-006', 'REQ-007', 'REQ-008']);
+    expect(etas.map((n) => n.textContent)).toEqual(['Sprint 2', 'Sprint 2', 'Sprint 2']);
+  });
+});
+
+/* ===========================================================
+ * Registry canónico — MODULE_DEFAULTS / CANONICAL_MODULE_ORDER
+ * =========================================================== */
+describe('Registry canónico (Sprint 1 · Regla 3)', () => {
+  it('MODULE_DEFAULTS mapea los REQ canónicos de los 3 módulos pendientes', () => {
+    expect(MODULE_DEFAULTS.senales).toEqual({ req: 'REQ-006', eta: 'Sprint 2' });
+    expect(MODULE_DEFAULTS.documentacion).toEqual({ req: 'REQ-007', eta: 'Sprint 2' });
+    expect(MODULE_DEFAULTS.actividad).toEqual({ req: 'REQ-008', eta: 'Sprint 2' });
+  });
+
+  it('MODULE_DEFAULTS deja vacíos los módulos ya entregados', () => {
+    // Los módulos entregados en Sprint 1 no llevan `req`/`eta`; si aparecen
+    // en `unavailable` (caso patológico) es porque el consumer pasó los
+    // valores explícitamente.
+    for (const mod of ['header', 'hero', 'kpis', 'insights', 'analisis',
+                       'relaciones', 'oportunidades', 'acciones', 'advisor'] as const) {
+      expect(MODULE_DEFAULTS[mod]).toEqual({});
+    }
+  });
+
+  it('CANONICAL_MODULE_ORDER incluye los 12 módulos canónicos exactos', () => {
+    // Regla 2 · Sprint 1: `header` y `advisor` participan del orden canónico
+    // — ningún módulo canónico puede "desaparecer" del DOM.
+    expect(CANONICAL_MODULE_ORDER).toHaveLength(12);
+    expect(CANONICAL_MODULE_ORDER[0]).toBe('header');
+    expect(CANONICAL_MODULE_ORDER).toContain('advisor');
+    expect(new Set(CANONICAL_MODULE_ORDER)).toEqual(new Set([
+      'header', 'hero', 'kpis', 'insights', 'analisis', 'senales',
+      'relaciones', 'oportunidades', 'documentacion', 'actividad',
+      'acciones', 'advisor',
+    ]));
   });
 });

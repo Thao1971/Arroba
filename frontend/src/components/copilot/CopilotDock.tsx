@@ -92,63 +92,71 @@ export function CopilotDock() {
     return null;
   }
 
-  // ---- minimised FAB ----
-  if (!open) {
-    return (
-      <button
-        ref={fabRef}
-        type="button"
-        onClick={() => toggle()}
-        aria-label="Abrir Arroba Copilot (Cmd/Ctrl + K)"
-        data-testid="copilot-dock-fab"
-        className={cn(
-          'fixed bottom-6 right-6 z-[1100]',
-          'w-13 h-13 rounded-full flex items-center justify-center',
-          'shadow-lg',
-          'transition-transform duration-fast hover:-translate-y-0.5'
-        )}
-        style={{
-          width: 52,
-          height: 52,
-          background: 'var(--gradient-brand-dark)',
-        }}
-      >
-        <Sparkles size={22} strokeWidth={1.5} className="text-primary" />
-      </button>
-    );
-  }
-
-  // ---- expanded panel ----
+  // ---- raíz persistente del Composer (contrato con e1_tester) ----
+  // Envolvemos AMBOS estados (FAB colapsado y panel expandido) en un mismo
+  // nodo con `data-testid="composer"` para que el tester pueda localizar
+  // el Composer permanente independientemente de si está abierto o no.
+  // Regla 1 · Sprint 1: el Composer vive en el layout raíz y es el mismo
+  // en todas las rutas autenticadas (/inicio, /empresa/{cif}, /historial…).
   return (
     <div
-      ref={panelRef}
-      role="dialog"
-      aria-modal="false"
-      aria-label="Arroba Copilot"
-      data-testid="copilot-dock-panel"
-      className={cn(
-        'fixed bottom-6 right-6 z-modal',
-        'flex flex-col',
-        'rounded-2xl bg-surface border border-border overflow-hidden',
-        'shadow-xl',
-        'animate-fade-in-up'
-      )}
-      style={{
-        width: 'min(420px, calc(100vw - 32px))',
-        height: 'min(620px, calc(100vh - 32px))',
-      }}
+      data-testid="composer"
+      data-open={open ? 'true' : 'false'}
+      data-entity-mode={currentEntity ? 'true' : 'false'}
     >
-      <Header
-        onClose={closeDock}
-        onClear={clear}
-        clearDisabled={loading || history.length === 0}
-        entityName={currentEntity?.entity_name ?? null}
-      />
-      <ConversationThread />
-      <footer className="border-t border-border bg-surface-2 px-4 py-3" data-testid="copilot-dock-footer">
-        <Composer ref={composerRef} chips={chips} showChips={showChips} />
-      </footer>
-      <SrAnnouncer loading={loading} workspaceId={workspace?.workspace_id ?? null} />
+      {!open ? (
+        <button
+          ref={fabRef}
+          type="button"
+          onClick={() => toggle()}
+          aria-label="Abrir Arroba Copilot (Cmd/Ctrl + K)"
+          data-testid="copilot-dock-fab"
+          className={cn(
+            'fixed bottom-6 right-6 z-[1100]',
+            'w-13 h-13 rounded-full flex items-center justify-center',
+            'shadow-lg',
+            'transition-transform duration-fast hover:-translate-y-0.5'
+          )}
+          style={{
+            width: 52,
+            height: 52,
+            background: 'var(--gradient-brand-dark)',
+          }}
+        >
+          <Sparkles size={22} strokeWidth={1.5} className="text-primary" />
+        </button>
+      ) : (
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="false"
+          aria-label="Arroba Copilot"
+          data-testid="copilot-dock-panel"
+          className={cn(
+            'fixed bottom-6 right-6 z-modal',
+            'flex flex-col',
+            'rounded-2xl bg-surface border border-border overflow-hidden',
+            'shadow-xl',
+            'animate-fade-in-up'
+          )}
+          style={{
+            width: 'min(420px, calc(100vw - 32px))',
+            height: 'min(620px, calc(100vh - 32px))',
+          }}
+        >
+          <Header
+            onClose={closeDock}
+            onClear={clear}
+            clearDisabled={loading || history.length === 0}
+            entityName={currentEntity?.entity_name ?? null}
+          />
+          <ConversationThread />
+          <footer className="border-t border-border bg-surface-2 px-4 py-3" data-testid="copilot-dock-footer">
+            <Composer ref={composerRef} chips={chips} showChips={showChips} />
+          </footer>
+          <SrAnnouncer loading={loading} workspaceId={workspace?.workspace_id ?? null} />
+        </div>
+      )}
     </div>
   );
 }

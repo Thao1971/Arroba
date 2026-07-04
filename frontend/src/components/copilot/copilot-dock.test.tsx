@@ -85,6 +85,28 @@ describe('CopilotDock + Composer (E2E)', () => {
     vi.resetAllMocks();
   });
 
+  it('emite data-testid="composer" persistente para autenticados en cualquier estado', () => {
+    // Regla 1 · Sprint 1: el Composer es un contrato universal del layout
+    // raíz. Debe estar presente al montar el dock, sin interacción, y
+    // conservar el mismo testid tanto colapsado como expandido.
+    global.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ items: [], total: 0 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ) as unknown as typeof fetch;
+    const { container } = render(
+      <CopilotProvider>
+        <CopilotDock />
+      </CopilotProvider>,
+    );
+    const composer = container.querySelector('[data-testid="composer"]');
+    expect(composer).not.toBeNull();
+    // Estado inicial: colapsado (data-open="false") con el FAB dentro.
+    expect(composer?.getAttribute('data-open')).toBe('false');
+    expect(composer?.querySelector('[data-testid="copilot-dock-fab"]')).not.toBeNull();
+  });
+
   it('opens via FAB, sends a query and renders the SearchResultsBlock', async () => {
     const user = userEvent.setup();
     mockSearchOnce(3);

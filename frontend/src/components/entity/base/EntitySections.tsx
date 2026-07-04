@@ -48,6 +48,7 @@ import { EntitySectionWrapper } from '../EntitySectionWrapper';
 import { LockedSectionBlur } from '../LockedSectionBlur';
 import {
   CANONICAL_MODULE_ORDER,
+  MODULE_DEFAULTS,
   type EntitySectionDescriptor,
   type EntityTypeId,
 } from './types';
@@ -97,6 +98,7 @@ export function EntitySections({
 }
 
 function renderFallback(s: EntitySectionDescriptor): React.ReactNode {
+  const safeTitle = s.title || '';
   switch (s.state) {
     case 'ready':
       return s.children ?? null;
@@ -105,7 +107,7 @@ function renderFallback(s: EntitySectionDescriptor): React.ReactNode {
     case 'empty':
       return (
         <EmptyStateBlock
-          title={s.title}
+          title={safeTitle}
           description={s.description ?? 'Sin datos en este momento.'}
         />
       );
@@ -113,26 +115,32 @@ function renderFallback(s: EntitySectionDescriptor): React.ReactNode {
       return (
         <LockedSectionBlur
           testId={`entity-section-${s.id}-locked`}
-          title={s.title}
+          title={safeTitle}
           description={s.description}
         />
       );
     case 'error':
       return (
         <ErrorBlock
-          title={s.title}
+          title={safeTitle}
           message={s.description ?? 'No hemos podido cargar esta sección.'}
         />
       );
-    case 'unavailable':
+    case 'unavailable': {
+      // SPRINT 1 · Regla 3: `req` y `eta` provienen del registry canónico
+      // (`MODULE_DEFAULTS`) si el descriptor no los declara explícitamente.
+      // Esto garantiza que la misma clave de módulo emite siempre el mismo
+      // REQ, sin importar la entidad concreta.
+      const defaults = MODULE_DEFAULTS[s.module] || {};
       return (
         <UnavailableBlock
-          title={s.title}
+          title={safeTitle}
           description={s.description}
-          req={s.req}
-          eta={s.eta}
+          req={s.req ?? defaults.req}
+          eta={s.eta ?? defaults.eta}
         />
       );
+    }
     case 'updating':
       // Render the ready content with a brief highlight class.
       return (

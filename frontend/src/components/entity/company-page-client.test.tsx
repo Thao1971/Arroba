@@ -229,7 +229,7 @@ beforeEach(() => {
 });
 
 describe('CompanyPageClient — anonymous (F6 declarative)', () => {
-  it('renderiza los 10 módulos canónicos: 3 públicos ready + 5 locked + 2 unavailable', () => {
+  it('renderiza los 12 módulos canónicos: 5 públicos (header/hero/kpis/insights/advisor) + 5 locked + 2 unavailable', () => {
     render(
       withIntl(
         <CompanyPageClient
@@ -240,10 +240,12 @@ describe('CompanyPageClient — anonymous (F6 declarative)', () => {
       ),
     );
 
-    // Módulos públicos (ready) — hero, kpis, insights
+    // Módulos siempre presentes (ready) — header, hero, kpis, insights, advisor
+    expect(screen.getByTestId('entity-section-header')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-hero')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-kpis')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-insights')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-advisor')).toBeInTheDocument();
     expect(screen.getByTestId('company-identity-card')).toBeInTheDocument();
 
     // Módulos locked — analisis, senales, relaciones, oportunidades, acciones
@@ -263,7 +265,7 @@ describe('CompanyPageClient — anonymous (F6 declarative)', () => {
 });
 
 describe('CompanyPageClient — authenticated (F6 declarative)', () => {
-  it('renderiza los 10 módulos: 7 ready + 3 unavailable, sin locks', () => {
+  it('renderiza los 12 módulos: 9 ready + 3 unavailable (senales/documentacion/actividad)', () => {
     render(
       withIntl(
         <CompanyPageClient
@@ -275,6 +277,7 @@ describe('CompanyPageClient — authenticated (F6 declarative)', () => {
     );
 
     // Ready modules
+    expect(screen.getByTestId('entity-section-header')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-hero')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-kpis')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-insights')).toBeInTheDocument();
@@ -282,6 +285,7 @@ describe('CompanyPageClient — authenticated (F6 declarative)', () => {
     expect(screen.getByTestId('entity-section-relaciones')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-oportunidades')).toBeInTheDocument();
     expect(screen.getByTestId('entity-section-acciones')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-section-advisor')).toBeInTheDocument();
 
     // Unavailable modules — senales/documentacion/actividad
     expect(screen.getByTestId('entity-section-senales')).toBeInTheDocument();
@@ -295,6 +299,38 @@ describe('CompanyPageClient — authenticated (F6 declarative)', () => {
     // Refresh button y acciones presentes
     expect(screen.getByTestId('company-refresh-analysis')).toBeInTheDocument();
     expect(screen.getByTestId('entity-actions')).toBeInTheDocument();
+  });
+
+  it('emite REQ canónicos declarativos (REQ-006/007/008 · Sprint 2) sin depender del CIF', () => {
+    // Regla 3 · Sprint 1: los REQ/ETA de los módulos unavailable vienen del
+    // registry `MODULE_DEFAULTS` (base/types.ts), no del payload por empresa.
+    render(
+      withIntl(
+        <CompanyPageClient
+          cif="B86540112"
+          initial={authedFixture()}
+          authenticated={true}
+        />,
+      ),
+    );
+
+    // senales → REQ-006
+    const senalesReq = screen.getByTestId('entity-section-senales').querySelector('[data-testid="block-unavailable-req"]');
+    const senalesEta = screen.getByTestId('entity-section-senales').querySelector('[data-testid="block-unavailable-eta"]');
+    expect(senalesReq?.textContent).toBe('REQ-006');
+    expect(senalesEta?.textContent).toBe('Sprint 2');
+
+    // documentacion → REQ-007
+    const docsReq = screen.getByTestId('entity-section-documentacion').querySelector('[data-testid="block-unavailable-req"]');
+    const docsEta = screen.getByTestId('entity-section-documentacion').querySelector('[data-testid="block-unavailable-eta"]');
+    expect(docsReq?.textContent).toBe('REQ-007');
+    expect(docsEta?.textContent).toBe('Sprint 2');
+
+    // actividad → REQ-008
+    const actReq = screen.getByTestId('entity-section-actividad').querySelector('[data-testid="block-unavailable-req"]');
+    const actEta = screen.getByTestId('entity-section-actividad').querySelector('[data-testid="block-unavailable-eta"]');
+    expect(actReq?.textContent).toBe('REQ-008');
+    expect(actEta?.textContent).toBe('Sprint 2');
   });
 
   it('actualiza la sección analisis in-place al recibir CustomEvent', async () => {

@@ -98,8 +98,9 @@ export interface EntitySectionDescriptor {
   id: string;
   /** Which canonical UX module this section represents. */
   module: EntityModuleId;
-  /** Visible section title. */
-  title: string;
+  /** Visible section title. Puede omitirse para módulos chromeless
+   *  como `header` o `advisor` que traen su propia chrome. */
+  title?: string;
   /** Optional description shown under the title. */
   description?: string;
   /** Current state. Drives which fallback component is used (loading skeleton,
@@ -136,9 +137,53 @@ export const DEFAULT_SECTION_IDS: Record<EntityModuleId, string> = {
 };
 
 /**
+ * SPRINT 1 · Registry canónico de metadatos por módulo.
+ *
+ * Fuente única de verdad para los campos `req` y `eta` que muestran los
+ * módulos en estado `unavailable`. Cualquier ficha (Company hoy, Sector /
+ * Territorio / Operación mañana) resuelve estos defaults por `EntityModuleId`
+ * — nunca por identidad de la entidad ni por payload.
+ *
+ * Reglas:
+ *   1. Un módulo canónico entrega el MISMO `req` / `eta` en cualquier ficha.
+ *   2. Si un consumer necesita overridear (caso avanzado), lo hace SIEMPRE
+ *      pasando `req` / `eta` en el `EntitySectionDescriptor`. El default de
+ *      aquí es el fallback.
+ *   3. Los módulos ya entregados (Sprint 1) no llevan `req` en este registry:
+ *      hero, kpis, insights, analisis, relaciones, oportunidades, acciones,
+ *      header, advisor. Solo los pendientes (senales, documentacion,
+ *      actividad) tienen entrada.
+ */
+export interface ModuleDefaults {
+  req?: string;
+  eta?: string;
+}
+
+export const MODULE_DEFAULTS: Record<EntityModuleId, ModuleDefaults> = {
+  header: {},
+  hero: {},
+  kpis: {},
+  insights: {},
+  analisis: {},
+  senales: { req: 'REQ-006', eta: 'Sprint 2' },
+  relaciones: {},
+  oportunidades: {},
+  documentacion: { req: 'REQ-007', eta: 'Sprint 2' },
+  actividad: { req: 'REQ-008', eta: 'Sprint 2' },
+  acciones: {},
+  advisor: {},
+};
+
+/**
  * Canonical top→bottom order declared in ENTITY_FRAMEWORK.md §4.
  * EntitySections sorts the input array against this index regardless of
  * how the consumer ordered them.
+ *
+ * SPRINT 1 · Regla 3 (composición 100 % declarativa): los 12 módulos
+ * canónicos SIEMPRE están representados en el DOM de una ficha (aunque
+ * `advisor` sea un marcador semántico oculto que apunta al dock global).
+ * Ningún módulo canónico puede "desaparecer" — como mucho renderiza en
+ * estado `unavailable`.
  */
 export const CANONICAL_MODULE_ORDER: EntityModuleId[] = [
   'header',
@@ -152,5 +197,5 @@ export const CANONICAL_MODULE_ORDER: EntityModuleId[] = [
   'documentacion',
   'actividad',
   'acciones',
-  // `advisor` is intentionally absent: it lives in the dock, not the flow.
+  'advisor',
 ];

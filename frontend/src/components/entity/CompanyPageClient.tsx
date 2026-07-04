@@ -31,6 +31,7 @@ import {
 } from '@/components/copilot/CopilotProvider';
 import { CompanyHeader } from './CompanyHeader';
 import { EntitySections } from './base/EntitySections';
+import { EntityAdvisor } from './base/EntityAdvisor';
 import { EntityHero } from './base/EntityHero';
 import { EntityMetrics } from './base/EntityMetrics';
 import { EntityInsights } from './base/EntityInsights';
@@ -72,18 +73,32 @@ export interface CompanyPageClientProps {
 interface CompanySectionSlot {
   id: string;
   module: EntityModuleId;
-  title: string;
+  /** Vacío = sección chromeless (solo wrapper con testid). */
+  title?: string;
   description?: string;
-  /** REQ bloqueante cuando el módulo aún no está entregado. */
-  req?: string;
-  eta?: string;
 }
 
 /**
- * Mapeo canónico ↔ id de sección visible en la ficha de empresa.
- * El orden final lo impone `EntitySections` (`CANONICAL_MODULE_ORDER`).
+ * SPRINT 1 · Regla 3 (composición 100 % declarativa).
+ *
+ * Mapeo canónico de los 12 módulos del Entity Framework a los ids de
+ * sección visibles en la ficha de empresa. Este array es ESTÁTICO y
+ * DETERMINISTA — no depende de la empresa concreta, ni del payload, ni
+ * de flags de usuario. La misma composición se emite para B47820150,
+ * B08540200, y cualquier otro CIF.
+ *
+ * `header` y `advisor` son slots chromeless (sin título propio) porque
+ * traen su propia chrome:
+ *   - `header`   → renderiza `<CompanyHeader/>` completo con avatar,
+ *                  breadcrumb-like subtitle y row de acciones.
+ *   - `advisor`  → marcador semántico oculto (`<EntityAdvisor/>`) que
+ *                  documenta la relación de esta ficha con el Copilot
+ *                  del dock global (§3.4 del framework).
+ *
+ * El orden final lo impone `EntitySections` sobre `CANONICAL_MODULE_ORDER`.
  */
 const COMPANY_SLOTS: readonly CompanySectionSlot[] = [
+  { id: 'header', module: 'header' },
   {
     id: 'hero',
     module: 'hero',
@@ -112,8 +127,6 @@ const COMPANY_SLOTS: readonly CompanySectionSlot[] = [
     module: 'senales',
     title: 'Señales externas',
     description: 'BORME, contratación pública y cambios societarios.',
-    req: 'REQ-008',
-    eta: 'E1.8',
   },
   {
     id: 'relaciones',
@@ -132,16 +145,12 @@ const COMPANY_SLOTS: readonly CompanySectionSlot[] = [
     module: 'documentacion',
     title: 'Documentación',
     description: 'Memorias mercantiles, teasers e IMs asociados.',
-    req: 'REQ-004',
-    eta: 'E1.6',
   },
   {
     id: 'actividad',
     module: 'actividad',
     title: 'Actividad reciente',
     description: 'Eventos, refrescos y cambios en esta ficha.',
-    req: 'REQ-006',
-    eta: 'E1.6',
   },
   {
     id: 'acciones',
@@ -149,6 +158,7 @@ const COMPANY_SLOTS: readonly CompanySectionSlot[] = [
     title: 'Próximas mejores acciones',
     description: 'Atajos a las capacidades que conectan esta ficha con el resto del producto.',
   },
+  { id: 'advisor', module: 'advisor' },
 ];
 
 /** Duración del feedback visual `animate-section-pulse` en ms. */
@@ -315,6 +325,24 @@ export function CompanyPageClient({
       };
 
       switch (slot.id) {
+        case 'header': {
+          // Chromeless: EntitySectionWrapper solo emite el `data-testid`
+          // + anchor. `<CompanyHeader/>` mantiene toda su chrome propia
+          // (avatar, título, subtítulo, acciones, dropdown).
+          return {
+            ...base,
+            state: 'ready',
+            children: (
+              <CompanyHeader
+                cif={cif}
+                info={initial.header}
+                authenticated={authenticated}
+                initialInWatchlist={initial.in_watchlist}
+                initialVisibility={initial.watchlist_visibility}
+              />
+            ),
+          };
+        }
         case 'hero': {
           return {
             ...base,
@@ -376,12 +404,8 @@ export function CompanyPageClient({
               children: renderHero(sections.score_block, 'Score'),
             };
           }
-          return {
-            ...base,
-            state: 'unavailable',
-            req: slot.req,
-            eta: slot.eta,
-          };
+          // `req` / `eta` resueltos desde MODULE_DEFAULTS (canónico).
+          return { ...base, state: 'unavailable' };
         }
         case 'relaciones': {
           if (locked.has('comparables') || !sections.comparables) {
@@ -415,12 +439,8 @@ export function CompanyPageClient({
         }
         case 'documentacion':
         case 'actividad': {
-          return {
-            ...base,
-            state: 'unavailable',
-            req: slot.req,
-            eta: slot.eta,
-          };
+          // `req` / `eta` resueltos desde MODULE_DEFAULTS (canónico).
+          return { ...base, state: 'unavailable' };
         }
         case 'acciones': {
           if (locked.has('actions')) {
@@ -442,6 +462,22 @@ export function CompanyPageClient({
             ),
           };
         }
+        case 'advisor': {
+          // Chromeless: marcador semántico oculto que documenta la
+          // relación con el Copilot del dock (Regla 1 · el Composer y
+          // el Company Advisor viven en el layout raíz, no en la ficha).
+          return {
+            ...base,
+            state: 'ready',
+            children: (
+              <EntityAdvisor
+                entityType="company"
+                identifier={cif}
+                displayName={initial.header.name}
+              />
+            ),
+          };
+        }
         default:
           return { ...base, state: 'unavailable' };
       }
@@ -449,7 +485,10 @@ export function CompanyPageClient({
   }, [
     analysisCountdown,
     authenticated,
-    initial.header.name,
+    cif,
+    initial.header,
+    initial.in_watchlist,
+    initial.watchlist_visibility,
     locked,
     onRefreshAnalysis,
     refreshingAnalysis,
@@ -473,19 +512,11 @@ export function CompanyPageClient({
         <span className="text-text">{initial.header.name}</span>
       </nav>
 
-      <CompanyHeader
-        cif={cif}
-        info={initial.header}
-        authenticated={authenticated}
-        initialInWatchlist={initial.in_watchlist}
-        initialVisibility={initial.watchlist_visibility}
-      />
-
       <EntitySections
         entityType="company"
         authenticated={authenticated}
         sections={sectionDescriptors}
-        className="mt-10 space-y-12"
+        className="space-y-12"
       />
     </div>
   );

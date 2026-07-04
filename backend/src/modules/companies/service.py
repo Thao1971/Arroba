@@ -474,6 +474,21 @@ def build_next_best_actions(*, authenticated: bool) -> list[NextBestAction]:
     ]
 
 
+def _as_aware(dt: Any) -> datetime:
+    """Normaliza cualquier `datetime` (naive o aware) a offset-aware UTC.
+
+    MongoDB devuelve mezclas naive/aware según de dónde venga el dato
+    (documentos serializados desde Python con `datetime.utcnow()` legacy vs
+    `datetime.now(UTC)`). Al ordenar timelines mixtos Python falla con
+    `TypeError: can't compare offset-naive and offset-aware datetimes`.
+    Esta función es la normalización estándar para todos los sort de
+    timeline de companies.
+    """
+    if not isinstance(dt, datetime):
+        return datetime.min.replace(tzinfo=UTC)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
 async def _build_activity_for_user(
     *, user_id: str, master_company_id: str, limit: int = 20
 ) -> list[ActivityItem]:
@@ -539,7 +554,7 @@ async def _build_activity_for_user(
                     summary=(msg.get("content") or "")[:120],
                 )
             )
-    items.sort(key=lambda i: i.at, reverse=True)
+    items.sort(key=lambda i: _as_aware(i.at), reverse=True)
     return items[:limit]
 
 
