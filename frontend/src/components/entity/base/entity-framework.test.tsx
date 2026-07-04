@@ -221,7 +221,7 @@ describe('EntitySections', () => {
       ),
     );
     expect(
-      screen.getByTestId('entity-section-analisis-locked'),
+      screen.getByTestId('entity-part-analisis-locked'),
     ).toBeInTheDocument();
   });
 

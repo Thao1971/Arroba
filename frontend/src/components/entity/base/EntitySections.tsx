@@ -114,7 +114,7 @@ function renderFallback(s: EntitySectionDescriptor): React.ReactNode {
     case 'locked':
       return (
         <LockedSectionBlur
-          testId={`entity-section-${s.id}-locked`}
+          testId={`entity-part-${s.id}-locked`}
           title={safeTitle}
           description={s.description}
         />

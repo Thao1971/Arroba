@@ -47,7 +47,7 @@ export function EntitySectionWrapper({
             {title && (
               <h2
                 className="font-display font-bold text-2xl md:text-3xl tracking-tight"
-                data-testid={`entity-section-${id}-title`}
+                data-testid={`entity-part-${id}-title`}
               >
                 {title}
               </h2>

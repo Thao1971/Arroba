@@ -249,11 +249,11 @@ describe('CompanyPageClient — anonymous (F6 declarative)', () => {
     expect(screen.getByTestId('company-identity-card')).toBeInTheDocument();
 
     // Módulos locked — analisis, senales, relaciones, oportunidades, acciones
-    expect(screen.getByTestId('entity-section-analisis-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-senales-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-relaciones-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-oportunidades-locked')).toBeInTheDocument();
-    expect(screen.getByTestId('entity-section-acciones-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-part-analisis-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-part-senales-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-part-relaciones-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-part-oportunidades-locked')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-part-acciones-locked')).toBeInTheDocument();
 
     // Módulos unavailable — documentacion, actividad
     expect(screen.getByTestId('entity-section-documentacion')).toBeInTheDocument();
@@ -293,8 +293,8 @@ describe('CompanyPageClient — authenticated (F6 declarative)', () => {
     expect(screen.getByTestId('entity-section-actividad')).toBeInTheDocument();
 
     // No locks para autenticados
-    expect(screen.queryByTestId('entity-section-analisis-locked')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('entity-section-acciones-locked')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('entity-part-analisis-locked')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('entity-part-acciones-locked')).not.toBeInTheDocument();
 
     // Refresh button y acciones presentes
     expect(screen.getByTestId('company-refresh-analysis')).toBeInTheDocument();
@@ -331,6 +331,40 @@ describe('CompanyPageClient — authenticated (F6 declarative)', () => {
     const actEta = screen.getByTestId('entity-section-actividad').querySelector('[data-testid="block-unavailable-eta"]');
     expect(actReq?.textContent).toBe('REQ-008');
     expect(actEta?.textContent).toBe('Sprint 2');
+  });
+
+  it('reserva el prefijo `entity-section-*` exclusivamente a los 12 wrappers root canónicos', () => {
+    // Contrato Sprint 1: `document.querySelectorAll("[data-testid^=\"entity-section-\"]")`
+    // debe devolver EXACTAMENTE 12 nodos (uno por módulo canónico). Los
+    // descendientes (títulos, teasers locked, CTAs) usan el prefijo alterno
+    // `entity-part-*` para no colisionar con el contrato de identificación
+    // de módulos raíz.
+    const { container } = render(
+      withIntl(
+        <CompanyPageClient
+          cif="B86540112"
+          initial={authedFixture()}
+          authenticated={true}
+        />,
+      ),
+    );
+    const all = container.querySelectorAll('[data-testid^="entity-section-"]');
+    expect(all.length).toBe(12);
+    const ids = [...all].map((el) => el.getAttribute('data-testid'));
+    expect(new Set(ids)).toEqual(new Set([
+      'entity-section-header',
+      'entity-section-hero',
+      'entity-section-kpis',
+      'entity-section-insights',
+      'entity-section-analisis',
+      'entity-section-senales',
+      'entity-section-relaciones',
+      'entity-section-oportunidades',
+      'entity-section-documentacion',
+      'entity-section-actividad',
+      'entity-section-acciones',
+      'entity-section-advisor',
+    ]));
   });
 
   it('actualiza la sección analisis in-place al recibir CustomEvent', async () => {
