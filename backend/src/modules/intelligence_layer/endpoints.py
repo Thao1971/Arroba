@@ -16,6 +16,13 @@ from src.modules.auth.dependencies import get_current_user
 from src.modules.auth.models import UserPublic
 from src.modules.intelligence_layer.circuit_breaker import BreakerOpenError
 from src.modules.intelligence_layer.config import get_intelligence_settings
+from src.modules.intelligence_layer.interfaces.financial import (
+    FinancialAnalysis,
+    FinancialNotFoundError,
+    FinancialProviderError,
+    RatiosCatalog,
+    Valuation,
+)
 from src.modules.intelligence_layer.interfaces.master import (
     MasterNotFoundError,
     MasterProviderError,
@@ -41,6 +48,7 @@ class ProviderError(DomainError):
 companies_intel_router = APIRouter(
     prefix="/api/companies", tags=["companies-intelligence"]
 )
+intelligence_router = APIRouter(prefix="/api/intelligence", tags=["intelligence"])
 internal_router = APIRouter(prefix="/api/internal", tags=["internal"])
 
 
@@ -84,6 +92,100 @@ async def get_company_identity(
     return record
 
 
+# ============================================================
+# B.6.b · Financial Engine (§6.2 · §6.3 · ratios/catalog)
+# ============================================================
+
+
+@companies_intel_router.get(
+    "/{cif}/financial-analysis",
+    response_model=FinancialAnalysis,
+    summary="Análisis financiero canónico (§6.2) — proxy intelligence_layer",
+)
+async def get_company_financial_analysis(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # auth requerida
+) -> FinancialAnalysis:
+    """Devuelve el `financial-intelligence/analyze` §6.2.
+
+    Frontend recibe `engine_version="arroba-financial-v1"` (R5: contrato interno
+    decoupled). Cuando el proveedor devuelve 404 (Master Layer sin datos), arroba
+    responde `404 financial_not_found` canónico → frontend degrada a `UnavailableBlock`.
+    """
+    router = get_intelligence_router()
+    try:
+        analysis = await router.get_financial_analysis(cif)
+    except FinancialNotFoundError as exc:
+        raise NotFoundError("financial_not_found", code="financial_not_found") from exc
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except FinancialProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Provider"] = router._get_financial_provider().provider_name
+    return analysis
+
+
+@companies_intel_router.get(
+    "/{cif}/valuation",
+    response_model=Valuation,
+    summary="Valoración canónica (§6.3) — proxy intelligence_layer",
+)
+async def get_company_valuation(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),
+) -> Valuation:
+    """Devuelve `financial-intelligence/valuation` §6.3 con `engine_version=arroba-financial-v1`."""
+    router = get_intelligence_router()
+    try:
+        val = await router.get_valuation(cif)
+    except FinancialNotFoundError as exc:
+        raise NotFoundError("valuation_not_found", code="valuation_not_found") from exc
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except FinancialProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Provider"] = router._get_financial_provider().provider_name
+    return val
+
+
+@intelligence_router.get(
+    "/ratios/catalog",
+    response_model=RatiosCatalog,
+    summary="Catálogo canónico de ratios financieros (cacheado 24h)",
+)
+async def get_ratios_catalog(
+    response: Response,
+    user: UserPublic = Depends(get_current_user),
+) -> RatiosCatalog:
+    """Catálogo estable, sin `identifier`. Se cachea 24h en `intelligence_cache`."""
+    router = get_intelligence_router()
+    try:
+        catalog = await router.get_ratios_catalog()
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except FinancialProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Provider"] = router._get_financial_provider().provider_name
+    return catalog
+
+
 @internal_router.get(
     "/metrics",
     summary="Métricas Prometheus del intelligence_layer",
@@ -104,4 +206,4 @@ async def metrics(
     return Response(content=body, media_type=content_type)
 
 
-__all__ = ["companies_intel_router", "internal_router"]
+__all__ = ["companies_intel_router", "intelligence_router", "internal_router"]

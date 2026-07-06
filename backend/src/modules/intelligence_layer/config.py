@@ -49,7 +49,7 @@ class IntelligenceSettings(BaseSettings):
     intelligence_cache_error_ttl_seconds: int = 30
     intelligence_cache_memory_maxsize: int = 1024
 
-    intelligence_cache_ttl_master_seconds: int | None = None
+    intelligence_cache_ttl_master_seconds: int | None = 24 * 60 * 60  # 24h · R12 (identidad estable)
     intelligence_cache_ttl_financial_seconds: int | None = None
     intelligence_cache_ttl_signal_seconds: int | None = None
     intelligence_cache_ttl_semantic_seconds: int | None = None

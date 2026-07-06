@@ -1,14 +1,29 @@
-"""Contrato `MasterProvider` + DTOs del Master Record.
+"""Contrato `MasterProvider` (IdentityResolver semánticamente) + DTOs del Master Record.
 
 Schema replica **exactamente** el pack §6.1 · contract §6.1 del contrato público
 `arroba-integration-contract-v1`. Es el contrato interno que arroba expone al
 frontend en `/api/companies/{cif}/identity`. **Congelado** — cualquier cambio
 requiere bump de contrato.
 
-Rellenos permitidos:
+### Regla canónica R12 (2026-07-07)
+arroba **NUNCA** consume `/api/v1/master/*` (endpoints administrativos con auth
+JWT admin). La implementación real de `MasterProvider` es `AgencyToolIdentityResolver`
+que **compone** llamadas a los engines públicos (`financial-intelligence/analyze` +
+`semantic-intelligence/search`) con `X-API-Key`. El nombre `MasterProvider` se
+conserva por compatibilidad semántica del contrato interno, pero su implementación
+real es un *resolver* compositivo — jamás un cliente directo al Master admin.
+
+Rellenos permitidos en el schema §6.1 cuando el engine público no aporta el campo:
     * campos escalares ausentes → `null`
     * arrays ausentes → `[]`
     * objetos ausentes → objeto con todos sus subcampos en `null`
+
+Campos huérfanos (no cubiertos por engines públicos, quedan como REQ contra
+Agency Tool para exponerlos en el futuro):
+    * `ownership.{shareholders,parents,ultimate_parent,investees,group_id}`
+    * `officers_count`
+    * `objeto_social`
+    * `provenance`, `sources`, `pipeline_version`, `source_hash`
 
 NO se inventan datos. NO se calcula lógica de negocio (Regla R4).
 """
@@ -109,7 +124,7 @@ class MasterRecord(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    master_id: str
+    master_id: str | None = None  # R12: puede ser null si el engine no lo devuelve
     cif_normalized: str | None = None
     status: Literal["active", "merged", "deprecated"] = "active"
     identity: Identity
@@ -139,7 +154,13 @@ class MasterRecord(BaseModel):
 
 
 class MasterProvider(ABC):
-    """Contrato que cualquier proveedor de Master Record debe cumplir."""
+    """Contrato semántico del `MasterProvider` de arroba.
+
+    R12: la implementación real (`AgencyToolIdentityResolver`) NO llama a
+    `/api/v1/master/*`. Compone `financial-intelligence/analyze` +
+    `semantic-intelligence/search` para reconstruir el schema §6.1 desde
+    engines públicos con `X-API-Key`.
+    """
 
     provider_name: str  # etiqueta observable ("mock" | "agency_tool")
 
@@ -155,12 +176,15 @@ class MasterProvider(ABC):
 
     @abstractmethod
     async def get_by_cif(self, cif: str) -> MasterRecord:
-        """Resolución alternativa por CIF. Se usa desde `/api/companies/{cif}/identity`."""
+        """Resolución por CIF. Se usa desde `/api/companies/{cif}/identity`.
+
+        En el implementador real: aplica el patrón R12 (Financial→Semantic→404).
+        """
         ...
 
 
 class MasterNotFoundError(LookupError):
-    """No existe Master Record para el identificador dado."""
+    """No existe Master Record para el identificador dado (o Master Layer vacío)."""
 
 
 class MasterProviderError(RuntimeError):
@@ -169,6 +193,10 @@ class MasterProviderError(RuntimeError):
     def __init__(self, message: str, *, error_class: str = "server_5xx") -> None:
         super().__init__(message)
         self.error_class = error_class
+
+
+# Alias semántico para uso futuro (mismo tipo, distinta lectura).
+IdentityResolver = MasterProvider
 
 
 __all__ = [
@@ -184,6 +212,7 @@ __all__ = [
     "Ownership",
     "OwnershipParty",
     "MasterProvider",
+    "IdentityResolver",  # alias
     "MasterNotFoundError",
     "MasterProviderError",
 ]

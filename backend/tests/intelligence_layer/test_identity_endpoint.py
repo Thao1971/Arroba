@@ -19,6 +19,34 @@ from src.modules.intelligence_layer.router import reset_intelligence_router_for_
 KEY_PREFIX_SIGNATURE = "as_"
 
 
+@pytest.fixture
+def force_mock_mode(monkeypatch):
+    """Fuerza `AGENCY_TOOL_MODE=mock` en los tests que dependen de master_companies_mock.
+
+    Con el flip B.6.a-real, el default es `real`. Estos tests siguen validando
+    la ruta feliz `mock → schema §6.1` independientemente del modo global.
+
+    Se monkeypatch en 3 sitios porque cada módulo tiene su propio binding local
+    del símbolo `get_intelligence_settings` (import from … import …).
+    """
+    from src.modules.intelligence_layer import config as cfg_mod
+    from src.modules.intelligence_layer import endpoints as ep_mod
+    from src.modules.intelligence_layer import router as router_mod
+
+    reset_intelligence_settings_cache()
+    fake_settings = cfg_mod.IntelligenceSettings(agency_tool_mode="mock")
+    monkeypatch.setattr(cfg_mod, "get_intelligence_settings", lambda: fake_settings)
+    monkeypatch.setattr(ep_mod, "get_intelligence_settings", lambda: fake_settings)
+    monkeypatch.setattr(router_mod, "get_intelligence_settings", lambda: fake_settings)
+    # El router se construye lazy — al resetearlo, la próxima llamada leerá el nuevo settings.
+    reset_intelligence_router_for_tests()
+    yield
+    # No llamamos reset_intelligence_settings_cache() aquí porque el monkeypatch
+    # ya sustituyó `get_intelligence_settings` por un lambda sin `.cache_clear()`.
+    # pytest deshace el monkeypatch automáticamente al salir del fixture.
+    reset_intelligence_router_for_tests()
+
+
 @pytest.fixture(autouse=True)
 def _reset_intel_state():
     reset_intelligence_router_for_tests()
@@ -66,7 +94,7 @@ async def test_identity_requires_auth(client: AsyncClient, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_identity_returns_master_record_schema_6_1(alice: AsyncClient, mock_db):
+async def test_identity_returns_master_record_schema_6_1(alice: AsyncClient, mock_db, force_mock_mode):
     """Verifica que el payload cumple el schema §6.1 completo."""
     await _seed_master(mock_db)
     r = await alice.get("/api/companies/B47820150/identity")
@@ -112,7 +140,7 @@ async def test_identity_returns_404_when_cif_unknown(alice: AsyncClient, mock_db
 
 
 @pytest.mark.asyncio
-async def test_internal_metrics_exposes_prometheus_text(alice: AsyncClient, mock_db):
+async def test_internal_metrics_exposes_prometheus_text(alice: AsyncClient, mock_db, force_mock_mode):
     """3 requests → métricas visibles en /api/internal/metrics."""
     await _seed_master(mock_db)
     for _ in range(3):
@@ -186,7 +214,7 @@ async def test_internal_metrics_token_protection(alice: AsyncClient, mock_db, mo
 
 
 @pytest.mark.asyncio
-async def test_cache_hit_second_request(alice: AsyncClient, mock_db):
+async def test_cache_hit_second_request(alice: AsyncClient, mock_db, force_mock_mode):
     """Segunda llamada al mismo CIF debe venir de caché (verificado con métricas)."""
     await _seed_master(mock_db)
     await alice.get("/api/companies/B47820150/identity")

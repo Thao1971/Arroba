@@ -1,5 +1,64 @@
 # CHANGELOG — ARROBA Platform
 
+## 🚀 06 Jul 2026 · B.6.b · Financial Engine (backend) — COMPLETADA
+
+Segunda sub-fase del roadmap Agency Tool: `financial-intelligence` en producción real.
+
+### Endpoints públicos consumidos (X-API-Key · R12)
+- `POST /api/v1/financial-intelligence/analyze`
+- `POST /api/v1/financial-intelligence/valuation`
+- `GET /api/v1/financial-intelligence/ratios/catalog`
+
+### Nuevos artefactos backend
+- `interfaces/financial.py` — DTOs Pydantic `FinancialAnalysis`, `Valuation`, `RatiosCatalog`, `ComparablePeer` (schema pack §6.2/§6.3 completo).
+- `providers/agency_tool/financial.py` — `AgencyToolFinancialProvider` con emisión `engine_version="arroba-financial-v1"` (R5).
+- `providers/mock/financial.py` — mock que devuelve `NotFound` o catálogo canónico mínimo (R4).
+- `router.py` — 3 métodos nuevos: `get_financial_analysis(cif)`, `get_valuation(cif)`, `get_ratios_catalog()`.
+- 3 endpoints REST: `GET /api/companies/{cif}/financial-analysis`, `GET /api/companies/{cif}/valuation`, `GET /api/intelligence/ratios/catalog`.
+
+### Contrato interno decoupled (R5)
+- `engine_version="arroba-financial-v1"` en todas las respuestas. El nombre del proveedor (`financial-intelligence-v1`) **jamás** llega al frontend (verificado en tests).
+
+### Testing
+- 19 nuevos tests unit + endpoints (`test_financial.py`, `test_financial_endpoints.py`).
+- **216/216 pytest** total (197 previos + 19 nuevos).
+- R12 sigue en verde (10/10 tests de regresión permanente).
+
+### Smoke E2E real
+```
+/api/companies/B47820150/financial-analysis  → 404 financial_not_found (Master Layer vacío)
+/api/companies/B47820150/valuation           → 404 valuation_not_found
+/api/intelligence/ratios/catalog             → 200 · 13 ratios canónicos · engine_version=arroba-financial-v1
+```
+
+---
+
+## 🔒 06 Jul 2026 · R12 · arroba nunca consume `/api/v1/master/*` (canónica permanente)
+
+### Regla operativa
+- Los 4 endpoints `/api/v1/master/*` (auth JWT admin, fuera del snapshot público) **jamás** son invocados por arroba.
+- Toda integración se realiza contra el contrato público `arroba.v1` con `X-API-Key`.
+- Resolución de identidad vía `IdentityResolver` que compone `financial-intelligence/analyze` + `semantic-intelligence/search`.
+- Guard runtime en `AgencyToolClient.request()` bloquea físicamente cualquier request a `/master/*`.
+- Test de regresión permanente `test_r12_regression.py` con allowlist explícita.
+
+### Refactor código
+- Eliminado `providers/agency_tool/master.py` (llamaba a `GET /master/{id}`).
+- Nuevo `providers/agency_tool/identity.py` con `AgencyToolIdentityResolver`.
+- 10 tests de regresión R12 (grep estático + guard runtime + comportamiento del resolver).
+
+### Flip a `AGENCY_TOOL_MODE=real`
+- Smoke test v2 aprobado (health 200 + financial/analyze 404 canónico + semantic/search 200).
+- Latencias < 200ms. Zero 429/500. Zero 401/403.
+- E2E post-flip: `/api/companies/B47820150/identity` → `404 master_not_found` canónico (Master Layer vacío en prod).
+- Métricas registran `provider="agency_tool"` correctamente.
+
+### Actualizaciones documentales
+- `ARROBA_INTEGRATION_PACK_v1.md` v1.1 → nueva §0 "Principios de consumo desde arroba.com".
+- `ARROBA_CONSUMER_INTEGRATION_PLAN_v1.md` v1.5 → §0.2 (R12) + §3.1 refactor + §7.10 (Master Layer vacío) + AC B.6.a actualizados.
+
+---
+
 ## 🏗️ 06 Jul 2026 — Fase B.6.a · Scaffolding `intelligence_layer` (backend puro, sin llamadas HTTP reales)
 
 Andamiaje multi-proveedor sobre motores externos. Reemplaza el `agency_tool_adapter` monolítico por una capa desacoplada con abstract interfaces + providers concretos + caché + circuit breaker + métricas Prometheus. **`agency_tool_adapter` sigue vivo** (deprecación calendarizada en B.6.j).

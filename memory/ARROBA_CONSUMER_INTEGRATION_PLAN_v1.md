@@ -1,6 +1,6 @@
 # PLAN DE CONSUMIDOR — arroba.com → Intelligence Layer
 **Documento operativo único para migrar arroba.com de mocks locales al contrato público `arroba-integration-contract-v1`.**
-_Versión: `consumer-integration-plan-v1.3` · 2026-07-07 · Estado: **APROBADO con 10 reglas canónicas + 4 decisiones técnicas + R11 (Gobernanza del Frontend) — Fase B.6.a scaffolding COMPLETADO (30/30 tests + smoke test manual OK · sin llamadas HTTP reales)**_
+_Versión: `consumer-integration-plan-v1.5` · 2026-07-07 · Estado: **12 reglas canónicas + 4 decisiones técnicas + R11 + R12 · B.6.a-real CERRADA (flip 197/197 verde · schema §6.1 servido en real · Master Layer vacío = 404 canónico) · B.6.b Financial Engine EN CURSO**_
 
 Referencias canónicas (leídas íntegramente):
 - **PACK v1** — `/app/memory/ARROBA_INTEGRATION_PACK_v1.md` (sha256 `b3853b7c…d98e5` · 27.316 bytes · 554 líneas)
@@ -82,6 +82,46 @@ Devuelve **exactamente** el schema del pack §6.1 · [contract §6.1] para `mast
   engine_version, generated_at }
 ```
 En modo `mock`, el `MockMasterProvider` **traduce los 10 campos de `master_companies_mock`** a este schema, rellenando lo que no exista con `null` o `[]` según el contrato. **NO se inventan datos**. Zero coupling `arroba → Agency Tool` en el nombre del proveedor: el frontend solo ve `/api/companies/{cif}/identity`.
+
+---
+
+## §0.2 · Regla canónica R12 · arroba nunca consume `/api/v1/master/*` (usuario · 2026-07-07)
+
+### 0.2.1 · Texto literal del usuario
+> A partir de ahora, la integración debe seguir estos principios:
+> - Arroba **no consumirá nunca** los endpoints `/api/v1/master/*`.
+> - Toda la integración debe realizarse **exclusivamente contra el contrato público `arroba.v1`** utilizando `X-API-Key`.
+> - La **resolución de identidad** se hará enviando el `cif_normalized` como `identifier` al primer motor correspondiente.
+> - El `master_id` devuelto por Agency Tool podrá cachearse para optimizar llamadas posteriores, pero arroba seguirá considerando el **CIF como su identificador de negocio**.
+> - No continuéis desarrollando suponiendo acceso al Master administrativo.
+
+**R12 prevalece sobre cualquier instrucción previa relacionada con Master admin y sobre §3.1 original de este plan.**
+
+### 0.2.2 · Impacto en decisiones previas
+- **Decisión 0.1.5** (endpoint proxy `/api/companies/{cif}/identity`): sin cambios en la firma pública ni en el schema §6.1. Solo cambia la implementación interna del provider real.
+- **Decisión 0.1.4** (rotación API key): sigue vigente, aplica a X-API-Key (no aparece JWT).
+- **AgencyToolMasterProvider** original (llamaba a `GET /api/v1/master/{id}` con X-API-Key): **descartado y reescrito** como `AgencyToolIdentityResolver`. No queda deuda técnica.
+
+### 0.2.3 · Patrón obligatorio (spec del `IdentityResolver`)
+```
+IdentityResolver.resolve(cif) → MasterRecord (§6.1) | UnavailableResponse
+
+  1) POST /api/v1/financial-intelligence/analyze {"identifier": cif}
+       200 → extrae master_id + identity + classification + location + financials → mapea a §6.1.
+       404 → paso 2.
+  2) POST /api/v1/semantic-intelligence/search {"query": cif, "limit": 1}
+       200 con results[0] → extrae master_id + identity básica → mapea a §6.1 (financials=null).
+       200 count=0 / 404 → paso 3.
+  3) UnavailableResponse {"status":"unavailable","reason":"master_not_found"}
+       → frontend degrada a `UnavailableBlock` (sin invenciones).
+```
+
+- **Cachea** mapping `cif ↔ master_id` en `intelligence_cache` con **TTL 24h** (identidad estable).
+- **Nunca** invoca `/api/v1/master/*`. Test de regresión permanente vía grep del codebase.
+
+### 0.2.4 · Identificador canónico
+- **arroba interno**: CIF (URLs, IDs de UI, logs, workspaces, watchlists).
+- **Optimización**: `master_id` cacheado como shortcut para dedupe cross-engine, no como identidad de negocio.
 
 ---
 
@@ -186,16 +226,18 @@ Distribución por tipo de GAP:
 
 ### 3.1 Cliente HTTP
 
-- **Módulo nuevo:** `/app/backend/src/modules/agency_tool_client/`
+> **Actualización R12 (§0.2)**: el sub-módulo `master.py` **NO existe** en arroba. Es reemplazado por `identity.py` que compone `financial.py` + `semantic.py`. Ninguna ruta `/api/v1/master/*` se invoca desde arroba, nunca.
+
+- **Módulo nuevo:** `/app/backend/src/modules/intelligence_layer/providers/agency_tool/`
   - `client.py`: `AgencyToolClient` con `httpx.AsyncClient` (timeout 30s por defecto, `connect=5s` [pack §6.3 ejemplo Python]).
   - **Reintentos:** backoff exponencial `1s → 2s → 4s`, máximo 3 intentos. Respeta `Retry-After` en `429` [pack §2.3, §6.2].
-  - **Circuit breaker (opcional B.6.g+):** tras 5 `5xx` consecutivos en 60s, corta llamadas al motor y devuelve `{status:"unavailable",reason:"agency_tool_down"}` durante 30s.
+  - **Circuit breaker (obligatorio B.6.a+ · Decisión 0.1.1):** tras 5 `5xx` consecutivos, corta llamadas al motor y devuelve `{status:"unavailable",reason:"agency_tool_down"}` durante 60s.
   - **Concurrencia por motor:** semáforo interno para no saturar (max 20 concurrentes por motor, ajustable via env).
   - **Base URL:** `AGENCY_TOOL_BASE_URL` env — [pack §2.1]:
     - Prod: `https://agencias.wearebudadvisors.com`
     - Preview: `https://data-factory-hub.preview.emergentagent.com`
-- **OpenAPI-generated types:** consumir el snapshot congelado `arroba.v1.json` [pack §3] para generar tipos Pydantic. **No inventamos DTOs a mano.** Comando: `openapi-python-client generate --url ${AGENCY_TOOL_BASE_URL}/api/v1/openapi/arroba.v1.json` [pack §3] → tipos en `agency_tool_client/dto/`.
-- **7 sub-módulos por motor:** `financial.py`, `signal.py`, `semantic.py`, `recommendation.py`, `strategy.py`, `transaction.py`, `master.py`. Cada uno expone métodos 1:1 con los endpoints del contrato ([pack §4]).
+- **OpenAPI-generated types (aspiracional B.6.b+):** consumir el snapshot congelado `arroba.v1.json` [pack §3] para generar tipos Pydantic. **No inventamos DTOs a mano.** En B.6.a se usan DTOs Pydantic manuales por el schema §6.1; se migran a auto-generados en B.6.b.
+- **Sub-módulos por motor consumidos por arroba:** `financial.py`, `signal.py`, `semantic.py`, `recommendation.py`, `strategy.py`, `transaction.py`, **`identity.py`** (compone Financial+Semantic). Cada uno expone métodos 1:1 con los endpoints públicos del contrato ([pack §4]). 🚫 **NO existe `master.py` que llame a `/api/v1/master/*`.**
 
 ### 3.2 Autenticación
 
@@ -312,7 +354,7 @@ Sub-fases granulares (cada una \<7 días, cerrable en una iteración):
 
 | Sub-fase | Motor · endpoints exactos | Entregables cliente + proxy + renderer | Deprecación aplicada |
 |---|---|---|---|
-| **B.6.a** | Cliente HTTP + Master `GET /master/{master_id}` (1 endpoint) | `agency_tool_client/client.py` + `master.py`; proxy `/api/companies/{cif}/identity` (usa `cif_normalized` → `master_id`); renderer: enriquece `CompanyHeader.tsx` con `provenance`, `sources`, `contact.web` | Sustituye la lectura de `master_companies_mock` en el header del `EnrichedCompany.legal_name/sector/region/country` |
+| **B.6.a** | Cliente HTTP + **IdentityResolver** (compone `financial-intelligence/analyze` + `semantic-intelligence/search`) — 🚫 **nunca `/master/*`** (R12) | `intelligence_layer/providers/agency_tool/{client,identity}.py`; proxy `/api/companies/{cif}/identity`; renderer: enriquece `CompanyHeader.tsx` (post-R11 aprobación) con `contact.web` y `provenance` cuando disponibles | Sustituye la lectura de `master_companies_mock` en el header del `EnrichedCompany.legal_name/sector/region/country`; `ownership/officers_count/sources` quedan `null/[]` (REQ contra Agency Tool) |
 | **B.6.b** | Financial `analyze` (1 endpoint) | `financial.py` con `analyze()`; proxy `/api/companies/{cif}/financial`; renderers `PLBlock`, `BalanceBlock`, `RatiosGridBlock`, `RevenueEvolutionBlock`, `RadarBlock` (5 renderers nuevos) | Elimina `build_kpi_metrics()`, `build_financials_metrics()`, `build_score_placeholder()` en `real` mode |
 | **B.6.c** | Financial `valuation` + `ratios/catalog` (2 endpoints) | `financial.valuation()` + `financial.ratios_catalog()`; proxy `/api/companies/{cif}/valuation`; renderer `ValuationBlock` enriquecido con `explanation` + `subject_ebitda_margin_percentile` | Elimina `build_valuation()` (fórmula fija) en `real` mode. Skill `copilot/skills/value.py` pasa a thin wrapper |
 | **B.6.d** | Semantic `profile` + `similar` + `search` (3 endpoints) | `semantic.py`; proxy `/api/companies/{cif}/semantic` + reemplaza `/api/entities/lookup` naïve por `semantic-intelligence/search`; renderer `SemanticProfileBlock` | Elimina `entities/service.py::lookup()` filtro substring + `_sector_with_adjacent()`. Composer global usa Universal Search |
@@ -406,26 +448,38 @@ Foundation (Master) ─► Financial ─► Signal ─► Semantic ─► Recomm
 - **Riesgo:** ciclos de propuesta+aprobación pueden dilatar la fecha de entrega si no se preparan con antelación.
 - **Mitigación:** durante las sub-fases backend previas (B.6.a/b/c/d/e) se preparan en paralelo mockups/previews de los renderers necesarios (`PLBlock`, `BalanceBlock`, etc.). Al llegar a la fase frontend, el diseño ya está listo para revisión. Impacto estimado: **+1 día por sub-fase frontend** como buffer razonable en las estimaciones.
 
+### 7.10 Master Layer del proveedor vacío en producción (R12)
+- **Estado observado 2026-07-07:** el proveedor prod (`agency-scraper v2.0.0`) responde 200 en endpoints de metadata (`/health`, `catalog`) pero devuelve **404 `company not found in Master Layer`** para cualquier `identifier` real, y `count=0` en `semantic/search` para queries genéricas. La ingesta aún no ha ocurrido.
+- **Consecuencia:** cualquier `IdentityResolver.resolve(cif)` en modo `real` sobre prod devolverá `unavailable` hasta que Agency Tool complete la ingesta. Los engines que dependen del Master Layer (Financial, Signal, Recommendation) devolverán 404 sistemáticamente.
+- **Mitigación (no bloqueante):**
+  - **Aceptado como estado canónico.** El schema §6.1 servido por arroba retorna `null`/`[]` correctamente cuando el proveedor no tiene datos.
+  - Frontend degrada a `UnavailableBlock` en las secciones afectadas (Regla R11: sin invenciones).
+  - Modo `mock` sigue siendo la fuente de contenido hasta que la ingesta ocurra (Regla R3: `master_companies_mock` no se elimina hasta B.6.j).
+- **Decisión de flip a `real`:** puede hacerse en cualquier momento — no bloquea el roadmap. El impacto es que `/api/companies/{cif}/identity` con CIFs no ingestados devolverá 404 canónico; con CIFs ingestados devolverá payload real.
+
 ---
 
 ## §8 · Roadmap por fases con criterios de aceptación binarios
 
-### Fase B.6.a — Cliente Agency Tool + Master
-**Goal:** montar el cliente HTTP base + primer motor (Master). Ver la ficha renderizada con identidad canónica real.
-**Scope:** módulo `agency_tool_client/` con `client.py` + `master.py` + `dto/`; env vars `AGENCY_TOOL_BASE_URL` + `ARROBA_SERVICE_API_KEY_PRIMARY/_SECONDARY` + `AGENCY_TOOL_MODE`; proxy `/api/companies/{cif}/identity`.
-**Endpoints tocados:** `GET /api/v1/master/{master_id}` (1 de 53).
-**Criterios de aceptación:**
+### Fase B.6.a — Cliente Agency Tool + IdentityResolver (R12)
+**Goal:** montar el cliente HTTP base + `IdentityResolver` que compone Financial + Semantic (nunca `/master/*`). Ver la ficha renderizada con identidad canónica real cuando el proveedor la tenga; degradar a `UnavailableBlock` cuando no.
+**Scope:** módulo `intelligence_layer/providers/agency_tool/` con `client.py` + `identity.py`; DTOs Pydantic manuales por schema §6.1; env vars `AGENCY_TOOL_BASE_URL` + `ARROBA_SERVICE_API_KEY_PRIMARY/_SECONDARY` + `AGENCY_TOOL_MODE`; proxy `/api/companies/{cif}/identity` (contrato interno frozen).
+**Endpoints tocados (X-API-Key, snapshot público, R12):** `POST /financial-intelligence/analyze` + `POST /semantic-intelligence/search` + `GET /health` (3 de 53). 🚫 **CERO llamadas a `/api/v1/master/*`**.
+**Criterios de aceptación (actualizados por R12):**
 - [ ] AC1: `curl -H "X-API-Key: $KEY" ${BASE_URL}/api/v1/health` responde `200` en boot del backend arroba.
-- [ ] AC2: `curl ${ARROBA}/api/companies/B47820150/identity` autenticado (buyer@) devuelve JSON con `master_id`, `identity.legal_name`, `classification.cnae_section`, `location.provincia`, `contact.web`, `provenance{}`, `sources[]`.
-- [ ] AC3: Header `CompanyHeader.tsx` en producción muestra `contact.web` como link (no hardcode `castillatermal.com`).
-- [ ] AC4: Rotación de API Key sin downtime: cambiar `_PRIMARY` en `.env` + `sudo supervisorctl restart backend` → siguiente request devuelve `200` con nueva key sin ventana de fallo.
-- [ ] AC5: Logs estructurados emiten `engine=master`, `endpoint=/master/{id}`, `master_id`, `latency_ms`, `cache_hit`.
-- [ ] AC6: `pytest` sigue en 157/157 + nuevos tests del cliente (mínimo 8) para 200/401/404/429/500/`unavailable`.
-- [ ] AC7: Cliente cachea por `master_id` en Mongo `agency_tool_cache` con TTL 300s.
-**Estimación:** 3-4 días.
-**Dependencies:** ninguna previa. Bloqueado hasta que el user aporte `AGENCY_TOOL_BASE_URL` + `ARROBA_SERVICE_API_KEY`.
-**Test plan:** curl smoke §6.1 pack + UI acceptance abrir `/empresa/B47820150` y verificar link web + `pytest` unitarios + `vitest` no regresa.
-**Deprecación aplicada:** —
+- [ ] AC2: `POST /financial-intelligence/analyze {"identifier":"<cif>"}` autenticado con X-API-Key devuelve `200` con `master_id + identity + classification + location + financials` embebidos, o `404 "company not found in Master Layer"` canónico.
+- [ ] AC3: `POST /semantic-intelligence/search {"query":"<cif>","limit":1}` autenticado con X-API-Key devuelve `200` con estructura conforme (`count`, `results[]`, `backend`, `engine_version`).
+- [ ] AC4: `IdentityResolver.resolve(cif)` en modo `real` devuelve payload §6.1 (subset disponible: `identity + classification + location + financials`; `ownership + provenance + sources + officers_count = null/[]`) o `UnavailableResponse` según estado del Master Layer.
+- [ ] AC5: Mapping `cif → master_id` cacheable en `intelligence_cache` con TTL 24h.
+- [ ] AC6: `GET /api/companies/{cif}/identity` en modo `real` devuelve `200` con schema §6.1 completo (`null`/`[]` en fields no cubiertos) o `404 master_not_found` canónico si ambos engines 404. Contrato interno frozen (Decisión 0.1.5).
+- [ ] AC7: Rotación de API Key sin downtime: cambiar `_PRIMARY` en `.env` + `sudo supervisorctl restart backend` → siguiente request devuelve `200` con nueva key sin ventana de fallo.
+- [ ] AC8: Logs estructurados emiten `engine=master`, `provider=agency_tool`, `method`, `latency_ms`, `cache_hit`.
+- [ ] AC9: `pytest` sigue verde con tests nuevos: `test_identity_resolver_never_calls_master_admin` (grep httpx mocks), `test_identity_resolver_uses_financial_analyze_first`, `test_identity_resolver_falls_back_to_semantic_search`, `test_identity_resolver_returns_unavailable_when_both_engines_404`, `test_cif_to_master_id_mapping_cached_24h`.
+- [ ] AC10: **Test de regresión permanente R12**: grep del codebase (`/master/{`, `/api/v1/master/`, `Authorization: Bearer`) devuelve 0 matches en providers reales.
+**Estimación:** 3-4 días (scaffolding + smoke ya completados).
+**Dependencies:** ninguna previa. Bloqueado hasta que el user aporte `AGENCY_TOOL_BASE_URL` + `ARROBA_SERVICE_API_KEY_PRIMARY` (**ya provistos 2026-07-07**).
+**Test plan:** curl smoke a los 3 endpoints públicos + unit tests intelligence_layer + `pytest` sin regresión.
+**Deprecación aplicada:** — (mock adapter sigue vivo hasta B.6.j).
 
 ### Fase B.6.b — Financial `analyze`
 **Goal:** Sustituir KPIs, P&L, Balance, Ratios locales por payload real de Financial.

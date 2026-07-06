@@ -100,7 +100,29 @@ class AgencyToolClient:
         """Realiza la petición con fallback primary→secondary + reintentos exponenciales.
 
         Reintentos: 429 y 5xx hasta `agency_tool_retry_max` con backoff 1s→2s→4s.
+
+        **R12 guard**: rechaza en ORIGEN cualquier ruta que empiece por
+        `/api/v1/master/` — arroba jamás debe consumir Master admin.
         """
+        # ---- R12 guard: bloqueo estructural ----
+        normalized = path.rstrip("/") + "/"
+        if normalized.startswith("/api/v1/master/"):
+            log.error(
+                "R12_VIOLATION_BLOCKED",
+                method=method,
+                path=path,
+                reason="arroba nunca consume /api/v1/master/*",
+            )
+            raise AgencyToolHTTPError(
+                status_code=0,
+                error_class="client_4xx",
+                message=(
+                    "R12 violation: arroba nunca consume /api/v1/master/* "
+                    "(auth JWT admin fuera del snapshot público). "
+                    "Usa financial-intelligence/analyze o semantic-intelligence/search."
+                ),
+            )
+
         primary = self.settings.arroba_service_api_key_primary
         secondary = self.settings.arroba_service_api_key_secondary
         if not primary:

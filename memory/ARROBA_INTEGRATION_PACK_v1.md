@@ -1,6 +1,67 @@
 # INTEGRATION PACK — Agency Tool → arroba.com
 **Documento único y autosuficiente para integrar arroba.com contra el contrato `arroba.v1`.**
-_Versión: `integration-pack-v1` · 2026-07-04 · Contrato: `arroba-integration-contract-v1` (congelado)_
+_Versión: `integration-pack-v1.1` · 2026-07-07 · Contrato: `arroba-integration-contract-v1` (congelado) · Adenda §0 · R12_
+
+---
+
+## §0 · Principios de consumo desde arroba.com (adenda arroba · 2026-07-07)
+
+Esta sección refleja las **restricciones operativas de arroba.com** como consumidor del contrato. **No cambia el contrato del proveedor** — solo define cómo lo usa arroba. La numeración `§1`…`§8` original queda intacta.
+
+### 0.1 · Regla canónica R12
+- **arroba.com NUNCA consume `/api/v1/master/*`.** Los 4 endpoints administrativos (`GET /master/stats`, `GET /master`, `GET /master/{id}`, `POST /master/resolve`) requieren auth **JWT admin** y quedan fuera del snapshot público. arroba jamás implementará cliente para ellos.
+- **Toda la integración se realiza exclusivamente contra el contrato público `arroba.v1`** con `X-API-Key`. Ningún JWT ni `Authorization: Bearer` en arroba.
+- La deuda de campos huérfanos del Master Record (`ownership`, `provenance`, `sources`, `officers_count`) queda como **REQ contra Agency Tool** para exponerlos vía engines públicos. Mientras tanto, `null`/`[]` en el schema §6.1 servido por arroba.
+
+### 0.2 · Patrón obligatorio de resolución de identidad
+1. arroba envía `identifier: <cif_normalized>` al **primer motor relevante** para el caso de uso.
+2. El motor devuelve un payload que **embebe** `master_id`, `cif_normalized`, `identity{}`, `classification{}`, `location{}` (confirmado por pack §6.2 para Financial). Estos campos son suficientes para el subset del schema §6.1 que arroba puede servir.
+3. arroba **cachea** el mapping `cif ↔ master_id` en la colección `intelligence_cache` con TTL 24h. La identidad no cambia con frecuencia; TTL largo justificado.
+4. Llamadas subsecuentes al mismo motor pueden usar `master_id` como `identifier` (contrato v1 §4 lo permite), pero arroba **prefiere `cif_normalized`** para trazabilidad de logs y observabilidad.
+
+### 0.3 · Identificador canónico interno de arroba
+- **CIF** es el identificador de negocio en arroba. Todas las URLs internas (`/empresa/{cif}`, `/api/companies/{cif}/*`) usan CIF.
+- **`master_id`** es dato de **optimización** (para cachear y para pasar como shortcut al proveedor cuando sea eficiente). NO es identificador de negocio de arroba.
+
+### 0.4 · Composición de identidad (patrón "IdentityResolver")
+arroba resuelve `cif → MasterRecord (§6.1)` **componiendo** engines públicos (nunca `/master/*`):
+
+```
+IdentityResolver.resolve(cif):
+    1. POST /financial-intelligence/analyze {"identifier": cif}
+       → 200: extrae master_id + identity + classification + location + financials embebidos.
+       → 404: continúa al paso 2.
+    2. POST /semantic-intelligence/search {"query": cif, "limit": 1}
+       → 200 con match: extrae master_id + identity básica.
+       → 200 con count=0 o 404: continúa al paso 3.
+    3. Devuelve {"status": "unavailable", "reason": "master_not_found"}
+       → frontend degrada graceful a UnavailableBlock (Regla R11 sin fallbacks inventados).
+```
+
+Cachea el mapping `cif → master_id` tras un `resolve` exitoso.
+
+### 0.5 · Endpoints marcados como NO consumidos por arroba
+
+| Endpoint (contrato §4.0) | Motivo | Estado arroba |
+|---|---|:---:|
+| `GET /api/v1/master/stats` | Auth JWT admin | 🚫 Nunca consumido |
+| `GET /api/v1/master` (list) | Auth JWT admin | 🚫 Nunca consumido |
+| `GET /api/v1/master/{master_id}` | Auth JWT admin | 🚫 Nunca consumido |
+| `POST /api/v1/master/resolve` | Auth JWT admin | 🚫 Nunca consumido |
+
+Cualquier PR que introduzca un cliente arroba para estos endpoints **es un bug arquitectónico** — bloquearlo.
+
+### 0.6 · Auth exclusiva
+- Header **`X-API-Key: <ARROBA_SERVICE_API_KEY_PRIMARY>`** en todos los motores públicos.
+- Fallback a `_SECONDARY` en 401/403 (Decisión 0.1.4 del plan de consumo).
+- **NUNCA** `Authorization: Bearer …` en providers de arroba. Test de regresión permanente vía grep.
+
+### 0.7 · Estado del Master Layer al momento de esta adenda (2026-07-07)
+- Servicio prod (`agency-scraper v2.0.0`) responde `200` en `/health`, `catalog`, `ratios/catalog`, `signal/catalog`.
+- Datos: **Master Layer vacío** (`semantic/search` count=0 en queries genéricas; `financial/analyze` con CIFs reales devuelve 404 `company not found in Master Layer`).
+- Consecuencia: cualquier `resolve(cif_real)` desde arroba prod devolverá `unavailable` hasta que Agency Tool ingesta. El frontend renderiza `UnavailableBlock` en las secciones afectadas — comportamiento canónico, no un bug.
+
+---
 
 Índice
 1. Visión general de la arquitectura

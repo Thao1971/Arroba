@@ -92,8 +92,8 @@ async def test_router_dispatches_to_mock_by_default(mock_db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_router_dispatches_to_agency_tool_when_real(mock_db):
-    from src.modules.intelligence_layer.providers.agency_tool.master import (
-        AgencyToolMasterProvider,
+    from src.modules.intelligence_layer.providers.agency_tool.identity import (
+        AgencyToolIdentityResolver,
     )
 
     settings = IntelligenceSettings(
@@ -105,7 +105,7 @@ async def test_router_dispatches_to_agency_tool_when_real(mock_db):
         cache=IntelligenceCache(memory=MemoryCache(), mongo=MongoCache()),
     )
     provider = router._get_master_provider()
-    assert isinstance(provider, AgencyToolMasterProvider)
+    assert isinstance(provider, AgencyToolIdentityResolver)
     assert provider.provider_name == "agency_tool"
 
 
