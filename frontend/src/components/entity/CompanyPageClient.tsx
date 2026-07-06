@@ -16,14 +16,23 @@
  *   4) Publicar el `EntityContext` para el Composer permanente al montar
  *      la ficha y limpiarlo en el unmount (Regla 1 · F7).
  *
+ * B.6.f — Hidratación SWR de `IdentitySection` canónica arroba (endpoint
+ * `/api/companies/{cif}/section/identity`, `engine_version=arroba-identity-v1`).
+ * La adopción del **layout canónico 3-col** parte de `CanonicalEntityMockupClient`
+ * (R13 · única Source of Truth) y NO se implementa como wrapper propio — se hará
+ * en el Hito 1 reiniciado tras aprobación explícita del usuario.
+ *
  * Los tests siguen validando los contratos de UX (secciones presentes,
  * refresh 429, section_updates in-place) pero ahora se apoyan en los
  * ids canónicos (`entity-section-hero`, `entity-section-analisis`, …).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Scale, Sparkles } from 'lucide-react';
+import useSWR from 'swr';
 
 import { apiClient, ApiError } from '@/lib/api/client';
+import { intelligenceClient } from '@/lib/companies/intelligence-client';
+import type { IdentitySection } from '@/lib/companies/intelligence-types';
 import {
   COMPANY_SECTION_UPDATE_EVENT,
   useCopilot,
@@ -186,6 +195,25 @@ export function CompanyPageClient({
 
   const { hydrateEntityConversation } = useCopilot();
   const { publish: publishEntity } = useEntityContext();
+
+  /* ---------- B.6.f · Hidratación SWR de la IdentitySection canónica ----------
+   *
+   * `IdentitySection` (arroba-identity-v1) es la fuente canónica UI de la
+   * ficha. En Hito 1 sólo la hidratamos en background (no reemplaza los
+   * bloques todavía · Hito 3 hará el swap completo). Sirve como:
+   *   1. Verificación de contrato R5 (`engine_version` = `arroba-*-v1`).
+   *   2. Warm-up de la caché backend antes de que el usuario navegue a
+   *      sub-secciones que la reutilizarán (Finanzas, Semantic).
+   *   3. Testids observables para regresión (`identity-section-engine`).
+   *
+   * `initial.header.name` sigue siendo la única fuente de nombre para el
+   * árbol declarativo hasta que Hito 3 sustituya CompanyHeader por su
+   * versión canónica UI. */
+  const { data: identitySection } = useSWR<IdentitySection | null>(
+    authenticated ? ['identity-section', cif] : null,
+    () => intelligenceClient.identitySection(cif),
+    { revalidateOnFocus: false, shouldRetryOnError: false },
+  );
 
   /* ---------- Regla 1 · F7: publicar EntityContext siempre ---------- */
   useEffect(() => {
@@ -511,6 +539,21 @@ export function CompanyPageClient({
         <span aria-hidden>›</span>
         <span className="text-text">{initial.header.name}</span>
       </nav>
+
+      {/* B.6.f · Marcador testable del contrato canónico UI. Invisible; sirve
+          para que la testing suite verifique que `arroba-identity-v1` está
+          activo sin depender del render de un bloque concreto. */}
+      {identitySection?.metadata?.engine_version && (
+        <span
+          data-testid="identity-section-engine"
+          data-engine-version={identitySection.metadata.engine_version}
+          data-coverage-core={String(identitySection.coverage?.core ?? false)}
+          className="sr-only"
+          aria-hidden
+        >
+          {identitySection.metadata.engine_version}
+        </span>
+      )}
 
       <EntitySections
         entityType="company"

@@ -144,6 +144,13 @@ async function request<T>(
   return body as T;
 }
 
+/**
+ * Helper de request tipado exportable · usado por sub-clientes (ej.
+ * `intelligence-client.ts` para B.6.f) para reutilizar el mismo pipeline
+ * (cookies, headers canónicos, ApiError shape) sin duplicar código.
+ */
+export const apiRequest = request;
+
 function safeJSON(text: string): unknown {
   try {
     return JSON.parse(text);

@@ -8,3 +8,14 @@ export { Divider } from './Divider';
 export { Input } from './Input';
 export { Spinner } from './Spinner';
 export { ThemeSwitcher } from './ThemeSwitcher';
+export { Tooltip } from './Tooltip';
+export type {
+  TooltipProps,
+  TooltipContent,
+  TooltipConfidence,
+  TooltipConfidenceLevel,
+  TooltipLearnMore,
+  TooltipVariant,
+  TooltipSide,
+  TooltipAlign,
+} from './Tooltip';

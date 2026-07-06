@@ -228,5 +228,29 @@
       "register": "Crear cuenta gratuita",
       "login": "Iniciar sesión"
     }
+  },
+  "canonicalStates": {
+    "consolidatingGlobal": "Datos en proceso de consolidación. Esta información se incorporará automáticamente en cuanto esté disponible en las fuentes oficiales.",
+    "consolidatingSection": "Estamos consolidando esta información. Se actualizará automáticamente cuando esté disponible.",
+    "loading": "Cargando…",
+    "error": {
+      "title": "No hemos podido cargar esta sección",
+      "retry": "Reintentar"
+    },
+    "permissionDenied": {
+      "title": "No tienes acceso a esta información",
+      "description": "Tu cuenta no tiene permisos para consultar esta empresa.",
+      "cta": "Solicitar acceso"
+    }
+  },
+  "companySection": {
+    "finanzasTitle": "Evolución financiera",
+    "finanzasDescription": "Ingresos, EBITDA, balance y ratios año a año.",
+    "resumenTitle": "Resumen",
+    "resumenDescription": "Identidad canónica, clasificación y perfil de negocio.",
+    "valoracionTitle": "Valoración indicativa",
+    "valoracionDescription": "Rango de valoración por múltiplos + peers comparables.",
+    "mercadoTitle": "Empresas similares",
+    "mercadoDescription": "Empresas con perfil semántico y sectorial cercano."
   }
 }

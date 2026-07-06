@@ -1,6 +1,6 @@
 # PLAN DE CONSUMIDOR — arroba.com → Intelligence Layer
 **Documento operativo único para migrar arroba.com de mocks locales al contrato público `arroba-integration-contract-v1`.**
-_Versión: `consumer-integration-plan-v1.5` · 2026-07-07 · Estado: **12 reglas canónicas + 4 decisiones técnicas + R11 + R12 · B.6.a-real CERRADA (flip 197/197 verde · schema §6.1 servido en real · Master Layer vacío = 404 canónico) · B.6.b Financial Engine EN CURSO**_
+_Versión: `consumer-integration-plan-v1.6` · 2026-02-06 · Estado: **13 reglas canónicas + 4 decisiones técnicas · B.6.a/b/c CERRADAS · B.6.f Hito 1 en reinicio tras corrección R13**_
 
 Referencias canónicas (leídas íntegramente):
 - **PACK v1** — `/app/memory/ARROBA_INTEGRATION_PACK_v1.md` (sha256 `b3853b7c…d98e5` · 27.316 bytes · 554 líneas)
@@ -122,6 +122,52 @@ IdentityResolver.resolve(cif) → MasterRecord (§6.1) | UnavailableResponse
 ### 0.2.4 · Identificador canónico
 - **arroba interno**: CIF (URLs, IDs de UI, logs, workspaces, watchlists).
 - **Optimización**: `master_id` cacheado como shortcut para dedupe cross-engine, no como identidad de negocio.
+
+---
+
+## §0.3 · Regla canónica R13 · Source of Truth única por pantalla (usuario · 2026-02-06)
+
+### 0.3.1 · Texto literal del usuario
+> **Regla canónica R13 · Source of Truth única por pantalla.**
+>
+> Solo puede existir UNA Source of Truth por cada pantalla canónica de arroba.com.
+> - No pueden convivir dos implementaciones equivalentes de una misma pantalla.
+> - Cuando una pantalla queda sustituida, la anterior **se elimina** o **se mueve a `/legacy`**.
+> - Aplica también a login, onboarding, home, oportunidades y cualquier otra pantalla del producto.
+> - Ningún mockup, componente o HTML obsoleto puede permanecer en el árbol activo.
+
+### 0.3.2 · Origen · regresión detectada en Hito 1 de B.6.f
+Durante el arranque del Hito 1 (2026-02-06), el agente construyó un contenedor 3-col propio (`CompanyPageCanonicalLayout.tsx`) partiendo del layout LEGACY de 1 columna (`CompanyPageClient.tsx` + `<EntitySections>` con `space-y-12`) en lugar de partir de la SoT canónica ya bloqueada en Fase B: `CanonicalEntityMockupClient.tsx` (3-col: Header · Nav izquierda · Contenido central · Deal Panel sticky · Composer FAB).
+
+El usuario detectó la regresión antes de que llegara a producción y detuvo el Hito 1. La corrección incluyó:
+- Rollback del componente regresivo + wrapping en `CompanyPageClient`.
+- Movimiento de los 7 archivos legacy 1-col (`cp-app.jsx`, `cp-charts.jsx`, `cp-data.js`, `cp-journey.jsx`, `cp-profile.jsx`, `cp-sidebar.jsx`, `Company Profile.html`) a `/app/_legacy/design_intake/company-profile-cpapp/`.
+- Creación de `/app/memory/CANONICAL_SCREENS.md` como registro oficial de SoT por pantalla.
+- Guard automatizado en `/app/frontend/src/__tests__/canonical_screens_guard.test.ts` que falla la suite si algún import activo referencia un patrón legacy (`CPApp`, `cp-app`, `Company Profile`).
+
+### 0.3.3 · SoT canónica de la ficha empresa
+- **SoT visual (R13)**: `/app/frontend/src/components/mockups/entity-canonical/CanonicalEntityMockupClient.tsx` (1312 líneas · layout canónico 3-col inmutable durante B.6.f).
+- **SoT de datos**: `/app/frontend/src/components/entity/CompanyPageClient.tsx` (orquestación SWR + section updates + EntityContext).
+- **Referencias históricas canónicas equivalentes**: `/app/_design_intake/company/ce-app.jsx` + `/app/_design_intake/Empresa.html`.
+
+### 0.3.4 · Impacto en §5 (orden de sub-fases B.6)
+**B.6.f evoluciona el contenido de la columna central del layout canónico 3-col.** No rediseño del AppShell. NO se toca Header entidad, Nav izquierda, Deal Panel, Composer FAB. Los nuevos bloques financieros y semánticos (`RevenueEvolutionBlock`, `PLBlock`, `BalanceBlock`, `RatiosGridBlock`, `AnomalyBanner`, `FinanzasHeader`, `FinanzasSubNav`, `SemanticProfileBlock`, `SectionErrorBoundary`, `PermissionDenied`) viven dentro de la columna central, respetando el chrome canónico.
+
+### 0.3.5 · Enforcement
+- **Verificación estática**: `/app/frontend/src/__tests__/canonical_screens_guard.test.ts` (5 tests Vitest verdes).
+- **Documento de gobernanza**: `/app/memory/CANONICAL_SCREENS.md` con Tabla 1 (14 pantallas activas), Tabla 2 (8 archivos legacy movidos), Tabla 3 (12 pantallas pendientes de identificar SoT).
+- **Regla operativa**: cualquier PR que introduzca una pantalla nueva o deprecar una existente debe actualizar `CANONICAL_SCREENS.md` **y** `LEGACY_PATTERNS` del guard en el mismo commit.
+
+---
+
+## §0.4 · Criterio permanente para el resto de pantallas del producto
+
+R13 aplica a todas las pantallas listadas en `CANONICAL_SCREENS.md`. Cuando cualquier pantalla del producto (Home, Login, Onboarding, Oportunidades, Sector, Valoración, …) se rediseñe o sustituya:
+
+1. La versión anterior se mueve a `/app/_legacy/<screen-name>/` con README documentando fecha + motivo + reemplazo canónico.
+2. Su patrón identificador se añade a `LEGACY_PATTERNS` del guard.
+3. Su fila se mueve de Tabla 1 a Tabla 2 en `CANONICAL_SCREENS.md`.
+4. Todos los cambios (movimiento, guard, doc) van en el mismo commit para preservar la atomicidad de la regla R13.
 
 ---
 

@@ -1,11 +1,16 @@
-# arroba.com — Design System v1.0.0
+# arroba.com — Design System v1.1.0
 
 > **5ª capa canónica del proyecto.** Ver [`ARROBA_PHILOSOPHY.md` §13](./ARROBA_PHILOSOPHY.md).
-> Última actualización: 2026-06-24 (E1.5.5 — canonización).
+> Última actualización: 2026-02-06 (B.6.f — Tooltip explainability-first, BlockExplainability, FinancialSection UI canónico).
 >
 > **Regla de oro**: si hay conflicto entre este documento y la implementación, **gana este documento**. El código se actualiza para alinearse, no al revés.
 >
 > Este documento describe **qué** (tokens, componentes, patrones). El **por qué** estratégico vive en `ARROBA_PHILOSOPHY.md`. El **cómo** del código está en `/app/frontend/src/styles/tokens.css`, `tailwind.config.ts` y los componentes referenciados.
+
+## Changelog
+
+- **v1.1.0** (2026-02-06 · B.6.f) — Nueva primitiva `Tooltip` explainability-first. Nuevo contrato canónico UI `*Section` (`FinancialSection`, `IdentitySection`, `ValuationSection`, `SemanticSection`) desacoplado del proveedor externo (R5). Slot `BlockExplainability` obligatorio en todos los bloques nuevos (D3). Superficie `ChartAnnotation[]` en charts (A1) + celdas ricas `FinancialTableCell` en tablas (A2).
+- **v1.0.0** (2026-06-24 · E1.5.5) — Canonización inicial: tokens semánticos, 10 primitivas, 12 page patterns.
 
 ---
 
@@ -188,7 +193,7 @@ Tailwind: `duration-fast`, `duration-normal`, `duration-slow`. `ease-standard`, 
 | `--z-overlay`  | 800  | `z-overlay` | Backdrops |
 | `--z-modal`    | 1000 | `z-modal` | Dock panel, modals |
 | `--z-toast`    | 1200 | `z-toast` | Toast host (`arroba-toast-host`) |
-| `--z-tooltip`  | 1300 | `z-tooltip` | Tooltips por encima de modals |
+| `--z-tooltip`  | 1300 | `z-tooltip` | Tooltips por encima de modals · **primitiva DS v1.1.0** (`Tooltip.tsx`) |
 
 ---
 
@@ -301,6 +306,142 @@ Imports estables:
 - **API**: `notify({ kind: 'success' | 'warn' | 'error' | 'info', text })`. NO es un componente React — es un helper que mantiene un host único `arroba-toast-host`.
 - **Test ids**: `arroba-toast-success`, `arroba-toast-warn`, `arroba-toast-error`, `arroba-toast-info`.
 - **Cuándo NO usarlo**: para feedback persistente → banner inline. Para errores críticos → `ErrorBlock` en página.
+
+## 2.12 `Tooltip` — explainability-first ✨ nuevo en v1.1.0
+
+- **Propósito**: superficie flotante que **explica un dato**, no sólo lo etiqueta. Se usa en toda la plataforma para ratios (fórmula matemática), confidence badges, provenance (source + updated_at) y anotaciones de charts.
+- **Fuente**: `/app/frontend/src/components/ds/Tooltip.tsx`.
+- **API canónica** (rica desde el día 1, subset OK):
+
+  ```tsx
+  type TooltipContent = {
+    title?: string
+    description?: string
+    formula?: string             // render en <code> font-mono
+    source?: string              // ej. "Iberinform · Registradores Mercantiles"
+    updated_at?: string          // ISO → "hace X días"
+    confidence?: {
+      level: 'low' | 'medium' | 'high'
+      score?: number             // 0-100
+    }                            // render ConfidenceBadge
+    learn_more?: {
+      label?: string             // default "Ver explicación completa"
+      href?: string              // o
+      onClick?: () => void       // abre Drawer/Dialog
+    }
+  }
+
+  <Tooltip content={content} variant="explainability" side="top">
+    <span>ROE 18%</span>
+  </Tooltip>
+  ```
+
+  - `content` acepta `string` (retrocompat: equivale a `{ description }`), `ReactNode` (escape hatch) o `TooltipContent`.
+- **Variantes** (`variant`, autoinferida si se omite):
+  - `default` — solo `title` + `description`.
+  - `formula` — fondo `surface-muted`, fórmula en `<code>` mono.
+  - `explainability` — icono `Info` + `source` + `updated_at` + `confidence` + `learn_more`.
+- **A11y**: `role="tooltip"`, `aria-describedby`, hover + focus + touch, `Escape` cierra, `prefers-reduced-motion` respetado.
+- **Motion & sizing**: open 200ms · close 100ms · max width 320px. Panel captura `pointer-events` sólo si `learn_more` presente.
+- **z-index**: `--z-tooltip` (1300).
+- **3 casos de uso canónicos**:
+  1. **Ratios financieros** (`formula`): tooltip con fórmula matemática por ratio.
+  2. **Confidence badges**: tooltip con explicación del nivel + score numérico.
+  3. **Provenance de cualquier campo**: tooltip con `source` + `updated_at` para dar trazabilidad al usuario.
+
+## 2.13 `BlockExplainability` slot ✨ nuevo en v1.1.0
+
+Contrato canónico presente en todos los bloques nuevos B.6.f (D3). Hoy siempre `undefined` — cuando llegue `arroba-explainability-v1` (fase futura), los bloques renderizarán este slot sin refactor.
+
+```ts
+type BlockExplainability = {
+  key_insight?: string
+  relevance?: string
+  buyer_perspective?: string
+  seller_perspective?: string
+  risks?: { title: string; description: string; severity: 'low'|'medium'|'high' }[]
+  opportunities?: { title: string; description: string; impact: 'low'|'medium'|'high' }[]
+  confidence?: { level: 'low'|'medium'|'high'; score?: number }
+  generated_at?: string
+  engine_version?: string   // "arroba-explainability-v1"
+}
+
+type BlockProps<TData> = {
+  data: TData | null
+  loading?: boolean
+  error?: Error | null
+  explainability?: BlockExplainability
+  onLearnMore?: () => void
+}
+```
+
+Visualmente el slot se renderiza como card interna secundaria dentro del bloque: eyebrow "Análisis" (`text-caption uppercase tracking-caption text-text-muted`) + `key_insight` como frase destacada + bulleted lists opcionales + `ConfidenceBadge` compacto.
+
+**Regla operativa**: cada componente nuevo B.6.f (`RevenueEvolutionBlock`, `PLBlock`, `BalanceBlock`, `RatiosGridBlock`, `SemanticProfileBlock`) declara este slot en su superficie de props. Si `undefined` → no renderiza.
+
+---
+
+# Nivel 2.5 — Contratos canónicos UI (B.6.f · D2) ✨ nuevo en v1.1.0
+
+## 2.5.1 `*Section` — contratos consumidos por el frontend
+
+El frontend consume EXCLUSIVAMENTE los `*Section` (`FinancialSection`, `IdentitySection`, `ValuationSection`, `SemanticSection`) devueltos por los endpoints `/api/companies/{cif}/section/*`. Estos contratos:
+
+- Están **desacoplados** del schema del proveedor externo (R5 · zero coupling).
+- Todos declaran `metadata.engine_version` = `arroba-*-v1`.
+- Todos declaran `metadata.source` **user-facing** (ej. "Registros oficiales · Cuentas depositadas"). Nunca mencionan proveedor.
+- Todos declaran `coverage: { … }` explícito → el frontend degrada sub-bloques a `UnavailableBlock` cuando `coverage.X === false`.
+- Todos reservan slot `explainability` (D3), hoy siempre `null`.
+
+**Fuente**: `/app/backend/src/modules/intelligence_layer/interfaces/canonical_ui.py` (backend Pydantic) + `/app/frontend/src/lib/companies/intelligence-types.ts` (frontend TS).
+
+### 2.5.2 `FinancialSection` (arroba-financial-v1)
+
+```ts
+FinancialSection {
+  evolution:   { years[], series: FinancialSeries[], annotations: ChartAnnotation[] } | null
+  profit_loss: { years[], rows: FinancialTableRow[] } | null
+  balance:     { years[], rows: FinancialTableRow[] } | null
+  ratios:      { items: FinancialRatioItem[] } | null
+  anomaly:     { detected, severity?, title?, explanation? } | null
+  annotations: ChartAnnotation[]
+  explainability: BlockExplainability | null
+  metadata: SectionMetadata
+}
+```
+
+**Celda rica** (A2 · superficie preparada para enriquecimiento futuro):
+
+```ts
+FinancialTableCell {
+  value: number | null
+  format: 'currency' | 'percent' | 'number' | 'ratio'
+  variation?: { value, direction: 'up'|'down'|'flat', magnitude: 'weak'|'medium'|'strong' }
+  semantic?: 'positive' | 'negative' | 'neutral' | 'warning'
+  benchmark?: { median, percentile? }
+  explanation?: string
+}
+```
+
+Todos los campos opcionales pueden llegar `null`/`undefined` en B.6.f. Los renderers (`PLBlock`, `BalanceBlock`) deben soportarlos.
+
+### 2.5.3 `ChartAnnotation` (A1 · plataforma explicativa)
+
+Superficie preparada para anotaciones en charts (COVID, adquisiciones, cambios de perímetro, refinanciación, etc.) desde el día 1. Detección viene de motores futuros (Signal Engine, Financial Engine `anomaly`).
+
+```ts
+ChartAnnotation {
+  id: string
+  timestamp: string | number
+  type: 'anomaly' | 'trend_change' | 'milestone' | 'corporate_event'
+  subtype?: 'covid' | 'acquisition' | 'capital_increase' | 'perimeter_change' | 'refinancing' | 'other'
+  title: string
+  description?: string
+  severity?: 'low' | 'medium' | 'high'
+}
+```
+
+Render visual: marca vertical + chip flotante + tooltip on hover (usa primitiva `Tooltip`).
 
 ---
 

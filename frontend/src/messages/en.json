@@ -239,5 +239,29 @@
       "register": "Create free account",
       "login": "Sign in"
     }
+  },
+  "canonicalStates": {
+    "consolidatingGlobal": "Company data is being consolidated. This information will be added automatically once it is available from the official sources.",
+    "consolidatingSection": "We are consolidating this information. It will be updated automatically once it is available.",
+    "loading": "Loading…",
+    "error": {
+      "title": "We could not load this section",
+      "retry": "Retry"
+    },
+    "permissionDenied": {
+      "title": "You do not have access to this information",
+      "description": "Your account does not have permission to query this company.",
+      "cta": "Request access"
+    }
+  },
+  "companySection": {
+    "finanzasTitle": "Financial evolution",
+    "finanzasDescription": "Revenue, EBITDA, balance sheet and ratios year over year.",
+    "resumenTitle": "Overview",
+    "resumenDescription": "Canonical identity, classification and business profile.",
+    "valoracionTitle": "Indicative valuation",
+    "valoracionDescription": "Valuation range by multiples + comparable peers.",
+    "mercadoTitle": "Similar companies",
+    "mercadoDescription": "Companies with close semantic and sector profile."
   }
 }

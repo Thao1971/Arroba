@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { Sparkles } from 'lucide-react';
+import { Info, Sparkles } from 'lucide-react';
 import {
   Alert,
   Avatar,
@@ -12,6 +12,7 @@ import {
   Divider,
   Input,
   Spinner,
+  Tooltip,
 } from '@/components/ds';
 import { RequireAuth } from '@/components/RequireAuth';
 import { tokens } from '@/lib/tokens';
@@ -536,6 +537,83 @@ function DesignSystemV1Catalog() {
             testId="ds-refresh-disabled"
           />
         </div>
+      </CanonSection>
+
+      {/* ---------- Tooltip (DS v1.1 · explainability-first) ---------- */}
+      <CanonSection
+        id="tooltip"
+        title="Tooltip — explainability-first (DS v1.1.0)"
+        description="Primitiva rica con 3 variantes: default · formula · explainability. Content acepta string o TooltipContent {title, description, formula, source, updated_at, confidence, learn_more}."
+      >
+        <div className="flex flex-wrap gap-6">
+          {/* default */}
+          <Tooltip
+            testId="ds-tooltip-default"
+            content={{
+              title: 'Ingresos netos',
+              description:
+                'Cifra de negocios del último ejercicio depositado.',
+            }}
+          >
+            <span
+              data-testid="ds-tooltip-default-trigger"
+              className="inline-flex items-center gap-1 font-body text-body-sm text-text-primary underline decoration-dotted underline-offset-4 cursor-help"
+            >
+              Ingresos <Info size={14} strokeWidth={1.8} className="text-text-muted" aria-hidden />
+            </span>
+          </Tooltip>
+          {/* formula */}
+          <Tooltip
+            testId="ds-tooltip-formula"
+            variant="formula"
+            content={{
+              title: 'ROE · Rentabilidad sobre fondos propios',
+              description:
+                'Mide qué porcentaje del patrimonio neto genera el beneficio.',
+              formula: 'ROE = Beneficio neto / Patrimonio neto',
+            }}
+          >
+            <span
+              data-testid="ds-tooltip-formula-trigger"
+              className="inline-flex items-center gap-1 font-mono text-body-sm text-text-primary underline decoration-dotted underline-offset-4 cursor-help"
+            >
+              ROE = 18%
+            </span>
+          </Tooltip>
+          {/* explainability */}
+          <Tooltip
+            testId="ds-tooltip-explainability"
+            variant="explainability"
+            content={{
+              title: 'EBITDA 2024',
+              description:
+                'Beneficios antes de intereses, impuestos, depreciaciones y amortizaciones.',
+              source: 'Registros oficiales · Cuentas depositadas',
+              updated_at: new Date(
+                Date.now() - 3 * 24 * 60 * 60 * 1000,
+              ).toISOString(),
+              confidence: { level: 'high', score: 92 },
+              learn_more: {
+                label: 'Ver metodología',
+                onClick: () =>
+                  notify({ kind: 'info', text: 'Abrir drawer de metodología' }),
+              },
+            }}
+          >
+            <span
+              data-testid="ds-tooltip-explainability-trigger"
+              className="inline-flex items-center gap-1 font-body text-body-sm text-text-primary underline decoration-dotted underline-offset-4 cursor-help"
+            >
+              EBITDA · 3,2M €
+            </span>
+          </Tooltip>
+        </div>
+        <p className="text-caption text-text-muted mt-4 max-w-2xl">
+          Hover o focus para abrir (delay 200ms). Escape cierra. Panel máx 320px.
+          Respeta <code className="font-mono">prefers-reduced-motion</code>.
+          Cuando <code className="font-mono">learn_more</code> está presente el
+          panel captura pointer-events y el CTA es clickable.
+        </p>
       </CanonSection>
 
       {/* ---------- MetricsGrid 1/2/4 ---------- */}

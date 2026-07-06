@@ -40,6 +40,18 @@ from src.modules.intelligence_layer.interfaces.semantic import (
 )
 from src.modules.intelligence_layer.observability import render_metrics
 from src.modules.intelligence_layer.router import get_intelligence_router
+from src.modules.intelligence_layer.canonical_ui_adapter import (
+    to_financial_section,
+    to_identity_section,
+    to_semantic_section,
+    to_valuation_section,
+)
+from src.modules.intelligence_layer.interfaces.canonical_ui import (
+    FinancialSection,
+    IdentitySection,
+    SemanticSection,
+    ValuationSection,
+)
 
 log = get_logger("intelligence_layer.endpoints")
 
@@ -335,6 +347,181 @@ async def get_semantic_catalog(
     response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
     response.headers["X-Provider"] = router._get_semantic_provider().provider_name
     return c
+
+
+# ============================================================
+# B.6.f · Endpoints canónicos UI (D2)
+# `/api/companies/{cif}/section/{financial,identity,valuation,semantic}`
+# devuelven `*Section` (schema optimizado para render UI).
+# Los endpoints legacy `/identity`, `/financial-analysis`, `/valuation`,
+# `/profile`, `/similar` se mantienen para retrocompat (Copilot, tests).
+# ============================================================
+
+
+@companies_intel_router.get(
+    "/{cif}/section/identity",
+    response_model=IdentitySection,
+    summary="IdentitySection canónica UI (arroba-identity-v1) — B.6.f",
+)
+async def get_company_identity_section(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),
+) -> IdentitySection:
+    """Sección Resumen (identidad + clasificación + ubicación + tamaño).
+
+    Traducción a canónico UI vía `to_identity_section`. Devuelve
+    `metadata.coverage.{core,ownership,officers,objeto_social}` explícito.
+    """
+    router = get_intelligence_router()
+    try:
+        record = await router.get_master_by_cif(cif)
+    except MasterNotFoundError as exc:
+        raise NotFoundError("identity_not_found", code="identity_not_found") from exc
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except MasterProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    section = to_identity_section(record)
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Section-Engine"] = section.metadata.engine_version
+    return section
+
+
+@companies_intel_router.get(
+    "/{cif}/section/financial",
+    response_model=FinancialSection,
+    summary="FinancialSection canónica UI (arroba-financial-v1) — B.6.f",
+)
+async def get_company_financial_section(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),
+) -> FinancialSection:
+    """Sección Finanzas (evolution + P&L + Balance + Ratios + Anomaly).
+
+    Se resuelven en paralelo `analyze` + `ratios/catalog`. Si el proveedor
+    devuelve 404 (Master Layer vacío) el frontend recibe una `FinancialSection`
+    con `metadata.coverage.*=False` en lugar de un error — se degrada con
+    `UnavailableBlock` canónico.
+    """
+    router = get_intelligence_router()
+    # Analyze (obligatorio)
+    try:
+        analysis = await router.get_financial_analysis(cif)
+    except FinancialNotFoundError:
+        # Devolvemos sección vacía con coverage=False (no rompe UI).
+        empty = FinancialAnalysis(cif_normalized=cif.upper(), has_financials=False)
+        section = to_financial_section(empty, None)
+        settings = get_intelligence_settings()
+        response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+        response.headers["X-Section-Engine"] = section.metadata.engine_version
+        response.headers["X-Section-Coverage"] = "empty"
+        return section
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except FinancialProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    # Ratios catalog (opcional — si falla el fetch, mapeamos sin catálogo).
+    catalog = None
+    try:
+        catalog = await router.get_ratios_catalog()
+    except (BreakerOpenError, FinancialProviderError):
+        catalog = None
+
+    section = to_financial_section(analysis, catalog)
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Section-Engine"] = section.metadata.engine_version
+    return section
+
+
+@companies_intel_router.get(
+    "/{cif}/section/valuation",
+    response_model=ValuationSection,
+    summary="ValuationSection canónica UI (arroba-financial-v1) — B.6.f",
+)
+async def get_company_valuation_section(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),
+) -> ValuationSection:
+    router = get_intelligence_router()
+    try:
+        v = await router.get_valuation(cif)
+    except FinancialNotFoundError:
+        empty = Valuation(cif_normalized=cif.upper())
+        section = to_valuation_section(empty)
+        settings = get_intelligence_settings()
+        response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+        response.headers["X-Section-Engine"] = section.metadata.engine_version
+        response.headers["X-Section-Coverage"] = "empty"
+        return section
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except FinancialProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    section = to_valuation_section(v)
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Section-Engine"] = section.metadata.engine_version
+    return section
+
+
+@companies_intel_router.get(
+    "/{cif}/section/semantic",
+    response_model=SemanticSection,
+    summary="SemanticSection canónica UI (arroba-semantic-v1) — B.6.f",
+)
+async def get_company_semantic_section(
+    response: Response,
+    limit: int = Query(10, ge=1, le=50),
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),
+) -> SemanticSection:
+    """Sección semántica (perfil + similares)."""
+    router = get_intelligence_router()
+    profile: SemanticProfile | None = None
+    similar: SimilarCompanies | None = None
+    try:
+        profile = await router.get_semantic_profile(cif)
+    except SemanticNotFoundError:
+        profile = None
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except SemanticProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    try:
+        similar = await router.get_semantic_similar(cif, limit=limit)
+    except SemanticNotFoundError:
+        similar = None
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except SemanticProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    section = to_semantic_section(profile, similar)
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Section-Engine"] = section.metadata.engine_version
+    if not section.coverage.profile and not section.coverage.similar:
+        response.headers["X-Section-Coverage"] = "empty"
+    return section
 
 
 @internal_router.get(
