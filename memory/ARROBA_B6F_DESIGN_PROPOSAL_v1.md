@@ -400,7 +400,307 @@ Los 5 estados (Loading / Datos / Unavailable / Error / Permisos) se resuelven en
 
 ---
 
-## §7 · Checklist de aprobación
+## §7 · Adaptación al Design System de arroba.com (v1.0.0)
+
+_Añadido tras aprobación PARCIAL del usuario (estructural OK · visual pendiente).
+Fuente de verdad del DS: `/app/memory/DESIGN_SYSTEM.md` v1.0.0, `/app/frontend/src/styles/tokens.css`, `/app/frontend/tailwind.config.ts`, `/app/frontend/src/components/ds/`, `/app/frontend/src/components/blocks/`, `/app/frontend/src/components/entity/`._
+_R11 sigue activo: este documento describe la adaptación · **no se toca ningún archivo bajo `/app/frontend/**`**._
+
+### §7.1 · Inventario del DS real (resumen)
+
+#### Tokens (single source of truth: `src/styles/tokens.css`, mapeados en `tailwind.config.ts`)
+| Familia | Tokens canónicos disponibles |
+|---|---|
+| **Brand** | `--brand-primary` `#E8001D` (arroba-red) · `--brand-primary-hover` `#C50019`/`#FF1A35` · `--brand-accent` `#0C0C0E` (arroba-black) |
+| **Surface** | `--surface-primary` (page bg) · `--surface-elevated` (cards) · `--surface-muted` (footers, teasers) |
+| **Text** | `--text-primary` · `--text-secondary` · `--text-muted` · `--text-disabled` · `--text-on-brand` |
+| **Border** | `--border-default` · `--border-emphasis` |
+| **Feedback** | `success` / `warning` / `danger` / `info` + variantes `-subtle` (bg tenue) |
+| **Radios** | `--radius-sm/md/lg/xl/2xl/full` (4/8/12/16/24/pill). Cards principales = `rounded-2xl`. Cards internos = `rounded-xl`. Chips = `rounded-full`. |
+| **Sombras** | `--shadow-sm/md/lg/xl` + `--focus-ring` (arroba-red 22% light / 32% dark). Cards por defecto **sin sombra**: solo `border-default`. |
+| **Spacing** | Escala 4-based tokenizada `space-1..24` (Tailwind `p-4` = 16px = `--space-4`). Cero px arbitrarios. |
+| **Tipografía** | 3 familias: `--font-display` = **Space Grotesk** (h1-h4, eyebrows) · `--font-body` = **DM Sans** (body, captions) · `--font-mono` = **JetBrains Mono** (números tabulares, CIF, IDs). |
+| **Escala tipográfica** | `text-display` 72 · `text-h1` 36 · `text-h2` 28 · `text-h3` 22 · `text-h4` 18 · `text-body` 15 · `text-body-sm` 14 · `text-caption` 12 · `text-mono` 14. Cada uno con leading + tracking propios. |
+| **Motion** | Duraciones `fast` 150ms / `normal` 250ms / `slow` 400ms. Easings `standard` / `emphasized` / `out`. Animaciones canónicas: `animate-section-pulse` (700ms rojo tras section update) · `animate-fade-in-up` (250ms). `prefers-reduced-motion` colapsa a 0.001ms. |
+| **Z-index** | `z-base/dropdown/sticky/overlay/modal/toast/tooltip` (0/100/200/800/1000/1200/1300). |
+| **Focus & a11y** | `:focus-visible` → `box-shadow: var(--focus-ring)` · Tap target min 44px. `aria-busy`, `aria-live=polite` para section updates, `assertive` sólo errores críticos. |
+| **Breakpoints** | Tailwind default `sm:640 · md:768 · lg:1024 · xl:1280 · 2xl:1536`. |
+| **Dark mode** | Driven por `[data-dark]` en `<html>` (no `.dark` class). Sólo tokens semánticos cambian; brand + neutral ramp constantes. |
+
+#### Primitivas del DS (`src/components/ds/*` — 9 primitivas)
+| Componente | Path | Uso relevante para B.6.f |
+|---|---|---|
+| `Card` | `ds/Card.tsx` | Contenedor canónico. `bg-surface border border-border rounded-lg shadow-sm`. Slots `header` (con `border-b`), children (padded p-5), `footer` (con `border-t` + `bg-surface-2`). |
+| `Button` | `ds/Button.tsx` | 4 variantes (`primary`/`secondary`/`ghost`/`danger`), 3 sizes (`sm/md/lg`). Soporta `loading` (spinner `Loader2`), `leftIcon`/`rightIcon`, `aria-busy`. Tap target 44px min. |
+| `Badge` | `ds/Badge.tsx` | Pills `default`/`success`/`warning`/`danger`/`info`. `bg-{feedback}/10 text-{feedback} border-{feedback}/30`. `rounded-full` `h-6 px-2 text-xs`. |
+| `Alert` | `ds/Alert.tsx` | 4 variantes (`info`/`success`/`warning`/`danger`). Icono `lucide` por variante. `role="status"`. Slot `action`. |
+| `Avatar`, `ConfidenceBadge`, `Divider`, `Input`, `Spinner`, `ThemeSwitcher` | `ds/*` | Complementarios (Avatar en header, ConfidenceBadge probable candidato para Valuation confidence). |
+
+#### Blocks canónicos (`src/components/blocks/*` — 19 blocks)
+- **Datos**: `HeroBlock`, `MetricsBlock` (título+eyebrow+grid), `MetricsGrid` (grid puro 1/2/3/4 cols), `ValuationBlock` (con `ValueRangeBar` interno), `NarrativeBlock`, `CompanyCardBlock`, `CompanyCardsGridBlock` (subtypes: `similar_to_company`/`opportunities_by_sector`/`list_by_sector`/`generic`), `IdentityCard`, `SignalsTimeline`, `DocumentList`, `ActivityTimeline`, `SearchResultsBlock`, `FeatureCardBlock`, `CTABlock`.
+- **Estados**: `LoadingBlock` (skeleton con `animate-pulse`), `EmptyStateBlock`, `ErrorBlock` (con `RefreshCw` + `onRetry`), `UnavailableBlock` (`Construction` icon + `req`/`eta`/`cta`) — canónicos para los 5 estados.
+- **Acciones**: `RefreshButton` (idle/loading/cooldown/disabled con `data-state` para QA).
+
+#### Entity (`src/components/entity/*`)
+- `CompanyHeader` (re-export = `EntityHeader`) · `EntitySectionWrapper` (re-export = `EntitySection`) · `LockedSectionBlur` · `CompanyPageClient` (orquestador) · sub-carpeta `entity/base/` con `EntitySections`/`EntitySignals`/`EntityMetrics`/`EntityHero`/etc. como wrappers polimórficos entidad-agnósticos.
+
+#### Iconografía
+- **Única fuente**: **`lucide-react`** v0.577.0 (confirmado en `package.json` y consumido en 20+ archivos). Tamaños canónicos 12/14/16/18/20 con `strokeWidth={1.5-1.8}`. **Cero SVG hardcoded** salvo el sparkline determinístico interno de `CompanyEvolutionChart` (SVG inline `<svg viewBox>` sin lib externa — patrón canónico del DS: §3.1 y §3.11).
+
+#### Estados canónicos (patrón unificado §3.10)
+| Estado | Componente canónico | Cuándo |
+|---|---|---|
+| Loading | `LoadingBlock` (skeleton con `animate-pulse`) | Dato pidiéndose ahora |
+| Datos | Block correspondiente | Render normal |
+| Empty | `EmptyStateBlock` | Existe pero sin registros |
+| Locked | `LockedSectionBlur` | Requiere auth/upgrade |
+| Unavailable | `UnavailableBlock` | Depende de REQ-XXX externo |
+| Error | `ErrorBlock` | 5xx runtime, recuperable con `onRetry` |
+
+**Regla del DS**: nunca renderizar un block vacío sin explicación. Siempre uno de los 6 estados.
+
+#### Tono editorial detectado (para D5)
+Muestras del codebase (`UnavailableBlock` docstring, `MetricsBlock` copy, `CompanyHeader` "Próximamente — REQ-008 pendiente", mockup "Vista previa canónica · ruta aislada · pendiente de aprobación visual"):
+- Uso frecuente del separador **`·`** (punto medio) para meta-info.
+- Frases en presente, 1ª persona plural implícita ("sabemos", "estamos consolidando").
+- Verbos de acción diferida naturales: *"se actualizará automáticamente"*, *"cuando entregue"*, *"pendiente de"*, *"todavía no está"*.
+- Cero exclamaciones. Cero marketese. Cero emojis (sólo `✦` en Copilot, contexto agente).
+- Longitud objetivo: 1-2 frases cortas.
+
+---
+
+### §7.2 · Mapping DS por cada uno de los 9 componentes NUEVOS
+
+Convenciones aplicables a los 9:
+- **Import de primitivas**: `import { Card, Badge, Button, Alert } from '@/components/ds'`.
+- **Import de blocks**: `import { UnavailableBlock, LoadingBlock, ErrorBlock, MetricsGrid, RefreshButton } from '@/components/blocks'`.
+- **Import de section wrapper**: `import { EntitySection } from '@/components/entity'`.
+- **Fuentes**: `font-display` (Space Grotesk) para títulos y valores destacados · `font-body` (DM Sans) para copy · `font-mono` (JetBrains Mono) para números tabulares.
+- **Nunca**: `text-xl` con `text-*` legacy fuera de escala canónica; nunca hex/rgba hardcoded; nunca `system-ui` fallback como primario; nunca `p-[16px]`.
+- **Estados de todos**: `loading` → skeleton propio con `animate-pulse` respetando la forma del contenido (evita CLS) · `unavailable` → `UnavailableBlock` con REQ+ETA canónicos · `error` → `ErrorBlock` con `onRetry=mutate()` · `403` → `PermissionDenied` (nuevo, ver §7.4).
+
+---
+
+#### 1. Componente NUEVO · `RevenueEvolutionBlock`
+- **Sección**: Finanzas (primer card).
+- **Fuente de datos**: `/api/companies/{cif}/financial-analysis` → `kpis.evolution.{revenue[], ebitda[], net_income[]}` + `kpis.revenue_growth_yoy` + `kpis.revenue_cagr`.
+- **Composición DS canónica**: `<Card padded={false} header={<FinanzasHeaderSlot title="Evolución 5 años" eyebrow="Ingresos · EBITDA · Beneficio neto" />}>` + body con **SVG inline** siguiendo patrón `CompanyEvolutionChart` del DS §3.1 (sparkline multi-serie 3 líneas + área stack sutil) + footer con 2 `<Badge>` (`Δ YoY +12%`, `CAGR 3y +9%`).
+- **Tokens usados**:
+  - Serie principal (revenue): `stroke="var(--brand-primary)"` (arroba-red)
+  - Serie secundaria (ebitda): `stroke="var(--info)"`
+  - Serie terciaria (net_income): `stroke="var(--text-muted)"` con `stroke-dasharray="4 2"`
+  - Fondo card: `bg-surface-elevated`
+  - Borde: `border-default`
+  - Radio: `rounded-2xl` (card principal)
+  - Título: `text-h3 font-display font-semibold text-text-primary`
+  - Eyebrow: `text-caption uppercase tracking-caption font-semibold text-brand-primary`
+  - Valores en tooltip hover: `font-mono text-body-sm tabular-nums`
+- **Icono**: `TrendingUp` de `lucide-react` en el header (size 18, strokeWidth 1.8).
+- **Estados**:
+  - Loading: skeleton SVG placeholder + 3 líneas gris `bg-border-emphasis animate-pulse`
+  - Datos: render normal
+  - Unavailable: `<UnavailableBlock title="Evolución financiera no disponible" req="REQ-012" eta="Fase B.6.f" description="Estamos consolidando los datos de esta empresa · en cuanto el proveedor externo los entregue, esta sección se actualizará automáticamente." />`
+  - Error: `<ErrorBlock title="No hemos podido cargar la evolución" onRetry={mutate} />`
+- **Anti-patterns evitados**: no usar `recharts`/`visx`/`d3` (el DS canónico usa SVG inline determinístico); no hardcodear colores del gráfico (todos vía `var(--*)`); no usar `Chart.js`.
+
+---
+
+#### 2. Componente NUEVO · `PLBlock` (Cuenta de resultados multi-año)
+- **Sección**: Finanzas (segundo card).
+- **Fuente de datos**: `/api/companies/{cif}/financial-analysis` → `income_statement[]` (array con `year`, `revenue`, `supplies`, `personnel_costs`, `depreciation`, `operating_income`, `financial_expenses`, `ebit`, `ebitda`, `net_income`).
+- **Composición DS canónica**: `<Card header={<h3>Cuenta de resultados</h3> + action toggle 3y/5y}>` + tabla renderizada con **grid CSS** (no `<table>` HTML) porque no existe primitiva `<Table>` canónica en el DS (ver §7.4 · gap). Estructura: `grid-cols-[minmax(180px,1fr)_repeat(auto-fit,minmax(90px,1fr))]`. Primera columna sticky con `sticky left-0 bg-surface-elevated`.
+- **Tokens usados**:
+  - Card: `rounded-2xl border-default bg-surface-elevated`
+  - Header row: `bg-surface-muted border-b border-default`
+  - Filas alternas: default `bg-surface-elevated`, hover `hover:bg-surface-muted transition-colors duration-fast`
+  - Labels: `font-body text-body-sm text-text-secondary`
+  - Números: `font-mono text-body-sm tabular-nums text-text-primary`
+  - Fila destacada (EBITDA/Net income): `font-body font-semibold text-text-primary` + `border-y border-emphasis`
+  - Toggle 3y/5y: pill `<Badge variant="default">` clickable con `data-active` (crea variante interactiva, ver §7.4 · gap Badge interactivo)
+- **Icono**: `Table2` en header (18/1.8) + `ChevronDown` en toggle.
+- **Estados**: idénticos al patrón, `REQ-012`, description Copy D5 aplicado.
+- **Anti-patterns evitados**: no usar `<table>` HTML sin estilización DS · no fijar column widths en px · no hardcodear números de decimales (usar helper `formatEUR` del `ValuationBlock` como referencia).
+
+---
+
+#### 3. Componente NUEVO · `BalanceBlock` (Balance multi-año)
+- **Sección**: Finanzas (tercer card).
+- **Fuente de datos**: `/api/companies/{cif}/financial-analysis` → `balance_sheet[]` (con `year`, `current_assets`, `non_current_assets`, `total_assets`, `cash`, `current_liabilities`, `non_current_liabilities`, `total_liabilities`, `st_debt`, `lt_debt`, `financial_debt`, `equity`).
+- **Composición DS canónica**: mismo patrón que `PLBlock`: `<Card>` + grid CSS con primera columna sticky. Diferencia clave: **3 grupos visuales** separados por `<Divider>` (`ds/Divider`) con eyebrow por grupo (`Activo` / `Pasivo` / `Patrimonio neto`).
+- **Tokens usados** (mismos que PL) + adicional:
+  - Eyebrow de grupo: `text-caption uppercase tracking-caption font-semibold text-text-secondary` sobre `bg-surface-muted h-8 px-4`
+  - Totales por grupo (fila destacada): `font-semibold border-t border-emphasis`
+- **Icono**: `Scale` en header.
+- **Estados**: idénticos, `REQ-013`.
+- **Anti-patterns evitados**: no mostrar cifras negativas con "-" prefijado sin color; usar `text-danger` para negativos + prefijo "(" ")" contable si aplica.
+
+---
+
+#### 4. Componente NUEVO · `RatiosGridBlock`
+- **Sección**: Finanzas (cuarto card).
+- **Fuente de datos**: `/api/companies/{cif}/financial-analysis` → `ratios{ebitda_margin, ebit_margin, net_margin, roe, roa, current_ratio, debt_ratio, debt_to_equity, interest_coverage, ...}` + `/api/intelligence/ratios/catalog` para las fórmulas.
+- **Composición DS canónica**: reutiliza **`<MetricsGrid columns={3} showTrends={true} />`** del DS con extensión: cada `MetricItem` recibe `hint` = valor + `tooltip` (crear extensión leve · ver §7.4). Como `MetricsGrid.MetricItem` ya soporta `label`, `value`, `hint`, `trend`, el mapping es directo. El **tooltip con fórmula** requiere primitiva `<Tooltip>` que **no existe** en el DS (gap · §7.4).
+- **Tokens usados**: los del `MetricsGrid` canónico (`rounded-xl border-default bg-surface-elevated`, `text-h3 font-display tabular`, `text-caption uppercase tracking-caption text-muted`, hover `border-emphasis transition duration-fast`).
+- **Icono**: `Percent` en el header del `<EntitySection>` externo (no dentro del grid).
+- **Estados**: idénticos, `REQ-014`.
+- **Anti-patterns evitados**: no colorear ratios por umbral hardcoded (delegar al catálogo del backend); no mostrar ratio sin decimal fijo (2 decimales para porcentajes, 2 para ratios).
+
+---
+
+#### 5. Componente NUEVO · `AnomalyBanner` (banner condicional en Finanzas)
+- **Sección**: Finanzas (top de sección, sólo si `financial-analysis.anomaly.detected === true`).
+- **Composición DS canónica**: **reusa `<Alert variant="warning" title="Anomalía detectada en los estados financieros" />`** del DS `ds/Alert.tsx`. Icono automático `AlertTriangle`. Slot `action` para link "Ver detalles" que abre drawer con `anomaly.explanation` del backend.
+- **Tokens usados**: los propios del `Alert` canónico (`bg-warning/10 text-warning border-warning/30`).
+- **Icono**: automático de `Alert` (`AlertTriangle` lucide, size 20, strokeWidth 1.5).
+- **Estados**: sólo se monta si el flag está true; no tiene sus propios estados de loading/error (heredados del `financial-analysis`).
+- **Anti-patterns evitados**: no usar banner rojo (`danger`) para anomalías detectadas — reservar rojo para errores destructivos; anomalía = `warning`.
+
+---
+
+#### 6. Componente NUEVO · `FinanzasHeader` (header interno de la sección)
+- **Sección**: Finanzas (bajo el título del `EntitySection`, sobre el primer card).
+- **Composición DS canónica**: fila horizontal de **4-5 `<Badge>`** con metadatos: `Datos 2020-2024` (variant `default`), `Individual` (variant `default`), `Auditada por [Auditor]` (variant `info` si audited=true, `default` si false), `Fuente: Iberinform` (variant `default`), `Última actualización: hace N días` (variant `default`).
+- **Tokens usados**: los del `Badge` canónico (`rounded-full h-6 px-2 text-xs font-medium border font-body`).
+- **Icono**: opcionalmente `ShieldCheck` (lucide) dentro del badge "Auditada" como `icon` slot.
+- **Estados**: badges vacías se ocultan (nunca badge con "—").
+- **Anti-patterns evitados**: no hacer sub-header con h2/h3 (compite con el título de la sección); usar solo badges horizontales.
+
+---
+
+#### 7. Componente NUEVO · `SemanticProfileBlock`
+- **Sección**: Resumen (card debajo del hero).
+- **Fuente de datos**: `/api/companies/{cif}/profile` → `activities[]`, `products_services[]`, `markets[]`, `keywords[]`, `value_proposition`, `business_model`.
+- **Composición DS canónica**: `<Card header={<h3>Perfil de negocio</h3>}>` con dos zonas:
+  1. **Chips agrupados**: 4 sub-secciones (Actividades · Productos y servicios · Mercados · Palabras clave). Cada sub-sección con eyebrow `text-caption uppercase tracking-caption` + flex-wrap de `<Badge variant="default">` (chips). Máx 12 chips por grupo con "+N más" al final (ver R.4 riesgo §6.4).
+  2. **Narrativa**: dos párrafos `text-body font-body text-text-secondary leading-body max-w-prose` con headings `text-body-sm font-display font-semibold text-text-primary` para `Propuesta de valor` y `Modelo de negocio`.
+- **Tokens usados**:
+  - Card: `rounded-2xl border-default bg-surface-elevated p-6 md:p-8`
+  - Eyebrows de grupo: `text-caption uppercase tracking-caption font-semibold text-text-secondary`
+  - Chips: `<Badge variant="default">` (default = `bg-surface-muted text-text-muted border-border`)
+  - Narrativa: `font-body text-body text-text-secondary leading-body`
+- **Icono**: `Sparkles` (lucide) en header (usado en el codebase para AI/semántica, ver `CompanyCardsGridBlock`).
+- **Estados**: idénticos, `REQ-015`.
+- **Anti-patterns evitados**: no usar chips coloreados por dimensión (mantener consistencia visual); no truncar keywords sin CTA "+N más".
+
+---
+
+#### 8. Componente NUEVO · `SectionErrorBoundary`
+- **Sección**: Global (envuelve cada sección de la ficha).
+- **Composición DS canónica**: **reusa `<ErrorBlock>`** del DS (`blocks/ErrorBlock.tsx`) directamente. No es un componente visual nuevo, sino un React ErrorBoundary de clase que atrapa runtime errors y renderiza `<ErrorBlock title="No hemos podido cargar esta sección" message={err.message} onRetry={mutate} />`. Para errores de red 5xx del proxy `intelligence_layer`, se dispara vía SWR error handler (no ErrorBoundary).
+- **Tokens usados**: los del `ErrorBlock` canónico (`rounded-xl border-danger/30 bg-danger/5`).
+- **Icono**: automático `AlertCircle` del `ErrorBlock` (size 20, strokeWidth 1.6, `text-danger`).
+- **Estados**: sólo se activa cuando hay error. Botón `Reintentar` dispara `mutate(sectionKey)` de SWR.
+- **Anti-patterns evitados**: no capturar errores globalmente (romper granularidad por sección); no mostrar stack trace en producción.
+
+---
+
+#### 9. Componente NUEVO · `PermissionDenied`
+- **Sección**: Global (renderizado cuando el backend devuelve 403).
+- **Composición DS canónica**: **reusa `<Alert variant="danger" title="No tienes acceso a esta empresa" action={<Button variant="primary" size="sm">Solicitar acceso</Button>}>` + body con copy** — el patrón `Alert + action` está soportado por la primitiva `ds/Alert.tsx`. No requiere componente nuevo, sino wrapper de conveniencia.
+- **Tokens usados**: los del `Alert variant="danger"` (`bg-danger/10 text-danger border-danger/30`) + `Button variant="primary"` (`bg-primary text-white hover:bg-primary-hover`).
+- **Icono**: automático `AlertCircle` del `Alert danger`.
+- **Estados**: sólo se activa cuando 403.
+- **Anti-patterns evitados**: no usar `LockedSectionBlur` (ese es para "premium" no para "sin permisos"); no ocultar la sección sin explicación.
+
+---
+
+### §7.3 · Reglas de composición (obligatorias para los 9 nuevos)
+
+1. **Card canónica** = `<Card>` de `@/components/ds` cuando se necesita chrome completo con header/footer. Para bloques más ligeros dentro de una sección, usar el patrón directo `rounded-2xl border border-default bg-surface-elevated p-6 md:p-8` (mismo que `UnavailableBlock`). **No mezclar** con `<div className="bg-white shadow-md">` estilo shadcn.
+2. **Tabla financiera** (PL/Balance): no existe primitiva `<Table>` en el DS → usar **grid CSS** con `grid-cols-[minmax(180px,1fr)_repeat(auto-fit,minmax(90px,1fr))]` respetando spacing tokens. Marcado semántico: `<div role="table">`, `<div role="row">`, `<div role="cell">`. Sticky first column. **Ver §7.4 gap G1**.
+3. **Chart** (RevenueEvolution): **SVG inline** con `viewBox`, sin librería externa. Consultar la implementación de `CompanyEvolutionChart` (`entity/CompanyPageClient.tsx` L800-830) como referencia. Colores exclusivamente via `stroke="var(--brand-primary)"` etc.
+4. **Tooltip** (Ratios): **no existe primitiva `<Tooltip>` canónica** en el DS → **ver §7.4 gap G2**.
+5. **Badge/Chip**: exclusivamente `<Badge>` de `@/components/ds`. Variantes limitadas a `default/success/warning/danger/info`. Si necesitamos chips agrupables o interactivos (toggle 3y/5y en PL), **ver §7.4 gap G3**.
+6. **Botones y CTAs**: exclusivamente `<Button>` de `@/components/ds`. Variante `primary` para acciones principales (Reintentar, Reclamar), `secondary` para "Ver metodología", `ghost` para acciones tercearias, `danger` sólo para destructivas.
+7. **Iconos**: **exclusivamente `lucide-react`** v0.577.0. Nombres canónicos ya en uso: `TrendingUp`, `Table2`, `Scale`, `Percent`, `Sparkles`, `ShieldCheck`, `AlertTriangle`, `AlertCircle`, `RefreshCw`, `Construction`, `ChevronDown`, `Info`. Sizes canónicos: 12/14/16/18/20. `strokeWidth` 1.5-1.8. **Cero SVG inline** salvo el sparkline del `RevenueEvolutionBlock`.
+8. **Estados**: cada componente debe declarar los 5 estados canónicos (Loading/Datos/Unavailable/Error/Permisos) usando exclusivamente `LoadingBlock`/`UnavailableBlock`/`ErrorBlock`/`Alert` del DS. Nunca inventar un estado nuevo.
+9. **Skeleton dimensions** replican la forma exacta del contenido final (evita CLS).
+10. **Sección wrapper**: los 9 componentes viven dentro de `<EntitySection id="finanzas" title="Finanzas" description="...">` — nunca renderizar `<section>` propio.
+11. **Motion**: pulsos y transiciones sólo con las animaciones canónicas `animate-section-pulse`, `animate-fade-in-up`, `animate-pulse` (skeleton). Duraciones vía tokens `duration-fast/normal/slow`. Ninguna animación custom.
+12. **Focus**: cada elemento interactivo respeta `focus-visible:shadow-focus` (arroba-red glow). Tap target mínimo 44px.
+
+---
+
+### §7.4 · Gaps del DS · requieren decisión del usuario antes de codificar
+
+_Marcados con evidencia del codebase que confirma que **no existe** primitiva canónica._
+
+#### **G1 · Primitiva `<Table>` inexistente**
+- **Contexto**: `PLBlock` y `BalanceBlock` requieren tabla multi-año con sticky first column, filas destacadas para totales, hover row.
+- **Evidencia**: `find components/ds/` no devuelve ningún `Table.tsx`. `blocks/*` no tiene un `TableBlock`. El DS §2 (Nivel 2 componentes) tampoco menciona `Table`. La única primitiva tabular existente es `MetricsGrid` (grid puro, no tabla).
+- **Propuesta**: **(b) reusar `<Card>` + composición grid CSS con roles ARIA** siguiendo estrictamente los tokens del DS. **No crear primitiva `<Table>` en `ds/`** — mantendría R11.5 y el patrón "no premature abstraction" del DS. Si en E1.6 (Sector Page) surge la necesidad de tabla reutilizable, se extrae entonces.
+- **Alternativa propuesta al usuario**: (a) crear `<Table>`, `<THead>`, `<TBody>`, `<TR>`, `<TD>` en `ds/` como primitiva nueva del DS v1.1.0. Ventaja: reutilizable en Sector Page + Transaction OS. Coste: bump del DS + revisión canónica.
+- **Escala al usuario**: sí. Recomendación E1: **(b)**, pero (a) es correcto arquitectónicamente para el largo plazo.
+
+#### **G2 · Primitiva `<Tooltip>` inexistente**
+- **Contexto**: `RatiosGridBlock` requiere tooltip on-hover con la fórmula del ratio (viene de `/intelligence/ratios/catalog`).
+- **Evidencia**: `find components/ds/` sin `Tooltip.tsx`. `blocks/*` sin `Tooltip`. El DS §2 no lo enumera. Grep `role="tooltip"` en `src/**` = 0 hits.
+- **Propuesta**: **(a) crear primitiva `<Tooltip>` en `ds/Tooltip.tsx`** usando `<button>` con `aria-describedby` + un `<div role="tooltip">` posicionado absolutamente. Sin dependencia externa (Radix, headlessUI). Diseño consistente con `Alert/Badge` (`bg-surface-elevated border-emphasis rounded-md shadow-md p-3 text-body-sm max-w-xs`). Z-index `--z-tooltip` (1300).
+- **Alternativa**: (b) reusar `title=""` HTML nativo. Descartado: no permite estilización canónica ni multi-línea.
+- **Escala al usuario**: sí. Recomendación E1: **(a)** — es una extensión evidente del DS que el propio §1.7 z-index ya anticipa (`--z-tooltip`). Beneficia también a `IdentityCard`, `CompanyHeader.sourcesTooltip`, etc.
+
+#### **G3 · Variante interactiva de `<Badge>` inexistente**
+- **Contexto**: toggle 3y/5y en `PLBlock`/`BalanceBlock` (pills clickables).
+- **Evidencia**: `ds/Badge.tsx` es un `<span>` puro, sin `onClick`, sin `data-active`.
+- **Propuesta**: **(b) reusar `<Button variant="ghost" size="sm">`** con `data-active={year===5}` para el toggle. Semántica correcta (botón, no badge). Mantiene el DS sin ampliación.
+- **Alternativa**: (a) extender `<Badge>` con `onClick` + `data-active`. Riesgo: mezcla `<span>` con semántica de botón (accesibilidad).
+- **Escala al usuario**: sí, pero es una decisión de bajo riesgo. Recomendación E1: **(b)**.
+
+#### **G4 · Copy canónico para banner global "Datos en consolidación"**
+- **Contexto**: cuando Master Layer está vacío (~90% de secciones), banner leve top de la ficha (R.1 §6.1).
+- **Evidencia de tono**: `MetricsBlock` L108, `UnavailableBlock` docstring, mockup L1279.
+- **Propuesta de copy** (D5, revisado al tono del codebase):
+  > *"Estamos consolidando los datos de esta empresa · en cuanto el proveedor externo los entregue, esta sección se actualizará automáticamente."*
+  - Versión larga (para el banner global): *"Datos en consolidación · algunas secciones aparecerán vacías temporalmente mientras el proveedor externo termina de consolidar la información. Se actualizarán automáticamente cuando estén disponibles."*
+- **Escala al usuario**: sí — copy es tono editorial, no técnico.
+
+#### **G5 · Sub-nav sticky intra-sección (Finanzas)**
+- **Contexto**: R.2 (densidad Finanzas ~2000px scroll). Propuesto en D7: mini-nav sticky con anchors `Evolución · P&L · Balance · Ratios · Calidad · Solvencia`.
+- **Evidencia**: grep `Tabs\|role="tablist"` en `src/**` = 0 hits. No existe primitiva Tabs en el DS. Sí existe el patrón `sticky top-[78px]` para la nav lateral y para el `DealPanel` (mockup L692/774/796). Anchor scroll ya usado por `EntitySectionWrapper.scroll-mt-24`.
+- **Propuesta**: **(a) crear componente ligero `<FinanzasSubNav>` interno a Finanzas** (no primitiva DS) siguiendo el patrón visual de la nav lateral del mockup (pills con `data-active`, `bg-brand-primary/10 text-brand-primary` cuando activo, hover `bg-surface-muted`). Sticky bajo el header de sección con `sticky top-[128px]` (56 topbar + 72 section header). Anchors `#finanzas-evolucion`, `#finanzas-pl`, etc.
+- **Alternativa**: (c) no introducir sub-nav; confiar en scroll natural. Riesgo: mala UX en viewport pequeño.
+- **Escala al usuario**: sí. Es un elemento estructural nuevo. Recomendación E1: **(a)**.
+
+---
+
+### §7.5 · Cómo se traduce visualmente
+
+Comparativa entre el mockup genérico "estilo dashboard" y el DS real de arroba.com:
+
+#### Colores
+- **Antes (mockup genérico)**: teals, purples, hex hardcoded, gradientes suaves multi-color.
+- **Después (DS arroba)**: **rojo arroba `#E8001D`** como único acento cromático + neutrales cálidos (`#FAFAF8`, `#F4F4F0`, `#E8E8E2`) en light; **negro arroba `#0C0C0E`** + neutrales fríos (`#1A1A18`, `#2E2E2C`) en dark. Feedback bandas (`success/warning/danger/info`) sólo en estados, nunca decorativos. Los charts usan **rojo arroba** para la serie principal (revenue), `info` (azul) para la secundaria (ebitda), `text-muted` (gris) dasheado para la terciaria (net income).
+
+#### Tipografía
+- **Antes**: Inter/Roboto/system-ui genéricos, mismo peso.
+- **Después**: **Space Grotesk** para h1-h4 (`--font-display`, jerarquía clara con display 72 / h1 36 / h2 28 / h3 22 / h4 18) · **DM Sans** para body (`--font-body`, 15px con leading 1.60) · **JetBrains Mono** para números tabulares y CIF (`--font-mono`, `tabular-nums`). Contraste inmediato de identidad.
+
+#### Espaciados
+- **Antes**: `p-3`, `p-4`, `p-6` con valores rem arbitrarios de Tailwind default.
+- **Después**: **Todos los spacings son tokens `--space-N`** con valores px explícitos (`space-4 = 16px`, `space-6 = 24px`, `space-8 = 32px`). Tailwind config sobrescribe los defaults. Padding cards principales `p-6 md:p-8`. Gap entre bloques `gap-6` a `gap-10`.
+
+#### Sombras y bordes
+- **Antes**: `shadow-md`, `shadow-lg` liberalmente en cards.
+- **Después**: **Cards por defecto SIN sombra**, sólo `border border-default` (border-only aesthetic). Sombra sólo aparece en hover de cards interactivas (`hover:border-emphasis`), en popovers (`shadow-md`), modales (`shadow-lg`) y dock (`shadow-xl`). Radios canónicos `rounded-2xl` (cards principales), `rounded-xl` (cards internos), `rounded-full` (chips y CTAs pill).
+
+#### Comportamiento hover/active
+- **Antes**: `hover:scale-105` genérico o cambios de color arbitrarios.
+- **Después**: exclusivamente `hover:border-emphasis` en cards, `hover:bg-surface-muted` en botones ghost, `active:translate-y-[1px]` en botones primary. Cero scale. Cero shadow-jumps. Todo con `transition-colors duration-fast` (150ms).
+
+#### Dark mode
+- **Antes**: filtro inverso genérico.
+- **Después**: **overrides quirúrgicos** en `[data-dark]` sólo de tokens semánticos (surface, text, border, feedback subtles). Brand + neutral ramp constantes. El rojo arroba es **el mismo** en light y dark; sólo el hover se calienta a `#FF1A35` en dark. Focus ring más pronunciado (32% opacity vs 22%).
+
+#### Motion
+- **Antes**: `transition-all` con duraciones arbitrarias.
+- **Después**: transiciones sólo en propiedades específicas (`transition-colors`, `transition-opacity`, `transition-transform`). Duraciones tokenizadas `duration-fast/normal/slow`. Section pulse rojo sutil 700ms tras refresh (`animate-section-pulse`, define en `tailwind.config.ts` L156-170). Reduce-motion respetado automáticamente.
+
+#### Identidad visual global
+La ficha resultante deja de leerse como dashboard genérico y pasa a leerse como **producto arroba**: rojo cuando importa (CTAs, foco, evolución de ingresos), negro/blanco cálido en superficies, tipografía display con carácter (Space Grotesk), números mono impecables (JetBrains), spacing amplio (24-32px cards), border-only chrome sin sombras decorativas. Cualquier usuario reconoce arroba en 2 segundos.
+
+---
+
+## §8 · Checklist de aprobación
 
 Antes de arrancar código B.6.f, el usuario debe aprobar expresamente:
 - [ ] Layout 3-columnas reproducido tal cual (sin rediseño estructural).
@@ -409,7 +709,8 @@ Antes de arrancar código B.6.f, el usuario debe aprobar expresamente:
 - [ ] Grid de ratios 3-columnas con tooltip hover de fórmula. ¿O prefiere accordion agrupado por categoría (`profitability`, `liquidity`, `solvency`, `efficiency`)?
 - [ ] Sección `mercado`: se llama "Empresas similares" o "Comparables". Consenso: **Empresas similares** (evita colisión con Valuation Comparables).
 - [ ] Mensaje de banner "datos en consolidación" cuando Master Layer vacío. ¿Copy sugerido OK?
-- [ ] REQ codes finales: `REQ-012` (financials), `REQ-013` (balance), `REQ-014` (ratios), `REQ-015` (semantic), `REQ-016` (valuation), `REQ-017` (similar), `REQ-018` (opportunities). Verificar que no colisionan con existentes (`REQ-006`/`007`/`008`/`009`/`010`).
+- [ ] REQ codes finales: `REQ-012` (financials), `REQ-013` (balance), `REQ-014` (ratios), `REQ-015` (semantic), `REQ-016` (valuation), `REQ-017` (similar), `REQ-018` (opportunities). **Verificado sin colisión con los ya en uso** (`REQ-001..REQ-011`, ver §7 y evidencia en `entity/base/types.ts`, `components/entity/base/EntitySignals.tsx`, `backend/src/modules/companies/models.py`).
+- [ ] **§7 Adaptación DS**: aprobación de gaps G1-G5 según recomendaciones (G1:b, G2:a, G3:b, G4 copy propuesto, G5:a).
 
 ---
 
