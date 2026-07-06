@@ -8,6 +8,8 @@
 
 Verificación automática: `/app/frontend/src/__tests__/canonical_screens_guard.test.ts` (guard de imports legacy).
 
+**Referencias visuales canónicas:** ver `/app/memory/ARROBA_UI_VISUAL_REFERENCES.md` (v1). Registra las DOS referencias visuales separadas del producto (estructural = ficha de empresa · composer = Valora) y prohíbe explícitamente el layout antiguo de una columna. Debe respetarse en TODA implementación futura.
+
 ---
 
 ## Tabla 1 · Pantallas canónicas activas
