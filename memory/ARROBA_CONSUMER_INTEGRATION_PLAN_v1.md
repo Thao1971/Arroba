@@ -1,12 +1,25 @@
-# PLAN DE CONSUMIDOR — arroba.com → Agency Tool (`arroba.v1`)
+# PLAN DE CONSUMIDOR — arroba.com → Intelligence Layer
 **Documento operativo único para migrar arroba.com de mocks locales al contrato público `arroba-integration-contract-v1`.**
-_Versión: `consumer-integration-plan-v1` · 2026-07-06 · Estado: **BORRADOR — pendiente de aprobación del usuario**_
+_Versión: `consumer-integration-plan-v1.1` · 2026-07-06 · Estado: **APROBADO con 10 reglas canónicas — autorizada Fase B.6.a (scaffolding sin API key)**_
 
 Referencias canónicas (leídas íntegramente):
 - **PACK v1** — `/app/memory/ARROBA_INTEGRATION_PACK_v1.md` (sha256 `b3853b7c…d98e5` · 27.316 bytes · 554 líneas)
 - **CONTRACT v1** — `/app/memory/AGENCY_TOOL_CONTRACT_v1.md` (sha256 `8331dede…266b3` · 45.180 bytes · 505 líneas)
 
 Cuando este plan cita una decisión canónica, se indica `[pack §N.M]` o `[contract §N]`. No se inventan reglas nuevas.
+
+## §0 · Reglas canónicas aprobadas (usuario · 2026-07-06)
+
+- **R1** — Entorno objetivo: **producción** `AGENCY_TOOL_BASE_URL=https://agencias.wearebudadvisors.com`. Preview solo para incidencia crítica.
+- **R2** — `AGENCY_TOOL_MODE` es **mecanismo temporal de migración**. Se retira obligatoriamente en B.6.j (AC binario).
+- **R3** — `master_companies_mock` **NO se elimina en B.6.a**. Permanece como soporte de desarrollo hasta validar estabilidad completa. Deprecación calendarizada en B.6.j (tras B.6.f estable).
+- **R4** — **PROHIBIDO duplicar lógica de negocio en arroba.com**. Toda inteligencia (scoring, valoración, comparables, matching, recomendaciones, señales, ratios, insights, tesis) vive **exclusivamente** en Intelligence Engines. arroba solo consume · orquesta · presenta · conversa · UX. **arroba NUNCA calcula.** Ver §9 para el catálogo detallado de prohibiciones + criterio arquitectónico permanente.
+- **R5** — **Contrato interno frontend congelado.** El frontend consume `/api/companies/*` y demás endpoints internos de arroba, **nunca** ve `X-API-Key`, nunca llama a `agencias.wearebudadvisors.com`. Regla 4 de Sprint 1 preservada y ampliada.
+- **R6** — **Observabilidad obligatoria desde B.6.a.** 7 métricas mínimas (§3.6): latencia p50/p95/p99 por motor · calls totales · cache hit/miss · 4xx desglosados · 5xx · estado circuit breaker · tiempos medios. `structlog` + endpoint interno `/api/internal/metrics` en JSON.
+- **R7** — **Rate limit asumido GLOBAL por API key** hasta confirmación oficial. Desde B.6.a: caché agresiva 2-capas · deduplicación single-flight por `(master_id, engine, payload_hash)` · refresh inteligente en background al 80% de TTL · batch por sección de ficha (una llamada por motor, no una por bloque).
+- **R8** — Nuevo orden de sub-fases: `a → b → c → f → d → e → g → h → i → j`. Rationale: tras Master + Financial + Semantic (a-c), saltamos a **B.6.f wiring frontend** para ver la ficha canónica con datos reales lo antes posible. Signal/Recommendation/Transaction/Strategy quedan `UnavailableBlock` hasta sus fases. En B.6.f **el freeze sobre `/empresa/{cif}` se levanta parcialmente** para tocar solo `CompanyPageClient.tsx` y renderers relacionados. Antes de B.6.f el freeze es absoluto.
+- **R9** — **Diseño para múltiples proveedores desde el inicio.** El módulo se llama **`intelligence_layer`**, no `agency_tool_client`. Estructura obligatoria con `interfaces/` (contratos abstractos) + `providers/agency_tool/` (implementación concreta) + `router.py` (dispatcher config-driven). Zero coupling entre capas superiores y el nombre del provider.
+- **R10** — **Criterio arquitectónico permanente.** Antes de cada endpoint proxy nuevo: **"¿Esta funcionalidad pertenece a arroba o debería vivir en un Intelligence Engine?"** Si es del engine, se marca REQ contra el proveedor y NO se implementa en arroba.
 
 ---
 
