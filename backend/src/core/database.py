@@ -187,6 +187,12 @@ async def init_indexes() -> None:
         "last_refresh_at", expireAfterSeconds=60 * 60 * 24 * 90
     )
 
+    # === intelligence_cache (B.6.a — caché 2 capas del intelligence_layer) ===
+    # Documento: {_id: <cache_key>, value, expires_at (epoch seconds), is_error}
+    # `expires_at` no es datetime → no usamos TTL nativo de Mongo. Los reads
+    # comprueban expiración a runtime (cache.py::MongoCache.get).
+    await db.intelligence_cache.create_index("expires_at")
+
 
 async def close_client() -> None:
     global _client, _db

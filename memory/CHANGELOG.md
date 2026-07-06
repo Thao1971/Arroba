@@ -1,5 +1,70 @@
 # CHANGELOG — ARROBA Platform
 
+## 🏗️ 06 Jul 2026 — Fase B.6.a · Scaffolding `intelligence_layer` (backend puro, sin llamadas HTTP reales)
+
+Andamiaje multi-proveedor sobre motores externos. Reemplaza el `agency_tool_adapter` monolítico por una capa desacoplada con abstract interfaces + providers concretos + caché + circuit breaker + métricas Prometheus. **`agency_tool_adapter` sigue vivo** (deprecación calendarizada en B.6.j).
+
+### Regla canónica añadida — R11 (Gobernanza del Frontend · Aprobación Visual Previa)
+- Ninguna implementación de UI comienza sin diseño aprobado por el usuario. Aplica desde B.6.b en adelante. Detalle: `ARROBA_CONSUMER_INTEGRATION_PLAN_v1.md` §10.
+
+### 4 decisiones técnicas B.6.a (usuario 2026-07-07)
+- Circuit breaker propio async (~90 líneas, sin `pybreaker`), 4 transiciones canónicas testeadas.
+- Caché TTL 900s global + overrides por motor + error TTL 30s.
+- Métricas Prometheus (`text/plain; version=0.0.4`).
+- Slots API key `_PRIMARY` + `_SECONDARY` con fallback automático 401/403.
+
+### Componentes creados (12 archivos backend + 4 archivos test)
+- `src/modules/intelligence_layer/{config,observability,circuit_breaker,cache,router,endpoints}.py`
+- `src/modules/intelligence_layer/interfaces/master.py` (DTO schema §6.1 + `MasterProvider` ABC)
+- `src/modules/intelligence_layer/providers/mock/master.py` (traduce `master_companies_mock` → §6.1)
+- `src/modules/intelligence_layer/providers/agency_tool/{client,master}.py` (scaffolding real, sin llamadas)
+- `tests/intelligence_layer/{test_circuit_breaker,test_cache,test_router,test_identity_endpoint}.py` (30 tests)
+
+### Endpoints nuevos
+- `GET /api/companies/{cif}/identity` → schema §6.1 completo (auth requerida).
+- `GET /api/internal/metrics` → 7 métricas canónicas (Counter/Histogram/Gauge).
+
+### Métricas canónicas
+- `intelligence_layer_requests_total{provider,engine,method,status}`
+- `intelligence_layer_request_duration_seconds{provider,engine,method}` (histogram)
+- `intelligence_layer_cache_hits_total{engine,layer}` · `_misses_total{engine,layer}`
+- `intelligence_layer_circuit_breaker_state{provider,engine}` (0=closed, 1=half_open, 2=open)
+- `intelligence_layer_errors_total{provider,engine,error_class}`
+- `intelligence_layer_deduplication_hits_total{engine}`
+
+### DB
+- Nueva colección `intelligence_cache` (índice sobre `expires_at`, no-TTL nativo · expira runtime).
+
+### Envs añadidas (`.env`)
+- `AGENCY_TOOL_MODE=mock` (temporal, retirada en B.6.j)
+- `AGENCY_TOOL_BASE_URL=https://agencias.wearebudadvisors.com`
+- `ARROBA_SERVICE_API_KEY_PRIMARY=<recibida>` (nunca commiteada · `.env` gitignoreado)
+- `ARROBA_SERVICE_API_KEY_SECONDARY=` (vacío intencionalmente)
+- Circuit breaker + caché TTLs + metrics token (todos con defaults sensatos)
+
+### Testing
+- **30/30 nuevos** tests intelligence_layer verdes.
+- **187/187** pytest total (157 previos + 30 nuevos, sin regresiones).
+- Circuit breaker: verificadas las 4 transiciones + 1-probe-only en half_open + reset de contador.
+- Caché: TTL, LRU, single-flight, error cache, TTL=0 (event-driven).
+- Endpoint `/identity`: schema §6.1 completo, 404, auth requerida, cache hits.
+- Auditoría de fugas de API key: 0 leaks en `/metrics` ni `/openapi.json`.
+
+### Smoke test manual (backend real, modo mock)
+```
+GET /api/companies/B47820150/identity
+→ 200 OK
+→ X-Intelligence-Mode: mock · X-Provider: mock
+→ Body: MasterRecord §6.1 (Grupo Olmedo Hoteles, S.L.)
+→ Cache: 1 miss + N hits en memoria
+```
+
+### Bloqueadores externos
+- Ninguno actualmente. La API key `_PRIMARY` está en `.env` local pero NO se usa (flag en `mock`).
+- Smoke test controlado contra `agencias.wearebudadvisors.com` pendiente de arranque por orquestador.
+
+---
+
 ## 🧊 25 Jun 2026 — v1.0-canonical-baseline (Sprint 0 + Sprint 0.5) — FROZEN
 
 > **Canonical Baseline v1.0 congelada**. Sprint puramente documental: cero modificaciones en código de producto. Establece la capa 7 (*Engines & Specs*) y consolida el canon legacy con los specs del Sprint 0.

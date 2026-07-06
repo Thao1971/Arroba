@@ -1,6 +1,6 @@
 # PLAN DE CONSUMIDOR — arroba.com → Intelligence Layer
 **Documento operativo único para migrar arroba.com de mocks locales al contrato público `arroba-integration-contract-v1`.**
-_Versión: `consumer-integration-plan-v1.1` · 2026-07-06 · Estado: **APROBADO con 10 reglas canónicas — autorizada Fase B.6.a (scaffolding sin API key)**_
+_Versión: `consumer-integration-plan-v1.3` · 2026-07-07 · Estado: **APROBADO con 10 reglas canónicas + 4 decisiones técnicas + R11 (Gobernanza del Frontend) — Fase B.6.a scaffolding COMPLETADO (30/30 tests + smoke test manual OK · sin llamadas HTTP reales)**_
 
 Referencias canónicas (leídas íntegramente):
 - **PACK v1** — `/app/memory/ARROBA_INTEGRATION_PACK_v1.md` (sha256 `b3853b7c…d98e5` · 27.316 bytes · 554 líneas)
@@ -20,6 +20,68 @@ Cuando este plan cita una decisión canónica, se indica `[pack §N.M]` o `[cont
 - **R8** — Nuevo orden de sub-fases: `a → b → c → f → d → e → g → h → i → j`. Rationale: tras Master + Financial + Semantic (a-c), saltamos a **B.6.f wiring frontend** para ver la ficha canónica con datos reales lo antes posible. Signal/Recommendation/Transaction/Strategy quedan `UnavailableBlock` hasta sus fases. En B.6.f **el freeze sobre `/empresa/{cif}` se levanta parcialmente** para tocar solo `CompanyPageClient.tsx` y renderers relacionados. Antes de B.6.f el freeze es absoluto.
 - **R9** — **Diseño para múltiples proveedores desde el inicio.** El módulo se llama **`intelligence_layer`**, no `agency_tool_client`. Estructura obligatoria con `interfaces/` (contratos abstractos) + `providers/agency_tool/` (implementación concreta) + `router.py` (dispatcher config-driven). Zero coupling entre capas superiores y el nombre del provider.
 - **R10** — **Criterio arquitectónico permanente.** Antes de cada endpoint proxy nuevo: **"¿Esta funcionalidad pertenece a arroba o debería vivir en un Intelligence Engine?"** Si es del engine, se marca REQ contra el proveedor y NO se implementa en arroba.
+
+---
+
+## §0.1 · Decisiones técnicas de la Fase B.6.a (usuario · 2026-07-07)
+
+Refinan §3 (arquitectura) sin contradecirlo. Aplican **desde B.6.a**.
+
+### 0.1.1 · Circuit Breaker — implementación propia (~80 líneas, async-first)
+- **Rechazado** `pybreaker`: no tiene soporte async first-class y añade dependencia externa.
+- **Contrato de estado**: `closed | open | half_open` (transiciones deterministas).
+- **Umbrales por defecto** (configurables vía env):
+  - `AGENCY_TOOL_BREAKER_THRESHOLD=5` — fallos consecutivos que abren el breaker.
+  - `AGENCY_TOOL_BREAKER_TIMEOUT_S=60` — segundos en `open` antes de pasar a `half_open`.
+- **Transición `half_open`**: **1 sola llamada de prueba**. Éxito → `closed`. Fallo → `open` (rearma el timeout).
+- **Integración obligatoria con `observability.py`**: estado expuesto como métrica gauge (R6).
+- **Test unitario obligatorio**: verifica las **4 transiciones** (`closed→open`, `open→half_open`, `half_open→closed`, `half_open→open`).
+
+### 0.1.2 · Caché — TTL por defecto 900s + overrides por motor + error TTL corto
+- **Global default**: `INTELLIGENCE_CACHE_TTL_SECONDS=900` (15 min · alineado con [pack §7]).
+- **Overrides opcionales por motor** (si están definidos, ganan sobre el global; si no, heredan):
+  - `INTELLIGENCE_CACHE_TTL_MASTER_SECONDS`
+  - `INTELLIGENCE_CACHE_TTL_FINANCIAL_SECONDS`
+  - `INTELLIGENCE_CACHE_TTL_SIGNAL_SECONDS`
+  - `INTELLIGENCE_CACHE_TTL_SEMANTIC_SECONDS`
+  - `INTELLIGENCE_CACHE_TTL_RECOMMENDATION_SECONDS`
+  - `INTELLIGENCE_CACHE_TTL_STRATEGY_SECONDS`
+  - `INTELLIGENCE_CACHE_TTL_TRANSACTION_SECONDS=0` (event-driven, no cachear · [pack §3.4])
+- **Error TTL** (5xx / timeout del proveedor): `INTELLIGENCE_CACHE_ERROR_TTL_SECONDS=30`. Evita hammering al motor caído sin quemar la key.
+- **Deduplicación single-flight**: dos requests concurrentes con la misma key `(provider, engine, method, master_id, payload_hash)` comparten resultado. Contador `intelligence_layer_deduplication_hits_total` lo mide.
+- En B.6.a solo se activa el motor `MASTER`; los demás quedan preparados pero no consumidos hasta sus sub-fases.
+
+### 0.1.3 · Métricas — formato Prometheus (`text/plain; version=0.0.4`)
+- **Rechazado** JSON ad-hoc: menos auditable, requiere adaptadores para Grafana/Datadog/CloudWatch.
+- **Dependencia**: `prometheus-client` (librería estándar bien mantenida).
+- **Endpoint**: `GET /api/internal/metrics` — expone las métricas del registry.
+- **Métricas canónicas mínimas** (nombres estandarizados):
+  - `intelligence_layer_requests_total{provider,engine,method,status}` — Counter.
+  - `intelligence_layer_request_duration_seconds{provider,engine,method}` — Histogram (p50/p95/p99 derivables en PromQL).
+  - `intelligence_layer_cache_hits_total{engine,layer}` — Counter (layer ∈ `memory|mongo`).
+  - `intelligence_layer_cache_misses_total{engine,layer}` — Counter.
+  - `intelligence_layer_circuit_breaker_state{provider,engine}` — Gauge (0=`closed`, 1=`half_open`, 2=`open`).
+  - `intelligence_layer_errors_total{provider,engine,error_class}` — Counter (`error_class` ∈ `client_4xx | server_5xx | timeout | network | unauthorized`).
+  - `intelligence_layer_deduplication_hits_total{engine}` — Counter (single-flight hits).
+- **Protección opcional** vía `INTERNAL_METRICS_TOKEN` en header `X-Metrics-Token`. Si no está seteado, el endpoint responde sin auth (uso pod-only recomendado detrás de ingress).
+
+### 0.1.4 · Slots de API Key (primary/secondary con fallback automático)
+- `ARROBA_SERVICE_API_KEY_PRIMARY` (default en boot).
+- `ARROBA_SERVICE_API_KEY_SECONDARY` (fallback si primary devuelve `401/403`).
+- **Lógica**: si primary da unauthorized, se intenta secondary una única vez. Si también falla, se emite `error_class=unauthorized` y se propaga.
+- **Testeable con mocks desde B.6.a** — la lógica debe estar implementada aunque no haya keys reales aún.
+- Nunca loguear el valor de la key [pack §7.1].
+
+### 0.1.5 · Endpoint proxy `/api/companies/{cif}/identity`
+Devuelve **exactamente** el schema del pack §6.1 · [contract §6.1] para `master_companies`. Contrato interno congelado que el frontend consumirá en B.6.f:
+```
+{ master_id, cif_normalized, status, identity{...}, classification{...}, location{...},
+  contact{...}, name_key, size{...}, financials{ latest, history[] }, ownership{...},
+  officers_count, objeto_social, provenance{}, sources[],
+  pipeline_version, source_hash, dirty, created_at, updated_at, built_at,
+  engine_version, generated_at }
+```
+En modo `mock`, el `MockMasterProvider` **traduce los 10 campos de `master_companies_mock`** a este schema, rellenando lo que no exista con `null` o `[]` según el contrato. **NO se inventan datos**. Zero coupling `arroba → Agency Tool` en el nombre del proveedor: el frontend solo ve `/api/companies/{cif}/identity`.
 
 ---
 
@@ -263,6 +325,8 @@ Sub-fases granulares (cada una \<7 días, cerrable en una iteración):
 
 Ruta crítica **B.6.a → B.6.f** = 6 sub-fases · ~15 días efectivos · desbloquea el mockup canónico al 70% real. **B.6.g-i** son enhancement. **B.6.j** es cierre + limpieza.
 
+> **Nota R11 (Gobernanza del Frontend · §10):** las sub-fases con tocamiento visible del frontend (**B.6.f, B.6.g, B.6.h, B.6.i**, y opcionalmente B.6.j) exigen aprobación de diseño previa por parte del usuario **antes** de escribir código de UI. Se añade AC0 explícito a cada una de esas sub-fases + **~1 día extra de buffer** en su estimación para cubrir el ciclo `propuesta visual → aprobación`. Mitigación: preparar mockups/previews en paralelo durante las sub-fases backend previas (§7.9).
+
 ---
 
 ## §6 · Funcionalidades a ELIMINAR de arroba.com
@@ -336,6 +400,11 @@ Foundation (Master) ─► Financial ─► Signal ─► Semantic ─► Recomm
 
 ### 7.8 Rotación de API Key
 - Runbook [pack §7.1]: soporte de solape sin downtime. arroba debe implementar dos slots (`_PRIMARY`/`_SECONDARY`) en B.6.a para permitir rotación operativa.
+
+### 7.9 Bloqueo por aprobación visual pendiente (R11)
+- Toda sub-fase con tocamiento de frontend (B.6.f/g/h/i, opcionalmente B.6.j) exige diseño aprobado por el usuario **antes** de escribir código (§10).
+- **Riesgo:** ciclos de propuesta+aprobación pueden dilatar la fecha de entrega si no se preparan con antelación.
+- **Mitigación:** durante las sub-fases backend previas (B.6.a/b/c/d/e) se preparan en paralelo mockups/previews de los renderers necesarios (`PLBlock`, `BalanceBlock`, etc.). Al llegar a la fase frontend, el diseño ya está listo para revisión. Impacto estimado: **+1 día por sub-fase frontend** como buffer razonable en las estimaciones.
 
 ---
 
@@ -421,11 +490,12 @@ Foundation (Master) ─► Financial ─► Signal ─► Semantic ─► Recomm
 **Scope:** `recommendation.py`; proxy `/api/companies/{cif}/recommendations?type=`; `CompanyCardsGridBlock` reutilizado + `RecommendationExplainSheet`.
 **Endpoints tocados:** `comparables`, `explain`, `buyers`, `sellers` (4).
 **Criterios de aceptación:**
+- [ ] **AC0 (R11): Diseño visual aprobado por el usuario antes de escribir código frontend.** Preview aislada + delta vs mockup canónico + espera aprobación expresa.
 - [ ] AC1: Curl devuelve `items[]` con `fit_score`, `dimensions.{sector,size,geography,financial,semantic}`, `rationale`.
 - [ ] AC2: Ficha sección `Mercado` muestra comparables con `fit_score` visible en cada card.
 - [ ] AC3: Click en "Por qué es comparable" abre sheet con `explain` (factors + weights + narrative).
 - [ ] AC4: Sección `Oportunidades` muestra al menos 1 tarjeta de "Compradores potenciales" y "Vendedores potenciales" si hay signal `for_sale`/`buying`.
-**Estimación:** 4-5 días.
+**Estimación:** 4-5 días **+1 día buffer R11 = 5-6 días**.
 **Dependencies:** B.6.b + B.6.d.
 **Test plan:** curl + UI + explain sheet.
 **Deprecación aplicada:** `build_comparables()` + `_sector_with_adjacent()` + `copilot/skills/recommend.py::execute_recommend` fórmula local.
@@ -435,11 +505,12 @@ Foundation (Master) ─► Financial ─► Signal ─► Semantic ─► Recomm
 **Scope:** endpoints ya en clientes anteriores; proxy `/api/companies/{cif}/opportunities`; sección `oportunidades` de la ficha canónica deja hardcodes.
 **Endpoints tocados:** `recommendation/opportunities`, `signal/opportunities`, `signal/sector`, `signal/territory` (4).
 **Criterios de aceptación:**
+- [ ] **AC0 (R11): Diseño visual aprobado por el usuario antes de escribir código frontend.** Preview aislada + delta vs mockup canónico + espera aprobación expresa.
 - [ ] AC1: Sección `oportunidades` muestra chips reales (no `Buy & Build/Captación/Entrada` hardcoded).
 - [ ] AC2: 3 cards descriptivas se llenan con `title`, `rationale`, `fit_score` reales.
 - [ ] AC3: Endpoint `/api/companies/{cif}/opportunities` agrega ambas fuentes con dedupe.
 - [ ] AC4: Endpoint `/api/platform/stats` cambia impl: si `AGENCY_TOOL_MODE=real`, devuelve conteos vacíos + `X-Provenance: unavailable` (deja de mentir 200 empresas).
-**Estimación:** 3 días.
+**Estimación:** 3 días **+1 día buffer R11 = 4 días**.
 **Dependencies:** B.6.f.
 **Test plan:** curl + UI verificando eliminación de hardcodes.
 **Deprecación aplicada:** hardcodes de oportunidades en `CanonicalEntityMockupClient.tsx` L614 + L1121; `platform_stats_mock` (drop colección).
@@ -449,12 +520,13 @@ Foundation (Master) ─► Financial ─► Signal ─► Semantic ─► Recomm
 **Scope:** `transaction.py`; proxy `/api/companies/{cif}/transactions/current`; renderers `TransactionWorkspacePanel` (sustituye `<CanonicalDealPanel>`) + `NextActionCard` + `TimelineBlock` + `RiskBlock`.
 **Endpoints tocados:** `workspace`, `next-action`, `timeline`, `risk` (4).
 **Criterios de aceptación:**
+- [ ] **AC0 (R11): Diseño visual aprobado por el usuario antes de escribir código frontend.** Preview aislada + delta vs mockup canónico + espera aprobación expresa.
 - [ ] AC1: Si el user tiene una transacción activa vinculada al CIF, el panel derecho muestra `current_stage`, `state`, `next_action.recommended_action` con `why` + `confidence`.
 - [ ] AC2: Timeline muestra `events[]` reales del OS (no hardcoded).
 - [ ] AC3: Si no hay transacción, el panel muestra "Sin operación activa" + CTA "Reclamar mi empresa" (arroba local).
 - [ ] AC4: `DEAL_SCENARIOS` object del mockup se elimina; queda solo el estado `none` como fallback UI.
 - [ ] AC5: NO se cachea `workspace`/`next-action` (event-driven según §3.4).
-**Estimación:** 5 días.
+**Estimación:** 5 días **+1 día buffer R11 = 6 días**.
 **Dependencies:** B.6.a + B.6.d + B.6.f.
 **Test plan:** curl con user que tenga transacción + user sin transacción.
 **Deprecación aplicada:** `DEAL_SCENARIOS` (233 líneas hardcoded).
@@ -464,10 +536,11 @@ Foundation (Master) ─► Financial ─► Signal ─► Semantic ─► Recomm
 **Scope:** `strategy.py`; proxy `/api/companies/{cif}/strategy`; renderer `ThesisBlock`.
 **Endpoints tocados:** `thesis`, `scenarios`, `decision` (3).
 **Criterios de aceptación:**
+- [ ] **AC0 (R11): Diseño visual aprobado por el usuario antes de escribir código frontend.** Preview aislada + delta vs mockup canónico + espera aprobación expresa.
 - [ ] AC1: Sección nueva "Tesis del Copilot" (dentro de `valoracion` o `resumen`) muestra las 5 dimensiones + score + narrative.
 - [ ] AC2: Switcher de escenarios optimista/base/pesimista funcional.
 - [ ] AC3: Confianza 7-factor visible como sparkline.
-**Estimación:** 5 días.
+**Estimación:** 5 días **+1 día buffer R11 = 6 días**.
 **Dependencies:** B.6.b + B.6.d + B.6.f.
 **Test plan:** curl + UI.
 **Deprecación aplicada:** —
@@ -512,3 +585,87 @@ Con este plan cualquier iteración de arroba.com puede migrar de mocks a `arroba
 **Bloqueadores externos:**
 1. `ARROBA_SERVICE_API_KEY_PRIMARY` (secret · canal seguro).
 2. `AGENCY_TOOL_BASE_URL` (preview o producción — el usuario decide qué entorno usar en B.6.a).
+
+---
+
+## §10 · Gobernanza del Frontend · Aprobación Visual Previa (R11)
+
+### 10.1 · Regla canónica (texto literal del usuario · 2026-07-07)
+
+> Ninguna implementación de interfaz podrá comenzar sin validación previa del diseño.
+> - Aplica siempre, incluso cuando el frontend se base en el mockup canónico, en diseños ya existentes o en una pantalla que ya haya sido aprobada anteriormente.
+> - Antes de escribir una sola línea de código del frontend, debes presentar el diseño que vas a implementar (mockup, captura, propuesta visual o referencia exacta) para que el usuario pueda verificar que es el diseño correcto.
+> - Solo después de aprobación expresa podrás comenzar la implementación.
+> - Si durante el desarrollo detectas que es necesario modificar ese diseño por cualquier motivo (limitación técnica, mejora de usabilidad, cambio arquitectónico o cualquier otra razón), debes detenerte y consultarlo antes de realizar la modificación. Explica qué quieres cambiar, por qué, qué alternativas has valorado y cuál sería el impacto.
+> - No se deben tomar decisiones de UX/UI de forma autónoma. La aprobación previa del usuario es requisito obligatorio para cualquier desarrollo o modificación del frontend.
+> - Esta norma aplica a todas las fases del proyecto y prevalece sobre cualquier otra instrucción relacionada con la implementación de la interfaz.
+
+**R11 prevalece sobre cualquier instrucción previa relacionada con la implementación de UI.**
+
+### 10.2 · Ámbito de aplicación
+
+**"Frontend" INCLUYE (R11 aplica):**
+- Cualquier archivo bajo `/app/frontend/src/**` (páginas, componentes, layouts, hooks visuales, tests visuales).
+- Cualquier renderer nuevo del pipeline canónico (`PLBlock`, `BalanceBlock`, `RatiosGridBlock`, `RevenueEvolutionBlock`, `RadarBlock`, `SignalsListBlock`, `SemanticProfileBlock`, `OwnershipTreeBlock`, `TransactionWorkspacePanel`, `NextActionCard`, `ThesisBlock`, etc.).
+- Cambios de layout, jerarquía visual, tipografía, iconografía, spacing, colores, animaciones.
+- Modificaciones al mockup canónico `/mockups/entity-canonical/[cif]` o a `CompanyPageClient.tsx` cuando llegue B.6.f.
+- Cualquier página nueva creada en cualquier sub-fase.
+- Snapshots de tests que representen un elemento visual renderizado.
+
+**"Frontend" NO incluye (R11 no aplica):**
+- Cambios exclusivamente en `/app/backend/**` (Python, endpoints, adapters, servicios).
+- Migraciones/scripts Mongo.
+- Config, env vars, `docker-compose*`, `.gitignore`.
+- Documentación en `/app/memory/**`.
+- Tests unitarios/integración puramente lógicos que no dependan del DOM renderizado.
+
+### 10.3 · Protocolo operativo obligatorio
+
+**Antes de tocar cualquier archivo del ámbito de aplicación:**
+
+1. **Preparas el diseño como preview visual.** Opciones válidas:
+   - Ruta preview aislada tipo `/mockups/...` desplegada en el pod (patrón usado para el mockup canónico).
+   - Screenshots Playwright: Light + Dark, viewport 1440x900.
+   - Referencia exacta a un mockup previamente aprobado + delta explícito de lo que cambia respecto a él.
+2. **Escribes mensaje al orquestador** con:
+   - Qué vas a implementar (sub-fase, alcance).
+   - Diseño propuesto (URL preview + screenshots · o referencia canónica + delta).
+   - Elementos nuevos vs elementos existentes.
+   - Mapping con el diseño canónico (`_design_intake/company/ce-*.jsx` cuando aplique).
+3. **PARAS.** El orquestador presenta al usuario. Se espera aprobación expresa.
+4. Solo tras **aprobación expresa** del usuario → arrancas la implementación.
+5. **Si durante el desarrollo detectas necesidad de desviarte** del diseño aprobado (limitación técnica, mejora UX, cambio arquitectónico, cualquier motivo):
+   - **PARAS**.
+   - Escribes al orquestador: qué quieres cambiar, por qué, alternativas valoradas, impacto.
+   - Esperas nueva aprobación antes de continuar.
+
+### 10.4 · Excepciones autorizadas (mínimas y explícitas)
+
+- **Cambios estrictamente no-visuales**: refactor de hooks/utilidades que no cambian el DOM renderizado, tipado, tests no-visuales, i18n de strings ya aprobadas.
+- **Ajustes forzados por regresión**: bug fix urgente en un elemento ya aprobado. Reporta el fix y su alcance, pero puede aplicarse sin espera si es correctivo de aprobación previa.
+
+### 10.5 · Aplicación a cada sub-fase del roadmap §8
+
+| Sub-fase | Tocamiento frontend | R11 aplica | AC0 añadido |
+|---|:---:|:---:|:---:|
+| B.6.a (Master · scaffolding) | Ninguno (backend puro) | ❌ | — |
+| B.6.b (Financial `analyze` + 5 renderers) | Sí | ✅ | (a añadir al empezar B.6.b) |
+| B.6.c (Valuation + ratios/catalog) | Sí (ValuationBlock enriquecido) | ✅ | (a añadir al empezar B.6.c) |
+| B.6.d (Semantic profile + similar + search) | Sí (SemanticProfileBlock, Composer) | ✅ | (a añadir al empezar B.6.d) |
+| B.6.e (Signal analyze/history/catalog) | Sí (SignalsListBlock) | ✅ | (a añadir al empezar B.6.e) |
+| B.6.f (Recommendation core) | Sí | ✅ | AC0 explícito ya presente |
+| B.6.g (Recommendation opportunities) | Sí | ✅ | AC0 explícito ya presente |
+| B.6.h (Transaction read-only) | Sí | ✅ | AC0 explícito ya presente |
+| B.6.i (Strategy · stretch) | Sí | ✅ | AC0 explícito ya presente |
+| B.6.j (deprecación) | Solo si retira UI visible del flag | Condicional | (evaluar al empezar B.6.j) |
+
+**Nota**: aunque B.6.b-e están originalmente marcadas como backend + renderers en el mismo bloque, cada renderer nuevo cae bajo R11. Al llegar a cada una de esas sub-fases se añadirá AC0 y se prepararán previews antes de código.
+
+### 10.6 · Impacto en estimaciones (§7.9)
+
+- **+1 día por sub-fase con frontend** como buffer para el ciclo `propuesta+aprobación`.
+- Mitigación por paralelismo: preparar mockups/previews de los renderers de la sub-fase siguiente durante la actual (mientras backend avanza).
+
+### 10.7 · Cumplimiento en Fase B.6.a
+
+**B.6.a es 100% backend.** Ni un solo archivo de `/app/frontend/**` se toca en el scaffolding actual. R11 no aplica a esta sub-fase — se activa a partir de B.6.b cuando aparecen los primeros renderers nuevos.
