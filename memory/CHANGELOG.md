@@ -1,5 +1,52 @@
 # CHANGELOG — ARROBA Platform
 
+## 🚀 06 Jul 2026 · B.6.c · Semantic Engine (backend) — COMPLETADA
+
+Tercera sub-fase del roadmap: `semantic-intelligence` en producción real. Sigue el mismo patrón que Financial (R12, X-API-Key, cache, breaker, métricas). Backend puro (R11 no aplica).
+
+### Endpoints públicos consumidos (X-API-Key · R12)
+- `POST /api/v1/semantic-intelligence/profile`
+- `POST /api/v1/semantic-intelligence/similar`
+- `POST /api/v1/semantic-intelligence/search`
+- `GET /api/v1/semantic-intelligence/profile/schema`
+- `GET /api/v1/semantic-intelligence/catalog`
+
+### Nuevos artefactos backend
+- `interfaces/semantic.py` — DTOs `SemanticProfile`, `SimilarCompanies`, `SemanticSearchResponse`, `SemanticSchema`, `SemanticCatalog` + `SemanticProvider` ABC.
+- `providers/agency_tool/semantic.py` — `AgencyToolSemanticProvider` con emisión `engine_version="arroba-semantic-v1"` (R5).
+- `providers/mock/semantic.py` — mock canónico (profile/similar → NotFound · search 200 vacío · schema/catalog estables).
+- `router.py` — 5 métodos nuevos: `get_semantic_profile`, `get_semantic_similar`, `semantic_search`, `get_semantic_schema`, `get_semantic_catalog`.
+
+### Endpoints REST arroba (contrato interno frozen)
+- `GET /api/companies/{cif}/profile` · auth required
+- `GET /api/companies/{cif}/similar?limit=N` · auth required
+- `POST /api/entities/semantic-search` · auth required (sustituirá al legacy `/api/entities/lookup` en B.6.f)
+- `GET /api/intelligence/semantic-schema` · cache 24h
+- `GET /api/intelligence/semantic-catalog` · cache 24h
+
+### Testing
+- 23 nuevos tests unit + endpoints (`test_semantic.py`, `test_semantic_endpoints.py`).
+- **239/239 pytest** total (216 previos + 23 nuevos).
+- R12 permanente: 10/10 tests verdes.
+- Single-flight: 3 requests concurrentes al mismo search → 1 sola llamada al proveedor (verificado).
+
+### Smoke E2E real
+```
+POST /api/entities/semantic-search {"query":"hotel","limit":5}
+  → 200 · count=0 · backend=local-topk-v1 · engine_version=arroba-semantic-v1 · sin leak
+GET /api/companies/B47820150/profile           → 404 profile_not_found (Master Layer vacío)
+GET /api/companies/B47820150/similar?limit=5   → 404 similar_not_found
+GET /api/intelligence/semantic-schema          → 200 · engine_version=arroba-semantic-v1
+GET /api/intelligence/semantic-catalog         → 200 · engine_version=arroba-semantic-v1
+```
+
+### Métricas Prometheus activas
+- `intelligence_layer_requests_total{engine="semantic", method="profile|similar|search|schema|catalog", ...}`
+- Cache hits/misses por capa memory/mongo
+- Circuit breaker state = closed (0.0)
+
+---
+
 ## 🚀 06 Jul 2026 · B.6.b · Financial Engine (backend) — COMPLETADA
 
 Segunda sub-fase del roadmap Agency Tool: `financial-intelligence` en producción real.

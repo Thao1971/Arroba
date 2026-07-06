@@ -45,6 +45,16 @@ from src.modules.intelligence_layer.interfaces.master import (
     MasterProviderError,
     MasterRecord,
 )
+from src.modules.intelligence_layer.interfaces.semantic import (
+    SemanticCatalog,
+    SemanticNotFoundError,
+    SemanticProfile,
+    SemanticProvider,
+    SemanticProviderError,
+    SemanticSchema,
+    SemanticSearchResponse,
+    SimilarCompanies,
+)
 from src.modules.intelligence_layer.observability import (
     errors_total,
     request_duration_seconds,
@@ -56,8 +66,12 @@ from src.modules.intelligence_layer.providers.agency_tool.financial import (
 from src.modules.intelligence_layer.providers.agency_tool.identity import (
     AgencyToolIdentityResolver,
 )
+from src.modules.intelligence_layer.providers.agency_tool.semantic import (
+    AgencyToolSemanticProvider,
+)
 from src.modules.intelligence_layer.providers.mock.financial import MockFinancialProvider
 from src.modules.intelligence_layer.providers.mock.master import MockMasterProvider
+from src.modules.intelligence_layer.providers.mock.semantic import MockSemanticProvider
 
 log = get_logger("intelligence_layer.router")
 
@@ -78,6 +92,7 @@ class IntelligenceRouter:
         self.cache = cache or get_cache()
         self._master_provider: MasterProvider | None = None
         self._financial_provider: FinancialProvider | None = None
+        self._semantic_provider: SemanticProvider | None = None
         self._breakers: dict[tuple[str, str], CircuitBreaker] = {}
 
     # ---------- Proveedor Master (Identity) ----------
@@ -99,6 +114,15 @@ class IntelligenceRouter:
             else:
                 self._financial_provider = MockFinancialProvider()
         return self._financial_provider
+
+    # ---------- Proveedor Semantic (§6.5) ----------
+    def _get_semantic_provider(self) -> SemanticProvider:
+        if self._semantic_provider is None:
+            if self.settings.agency_tool_mode == "real":
+                self._semantic_provider = AgencyToolSemanticProvider()
+            else:
+                self._semantic_provider = MockSemanticProvider()
+        return self._semantic_provider
 
     def _get_breaker(self, provider: str, engine: str) -> CircuitBreaker:
         key = (provider, engine)
@@ -306,6 +330,208 @@ class IntelligenceRouter:
             )
         except FinancialNotFoundError:
             raise
+        return payload
+
+    # ================================================================
+    # Semantic Engine (B.6.c · §6.5)
+    # ================================================================
+
+    async def get_semantic_profile(self, cif: str) -> SemanticProfile:
+        return SemanticProfile.model_validate(
+            await self._call_semantic(method="profile", identifier=cif.upper(), extra=None)
+        )
+
+    async def get_semantic_similar(self, cif: str, limit: int = 10) -> SimilarCompanies:
+        return SimilarCompanies.model_validate(
+            await self._call_semantic(
+                method="similar", identifier=cif.upper(), extra={"limit": limit}
+            )
+        )
+
+    async def semantic_search(
+        self, query: str, limit: int = 10, cnae_section: str | None = None
+    ) -> SemanticSearchResponse:
+        """`POST /semantic-intelligence/search`. Cache por (query, limit, cnae)."""
+        provider = self._get_semantic_provider()
+        engine = "semantic"
+        provider_name = provider.provider_name
+        # Búsqueda: TTL corto porque el índice puede cambiar más rápido que identidad.
+        ttl = min(self.settings.ttl_for("semantic"), 900)  # tope a 15 min
+        breaker = self._get_breaker(provider_name, engine)
+        cache_key = build_key(
+            provider=provider_name,
+            engine=engine,
+            method="search",
+            master_id=query.strip().lower(),
+            payload={"limit": limit, "cnae_section": cnae_section},
+        )
+
+        async def _compute() -> dict[str, Any]:
+            start = time.monotonic()
+
+            async def _invoke():
+                return await provider.search(query, limit=limit, cnae_section=cnae_section)
+
+            try:
+                record = await breaker.call(_invoke)
+            except BreakerOpenError:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class="server_5xx"
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name, engine=engine, method="search", status="breaker_open"
+                ).inc()
+                raise
+            except SemanticProviderError as exc:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class=exc.error_class
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name, engine=engine, method="search", status="error"
+                ).inc()
+                raise
+            finally:
+                request_duration_seconds.labels(
+                    provider=provider_name, engine=engine, method="search"
+                ).observe(time.monotonic() - start)
+
+            requests_total.labels(
+                provider=provider_name, engine=engine, method="search", status="ok"
+            ).inc()
+            return record.model_dump(mode="json")
+
+        payload = await self.cache.get_or_compute(
+            engine=engine,
+            key=cache_key,
+            ttl_s=ttl,
+            compute=_compute,
+            error_ttl_s=self.settings.intelligence_cache_error_ttl_seconds,
+        )
+        return SemanticSearchResponse.model_validate(payload)
+
+    async def get_semantic_schema(self) -> SemanticSchema:
+        return SemanticSchema.model_validate(
+            await self._call_semantic_static(method="schema", ttl_s=24 * 60 * 60)
+        )
+
+    async def get_semantic_catalog(self) -> SemanticCatalog:
+        return SemanticCatalog.model_validate(
+            await self._call_semantic_static(method="catalog", ttl_s=24 * 60 * 60)
+        )
+
+    async def _call_semantic(
+        self, *, method: str, identifier: str, extra: dict | None
+    ) -> dict[str, Any]:
+        provider = self._get_semantic_provider()
+        engine = "semantic"
+        provider_name = provider.provider_name
+        ttl = self.settings.ttl_for("semantic")
+        breaker = self._get_breaker(provider_name, engine)
+        cache_key = build_key(
+            provider=provider_name, engine=engine, method=method,
+            master_id=identifier, payload=extra,
+        )
+
+        async def _compute() -> dict[str, Any]:
+            start = time.monotonic()
+
+            async def _invoke():
+                if method == "profile":
+                    return await provider.profile(identifier)
+                if method == "similar":
+                    limit = (extra or {}).get("limit", 10)
+                    return await provider.similar(identifier, limit=limit)
+                raise ValueError(f"método desconocido: {method}")
+
+            try:
+                record = await breaker.call(_invoke)
+            except BreakerOpenError:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class="server_5xx"
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name, engine=engine, method=method, status="breaker_open"
+                ).inc()
+                raise
+            except SemanticNotFoundError:
+                requests_total.labels(
+                    provider=provider_name, engine=engine, method=method, status="not_found"
+                ).inc()
+                raise
+            except SemanticProviderError as exc:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class=exc.error_class
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name, engine=engine, method=method, status="error"
+                ).inc()
+                raise
+            finally:
+                request_duration_seconds.labels(
+                    provider=provider_name, engine=engine, method=method
+                ).observe(time.monotonic() - start)
+
+            requests_total.labels(
+                provider=provider_name, engine=engine, method=method, status="ok"
+            ).inc()
+            return record.model_dump(mode="json")
+
+        try:
+            payload = await self.cache.get_or_compute(
+                engine=engine,
+                key=cache_key,
+                ttl_s=ttl,
+                compute=_compute,
+                error_ttl_s=self.settings.intelligence_cache_error_ttl_seconds,
+            )
+        except SemanticNotFoundError:
+            raise
+        return payload
+
+    async def _call_semantic_static(
+        self, *, method: str, ttl_s: int
+    ) -> dict[str, Any]:
+        """Endpoints sin identifier: schema, catalog. Cache larga."""
+        provider = self._get_semantic_provider()
+        engine = "semantic"
+        provider_name = provider.provider_name
+        cache_key = build_key(
+            provider=provider_name, engine=engine, method=method, master_id="_"
+        )
+
+        async def _compute() -> dict[str, Any]:
+            start = time.monotonic()
+            try:
+                if method == "schema":
+                    record = await provider.schema()
+                elif method == "catalog":
+                    record = await provider.catalog()
+                else:
+                    raise ValueError(f"método estático desconocido: {method}")
+            except SemanticProviderError as exc:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class=exc.error_class
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name, engine=engine, method=method, status="error"
+                ).inc()
+                raise
+            finally:
+                request_duration_seconds.labels(
+                    provider=provider_name, engine=engine, method=method
+                ).observe(time.monotonic() - start)
+            requests_total.labels(
+                provider=provider_name, engine=engine, method=method, status="ok"
+            ).inc()
+            return record.model_dump(mode="json")
+
+        payload = await self.cache.get_or_compute(
+            engine=engine,
+            key=cache_key,
+            ttl_s=ttl_s,
+            compute=_compute,
+            error_ttl_s=self.settings.intelligence_cache_error_ttl_seconds,
+        )
         return payload
 
 
