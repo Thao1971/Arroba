@@ -1,4 +1,7 @@
 # PLAN DE CONSUMIDOR — arroba.com → Intelligence Layer
+
+> Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
+
 **Documento operativo único para migrar arroba.com de mocks locales al contrato público `arroba-integration-contract-v1`.**
 _Versión: `consumer-integration-plan-v1.6` · 2026-02-06 · Estado: **13 reglas canónicas + 4 decisiones técnicas · B.6.a/b/c CERRADAS · B.6.f Hito 1 en reinicio tras corrección R13**_
 

@@ -1,5 +1,8 @@
 # ARROBA.COM — Filosofía canónica v3.0 (definitiva)
 
+> Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
+
+
 > **Fuente de verdad estratégica del producto.**
 > Sustituye cualquier interpretación previa basada en el modelo `Copilot → Skill → Workspace`.
 > Promulgada por el usuario el 2026-06-24. Esta versión es definitiva.

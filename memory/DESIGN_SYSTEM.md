@@ -1,5 +1,8 @@
 # arroba.com — Design System v1.1.0
 
+> Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
+
+
 > **5ª capa canónica del proyecto.** Ver [`ARROBA_PHILOSOPHY.md` §13](./ARROBA_PHILOSOPHY.md).
 > Última actualización: 2026-02-06 (B.6.f — Tooltip explainability-first, BlockExplainability, FinancialSection UI canónico).
 >

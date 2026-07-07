@@ -1,5 +1,8 @@
 # CANONICAL_SCREENS · Registro oficial de pantallas de arroba.com
 
+> Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
+
+
 > **Regla R13:** solo puede existir UNA Source of Truth por cada pantalla canónica.
 > Cuando una pantalla queda sustituida, la anterior se **mueve** a `/app/_legacy/` o se elimina.
 > Ningún mockup, componente o HTML obsoleto puede permanecer en el árbol activo.

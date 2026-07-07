@@ -10,6 +10,8 @@
 
 ## Índice
 
+0. [Puerta de entrada — `ARROBA_CANON.md`](#0-puerta-de-entrada--arroba_canonmd)
+0.1. [Principios y reglas — `ARROBA_ARCHITECTURAL_PRINCIPLES.md`](#01-principios-y-reglas--arroba_architectural_principlesmd)
 1. [Mapa de capas canónicas](#1-mapa-de-capas-canónicas)
 2. [Capa 1 — Blueprint Estratégico](#2-capa-1--blueprint-estratégico)
 3. [Capa 2 — UX Blueprint](#3-capa-2--ux-blueprint)
@@ -21,6 +23,28 @@
 9. [Documentos de auditoría y consolidación](#9-documentos-de-auditoría-y-consolidación)
 10. [Documentos transversales](#10-documentos-transversales)
 11. [Reglas de evolución del canon](#11-reglas-de-evolución-del-canon)
+
+---
+
+## 0. Puerta de entrada — `ARROBA_CANON.md`
+
+**Path**: `/app/memory/ARROBA_CANON.md`
+**Estado**: ✅ Vigente (v1 · 2026-07-06).
+**Función**: **puerta de entrada única al canon**. No contiene canon; declara dónde vive el canon vivo, la Source of Truth por ámbito, y la jerarquía de precedencia. Todo agente/humano/proceso que consulte el canon debe empezar aquí.
+
+## 0.1. Principios y reglas — `ARROBA_ARCHITECTURAL_PRINCIPLES.md`
+
+**Path**: `/app/memory/ARROBA_ARCHITECTURAL_PRINCIPLES.md`
+**Estado**: ✅ Vigente (v1 · 2026-07-06).
+**Función**: **única Source of Truth de principios y reglas arquitectónicas**. Formaliza:
+- P1 · Explainability First
+- P2 · Intelligence over Data
+- P3 · Zero Coupling
+- R11 · Visual Governance
+- R12 · Nunca `/master/*`
+- R13 · Source of Truth única por pantalla
+
+Cualquier otro documento del canon puede referenciarlos pero no redefinirlos.
 
 ---
 
@@ -331,11 +355,11 @@ canonical_pack_v1.0/
 **Función**: histórico de releases del producto + freezes documentales.
 **Última entrada**: `v1.0-canonical-baseline (2026-06-25)`.
 
-### 10.3 `ROADMAP.md`
+### 10.3 `PRD.md` (antes `ROADMAP.md`, ahora archivado)
 
-**Path**: `/app/memory/ROADMAP.md`
-**Estado**: ✅ Vigente.
-**Función**: backlog priorizado de capacidades y entidades por implementar.
+**Path**: `/app/memory/PRD.md`
+**Estado**: ✅ Vigente. Es la Source of Truth de planificación viva según `ARROBA_CANON.md`.
+**Función**: absorbe el backlog priorizado. El anterior `ROADMAP.md` ha sido archivado a `/app/_legacy/memory/ROADMAP.md` por decisión canónica (2026-07-06).
 
 ### 10.4 `_INVENTORY_2026.md`
 

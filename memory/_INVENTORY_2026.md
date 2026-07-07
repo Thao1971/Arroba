@@ -1,5 +1,8 @@
 # arroba.com — Inventario Técnico Exhaustivo (modo solo lectura)
 
+> Nota canónica: este inventario es histórico (2026-06-25). Las referencias a `ROADMAP.md` que aparecen en el texto documentan el estado del archivo ese día. Desde 2026-07-06 `ROADMAP.md` está archivado en `/app/_legacy/memory/ROADMAP.md`; su rol de planificación viva ha sido absorbido por `PRD.md`. Ver `ARROBA_CANON.md`.
+
+
 > **Fecha del inventario**: 2026-06-25
 > **Modo**: SOLO LECTURA — ningún archivo de producto fue modificado.
 > **Propósito**: Línea base real (no narrativa) para estimar el esfuerzo hacia el hito **ARROBA Matching v1.0 — Transaction Operating System**.
@@ -11,7 +14,7 @@
 
 - **Backend**: 8 módulos · 7 670 LOC Python · 48 endpoints (todos bajo `/api`) · 138/138 tests pasan (6 deselected = `real_mongo`).
 - **Frontend**: 15 717 LOC TS/TSX · 21 archivos de test · **152/152 tests Vitest pasan**.
-- **Documentación canónica**: 6 documentos `/app/memory/*.md` activos + 2 documentos operativos (`CHANGELOG.md`, `ROADMAP.md`).
+- **Documentación canónica**: 6 documentos `/app/memory/*.md` activos + 2 documentos operativos (`CHANGELOG.md`, `PRD.md` — antes `ROADMAP.md`, ahora archivado).
 - **Hito alcanzado**: E1.5.6 (Consolidación Arquitectónica, Entity Framework canonizado). **6 capas canónicas** vivas.
 - **Camino hacia ARROBA Matching v1.0**: 14 bloques requeridos; estimación bruta de cobertura **≈ 18 %** (sólo a/m parcialmente cubiertos; resto sin código ni spec).
 - **Riesgo dominante**: lagunas documentales P0 sobre **NDA progresivo, Finder Fee, CIS, 4 niveles agénticos, 5 copilots especializados, suscripción por rol**. Sin estos specs, el backend de Transaction OS (E1.6 → E2.0) no puede arrancar con dirección clara.
@@ -488,7 +491,7 @@ Cruzando §1.3 con la matriz §5.1:
 14. `DEAL_WORKSPACE_SPEC.md` — workspace contextual a una operación abierta.
 15. `EARNOUT_SPEC.md` — cláusulas, fórmula, vesting.
 16. **Specs de entidad faltantes en código**: `models.py` Pydantic para `sector`, `territory`, `valuation`, `opportunity`, `operation`, `mandate`, `client`, `document`, `person`, `advisor` (los 10 tipos declarados en `ENTITY_MODEL.md` que aún no existen como modelo backend).
-17. Limpieza de `ROADMAP.md` para reflejar la realidad post-Filosofía v3.0.
+17. Limpieza de `PRD.md` (antes `ROADMAP.md`, ahora archivado) para reflejar la realidad post-Filosofía v3.0.
 
 ---
 
@@ -496,7 +499,7 @@ Cruzando §1.3 con la matriz §5.1:
 
 | KPI | Valor |
 |---|---:|
-| **Documentos canónicos** | 6 (PHILOSOPHY, ENTITY_MODEL, ENTITY_FRAMEWORK, DESIGN_SYSTEM, PRD, +test_credentials/CHANGELOG/ROADMAP operativos) |
+| **Documentos canónicos** | 6 (PHILOSOPHY, ENTITY_MODEL, ENTITY_FRAMEWORK, DESIGN_SYSTEM, PRD, +test_credentials/CHANGELOG operativos · `ROADMAP.md` archivado en `_legacy/memory/` desde 2026-07-06) |
 | **Capas canónicas declaradas** | 6 |
 | **Capas implementadas end-to-end** | 1 (Empresa) de 6 entidades núcleo (Empresa, Sector, Territorio, Valoración, Oportunidad, Transacción) |
 | **Backend LOC (Python, `src/`)** | 7 670 |

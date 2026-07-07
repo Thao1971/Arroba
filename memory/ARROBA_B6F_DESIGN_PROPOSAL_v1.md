@@ -1,4 +1,7 @@
 # ARROBA · B.6.f Design Proposal · v1
+
+> Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
+
 **Diseño canónico para migración de `/empresa/{cif}` al pipeline `intelligence_layer` (B.6.a + B.6.b + B.6.c).**
 
 _Versión: `b6f-design-proposal-v1` · 2026-07-07 · Estado: **PROPUESTA VISUAL · PENDIENTE APROBACIÓN EXPRESA DEL USUARIO (R11)**_

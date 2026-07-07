@@ -332,7 +332,7 @@ El orden puede variar según prioridades de mercado.
 
 **Mitigación**:
 - Cada item G3 se asigna a un Sprint específico al iniciar el Sprint correspondiente.
-- `ROADMAP.md` debe ir absorbiendo los G3 como inputs.
+- `PRD.md` (antes `ROADMAP.md`, ahora archivado) debe ir absorbiendo los G3 como inputs.
 
 ---
 

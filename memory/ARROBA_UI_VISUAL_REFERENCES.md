@@ -1,5 +1,8 @@
 # ARROBA — Referencias Visuales Canónicas (v1)
 
+> Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
+
+
 ## Regla general
 Existen DOS referencias visuales SEPARADAS. No se pueden mezclar. No se puede volver al layout antiguo de una columna bajo ninguna circunstancia (regla R13).
 

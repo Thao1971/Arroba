@@ -457,7 +457,8 @@ Spec: `MONETIZATION_SPEC.md`. Cifras concretas pendientes (G3, decisión de prod
 │
 ├── PRD.md                           ← ESTADO (vivo)
 ├── CHANGELOG.md                     ← ESTADO (vivo)
-├── ROADMAP.md                       ← ESTADO (vivo)
+├── ARROBA_CANON.md                  ← CANON (puerta única)
+├── ARROBA_ARCHITECTURAL_PRINCIPLES.md ← CANON (principios y reglas)
 ├── _INVENTORY_2026.md               ← ESTADO (vivo)
 ├── test_credentials.md              ← OPERATIVO
 │

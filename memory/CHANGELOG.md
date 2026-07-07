@@ -1,5 +1,11 @@
 # CHANGELOG — ARROBA Platform
 
+## 📚 06 Jul 2026 · CANON — Consolidación documental
+
+- CANON · Consolidación documental: creados ARROBA_CANON.md (puerta única) y ARROBA_ARCHITECTURAL_PRINCIPLES.md (SoT de principios y reglas). Archivado ROADMAP.md → _legacy/memory/. Marcado canonical_pack_v1.0/ como snapshot histórico. Añadido banner de referencia canónica a docs afectados. Sin cambios en código.
+
+---
+
 ## 🚀 06 Jul 2026 · B.6.c · Semantic Engine (backend) — COMPLETADA
 
 Tercera sub-fase del roadmap: `semantic-intelligence` en producción real. Sigue el mismo patrón que Financial (R12, X-API-Key, cache, breaker, métricas). Backend puro (R11 no aplica).
