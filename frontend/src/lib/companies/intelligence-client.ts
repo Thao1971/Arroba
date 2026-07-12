@@ -13,6 +13,7 @@
  */
 import { apiRequest, ApiError } from '@/lib/api/client';
 import type {
+  FinancialAnalysis,
   FinancialSection,
   IdentitySection,
   SemanticSection,
@@ -35,6 +36,16 @@ export const intelligenceClient = {
   financialSection: (cif: string) =>
     _get<FinancialSection>(`/api/companies/${encodeURIComponent(cif)}/section/financial`),
 
+  /**
+   * F0.2 · endpoint `/financial-analysis` (superficie más rica que
+   * `/section/financial`) para la sección Finanzas: cuenta de resultados y
+   * balance completos, cashflow real (o null→BLOCKED), evolution.points,
+   * financial_quality + assessment + explainability para narrativa
+   * source-grounded (P1).
+   */
+  financialAnalysis: (cif: string) =>
+    _get<FinancialAnalysis>(`/api/companies/${encodeURIComponent(cif)}/financial-analysis`),
+
   valuationSection: (cif: string) =>
     _get<ValuationSection>(`/api/companies/${encodeURIComponent(cif)}/section/valuation`),
 
@@ -44,4 +55,4 @@ export const intelligenceClient = {
     ),
 };
 
-export type { IdentitySection, FinancialSection, ValuationSection, SemanticSection };
+export type { IdentitySection, FinancialSection, FinancialAnalysis, ValuationSection, SemanticSection };

@@ -29,6 +29,12 @@ from src.modules.intelligence_layer.interfaces.master import (
     MasterProviderError,
     MasterRecord,
 )
+from src.modules.intelligence_layer.interfaces.resolve import (
+    PublicResolveNotFound,
+    PublicResolveResult,
+    ResolveNotFoundError,
+    ResolveProviderError,
+)
 from src.modules.intelligence_layer.interfaces.semantic import (
     SemanticCatalog,
     SemanticNotFoundError,
@@ -79,6 +85,53 @@ def _cif_param(
     cif: str = Path(..., min_length=9, max_length=9, regex=r"^[A-Za-z]\d{8}$"),
 ) -> str:
     return cif.upper()
+
+
+@companies_intel_router.get(
+    "/{cif}/resolve",
+    response_model=PublicResolveResult,
+    responses={404: {"model": PublicResolveNotFound}},
+    summary="Resolución canónica CIF → identidad (arroba-resolve-v1) · F0.2",
+)
+async def get_company_resolve(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # auth requerida
+) -> PublicResolveResult:
+    """Resuelve un CIF contra el Master Layer del Intelligence Engine.
+
+    Contrato interno canónico `arroba-resolve-v1`. F0.2-OP3: **NO expone
+    `master_id`** al frontend (identificador interno estable, cacheado por
+    el backend en `intelligence_cache`).
+
+    Errores canónicos:
+      * `404 resolve_not_found` — `count=0` en el Master Layer del proveedor.
+      * `503 provider_unavailable` — circuit breaker abierto.
+      * `502 provider_error` — otros fallos del proveedor.
+    """
+    router = get_intelligence_router()
+    try:
+        result = await router.resolve_by_cif(cif)
+    except ResolveNotFoundError as exc:
+        raise NotFoundError("resolve_not_found", code="resolve_not_found") from exc
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except ResolveProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Provider"] = router._get_resolve_provider().provider_name
+    return PublicResolveResult(
+        cif=result.cif,
+        resolved=result.resolved,
+        canonical_name=result.canonical_name,
+        match_type=result.match_type,
+        score=result.score,
+        engine_version=result.engine_version,
+    )
 
 
 @companies_intel_router.get(

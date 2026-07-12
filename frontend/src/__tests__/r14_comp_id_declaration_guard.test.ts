@@ -1,8 +1,8 @@
 /**
  * R14 · Guard automatizado — verifica que todo componente React bajo
  * `components/company/**` (excepto contenedores de layout explícitos y
- * módulos utilitarios `_lib/`) declara su `@componentId` en el JSDoc de
- * cabecera.
+ * módulos utilitarios `_lib/` o `lib/`) declara su `@componentId` en el JSDoc
+ * de cabecera.
  *
  * Formato válido:
  *   - `@componentId COMP-1001` para componentes del ACC.
@@ -11,6 +11,7 @@
  * Excepciones (contenedores de layout · NO cuentan como COMP-XXXX del ACC):
  *   - `header/CompanyHeader.tsx`
  *   - `perfil/CompanyPerfil.tsx`
+ *   - `finanzas/CompanyFinanzas.tsx` (F0.2)
  *   - `CompanyFichaF01Client.tsx`
  * Se listan explícitamente en `LAYOUT_CONTAINERS`.
  */
@@ -21,9 +22,10 @@ import { describe, expect, it } from 'vitest';
 const SRC_ROOT = join(__dirname, '..');
 const COMPANY_ROOT = join(SRC_ROOT, 'components/company');
 const EXTENSIONS = ['.tsx'];
-const EXCLUDED_DIRS = new Set(['_lib', 'layout', '__pycache__', 'node_modules']);
+const EXCLUDED_DIRS = new Set(['_lib', 'lib', 'layout', '__pycache__', 'node_modules']);
 const LAYOUT_CONTAINERS = new Set<string>([
   'perfil/CompanyPerfil.tsx',
+  'finanzas/CompanyFinanzas.tsx',
   'CompanyFichaF01Client.tsx',
 ]);
 const COMP_ID_REGEX = /@componentId\s+(COMP(?:-P)?-[A-Z0-9]+)/;
@@ -94,6 +96,7 @@ describe('R14 · Un COMP = un componente React (Sprint F0.1)', () => {
       const match = COMP_ID_REGEX.exec(src);
       if (!match) continue;
       const id = match[1];
+      if (!id) continue;
       byId.set(id, [...(byId.get(id) ?? []), rel]);
     }
     const dupes = [...byId.entries()].filter(([, list]) => list.length > 1);

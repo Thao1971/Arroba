@@ -1,20 +1,35 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-06-25 — **🧊 CANONICAL BASELINE v1.0 — Sprint 0 (6 specs) + Sprint 0.5 (Ciclos A y B) cerrados. Documentación canónica consolidada y congelada. Cero código de producto modificado en estos sprints.**
+> **Última actualización**: 2026-07-12 — **🟢 Sprint F0.2 (Finanzas) · Entregable mínimo entregado**. Caso canónico `A87803862` (TOTALENERGIES) visible en producción con datos reales del Intelligence Engine (Iberinform). COMP-3001..3007 implementados. COMP-3005 Cash Flow BLOCKED (motor devuelve `cashflow:null`). Pytest 276/276 · Vitest 189/189.
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 
 ---
 
-## 🔴 Estado activo · 2026-07-06
+## 🟢 Estado activo · 2026-07-12
 
-**Sprint F0.2 · Finanzas · BLOQUEADO por dependencia externa** desde 2026-07-06.
-- **Motivo**: Agency Tool Master Layer vacío (0/13 CIFs con datos tras sondeo del 2026-07-06).
+**Sprint F0.2 · Finanzas · ENTREGABLE MÍNIMO COMPLETADO**.
+- **Caso canónico validado**: `A87803862` (TOTALENERGIES ELECTRICIDAD Y GAS ESPAÑA · `mc_80e03f1e1627`).
+- **Backend**: proxy `resolve` (CIF → master_id) + `identity V2` + `financial-analyze` con mapper adaptado al shape actual del Intelligence Engine (`statements` wrapper + `evolution.points` + `explainability.data_source`).
+- **Frontend**: sección Finanzas dentro del layout F0.1c. IntelCard source-grounded, selector de 4 bloques (P&L · Balance · Cash Flow · Ratios) × 3 niveles (Ejecutiva · Categorías · Detalle).
+- **URL preview**: `https://bda5adf2-2809-4e4d-80da-4a47b994f2fe.preview.emergentagent.com/es/empresa-f01/A87803862` (login `buyer@arroba.com`).
+- **Capturas públicas**: `/qa/f0_2/f02_finanzas_{level1,level3_pnl,level3_balance,cashflow_blocked,ratios}.jpeg`.
+- **Documento entregable**: `sources/empresa_v1/F0_2_DELIVERABLE.md`.
+- **Cumplimiento**: R15 · P1 · R5 · R13 · R14 · P3 · F0.2-OP1..OP6 · contratos v1+v2 congelados durante el sprint.
+
+**Sprint F0.3..F0.12** continúan pendientes por precedencia normal.
+
+
+---
+
+## 🔴 Estado histórico · 2026-07-06
+
+**Sprint F0.2 · Finanzas · BLOQUEADO por dependencia externa** desde 2026-07-06 hasta 2026-07-12.
+- **Motivo**: Agency Tool Master Layer vacío (0/13 CIFs con datos tras sondeos del 2026-07-06 y 2026-07-12 21:04/21:18).
+- **Resuelto**: el 2026-07-12 21:53 UTC el usuario proporcionó el caso canónico `A87803862` validado por el equipo del Intelligence Engine. Los 3 endpoints devuelven 200 con datos reales.
 - **Prohibida** cualquier solución temporal en Arroba: no poblar mocks financieros propios · no crear empresas especiales para la UI · no scraping · no modificar contratos.
-- **Se reanuda** cuando el proveedor externo confirme datos reales disponibles (ver `sources/empresa_v1/F0_2_UNBLOCK_CHECKLIST.md`).
-- **Planificación completa preparada** para reanudación inmediata: `sources/empresa_v1/F0_2_PLAN.md`.
-- **Sprints F0.3..F0.12** continúan bloqueados por precedencia normal (no por dependencia externa).
-- **Regla nueva canónica** activada: **R15 · Datos reales o Unavailable** (`memory/ARROBA_ARCHITECTURAL_PRINCIPLES.md`). Sustituye para siempre cualquier lógica "histórico ilustrativo" · resuelve la contradicción C14.4.
+- **Regla nueva canónica** activada durante el bloqueo: **R15 · Datos reales o Unavailable** (`memory/ARROBA_ARCHITECTURAL_PRINCIPLES.md`). Sustituye para siempre cualquier lógica "histórico ilustrativo" · resuelve la contradicción C14.4.
+- **Reglas operativas F0.2-OP1..OP6** activadas el 2026-07-12 tras desbloqueo (`ARROBA_ARCHITECTURAL_PRINCIPLES.md`).
 
 
 ---

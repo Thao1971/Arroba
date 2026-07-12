@@ -45,6 +45,12 @@ from src.modules.intelligence_layer.interfaces.master import (
     MasterProviderError,
     MasterRecord,
 )
+from src.modules.intelligence_layer.interfaces.resolve import (
+    ResolveNotFoundError,
+    ResolveProvider,
+    ResolveProviderError,
+    ResolveResult,
+)
 from src.modules.intelligence_layer.interfaces.semantic import (
     SemanticCatalog,
     SemanticNotFoundError,
@@ -69,17 +75,24 @@ from src.modules.intelligence_layer.providers.agency_tool.financial import (
 from src.modules.intelligence_layer.providers.agency_tool.identity import (
     AgencyToolIdentityResolver,
 )
+from src.modules.intelligence_layer.providers.agency_tool.resolve import (
+    AgencyToolResolveProvider,
+)
 from src.modules.intelligence_layer.providers.agency_tool.semantic import (
     AgencyToolSemanticProvider,
 )
 from src.modules.intelligence_layer.providers.mock.financial import MockFinancialProvider
 from src.modules.intelligence_layer.providers.mock.master import MockMasterProvider
+from src.modules.intelligence_layer.providers.mock.resolve import MockResolveProvider
 from src.modules.intelligence_layer.providers.mock.semantic import MockSemanticProvider
 
 log = get_logger("intelligence_layer.router")
 
 # TTL específico para el mapping identidad `cif → master_id` (R12 §0.2.3): 24h.
 IDENTITY_MAPPING_TTL_SECONDS = 24 * 60 * 60
+# F0.2 · TTL del cache `resolve` (CIF → master_id + canonical_name). 24h por
+# defecto (identificación estable en el proveedor). Ver `intelligence_cache`.
+RESOLVE_MAPPING_TTL_SECONDS = 24 * 60 * 60
 
 
 class IntelligenceRouter:
@@ -96,6 +109,7 @@ class IntelligenceRouter:
         self._master_provider: MasterProvider | None = None
         self._financial_provider: FinancialProvider | None = None
         self._semantic_provider: SemanticProvider | None = None
+        self._resolve_provider: ResolveProvider | None = None
         self._breakers: dict[tuple[str, str], CircuitBreaker] = {}
 
     # ---------- Proveedor Master (Identity) ----------
@@ -132,6 +146,15 @@ class IntelligenceRouter:
                 self._semantic_provider = MockSemanticProvider()
         return self._semantic_provider
 
+    # ---------- Proveedor Resolve (F0.2 · CIF → master_id) ----------
+    def _get_resolve_provider(self) -> ResolveProvider:
+        if self._resolve_provider is None:
+            if self.settings.agency_tool_mode == "real":
+                self._resolve_provider = AgencyToolResolveProvider()
+            else:
+                self._resolve_provider = MockResolveProvider()
+        return self._resolve_provider
+
     def _get_breaker(self, provider: str, engine: str) -> CircuitBreaker:
         key = (provider, engine)
         if key not in self._breakers:
@@ -149,6 +172,93 @@ class IntelligenceRouter:
 
     async def get_master_by_id(self, master_id: str) -> MasterRecord:
         return await self._call_master(method="get_by_id", identifier=master_id)
+
+    # ================================================================
+    # Resolve Engine (F0.2 · CIF → master_id)
+    # ================================================================
+
+    async def resolve_by_cif(self, cif: str) -> ResolveResult:
+        """`POST /company-intelligence/resolve` con caché aside 24h + breaker + métricas.
+
+        Cache key canónica: `resolve:{cif}` (indirectamente via `build_key`).
+        En caso de `count=0` en el proveedor → `ResolveNotFoundError`
+        (canónico 404 en el endpoint público).
+        """
+        provider = self._get_resolve_provider()
+        engine = "resolve"
+        provider_name = provider.provider_name
+        cif_norm = cif.upper().strip()
+        ttl = RESOLVE_MAPPING_TTL_SECONDS
+        breaker = self._get_breaker(provider_name, engine)
+        cache_key = build_key(
+            provider=provider_name,
+            engine=engine,
+            method="resolve_by_cif",
+            master_id=cif_norm,
+        )
+
+        async def _compute() -> dict[str, Any]:
+            start = time.monotonic()
+
+            async def _invoke() -> ResolveResult:
+                return await provider.resolve_by_cif(cif_norm)
+
+            try:
+                record = await breaker.call(_invoke)
+            except BreakerOpenError:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class="server_5xx"
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name,
+                    engine=engine,
+                    method="resolve_by_cif",
+                    status="breaker_open",
+                ).inc()
+                raise
+            except ResolveNotFoundError:
+                requests_total.labels(
+                    provider=provider_name,
+                    engine=engine,
+                    method="resolve_by_cif",
+                    status="not_found",
+                ).inc()
+                raise
+            except ResolveProviderError as exc:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class=exc.error_class
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name,
+                    engine=engine,
+                    method="resolve_by_cif",
+                    status="error",
+                ).inc()
+                raise
+            finally:
+                request_duration_seconds.labels(
+                    provider=provider_name, engine=engine, method="resolve_by_cif"
+                ).observe(time.monotonic() - start)
+
+            requests_total.labels(
+                provider=provider_name,
+                engine=engine,
+                method="resolve_by_cif",
+                status="ok",
+            ).inc()
+            return record.model_dump(mode="json")
+
+        try:
+            payload = await self.cache.get_or_compute(
+                engine=engine,
+                key=cache_key,
+                ttl_s=ttl,
+                compute=_compute,
+                error_ttl_s=self.settings.intelligence_cache_error_ttl_seconds,
+            )
+        except ResolveNotFoundError:
+            raise
+        return ResolveResult.model_validate(payload)
 
     async def _call_master(self, *, method: str, identifier: str) -> MasterRecord:
         provider = self._get_master_provider()
@@ -605,4 +715,5 @@ __all__ = [
     "get_intelligence_router",
     "reset_intelligence_router_for_tests",
     "IDENTITY_MAPPING_TTL_SECONDS",
+    "RESOLVE_MAPPING_TTL_SECONDS",
 ]

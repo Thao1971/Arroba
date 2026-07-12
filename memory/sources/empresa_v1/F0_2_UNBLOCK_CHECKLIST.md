@@ -113,7 +113,7 @@ Cuando el veredicto global pase a **GO**:
 3. Notificar al main agent para reanudar F0.2 desde el `F0_2_PLAN.md`.
 4. Iniciar la construcción de componentes por el orden ACC: COMP-3001 → 3002 → 3003 → 3004 → 3006 → 3007. COMP-3005 se materializa como stub desde el primer commit.
 5. Verificación visual overlay pixel-diff contra `ce-finanzas.jsx` (Objetivo Δh ≤ ±2 px).
-6. Entregable mínimo idéntico al de F0.1c (URL preview · captura full-page en `/public/_qa/f0_2/` · tests verdes).
+6. Entregable mínimo idéntico al de F0.1c (URL preview · captura full-page en `/public/qa/f0_2/` · tests verdes).
 
 ---
 

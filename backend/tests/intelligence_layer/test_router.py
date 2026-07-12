@@ -92,6 +92,7 @@ async def test_router_dispatches_to_mock_by_default(mock_db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_router_dispatches_to_agency_tool_when_real(mock_db):
+    """En modo real, sin flag V2, el resolver clásico (Financial→Semantic)."""
     from src.modules.intelligence_layer.providers.agency_tool.identity import (
         AgencyToolIdentityResolver,
     )
@@ -99,6 +100,7 @@ async def test_router_dispatches_to_agency_tool_when_real(mock_db):
     settings = IntelligenceSettings(
         agency_tool_mode="real",
         arroba_service_api_key_primary="test-key",
+        intelligence_company_v2_enabled=False,
     )
     router = IntelligenceRouter(
         settings=settings,
@@ -106,6 +108,25 @@ async def test_router_dispatches_to_agency_tool_when_real(mock_db):
     )
     provider = router._get_master_provider()
     assert isinstance(provider, AgencyToolIdentityResolver)
+    assert provider.provider_name == "agency_tool"
+
+
+@pytest.mark.asyncio
+async def test_router_dispatches_to_company_intelligence_v2_when_flag_on(mock_db):
+    """Con `intelligence_company_v2_enabled=True`, el router usa V2 con fallback."""
+    from src.modules.intelligence_layer.router import _CompanyIntelligenceV2WithFallback
+
+    settings = IntelligenceSettings(
+        agency_tool_mode="real",
+        arroba_service_api_key_primary="test-key",
+        intelligence_company_v2_enabled=True,
+    )
+    router = IntelligenceRouter(
+        settings=settings,
+        cache=IntelligenceCache(memory=MemoryCache(), mongo=MongoCache()),
+    )
+    provider = router._get_master_provider()
+    assert isinstance(provider, _CompanyIntelligenceV2WithFallback)
     assert provider.provider_name == "agency_tool"
 
 

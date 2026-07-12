@@ -1,5 +1,54 @@
 # CHANGELOG — ARROBA Platform
 
+## 🟢 12 Jul 2026 · SPRINT F0.2 · Sección Finanzas · Entregable mínimo entregado
+
+**Caso canónico `A87803862` (TOTALENERGIES ELECTRICIDAD Y GAS ESPAÑA · `mc_80e03f1e1627`) visible en producción con datos reales del Intelligence Engine.**
+
+### Backend
+- Nuevo `POST /api/v2/company-intelligence/resolve` proxy Zero Coupling (interfaces + provider real + mock + endpoint público `GET /api/companies/{cif}/resolve`).
+- Cache aside 24h (mapping `cif → master_id`) en `intelligence_cache`.
+- **`master_id` NO expuesto al frontend** (F0.2-OP3 · test `test_resolve_master_id_never_leaks_in_response`).
+- Mapper `AgencyToolFinancialProvider._map_analyze` adaptado al shape actual del Intelligence Engine (`statements` wrapper + `evolution.points` + `explainability.data_source` + `assessment.*`) con retrocompatibilidad B.6.b.
+- DTO `FinancialAnalysis` ampliado con campos opcionales (`cashflow`, `evolution`, `valuation`, `assessment`) — arroba contratos v1+v2 externos NO tocados.
+- `canonical_ui_adapter.to_financial_section` usa `evolution.points` como source de años y series (R15). Soporta ratios shape dict `{value, name, category, formula}` y bool `evolution.anomaly`.
+- `.env`: `INTELLIGENCE_COMPANY_V2_ENABLED=true` (activa V2 identity provider en modo real).
+
+### Frontend
+- Nueva sección `components/company/finanzas/` con COMP-3001..3007 y helpers (`lib/format.ts`, `lib/IntelCard.tsx`).
+- **COMP-3001** Overview (KPIs headline + `financial_quality.score`).
+- **COMP-3002** Cuenta de Resultados · niveles 1/2/3 con 9 partidas reales.
+- **COMP-3003** Balance · niveles 1/2/3 con 5 grupos reales (último ejercicio auditado).
+- **COMP-3004** Ratios · niveles 1/2/3 con 13 ratios reales (`name`, `category`, `formula`, `source`).
+- **COMP-3005** Cash Flow · **BLOCKED** (motor devuelve `cashflow: null` · R15 explícito). UnavailableBlock geométricamente equivalente al ZIP.
+- **COMP-3006** Evolution · 3 años reales (2022-2024) para revenue/EBITDA/net_income · sin interpolar.
+- **COMP-3007** Anomalies · `evolution.anomaly` + `assessment.risks/weaknesses` source-grounded.
+- Orquestador `CompanyFinanzas` (contenedor · exento R14) integrado en `CompanyFichaLayout` cuando `section === 'finanzas'`.
+- `intelligence-client.ts` extendido con `financialAnalysis(cif)` (endpoint más rico que `/section/financial`).
+- IntelCard con contenido 100% source-grounded (financial_quality + assessment + explainability). Prohibido narrativa LLM propia sin source.
+
+### Reglas · Cumplimiento
+- ✅ **R15 · Datos reales o Unavailable**: 3 ejercicios reales sin interpolar. Cash Flow BLOCKED. Columnas P&L de años sin dato → `—`.
+- ✅ **R14 · Un COMP = un componente React**: COMP-3001..3007 con `@componentId` en JSDoc.
+- ✅ **R13 · SoT única**: nueva sección aislada · layout F0.1c intacto.
+- ✅ **R5 · Contrato interno decoupled**: `engine_version="arroba-financial-v1"` · `metadata.source` no menciona proveedor externo.
+- ✅ **P1 · Explainability first**: IntelCard con `data_source`, `source_version`, `basis`, `year`, `rules_applied`, `ai_used`.
+- ✅ **P3 · Zero Coupling**: proxy `resolve` absorbe divergencias de schema del proveedor.
+- ✅ **F0.2-OP1..OP6**: CIF como identificador de entrada · master_id interno · contratos v1+v2 congelados durante F0.2.
+
+### Tests
+- **Pytest** 276/276 verde (250 iniciales + 26 F0.2: +14 resolve unit + endpoint · +3 financial mapper shape actual · +8 canonical adapter · +1 router V2 flag).
+- **Vitest** 189/189 verde (180 iniciales + 9 CompanyFinanzas + COMP-3001..3007).
+- Guards R12, R14 verdes.
+
+### Entregables (ver `sources/empresa_v1/F0_2_DELIVERABLE.md`)
+- URL preview: `/es/empresa-f01/A87803862`.
+- Capturas públicas: `/qa/f0_2/f02_finanzas_{level1,level3_pnl,level3_balance,cashflow_blocked,ratios}.jpeg`.
+- Login: `buyer@arroba.com / Arroba2026!`.
+
+Backend queda en `AGENCY_TOOL_MODE=real` para las capturas y demostración (según Paso 6 del brief).
+
+---
+
 ## 🟢 12 Jul 2026 · SPRINT F0.2 · DESBLOQUEO OFICIAL · Caso canónico A87803862 validado
 
 **F0.2 · Desbloqueo oficial · Caso canónico A87803862 (TOTALENERGIES) validado en producción · Flujo resolve→identity→financial-analyze · Contratos v1+v2 congelados.**

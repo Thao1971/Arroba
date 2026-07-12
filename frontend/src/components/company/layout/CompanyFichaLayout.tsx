@@ -21,12 +21,14 @@
  */
 import { useState } from 'react';
 import type {
+  FinancialAnalysis,
   FinancialSection,
   IdentitySection,
   SemanticSection,
 } from '@/lib/companies/intelligence-types';
 
 import { CompanyPerfil } from '../perfil/CompanyPerfil';
+import { CompanyFinanzas } from '../finanzas/CompanyFinanzas';
 
 import { CompanyTopbar } from './CompanyTopbar';
 import { CompanyHeaderBlock } from './CompanyHeaderBlock';
@@ -37,14 +39,20 @@ import { CompanyComposerStub } from './CompanyComposerStub';
 import { SectionPlaceholder } from './SectionPlaceholder';
 
 export interface CompanyFichaLayoutProps {
+  cif: string;
   identity: IdentitySection;
   financial: FinancialSection | null;
+  financialAnalysis: FinancialAnalysis | null;
+  financialAnalysisLoading?: boolean;
   semantic: SemanticSection | null;
 }
 
 export function CompanyFichaLayout({
+  cif,
   identity,
   financial,
+  financialAnalysis,
+  financialAnalysisLoading,
   semantic,
 }: CompanyFichaLayoutProps) {
   const [section, setSection] = useState<SectionKey>('resumen');
@@ -74,7 +82,7 @@ export function CompanyFichaLayout({
         <CompanySectionNav section={section} onChange={setSection} />
 
         <div data-testid="ficha-content" style={{ minWidth: 0 }}>
-          {section === 'resumen' ? (
+          {section === 'resumen' && (
             <div
               data-testid="ficha-content-resumen"
               className="flex flex-col"
@@ -87,7 +95,15 @@ export function CompanyFichaLayout({
                 onOpenFinanzas={() => setSection('finanzas')}
               />
             </div>
-          ) : (
+          )}
+          {section === 'finanzas' && (
+            <CompanyFinanzas
+              cif={cif}
+              analysis={financialAnalysis}
+              loading={financialAnalysisLoading}
+            />
+          )}
+          {section !== 'resumen' && section !== 'finanzas' && (
             <SectionPlaceholder section={section} />
           )}
         </div>

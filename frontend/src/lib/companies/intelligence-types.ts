@@ -193,6 +193,136 @@ export interface FinancialSection {
 }
 
 /* ============================================================
+ * FinancialAnalysis (raw §6.2 · endpoint /financial-analysis)
+ * ============================================================
+ * Superficie más rica que `FinancialSection` — la usa la sección Finanzas
+ * (F0.2) para pintar Nivel 3 detalle (Cuenta de Resultados completa, Balance
+ * completo, cashflow=null → UnavailableBlock) + la narrativa Copilot
+ * source-grounded (`financial_quality.strengths/weaknesses/risks` +
+ * `explainability.rules_applied`).
+ */
+
+export interface FinancialAnalysisIncomeStatement {
+  revenue?: number | null;
+  supplies?: number | null;
+  personnel_costs?: number | null;
+  depreciation?: number | null;
+  operating_income?: number | null;
+  financial_expenses?: number | null;
+  ebit?: number | null;
+  ebitda?: number | null;
+  net_income?: number | null;
+}
+
+export interface FinancialAnalysisBalanceSheet {
+  current_assets?: number | null;
+  non_current_assets?: number | null;
+  total_assets?: number | null;
+  cash?: number | null;
+  current_liabilities?: number | null;
+  non_current_liabilities?: number | null;
+  total_liabilities?: number | null;
+  st_debt?: number | null;
+  lt_debt?: number | null;
+  financial_debt?: number | null;
+  equity?: number | null;
+}
+
+export interface FinancialAnalysisKpis {
+  revenue?: number | null;
+  ebitda?: number | null;
+  ebitda_margin?: number | null;
+  ebit?: number | null;
+  ebit_margin?: number | null;
+  net_income?: number | null;
+  net_margin?: number | null;
+  gross_margin?: number | null;
+  employees_total?: number | null;
+  revenue_per_employee?: number | null;
+  revenue_growth_yoy?: number | null;
+  revenue_cagr?: number | null;
+  ebitda_growth_yoy?: number | null;
+  [k: string]: number | null | undefined | Record<string, unknown>;
+}
+
+export interface FinancialAnalysisRatioDetail {
+  value?: number | null;
+  name?: string | null;
+  category?: string | null;
+  formula?: string | null;
+  explanation?: string | null;
+  source?: string | null;
+  available?: boolean | null;
+}
+
+export interface FinancialAnalysisEvolutionPoint {
+  year: number;
+  revenue?: number | null;
+  ebitda?: number | null;
+  net_income?: number | null;
+}
+
+export interface FinancialAnalysisEvolution {
+  trend?: 'positive' | 'flat' | 'deterioration' | 'stable' | string | null;
+  years?: number | null;
+  anomaly?: boolean | null;
+  revenue_growth_yoy?: number | null;
+  ebitda_growth_yoy?: number | null;
+  revenue_cagr?: number | null;
+  points?: FinancialAnalysisEvolutionPoint[] | null;
+}
+
+export interface FinancialAnalysisQuality {
+  score?: number | null;
+  assessment?: string | null;
+  strengths?: string[];
+  weaknesses?: string[];
+  risks?: string[];
+}
+
+export interface FinancialAnalysisAssessment {
+  strengths?: string[];
+  weaknesses?: string[];
+  risks?: string[];
+}
+
+export interface FinancialAnalysisExplainability {
+  data_source?: string | null;
+  source_version?: string | null;
+  basis?: string | null;
+  year?: number | null;
+  rules_applied?: string | null;
+  ai_used?: boolean | null;
+}
+
+export interface FinancialAnalysis {
+  master_id: string | null;
+  cif_normalized: string | null;
+  identity: Record<string, unknown> | null;
+  cnae_code: string | null;
+  cnae_section: string | null;
+  provincia: string | null;
+  has_financials: boolean;
+  data_source: string | null;
+  source_version: string | null;
+  basis: 'individual' | 'consolidated' | null;
+  year: number | null;
+  years: number[];
+  kpis: FinancialAnalysisKpis | null;
+  income_statement: FinancialAnalysisIncomeStatement | null;
+  balance_sheet: FinancialAnalysisBalanceSheet | null;
+  cashflow: Record<string, unknown> | null;
+  ratios: Record<string, FinancialAnalysisRatioDetail | number> | Record<string, never>;
+  financial_quality: FinancialAnalysisQuality | null;
+  evolution: FinancialAnalysisEvolution | null;
+  assessment: FinancialAnalysisAssessment | null;
+  valuation: Record<string, unknown> | null;
+  explainability: FinancialAnalysisExplainability | null;
+  engine_version: string | null;
+  generated_at: string | null;
+}
+
+/* ============================================================
  * IdentitySection
  * ============================================================ */
 

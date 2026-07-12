@@ -12,6 +12,7 @@ import useSWR from 'swr';
 
 import { intelligenceClient } from '@/lib/companies/intelligence-client';
 import type {
+  FinancialAnalysis,
   FinancialSection,
   IdentitySection,
   SemanticSection,
@@ -42,6 +43,11 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const { data: financial } = useSWR<FinancialSection | null>(
     ['ficha-f01-financial', cifUpper],
     () => intelligenceClient.financialSection(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: financialAnalysis, isLoading: financialAnalysisLoading } = useSWR<FinancialAnalysis | null>(
+    ['ficha-f02-financial-analysis', cifUpper],
+    () => intelligenceClient.financialAnalysis(cifUpper),
     FETCH_CONFIG,
   );
   const { data: semantic } = useSWR<SemanticSection | null>(
@@ -90,8 +96,11 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
 
   return (
     <CompanyFichaLayout
+      cif={cifUpper}
       identity={identity}
       financial={financial ?? null}
+      financialAnalysis={financialAnalysis ?? null}
+      financialAnalysisLoading={financialAnalysisLoading}
       semantic={semantic ?? null}
     />
   );

@@ -145,15 +145,52 @@ def _extract_series_from_kpis_evolution(
 def _detect_years_from_analysis(analysis: FinancialAnalysis) -> list[int]:
     """Devuelve el orden canónico de años a usar en evolution/pl/balance.
 
-    Fuente única: `analysis.years` (si viene). Si no, deriva del `year` del
-    último ejercicio (fallback determinístico). NO se calcula: sólo se
-    ordena la información recibida.
+    Fuente única F0.2: `analysis.evolution.points[].year` (real, sin interpolar
+    · R15). Fallback: `analysis.years`. Fallback final: `[analysis.year]`.
     """
+    if analysis.evolution and isinstance(analysis.evolution.get("points"), list):
+        ys = [int(p["year"]) for p in analysis.evolution["points"] if isinstance(p, dict) and p.get("year") is not None]
+        if ys:
+            return sorted(set(ys))
     if analysis.years:
         return sorted({y for y in analysis.years if isinstance(y, int)})
     if analysis.year is not None:
         return [analysis.year]
     return []
+
+
+def _evolution_series_from_points(
+    points: list[dict[str, Any]] | None, years: list[int]
+) -> list[FinancialSeries]:
+    """Construye las series canónicas revenue/EBITDA/net_income desde
+    `evolution.points` alineadas a `years` (ascendente). Rellena con `None`
+    los años donde el proveedor no aporte dato (R15 · no interpolamos)."""
+    if not points:
+        return []
+    by_year: dict[int, dict[str, Any]] = {}
+    for p in points:
+        if not isinstance(p, dict) or p.get("year") is None:
+            continue
+        by_year[int(p["year"])] = p
+
+    series: list[FinancialSeries] = []
+    for key, label in (
+        ("revenue", "Ingresos"),
+        ("ebitda", "EBITDA"),
+        ("net_income", "Beneficio neto"),
+    ):
+        vals: list[float | None] = []
+        any_value = False
+        for y in years:
+            v = by_year.get(y, {}).get(key)
+            if isinstance(v, (int, float)):
+                vals.append(float(v))
+                any_value = True
+            else:
+                vals.append(None)
+        if any_value:
+            series.append(_series_currency(key, label, vals))
+    return series
 
 
 def to_financial_section(
@@ -162,26 +199,33 @@ def to_financial_section(
 ) -> FinancialSection:
     """Traduce `FinancialAnalysis` → `FinancialSection` canónico UI.
 
-    Regla clave: si `analysis.has_financials=False` o `analysis.kpis` está
-    vacío → `coverage.{evolution,profit_loss,balance,ratios}=False`. El
+    Regla clave: si `analysis.has_financials=False` → coverage.* = False. El
     frontend degrada cada sub-bloque a `UnavailableBlock`.
+
+    F0.2: usa `evolution.points` (shape actual del Intelligence Engine) para
+    poblar series multi-año. R15 estricta: sin interpolar, sin extrapolar.
     """
     years = _detect_years_from_analysis(analysis)
+    last_year = analysis.year if analysis.year is not None else (years[-1] if years else None)
 
-    # --- evolution ---
+    # --- evolution: prioridad al shape F0.2 (`analysis.evolution.points`) ---
     evolution_block: FinancialEvolutionBlock | None = None
-    ev = analysis.kpis.evolution if analysis.kpis else None
-    if analysis.has_financials and years and ev:
+    if analysis.has_financials and years:
         series: list[FinancialSeries] = []
-        for k, label in (("revenue", "Ingresos"), ("ebitda", "EBITDA"), ("net_income", "Beneficio neto")):
-            vals = _extract_series_from_kpis_evolution(ev, k)
-            if vals:
-                # Alinear al número de años: si vals más corto, rellenamos con None a la izquierda.
-                if len(vals) < len(years):
-                    vals = [None] * (len(years) - len(vals)) + vals
-                elif len(vals) > len(years):
-                    vals = vals[-len(years):]
-                series.append(_series_currency(k, label, vals))
+        if analysis.evolution and isinstance(analysis.evolution.get("points"), list):
+            series = _evolution_series_from_points(analysis.evolution.get("points"), years)
+        else:
+            # Retrocompat B.6.b: `kpis.evolution` dict con arrays.
+            ev = analysis.kpis.evolution if analysis.kpis else None
+            if ev:
+                for k, label in (("revenue", "Ingresos"), ("ebitda", "EBITDA"), ("net_income", "Beneficio neto")):
+                    vals = _extract_series_from_kpis_evolution(ev, k)
+                    if vals:
+                        if len(vals) < len(years):
+                            vals = [None] * (len(years) - len(vals)) + vals
+                        elif len(vals) > len(years):
+                            vals = vals[-len(years):]
+                        series.append(_series_currency(k, label, vals))
         if series:
             evolution_block = FinancialEvolutionBlock(
                 years=years,
@@ -202,7 +246,7 @@ def to_financial_section(
             # 1 año → 1 celda. Si hay más años, el resto queda como None (no calculamos).
             cells: list[FinancialTableCell] = []
             for y in years:
-                if y == (analysis.year or years[-1]):
+                if y == (last_year or years[-1]):
                     cells.append(FinancialTableCell(value=float(raw), format="currency"))
                 else:
                     cells.append(FinancialTableCell(value=None, format="currency"))
@@ -227,7 +271,7 @@ def to_financial_section(
                 continue
             cells = []
             for y in years:
-                if y == (analysis.year or years[-1]):
+                if y == (last_year or years[-1]):
                     cells.append(FinancialTableCell(value=float(raw), format="currency"))
                 else:
                     cells.append(FinancialTableCell(value=None, format="currency"))
@@ -242,36 +286,52 @@ def to_financial_section(
         if bal_rows:
             bal_block = FinancialTableBlock(years=years, rows=bal_rows)
 
-    # --- ratios: cruce entre `analysis.ratios` (valores) y `ratios_catalog` (fórmulas + categoría) ---
+    # --- ratios: soporta 2 shapes del proveedor ---
+    #   F0.2:  {key: {"value": float, "name": str, "category": str, "formula": str, ...}}
+    #   B.6.b: {key: float}
     ratios_block: FinancialRatiosBlock | None = None
     if analysis.ratios:
         catalog_by_key: dict[str, Any] = {}
         if ratios_catalog and ratios_catalog.ratios:
             catalog_by_key = {r.key: r for r in ratios_catalog.ratios}
         items: list[FinancialRatioItem] = []
+        valid = {"profitability", "liquidity", "solvency", "efficiency", "growth"}
         for k, v in analysis.ratios.items():
-            if not isinstance(v, (int, float)):
+            # Shape F0.2: v es un dict con {value, name, category, formula, ...}
+            if isinstance(v, dict):
+                raw_value = v.get("value")
+                if not isinstance(raw_value, (int, float)):
+                    continue
+                meta = catalog_by_key.get(k)
+                name = v.get("name") or getattr(meta, "name", k)
+                category_raw = v.get("category") or getattr(meta, "category", None) or "profitability"
+                category = category_raw if category_raw in valid else "profitability"
+                formula = v.get("formula") or getattr(meta, "formula", None)
+                value = float(raw_value)
+            # Shape B.6.b: v es un float
+            elif isinstance(v, (int, float)):
+                meta = catalog_by_key.get(k)
+                name = getattr(meta, "name", k)
+                category_raw = getattr(meta, "category", None) or "profitability"
+                category = category_raw if category_raw in valid else "profitability"
+                formula = getattr(meta, "formula", None)
+                value = float(v)
+            else:
                 continue
-            meta = catalog_by_key.get(k)
-            category_raw = getattr(meta, "category", None) or "profitability"
-            # Normalizar la categoría al literal canónico. Cualquier cosa fuera del
-            # enum se colapsa a 'profitability' (default seguro).
-            valid = {"profitability", "liquidity", "solvency", "efficiency", "growth"}
-            category = category_raw if category_raw in valid else "profitability"
-            # Format heurístico por sufijo del key
+            # Format heurístico
             fmt: str = "ratio"
-            if k.endswith("_margin") or k.endswith("_ratio") and "current" not in k:
-                fmt = "percent" if k.endswith("_margin") else "ratio"
-            if k in ("roe", "roa"):
+            if k.endswith("_margin"):
+                fmt = "percent"
+            elif k in ("roe", "roa", "solvency", "debt_ratio"):
                 fmt = "percent"
             items.append(
                 FinancialRatioItem(
                     key=k,
-                    name=getattr(meta, "name", k),
-                    value=float(v),
+                    name=name,
+                    value=value,
                     format=fmt,  # type: ignore[arg-type]
                     category=category,  # type: ignore[arg-type]
-                    formula=getattr(meta, "formula", None),
+                    formula=formula,
                     benchmark=None,
                 )
             )
@@ -291,6 +351,10 @@ def to_financial_section(
             title=a.get("title"),
             explanation=a.get("explanation"),
         )
+    elif analysis.evolution and analysis.evolution.get("anomaly") is not None:
+        # F0.2: `evolution.anomaly` es un boolean simple del proveedor.
+        detected = bool(analysis.evolution.get("anomaly"))
+        anomaly_block = FinancialAnomaly(detected=detected)
 
     coverage = SectionCoverage(
         evolution=evolution_block is not None,

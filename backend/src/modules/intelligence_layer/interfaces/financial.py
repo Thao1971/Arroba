@@ -102,12 +102,16 @@ class FinancialAnalysis(BaseModel):
     kpis: FinancialKpis | None = None
     income_statement: IncomeStatement | None = None
     balance_sheet: BalanceSheet | None = None
+    cashflow: dict | None = None  # F0.2 · null cuando el motor no expone el bloque
     ratios: dict = Field(default_factory=dict)  # ratios clave-valor dinámicos (ver catalog)
     financial_quality: FinancialQuality | None = None
     solvency: dict | None = None
     trend: dict | None = None
     anomaly: dict | None = None
     deterioration: dict | None = None
+    evolution: dict | None = None  # F0.2 · {trend, years, anomaly, points[]}
+    valuation: dict | None = None  # F0.2 · bloque valuation embebido (opcional)
+    assessment: dict | None = None  # F0.2 · {strengths[], weaknesses[], risks[]}
     size_band: str | None = None
     explainability: dict | None = None
 

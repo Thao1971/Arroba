@@ -284,7 +284,7 @@ Se documentan aquí para preparación; no se implementan hasta el desbloqueo.
 
 - Overlay pixel-diff contra `ce-finanzas.jsx` renderizado del ZIP. Objetivo Δh ≤ ±2 px por bloque, geometría idéntica en placeholders.
 - Screenshots en `sources/empresa_v1/F0_2_REFERENCE/` (`zip_finanzas_*.png` + `impl_finanzas_*.png`).
-- Exposición en `/public/_qa/f0_2/` (mismo patrón que F0.1c).
+- Exposición en `/public/qa/f0_2/` (mismo patrón que F0.1c).
 
 ---
 
