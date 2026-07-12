@@ -99,8 +99,29 @@ Este documento contiene 3 principios filosóficos y 3 reglas operativas. Ambos b
 
 ---
 
+### R15 · Datos reales o Unavailable
+
+- **Definición canónica** (cita literal del usuario, aprobada durante F0.2 · 2026-07-06):
+  > "El histórico financiero de arroba.com debe estar formado EXCLUSIVAMENTE por datos reales. QUEDA EXPRESAMENTE PROHIBIDO: generar ejercicios ilustrativos; interpolar ejercicios inexistentes; estimar cifras para completar series; simular históricos con fines visuales.
+  > Cuando la información histórica sea incompleta: mostrar únicamente los ejercicios realmente disponibles; indicar claramente la ausencia de información; degradar la visualización cuando sea necesario; mantener siempre la trazabilidad de la fuente."
+- **Propósito**: eliminar cualquier dato ficticio en la Ficha de Empresa. Un número mostrado por arroba.com debe poder verificarse contra Agency Tool o una URL pública, con timestamp y proveniencia explícitos. Todo lo que no sea trazable se degrada a `UnavailableBlock`.
+- **Aplicabilidad**: Cuenta de Resultados, Balance, Cash Flow, Ratios, Gráficos de evolución, Comparativas históricas, cualquier bloque expuesto por el `intelligence_layer` que muestre magnitudes numéricas o narrativa derivada.
+- **Implicaciones**:
+  - Todo campo mostrado en la UI debe tener `source` y `updated_at` propagados desde el proveedor de datos (Agency Tool o fuente pública).
+  - Cuando una serie histórica esté incompleta, se renderizan únicamente los ejercicios realmente disponibles. Los años ausentes se marcan explícitamente ("Sin datos para 20XX") o se omiten con nota visible; **nunca** se interpolan.
+  - Cuando un bloque completo carezca de datos, se degrada a `UnavailableBlock` con motivo explícito y con tooltip apuntando a la última fecha de verificación de la fuente.
+  - Prohibido generar narrativa Copilot (interpretaciones, recomendaciones, valoraciones) que no venga del propio Agency Tool o de una fuente pública referenciable. Cualquier necesidad de LLM propio para narrativa debe escalarse al usuario antes de implementarla; nunca se emite texto "que suena a Copilot" sin dato subyacente.
+  - Aplica también a los datos de mocks: los mocks sólo pueden contener datos reales verificables (bien del Agency Tool en modo `real`, bien ingeridos manualmente desde fuentes públicas con URL registrada). Ningún mock puede completar huecos con cifras generadas.
+- **Referencias**:
+  - Brief F0.2 (2026-07-06 · autorización del sprint).
+  - Contradicción C14.4 del ZIP resuelta por el usuario.
+- **Trazabilidad obligatoria**: `data_source`, `source_url` (cuando exista) y `updated_at` deben persistirse desde el proveedor hasta el DOM. Los adaptadores canónicos (`canonical_ui_adapter.py`) propagan estos campos sin transformarlos.
+
+---
+
 ## Precedencia
 Cuando exista conflicto entre este documento y cualquier otro del canon histórico, prevalece este documento. La jerarquía global del canon está definida en `ARROBA_CANON.md`.
 
 ## Historial
 - v1 · 2026-07-06 · creación inicial tras decisión canónica del usuario durante fase de análisis ARROBA Matching.
+- v1.1 · 2026-07-06 · **R15 añadida** tras autorización de Sprint F0.2 (Finanzas) — resuelve contradicción C14.4 (histórico ilustrativo).
