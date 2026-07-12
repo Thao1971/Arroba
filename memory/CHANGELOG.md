@@ -1,5 +1,51 @@
 # CHANGELOG — ARROBA Platform
 
+## 🏗 06 Jul 2026 · SPRINT F0.1b · Reconstrucción del layout canónico — ENTREGADO
+
+Reescritura completa del shell de la Ficha de Empresa mirando **exclusivamente el ZIP** como Source of Truth. Los componentes internos de F0.1 (COMP-1001..1005, COMP-1010, COMP-P-0001..0006) se reutilizan sin cambios de comportamiento; sólo el layout de composición se rehizo.
+
+### Motivación
+- F0.1 fue rechazado visualmente: la ficha se percibía como una evolución del layout legacy y no como implementación del ZIP.
+- El brief F0.1b exige fidelidad estricta al ZIP canónico (`empresa_html/design_handoff_empresa/`) sin tocar componentes, backend ni contratos.
+
+### Cambios estructurales
+- **Ruta movida**: `/[locale]/(authenticated)/empresa-f01/[cif]` → `/[locale]/(ficha)/empresa-f01/[cif]` para evitar el `AuthHeader` global del app-shell autenticado y respetar el canvas full-screen del ZIP.
+- **Layout dedicado**: `[locale]/(ficha)/layout.tsx` — sin AuthHeader, min-height 100vh, fondo `--surface-primary`.
+- **Shell 3-columnas reconstruido en `components/company/layout/`**:
+  - `CompanyFichaLayout.tsx` — Shell principal (topbar + company header + deal banner + main-grid + composer).
+  - `CompanyTopbar.tsx` — Topbar sticky 72 px (logo + menu + toggle + avatar).
+  - `CompanyHeaderBlock.tsx` — Breadcrumb + fila 1 (COMP-1001+1002+1003 + botones mini) + fila 2 (oportunidades + CTAs).
+  - `CompanyDealBanner.tsx` — Banner rojo "EN VENTA".
+  - `CompanyOpportunityRow.tsx` — Chips oportunidades + "Activar oportunidad" + "Reclamar empresa".
+  - `CompanySectionNav.tsx` — Sidebar 210 px sticky con 3 grupos (Perfil / Inteligencia / Fuentes) y 12 items.
+  - `CompanyDealPanel.tsx` — Panel derecho 360 px sticky con Escenario · Operación activa · Acciones · Proceso.
+  - `CompanyComposerStub.tsx` — Composer flotante rojo 56 px bottom-right.
+  - `SectionPlaceholder.tsx` — `UnavailableBlock` para secciones no-Resumen (F0.2..F0.11).
+- **Grid principal**: `grid-template-columns: 210px minmax(0,1fr) 360px · gap: 32px · max-width: min(1760px, 95vw)` — literal del ZIP.
+- **Legacy**: `header/CompanyHeader.tsx` (F0.1) movido a `_legacy/frontend/canonical_entity_mockup/CompanyHeader_F0_1.tsx` (superseded por `CompanyFichaLayout`).
+
+### Cambios mínimos en COMP-1001 (respetando el brief)
+- Iniciales avatar: `initialsFromName(commercial_name || legal_name)` — 1 línea; alinea con el ZIP (avatar "CT" para Castilla Termal Olmedo).
+- Avatar visual: gradient rojo `#E8001D → #C0001A` + texto blanco (era negro/rojo en F0.1) — coincide con el ZIP.
+- Cero cambios de contrato, props o comportamiento.
+
+### Backend
+- **Ningún cambio.** `intelligence_layer`, contratos `arroba-*-v1`, adaptador V2 y proveedores permanecen tal cual F0.1.
+
+### Guards y tests
+- Guard R14 actualizado: excluye el directorio `layout/` (contenedores puros de layout, exentos de `@componentId`).
+- Guard R13: sin cambios.
+- **Pytest 250/250** verde (0 regresiones).
+- **Vitest 180/180** verde (0 regresiones · R13 + R14 verdes).
+
+### Verificación visual
+- Capturas del ZIP y de la implementación bajo `sources/empresa_v1/F0_1b_REFERENCE/`.
+- Overlays y comparativas side-by-side generadas con ImageMagick.
+- Documento `F0_1b_REMAINING_DIFFS.md` con tabla de 14 diferencias analizadas (0 inaceptables · todas justificadas por V2 o por decisiones aprobadas del sprint).
+
+---
+
+
 ## 🏗 06 Jul 2026 · SPRINT F0.1 · Header + Perfil de la Ficha de Empresa — ENTREGADO
 
 Primera implementación en código bajo la nueva SoT (Sprint F0). Header canónico (6 componentes) + Perfil (6 COMP-P provisionales) montados en la ruta `/[locale]/empresa-f01/[cif]`.

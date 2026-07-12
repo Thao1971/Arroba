@@ -21,9 +21,8 @@ import { describe, expect, it } from 'vitest';
 const SRC_ROOT = join(__dirname, '..');
 const COMPANY_ROOT = join(SRC_ROOT, 'components/company');
 const EXTENSIONS = ['.tsx'];
-const EXCLUDED_DIRS = new Set(['_lib', '__pycache__', 'node_modules']);
+const EXCLUDED_DIRS = new Set(['_lib', 'layout', '__pycache__', 'node_modules']);
 const LAYOUT_CONTAINERS = new Set<string>([
-  'header/CompanyHeader.tsx',
   'perfil/CompanyPerfil.tsx',
   'CompanyFichaF01Client.tsx',
 ]);

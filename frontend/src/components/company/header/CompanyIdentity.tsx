@@ -29,7 +29,7 @@ export interface CompanyIdentityProps {
 
 function initialsFromName(name: string | null | undefined): string {
   if (!name) return '?';
-  const words = name.trim().split(/\s+/);
+  const words = name.trim().split(/\s+/).filter(Boolean);
   const first = words[0]?.[0] ?? '';
   const second = words[1]?.[0] ?? '';
   return (first + second).toUpperCase() || '?';
@@ -40,6 +40,9 @@ export function CompanyIdentity({ identity }: CompanyIdentityProps) {
   const commercialName = identity.commercial_name;
   const cif = identity.cif_normalized;
   const verified = identity.coverage.core;
+  // Prefiere iniciales del nombre comercial (el ZIP muestra "CT" para
+  // "Castilla Termal Olmedo") sobre el nombre legal.
+  const avatarInitials = initialsFromName(commercialName || legalName);
 
   return (
     <section
@@ -48,15 +51,15 @@ export function CompanyIdentity({ identity }: CompanyIdentityProps) {
     >
       <div
         className={cn(
-          'flex-shrink-0 w-14 h-14 rounded-xl',
-          'bg-gradient-to-br from-neutral-900 to-neutral-700',
+          'flex-shrink-0 w-[52px] h-[52px] rounded-xl',
+          'bg-gradient-to-br from-[#E8001D] to-[#C0001A]',
           'flex items-center justify-center',
-          'font-display font-black text-lg text-brand-primary',
+          'font-display font-black text-lg text-white',
         )}
         aria-hidden
         data-testid={`${HEADER_TESTIDS.identity}-avatar`}
       >
-        {initialsFromName(legalName || commercialName)}
+        {avatarInitials}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">

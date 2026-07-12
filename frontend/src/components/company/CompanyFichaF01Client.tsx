@@ -1,20 +1,13 @@
 'use client';
 /**
- * CompanyFichaF01Client — Cliente de la Ficha de Empresa canónica Sprint F0.1.
+ * CompanyFichaF01Client (Sprint F0.1b) — orquestador de datos de la Ficha de
+ * Empresa. SWR fetch de las tres secciones canónicas + delegación al shell
+ * `CompanyFichaLayout` (contenedor sin COMP-ID).
  *
- * Orquesta el Header (COMP-1001..1005 + COMP-1010) y el Perfil
- * (COMP-P-0001..0006) consumiendo los endpoints canónicos
- * `/api/companies/{cif}/section/{identity,financial,semantic}` del
- * `intelligence_layer`.
- *
- * NO renderiza el resto de secciones (Finanzas, Valoración, ...) — esos
- * llegarán en sub-sprints F0.2 y siguientes. Este cliente NO tiene
- * COMP-ID (contenedor de layout).
- *
- * Layout: fiel al ZIP `Empresa.html`. Header full-width en cabecera,
- * contenido central max 1760px con padding lateral.
+ * Los COMP internos (COMP-1001..1003, COMP-1004, COMP-P-0001..0006) se
+ * consumen sin modificar. La forma del layout la fija `CompanyFichaLayout`
+ * según el ZIP canónico.
  */
-import { useCallback } from 'react';
 import useSWR from 'swr';
 
 import { intelligenceClient } from '@/lib/companies/intelligence-client';
@@ -26,8 +19,7 @@ import type {
 import { Spinner } from '@/components/ds';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
 
-import { CompanyHeader } from './header/CompanyHeader';
-import { CompanyPerfil } from './perfil/CompanyPerfil';
+import { CompanyFichaLayout } from './layout/CompanyFichaLayout';
 
 const FETCH_CONFIG = {
   revalidateOnFocus: false,
@@ -58,15 +50,12 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
     FETCH_CONFIG,
   );
 
-  const handleOpenFinanzas = useCallback(() => {
-    // F0.2 conectará esta acción a la sección Finanzas. Hoy no-op.
-  }, []);
-
   if (identityLoading) {
     return (
       <div
         data-testid="ficha-f01-loading"
-        className="py-24 flex items-center justify-center text-text-muted text-body-sm"
+        className="py-24 flex items-center justify-center text-body-sm"
+        style={{ color: 'var(--text-secondary, #6B6B6B)' }}
       >
         <Spinner /> <span className="ml-3">Cargando ficha…</span>
       </div>
@@ -100,19 +89,10 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   }
 
   return (
-    <article
-      data-testid="ficha-f01-root"
-      className="min-h-screen bg-surface-primary"
-    >
-      <CompanyHeader identity={identity} financial={financial ?? null} cif={cifUpper} />
-      <main className="max-w-[1760px] mx-auto px-6 py-8">
-        <CompanyPerfil
-          identity={identity}
-          financial={financial ?? null}
-          semantic={semantic ?? null}
-          onOpenFinanzas={handleOpenFinanzas}
-        />
-      </main>
-    </article>
+    <CompanyFichaLayout
+      identity={identity}
+      financial={financial ?? null}
+      semantic={semantic ?? null}
+    />
   );
 }
