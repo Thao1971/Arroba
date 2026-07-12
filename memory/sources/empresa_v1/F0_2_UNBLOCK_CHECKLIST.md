@@ -1,7 +1,12 @@
 # F0_2_UNBLOCK_CHECKLIST.md — Precondiciones para reanudar F0.2
 
-Estado actual (2026-07-12 21:18 UTC): **🔴 BLOQUEADO por dependencia externa** (revalidado en sondeo #2).
-La reanudación es automática (main agent puede continuar) en cuanto todas las precondiciones estén en 🟢.
+Estado actual (2026-07-12 21:54 UTC): **🟢 DESBLOQUEADO** · Caso canónico `A87803862` (TOTALENERGIES) validado en producción · flujo `resolve → identity → financial-analyze` operativo con datos reales. Evidencia en `F0_2_SMOKE_20260712_03.md`.
+
+Estados previos:
+- 2026-07-06 · 🔴 sondeo inicial NO-GO (13/13 CIFs 404).
+- 2026-07-12 21:04 · 🔴 sondeo #1 post-primer aviso NO-GO (13/13 CIFs 404).
+- 2026-07-12 21:18 · 🔴 sondeo #2 post-redeploy NO-GO (13/13 CIFs 404 · descubrimiento del identificador `master_id`).
+- 2026-07-12 21:54 · 🟢 sondeo #3 (Paso 0 F0.2) GO con caso canónico `A87803862`.
 
 ---
 
@@ -46,11 +51,11 @@ Reglas de validación (todas deben pasar para GO):
 
 | # | Criterio | Estado actual |
 |---|---|---|
-| 3.1 | `POST /api/v1/financial-intelligence/analyze` responde 200 con `detail ≠ "company not found in Master Layer"` para ≥ 1 CIF real | 🔴 (0/13 CIFs sondeados el 2026-07-06 y revalidados el 2026-07-12 21:04 y 21:18 devuelven datos) |
-| 3.2 | Cada cifra devuelta trazable a fuente pública o Agency Tool documentada (`data_source` field poblado) | 🔴 (no verificable · endpoint no devuelve datos con CIF; con `master_id` responde 200 pero `has_financials=false`) |
-| 3.3 | Cobertura mínima 1-3 ejercicios por empresa, al menos para las partidas de Nivel 2 | 🔴 (`valuation.method="insufficient_data"` en muestreo con `master_id`) |
-| 3.4 | `POST /api/v2/company-intelligence/identity` responde 200 con identidad completa (ya validado en F0.1 · sigue vacío en modo real) | 🟡 (0/13 CIFs devuelven identidad no vacía en modo real por CIF; identity 200 con identidad básica sí funciona vía `master_id`) |
-| 3.5 | Endpoints Signal Intelligence + Semantic Intelligence al menos devuelven schema válido (aunque estén vacíos) | 🟢 (`semantic-intelligence/search` ahora devuelve `count=10` en todas las queries tras redeploy · schema OK · índice semántico poblado) |
+| 3.1 | `POST /api/v1/financial-intelligence/analyze` responde 200 con `detail ≠ "company not found in Master Layer"` para ≥ 1 CIF real | 🟢 `A87803862` (TOTALENERGIES · `mc_80e03f1e1627`) devuelve `has_financials=true` con 3 ejercicios · sondeo #3 · 2026-07-12 21:54 UTC |
+| 3.2 | Cada cifra devuelta trazable a fuente pública o Agency Tool documentada (`data_source` field poblado) | 🟢 `explainability.data_source="master_companies + norm_financials (Iberinform)"` + cada ratio con `source="Iberinform statements (Normalized Layer)"` |
+| 3.3 | Cobertura mínima 1-3 ejercicios por empresa, al menos para las partidas de Nivel 2 | 🟢 3 ejercicios (2022, 2023, 2024) · 7/7 CdR · 5/5 Balance · 13 ratios · Cash Flow BLOCKED (proveedor devuelve null) |
+| 3.4 | `POST /api/v2/company-intelligence/identity` responde 200 con identidad completa | 🟢 identidad completa (legal_name, CNAE 3515 · sección D, MADRID, 79 empleados, capital 689136€, corporate_purpose, sources, updated_at) |
+| 3.5 | Endpoints Signal Intelligence + Semantic Intelligence al menos devuelven schema válido (aunque estén vacíos) | 🟢 (`semantic-intelligence/search` devuelve `count=10` en todas las queries tras redeploy · schema OK · índice semántico poblado) |
 
 **Todas** las filas 3.1-3.4 deben pasar a 🟢 para reanudar F0.2.
 
@@ -87,15 +92,15 @@ Los 13 sondeados el 2026-07-06 + el mock `mc_olmedo`:
 
 Actualizar esta tabla en cada sondeo. Cambios de estado a 🟢 requieren el sondeo automatizado (§2).
 
-| Precondición | 2026-07-06 (t=0) | 2026-07-12 21:04 (sondeo #1) | 2026-07-12 21:18 (sondeo #2) | veredicto GO/NO-GO |
-|---|---|---|---|---|
-| 3.1 · financial-analyze devuelve datos para ≥ 1 CIF | 🔴 | 🔴 | 🔴 (0/13 · 404 por CIF · 200 vacío por `master_id` con `has_financials=false`) | NO-GO |
-| 3.2 · `data_source` trazable | 🔴 | 🔴 | 🔴 (no verificable · sin ejercicios) | NO-GO |
-| 3.3 · cobertura ≥ 1 ejercicio · Nivel 2 | 🔴 | 🔴 | 🔴 (`valuation.method="insufficient_data"` incluso vía `master_id`) | NO-GO |
-| 3.4 · identity V2 devuelve identidad no vacía en modo real | 🔴 | 🔴 | 🟡 (200 con identidad básica solo si `identifier=master_id`; 404 con CIF) | NO-GO |
-| 3.5 · schemas Signal/Semantic válidos | 🟢 | 🟢 | 🟢 (además, índice semántico ahora poblado · `count=10` uniforme) | GO (subcondición) |
+| Precondición | 2026-07-06 | 2026-07-12 21:04 (#1) | 2026-07-12 21:18 (#2) | 2026-07-12 21:54 (#3 · A87803862) | veredicto GO/NO-GO |
+|---|---|---|---|---|---|
+| 3.1 · financial-analyze devuelve datos para ≥ 1 CIF | 🔴 | 🔴 | 🔴 | 🟢 `A87803862` · has_financials=true · 3 ejercicios (2022-2024) | **GO** |
+| 3.2 · `data_source` trazable | 🔴 | 🔴 | 🔴 | 🟢 explainability.data_source="master_companies + norm_financials (Iberinform)" + source por ratio | **GO** |
+| 3.3 · cobertura ≥ 1 ejercicio · Nivel 2 | 🔴 | 🔴 | 🔴 | 🟢 7/7 CdR + 5/5 Balance + 13 ratios · 3 ejercicios evolution | **GO** |
+| 3.4 · identity V2 devuelve identidad no vacía en modo real | 🔴 | 🔴 | 🟡 | 🟢 identidad completa (CIF, master_id, legal, CNAE, capital, empleados, corporate_purpose) | **GO** |
+| 3.5 · schemas Signal/Semantic válidos | 🟢 | 🟢 | 🟢 | 🟢 | GO |
 
-Veredicto global 2026-07-12 21:18 UTC (sondeo #2): **NO-GO** (3/5 críticas en rojo, 1 amarilla, 1 verde).
+Veredicto global 2026-07-12 21:54 UTC (sondeo #3 Paso 0 F0.2): **🟢 GO** (5/5 precondiciones verdes con caso canónico `A87803862`).
 
 ---
 
@@ -123,6 +128,7 @@ Cuando el veredicto global pase a **GO**:
 - v1 · 2026-07-06 · creación durante la pausa oficial de F0.2.
 - v2 · 2026-07-12 · 21:04-21:07 UTC · sondeo #1 tras primer aviso de despliegue. Veredicto: NO-GO idéntico. Detalle en `F0_2_SONDEO_20260712.md`.
 - v3 · 2026-07-12 · 21:16-21:18 UTC · sondeo #2 tras nuevo despliegue (engine build `21:13:26Z`). Veredicto: NO-GO. Nuevo hallazgo: los endpoints esperan `master_id`, no CIF; `financial-analyze` devuelve `has_financials=false` incluso con `master_id` correcto. Detalle en `F0_2_SONDEO_20260712_02.md`.
+- v4 · 2026-07-12 · 21:53-21:54 UTC · sondeo #3 (Paso 0 F0.2) con caso canónico `A87803862` (TOTALENERGIES). Veredicto: **🟢 GO**. Los 3 endpoints (`resolve`/`identity`/`financial-analyze`) responden 200 con datos reales. Detalle en `F0_2_SMOKE_20260712_03.md`.
 
 ---
 

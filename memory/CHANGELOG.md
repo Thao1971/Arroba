@@ -1,5 +1,22 @@
 # CHANGELOG — ARROBA Platform
 
+## 🟢 12 Jul 2026 · SPRINT F0.2 · DESBLOQUEO OFICIAL · Caso canónico A87803862 validado
+
+**F0.2 · Desbloqueo oficial · Caso canónico A87803862 (TOTALENERGIES) validado en producción · Flujo resolve→identity→financial-analyze · Contratos v1+v2 congelados.**
+
+- Smoke test Paso 0 ejecutado contra `AGENCY_TOOL_MODE=real` con `A87803862`. Los 3 endpoints devuelven 200 con datos reales:
+  - `POST /api/v2/company-intelligence/resolve` `{"cif":"A87803862"}` → `master_id=mc_80e03f1e1627` · `match_type=cif_exact` · `score=1.0`.
+  - `POST /api/v2/company-intelligence/identity` `{"identifier":"A87803862"}` → identidad completa (legal_name, CNAE 3515 sección D, MADRID, 79 empleados, capital 689136€, corporate_purpose completo, sources iberinform, updated_at).
+  - `POST /api/v1/financial-intelligence/analyze` `{"identifier":"A87803862"}` → `has_financials=true`, 3 ejercicios reales (2022/2023/2024), 13 ratios con `source`, `evolution.trend=deterioration`, `financial_quality.score=100`, `valuation.method=ev_ebitda`, `explainability.data_source="master_companies + norm_financials (Iberinform)"`.
+- Cash Flow queda BLOCKED (`cashflow: null` en el response) → COMP-3005 se materializa como `UnavailableBlock`.
+- Añadidas reglas operativas F0.2-OP1..OP6 a `ARROBA_ARCHITECTURAL_PRINCIPLES.md` (CIF como identificador de entrada, `resolve` como mecanismo oficial CIF→master_id, master_id interno, no JWT/Data Layer, contratos v1+v2 congelados durante F0.2).
+- `F0_2_UNBLOCK_CHECKLIST.md` actualizado a **🟢 DESBLOQUEADO**.
+- Evidencia completa: `sources/empresa_v1/F0_2_SMOKE_20260712_03.md`.
+
+Modo `AGENCY_TOOL_MODE=real` se mantiene durante el sprint. Cero código de producción tocado hasta este punto.
+
+---
+
 ## 🛑 06 Jul 2026 · SPRINT F0.2 · PAUSA OFICIAL · Bloqueo por dependencia externa
 
 **F0.2 · PAUSA OFICIAL · Bloqueo por dependencia externa** · Agency Tool Master Layer sin datos reales tras sondeo de 13 CIFs (Iberdrola, Repsol, BBVA, Telefónica, Grifols, Naturgy, Inditex, Aena, ACS, Mapfre, Amadeus, Santander, `mc_olmedo`). Prohibidas soluciones temporales en Arroba: no populan mocks propios · no scraping para frontend · no modificar contratos. Planificación `F0_2_PLAN.md` + `F0_2_UNBLOCK_CHECKLIST.md` preparadas para reanudación inmediata.

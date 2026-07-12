@@ -122,6 +122,24 @@ Este documento contiene 3 principios filosóficos y 3 reglas operativas. Ambos b
 ## Precedencia
 Cuando exista conflicto entre este documento y cualquier otro del canon histórico, prevalece este documento. La jerarquía global del canon está definida en `ARROBA_CANON.md`.
 
+## Reglas operativas F0.2 (añadidos 2026-07-12 · desbloqueo oficial)
+
+Las siguientes reglas quedan fijadas como operativas del sprint F0.2. Complementan P3 (Zero Coupling) y R12 (nunca `/master/*`). Prevalecen sobre cualquier documento operativo previo del sprint.
+
+- **F0.2-OP1 · CIF es el identificador de entrada para Arroba**. El usuario final introduce y ve CIFs. Nunca se le pide ni se le expone `master_id` en URLs, breadcrumbs, o cualquier superficie visible.
+- **F0.2-OP2 · `POST /api/v2/company-intelligence/resolve` es el mecanismo oficial de resolución CIF → `master_id`**. Cualquier flujo que requiera `master_id` para llamadas posteriores debe pasar por este endpoint. El proxy Arroba lo expone Zero Coupling; el shape crudo del proveedor no llega ni al backend consumidor ni al frontend.
+- **F0.2-OP3 · `master_id` es identificador interno estable**. Se usa exclusivamente para cache (`intelligence_cache`), navegación programática interna y llamadas post-resolve. Nunca aparece al usuario final ni en URLs públicas.
+- **F0.2-OP4 · Arroba no usa endpoints administrativos ni JWT**. Solo `X-API-Key` sobre contratos públicos del Intelligence Engine (reafirma R12).
+- **F0.2-OP5 · Arroba no accede directamente al Data Layer**. Toda información pasa por el Intelligence Engine (reafirma P3).
+- **F0.2-OP6 · Contratos `arroba.v1` y `arroba.v2` CONGELADOS durante F0.2**. Ninguna modificación en `sources/empresa_v1/arroba.v2.json` ni en los contratos internos canónicos (`arroba-identity-v2`, `arroba-financial-v1`, `arroba-semantic-v1`) hasta cierre oficial de F0.2. Ampliaciones/nuevos campos requieren aprobación explícita del usuario.
+
+Referencias operativas:
+- Desbloqueo oficial documentado en `sources/empresa_v1/F0_2_SMOKE_20260712_03.md`.
+- Caso canónico validado en producción: `A87803862` (TOTALENERGIES · `mc_80e03f1e1627`).
+
+---
+
 ## Historial
 - v1 · 2026-07-06 · creación inicial tras decisión canónica del usuario durante fase de análisis ARROBA Matching.
 - v1.1 · 2026-07-06 · **R15 añadida** tras autorización de Sprint F0.2 (Finanzas) — resuelve contradicción C14.4 (histórico ilustrativo).
+- v1.2 · 2026-07-12 · Añadidas reglas operativas F0.2-OP1..OP6 tras desbloqueo oficial · caso canónico A87803862 validado · contratos v1+v2 congelados durante F0.2.
