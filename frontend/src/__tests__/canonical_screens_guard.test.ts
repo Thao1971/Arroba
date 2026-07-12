@@ -38,6 +38,7 @@ export const LEGACY_PATTERNS: readonly string[] = [
   'CPApp',
   'cp-app',
   'Company Profile',
+  'CanonicalEntityMockup',
 ] as const;
 
 /** Root del árbol activo del frontend. */

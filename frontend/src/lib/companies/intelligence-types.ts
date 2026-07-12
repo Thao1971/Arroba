@@ -227,6 +227,17 @@ export interface IdentitySectionCoverage {
   objeto_social: boolean;
 }
 
+/** Sprint F0.1 — estado registral y mercantil (COMP-1003 Public Status). */
+export interface IdentityRegistryStatus {
+  mercantile_status?: string | null;
+  record_status?: string | null;
+  activity_status?: string | null;
+  legal_form?: string | null;
+  incorporation_date?: string | null;
+  is_listed?: boolean | null;
+  listed_market?: string | null;
+}
+
 export interface IdentitySection {
   master_id: string | null;
   cif_normalized: string | null;
@@ -244,6 +255,15 @@ export interface IdentitySection {
   coverage: IdentitySectionCoverage;
   explainability: BlockExplainability | null;
   metadata: SectionMetadata;
+  // ---- F0.1 · superficie ampliada V2 ----
+  activity?: string | null;
+  sectors?: string[];
+  address?: string | null;
+  autonomous_community?: string | null;
+  description?: string | null;
+  registry_status?: IdentityRegistryStatus | null;
+  /** `{field: bool}` mapa de presencia (Explainability P1). */
+  data_coverage?: Record<string, boolean>;
 }
 
 /* ============================================================

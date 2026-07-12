@@ -38,6 +38,7 @@ from src.modules.intelligence_layer.interfaces.canonical_ui import (
     IdentityClassification,
     IdentityContact,
     IdentityLocation,
+    IdentityRegistryStatus,
     IdentitySection,
     IdentitySectionCoverage,
     IdentitySize,
@@ -333,6 +334,28 @@ def to_identity_section(record: MasterRecord) -> IdentitySection:
     officers_has_data = record.officers_count is not None
     objeto_has_data = bool(record.objeto_social)
 
+    # Registry status (F0.1) — sólo se instancia si al menos un campo tiene valor.
+    registry_fields = (
+        record.mercantile_status,
+        record.record_status,
+        record.activity_status,
+        record.legal_form,
+        record.incorporation_date,
+        record.is_listed,
+        record.listed_market,
+    )
+    registry_status: IdentityRegistryStatus | None = None
+    if any(f is not None for f in registry_fields):
+        registry_status = IdentityRegistryStatus(
+            mercantile_status=record.mercantile_status,
+            record_status=record.record_status,
+            activity_status=record.activity_status,
+            legal_form=record.legal_form,
+            incorporation_date=record.incorporation_date,
+            is_listed=record.is_listed,
+            listed_market=record.listed_market,
+        )
+
     return IdentitySection(
         master_id=record.master_id,
         cif_normalized=record.cif_normalized,
@@ -378,6 +401,14 @@ def to_identity_section(record: MasterRecord) -> IdentitySection:
             coverage=None,
             generated_at=_now(),
         ),
+        # F0.1 · superficie ampliada
+        activity=record.activity,
+        sectors=list(record.sectors),
+        address=record.address,
+        autonomous_community=record.autonomous_community,
+        description=record.description,
+        registry_status=registry_status,
+        data_coverage=dict(record.data_coverage),
     )
 
 

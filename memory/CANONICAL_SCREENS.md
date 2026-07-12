@@ -32,7 +32,7 @@ Verificación automática: `/app/frontend/src/__tests__/canonical_screens_guard.
 | 11 | **Workspace de empresa** | `/app/frontend/src/app/[locale]/(authenticated)/w/[workspace_id]/page.tsx` | ✅ Activa | 2026-02-06 |
 | 12 | **Design System (admin · living)** | `/app/frontend/src/app/[locale]/(authenticated)/internal/design-system/page.tsx` | ✅ Activa | 2026-02-06 |
 | 13 | **Ficha de empresa · mixed-access** (contenedor de datos) | `/app/frontend/src/app/[locale]/empresa/[cif]/page.tsx` + `/app/frontend/src/components/entity/CompanyPageClient.tsx` | ✅ Activa | 2026-02-06 |
-| 14 | **Ficha de empresa · SoT visual R13** (layout canónico 3-col) | `/app/frontend/src/components/mockups/entity-canonical/CanonicalEntityMockupClient.tsx` | ⚠️ **LEGACY (Sprint F0 supersedes)** · movimiento a `/app/_legacy/` pendiente al arrancar F0.1 | 2026-07-06 |
+| 14 | **Ficha de empresa · SoT visual R13** (layout canónico 3-col) | `/app/_legacy/frontend/canonical_entity_mockup/CanonicalEntityMockupClient.tsx` | ✅ **MOVIDO 2026-07-06 → `/app/_legacy/frontend/canonical_entity_mockup/`** · superseded por Sprint F0 (Ficha de Empresa v1) | 2026-07-06 |
 | 15 | **Ficha de empresa (Sprint F0)** · SoT visual + funcional canónica | `/app/memory/sources/empresa_v1/empresa_html/` (SoT visual) + `/app/memory/sources/empresa_v1/ACC_v0.1.md` (SoT funcional) + `arroba.v2.json` (SoT contrato) | ✅ **Activa** · inmutable durante Sprint F0 | 2026-07-06 |
 
 **Nota sobre la ficha de empresa (#13 y #14):**
@@ -53,6 +53,7 @@ Verificación automática: `/app/frontend/src/__tests__/canonical_screens_guard.
 | L6 | **cp-journey.jsx** | `/app/_legacy/design_intake/company-profile-cpapp/cp-journey.jsx` | Decision journey del legacy | Substituido por `EntityAdvisor` + Copilot Advisor canónicos | 2026-02-06 |
 | L7 | **cp-data.js** | `/app/_legacy/design_intake/company-profile-cpapp/cp-data.js` | Datos mock del layout 1-col legacy | `ce-data.js` (canónico) + `intelligence_layer` proxy (`arroba-*-v1`) | 2026-02-06 |
 | L8 | **Company Profile.html** | `/app/_legacy/design_intake/company-profile-cpapp/Company Profile.html` | Mockup HTML del layout 1-col legacy | `Empresa.html` (canónico en `_design_intake/`) + `CanonicalEntityMockupClient.tsx` | 2026-02-06 |
+| L9 | **CanonicalEntityMockupClient.tsx** + ruta `/mockups/entity-canonical/[cif]` | `/app/_legacy/frontend/canonical_entity_mockup/` | Mockup R13 superseded por SoT visual `sources/empresa_v1/empresa_html/` (Sprint F0) | Componentes canónicos `components/company/{header,perfil,…}` (R14 · COMP-IDs) | 2026-07-06 |
 
 ### Guard automático activo
 
@@ -62,6 +63,7 @@ Patrones bloqueados actualmente por el guard:
 - `CPApp`
 - `cp-app`
 - `Company Profile` (identificador de mockup HTML)
+- `CanonicalEntityMockup` (superseded por Sprint F0 · 2026-07-06)
 
 Cualquier nueva pantalla añadida a Tabla 2 DEBE actualizar la constante `LEGACY_PATTERNS` en el guard **en el mismo commit** que mueva los archivos a `/app/_legacy/`.
 

@@ -104,6 +104,43 @@ COMPANIES = [
         },
         "confidence": 0.89,
         "lineage": "normalized",
+        # Sprint F0.1 · superficie V2 poblada para demo del Header canónico.
+        # Los datos se derivan del ZIP oficial (`cp-data.js`), reflejando la
+        # ficha visual entregada por el usuario. Cualquier campo no
+        # verificable queda como `None`.
+        "v2_identity": {
+            "commercial_name": "Castilla Termal Olmedo",
+            "activity": "Hoteles y alojamientos similares",
+            "activity_status": "En actividad",
+            "mercantile_status": "Activa",
+            "record_status": "Inscrita",
+            "legal_form": "Sociedad Limitada",
+            "cnae_code": "5510",
+            "incorporation_date": "2003-06-19",
+            "is_listed": False,
+            "listed_market": None,
+            "sectors": [
+                "Hoteles termales y balnearios",
+                "Turismo de bienestar",
+            ],
+            "description": (
+                "Holding del grupo Castilla Termal, especializado en turismo "
+                "termal y de bienestar en edificios históricos rehabilitados "
+                "(monasterios y palacios) de Castilla y León, Cantabria y la "
+                "Comunidad Valenciana."
+            ),
+            "address": "Calle Pago de Santi Spiritus, s/n",
+            "postal_code": "47410",
+            "locality": "Olmedo",
+            "autonomous_community": "Castilla y León",
+            "capital_social": 4_929_990.30,
+            "corporate_purpose": (
+                "Explotación de establecimientos hoteleros, termales y de "
+                "bienestar; gestión de participaciones societarias en el sector."
+            ),
+            "website": "https://www.castillatermal.com",
+            "domain": "castillatermal.com",
+        },
     },
     # ---------------------------- INDUSTRIA (2) --------------------------
     {

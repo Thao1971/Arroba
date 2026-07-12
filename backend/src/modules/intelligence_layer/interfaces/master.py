@@ -120,7 +120,13 @@ class Ownership(BaseModel):
 
 
 class MasterRecord(BaseModel):
-    """Schema §6.1 completo. Contrato interno congelado (Decisión 0.1.5)."""
+    """Schema §6.1 completo. Contrato interno congelado (Decisión 0.1.5).
+
+    Sprint F0.1 (2026-07-06): se añaden **campos opcionales V2** para exponer
+    la identidad canónica pública de `CompanyIntelligenceV2` (endpoint
+    `/api/v2/company-intelligence/identity`). Todos los nuevos campos son
+    opcionales — cuando el proveedor no los aporta quedan como `None`.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
@@ -148,6 +154,20 @@ class MasterRecord(BaseModel):
     # Metadatos del engine (contract §6.x global)
     engine_version: str | None = None
     generated_at: datetime | None = None
+    # ---- Campos extendidos V2 (Sprint F0.1 · opcionales) ----
+    activity: str | None = None
+    activity_status: str | None = None
+    mercantile_status: str | None = None
+    record_status: str | None = None
+    legal_form: str | None = None
+    incorporation_date: str | None = None
+    is_listed: bool | None = None
+    listed_market: str | None = None
+    sectors: list[str] = Field(default_factory=list)
+    description: str | None = None
+    address: str | None = None
+    autonomous_community: str | None = None
+    data_coverage: dict[str, bool] = Field(default_factory=dict)
 
 
 # ---------- Interfaz del proveedor ----------

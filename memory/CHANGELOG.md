@@ -1,5 +1,69 @@
 # CHANGELOG — ARROBA Platform
 
+## 🏗 06 Jul 2026 · SPRINT F0.1 · Header + Perfil de la Ficha de Empresa — ENTREGADO
+
+Primera implementación en código bajo la nueva SoT (Sprint F0). Header canónico (6 componentes) + Perfil (6 COMP-P provisionales) montados en la ruta `/[locale]/empresa-f01/[cif]`.
+
+### Reglas y decisiones aplicadas (2026-07-06)
+- **Paso 0** · `CanonicalEntityMockupClient.tsx` movido a `/app/_legacy/frontend/canonical_entity_mockup/` (R13). Guard R13 extendido con patrón `CanonicalEntityMockup`. Tabla 2 de `CANONICAL_SCREENS.md` actualizada (L9).
+- **Orden global (opción C · híbrido)**: READY primero, BLOCKED como `UnavailableBlock` con COMP-ID declarado.
+- **Perfil con COMP-P provisionales** (`COMP-P-0001..0006`) tras la contradicción C2. Registro autoritativo en `sources/empresa_v1/PROVISIONAL_COMPONENTS.md`.
+- **C14.5 (acciones sensibles)**: renderizadas visibles + deshabilitadas + Tooltip "Disponible próximamente". Sin handlers.
+- **C14.2 (créditos)**: no se consume ninguno en F0.1. Espacio reservado sin contenido.
+
+### Backend
+- `interfaces/master.py`: `MasterRecord` ampliado con 13 campos opcionales V2 (`activity`, `activity_status`, `mercantile_status`, `record_status`, `legal_form`, `incorporation_date`, `is_listed`, `listed_market`, `sectors[]`, `description`, `address`, `autonomous_community`, `data_coverage`).
+- `interfaces/canonical_ui.py`: `IdentitySection` ampliada + `IdentityRegistryStatus` nuevo.
+- `canonical_ui_adapter.py`: `to_identity_section` propaga toda la superficie V2.
+- `providers/agency_tool/company_intelligence_v2.py` **NUEVO**: `AgencyToolCompanyIntelligenceV2Provider` que consume `POST /api/v2/company-intelligence/identity`. R12/P3 verificado.
+- `router.py`: wrapper `_CompanyIntelligenceV2WithFallback` (V2 → fallback IdentityResolver clásico) tras flag `intelligence_company_v2_enabled` (default `False`).
+- `providers/mock/master.py`: mock enriquecido con `v2_identity` opcional.
+- `scripts/seed_master_companies_e14.py`: `mc_olmedo` poblado con `v2_identity` derivado del ZIP (`Grupo Olmedo Hoteles`).
+
+### Frontend (12 componentes React con `@componentId`)
+Ruta: `/app/frontend/src/components/company/{header,perfil}/`.
+
+| COMP-ID | Componente | Estado |
+|---|---|---|
+| COMP-1001 | `header/CompanyIdentity.tsx` | READY |
+| COMP-1002 | `header/CompanyContext.tsx` | READY |
+| COMP-1003 | `header/CompanyPublicStatus.tsx` | READY |
+| COMP-1004 | `header/CompanyQuickActions.tsx` | READY (visual · botones deshabilitados) |
+| COMP-1005 | `header/ExecutiveSnapshot.tsx` | READY (degrada a UnavailableBlock sin financials) |
+| COMP-1010 | `header/UserRelationship.tsx` | BLOCKED · stub UnavailableBlock |
+| COMP-P-0001 | `perfil/CompanyAiSummary.tsx` | PROVISIONAL · READY |
+| COMP-P-0002 | `perfil/FinancialEvolutionTeaser.tsx` | PROVISIONAL · READY |
+| COMP-P-0003 | `perfil/PrimaryKpisGrid.tsx` | PROVISIONAL · READY |
+| COMP-P-0004 | `perfil/PositioningKpisGrid.tsx` | PROVISIONAL · BLOCKED |
+| COMP-P-0005 | `perfil/IdentityFieldsGrid.tsx` | PROVISIONAL · READY |
+| COMP-P-0006 | `perfil/IntelligenceScoresRing.tsx` | PROVISIONAL · BLOCKED |
+
+Contenedores de layout (sin COMP-ID · exentos R14):
+- `header/CompanyHeader.tsx`
+- `perfil/CompanyPerfil.tsx`
+- `CompanyFichaF01Client.tsx`
+
+Página: `/app/frontend/src/app/[locale]/(authenticated)/empresa-f01/[cif]/page.tsx`.
+
+### Tests · Guards
+- Guard **R14** nuevo: `__tests__/r14_comp_id_declaration_guard.test.ts` — 2 tests. Verifica presencia y unicidad de `@componentId` en `components/company/**`.
+- Guard **R13** actualizado con patrón `CanonicalEntityMockup`.
+- Pytest **250/250** verde (sin regresiones + los tests R12/R13 previos).
+- Vitest **180/180** verde (177 previos + 2 R14 + 1 emergente).
+
+### Entregables
+- `sources/empresa_v1/F0_1_SCREENSHOTS/` · 14 capturas (composites + Header full + Perfil full + 12 individuales por COMP).
+- `sources/empresa_v1/F0_1_VISUAL_COMPARISON.md` · comparativa side-by-side ZIP ↔ implementación.
+- `sources/empresa_v1/PROVISIONAL_COMPONENTS.md` · registro autoritativo de COMP-P.
+
+### Componentes pendientes por dependencia contractual (para promoción futura)
+- **COMP-1010** User Relationship — data interna arroba (following/alerts/watchlists) sin backend.
+- **COMP-P-0004** Positioning KPIs — Ranking Engine + Innovation Signal ausentes V2 (C13).
+- **COMP-P-0006** Intelligence Scores — Scores Engine no expuesto V2.
+
+---
+
+
 ## 🎯 06 Jul 2026 · SPRINT F0 · Ingesta canónica de la nueva SoT de la Ficha de Empresa
 
 - SPRINT F0 · Ingesta canónica de la nueva SoT de la Ficha de Empresa: ZIP visual, ACC v0.1 (66 componentes), Agency Tool V2 (54 endpoints), integration guide V2. Deprecados: ARROBA_UI_VISUAL_REFERENCES.md, AGENCY_TOOL_CONTRACT_v1.md, ARROBA_INTEGRATION_PACK_v1.md, ARROBA_B6F_DESIGN_PROPOSAL_v1.md, ARROBA_CONSUMER_INTEGRATION_PLAN_v1.md (mantenidos como legacy con banner). Añadida regla R14 (Un COMP = un componente React). CanonicalEntityMockupClient.tsx marcado como legacy pendiente de movimiento en F0.1.

@@ -18,9 +18,10 @@
  *
  * B.6.f — Hidratación SWR de `IdentitySection` canónica arroba (endpoint
  * `/api/companies/{cif}/section/identity`, `engine_version=arroba-identity-v1`).
- * La adopción del **layout canónico 3-col** parte de `CanonicalEntityMockupClient`
- * (R13 · única Source of Truth) y NO se implementa como wrapper propio — se hará
- * en el Hito 1 reiniciado tras aprobación explícita del usuario.
+ * B.6.f queda oficialmente superseded por Sprint F0 (Ficha de Empresa v1).
+ * El layout canónico 3-col se reconstruye componente a componente bajo
+ * `components/company/*` con COMP-IDs declarados (Regla R14). La SoT visual
+ * es `/app/memory/sources/empresa_v1/empresa_html/` (ZIP oficial).
  *
  * Los tests siguen validando los contratos de UX (secciones presentes,
  * refresh 429, section_updates in-place) pero ahora se apoyan en los

@@ -29,6 +29,13 @@ class IntelligenceSettings(BaseSettings):
     # ---------- Feature flag temporal (retirada en B.6.j · Regla R2) ----------
     agency_tool_mode: Literal["mock", "real"] = "mock"
 
+    # ---------- Sprint F0.1 · Company Intelligence V2 (identidad canónica pública) ----------
+    # Cuando True, el router en modo `real` usa `AgencyToolCompanyIntelligenceV2Provider`
+    # (POST /api/v2/company-intelligence/identity). Si el V2 falla → fallback al
+    # `AgencyToolIdentityResolver` clásico (Financial→Semantic). En modo `mock`
+    # es irrelevante (el mock ya expone los campos V2 opcionales).
+    intelligence_company_v2_enabled: bool = False
+
     # ---------- Proveedor Agency Tool ----------
     agency_tool_base_url: str = "https://agencias.wearebudadvisors.com"
     agency_tool_timeout_ms: int = 30_000

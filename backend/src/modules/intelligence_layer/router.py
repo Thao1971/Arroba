@@ -60,6 +60,9 @@ from src.modules.intelligence_layer.observability import (
     request_duration_seconds,
     requests_total,
 )
+from src.modules.intelligence_layer.providers.agency_tool.company_intelligence_v2 import (
+    AgencyToolCompanyIntelligenceV2Provider,
+)
 from src.modules.intelligence_layer.providers.agency_tool.financial import (
     AgencyToolFinancialProvider,
 )
@@ -99,9 +102,14 @@ class IntelligenceRouter:
     def _get_master_provider(self) -> MasterProvider:
         if self._master_provider is None:
             if self.settings.agency_tool_mode == "real":
-                # R12: en modo real usamos IdentityResolver que compone
-                # Financial+Semantic engines públicos. Nunca /master/*.
-                self._master_provider = AgencyToolIdentityResolver()
+                # Sprint F0.1: si el flag `intelligence_company_v2_enabled` está
+                # activo, arroba consume el nuevo endpoint canónico público
+                # `/api/v2/company-intelligence/identity`. Si no, mantiene el
+                # resolver compositivo Financial+Semantic (R12).
+                if self.settings.intelligence_company_v2_enabled:
+                    self._master_provider = _CompanyIntelligenceV2WithFallback()
+                else:
+                    self._master_provider = AgencyToolIdentityResolver()
             else:
                 self._master_provider = MockMasterProvider()
         return self._master_provider
@@ -537,6 +545,46 @@ class IntelligenceRouter:
 
 # Instancia global reutilizada por endpoints y otros consumidores.
 _router: IntelligenceRouter | None = None
+
+
+class _CompanyIntelligenceV2WithFallback(MasterProvider):
+    """Wrapper F0.1 · intenta V2 (`/company-intelligence/identity`) y hace fallback
+    al resolver compositivo clásico (Financial→Semantic) si el V2 devuelve error
+    NO-404. En 404 lógico del V2 se respeta y se propaga a arroba como 404
+    canónico (no se hace fallback en 404: significa "no existe la empresa").
+    """
+
+    provider_name = "agency_tool"
+
+    def __init__(self) -> None:
+        self._v2 = AgencyToolCompanyIntelligenceV2Provider()
+        self._legacy = AgencyToolIdentityResolver()
+
+    async def get_by_id(self, master_id: str) -> MasterRecord:
+        try:
+            return await self._v2.get_by_id(master_id)
+        except MasterNotFoundError:
+            raise
+        except MasterProviderError as exc:
+            log.warning(
+                "company_intelligence_v2.fallback_to_legacy",
+                error_class=exc.error_class,
+                message=str(exc),
+            )
+            return await self._legacy.get_by_id(master_id)
+
+    async def get_by_cif(self, cif: str) -> MasterRecord:
+        try:
+            return await self._v2.get_by_cif(cif)
+        except MasterNotFoundError:
+            raise
+        except MasterProviderError as exc:
+            log.warning(
+                "company_intelligence_v2.fallback_to_legacy",
+                error_class=exc.error_class,
+                message=str(exc),
+            )
+            return await self._legacy.get_by_cif(cif)
 
 
 def get_intelligence_router() -> IntelligenceRouter:

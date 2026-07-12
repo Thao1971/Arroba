@@ -265,8 +265,27 @@ class IdentitySectionCoverage(BaseModel):
     objeto_social: bool = False
 
 
+class IdentityRegistryStatus(BaseModel):
+    """Estado registral y mercantil (Sprint F0.1 · V2). P1 Explainability first."""
+
+    model_config = ConfigDict(extra="ignore")
+    mercantile_status: str | None = None
+    record_status: str | None = None
+    activity_status: str | None = None
+    legal_form: str | None = None
+    incorporation_date: str | None = None
+    is_listed: bool | None = None
+    listed_market: str | None = None
+
+
 class IdentitySection(BaseModel):
-    """Contrato canónico UI arroba-identity-v1 (D2)."""
+    """Contrato canónico UI arroba-identity-v1 (D2).
+
+    Sprint F0.1 (2026-07-06): superficie extendida con `registry_status`,
+    `activity`, `sectors[]`, `address`, `description` y `data_coverage`
+    para alimentar los COMP-1001..1005 del Header sin acoplarse al shape
+    crudo del proveedor V2.
+    """
 
     model_config = ConfigDict(extra="ignore")
     master_id: str | None = None
@@ -285,6 +304,14 @@ class IdentitySection(BaseModel):
     coverage: IdentitySectionCoverage
     explainability: BlockExplainability | None = None
     metadata: SectionMetadata
+    # ---- F0.1 · superficie ampliada ----
+    activity: str | None = None
+    sectors: list[str] = Field(default_factory=list)
+    address: str | None = None
+    autonomous_community: str | None = None
+    description: str | None = None
+    registry_status: IdentityRegistryStatus | None = None
+    data_coverage: dict[str, bool] = Field(default_factory=dict)
 
 
 # ============================================================
@@ -401,6 +428,7 @@ __all__ = [
     "IdentityClassification",
     "IdentityLocation",
     "IdentitySectionCoverage",
+    "IdentityRegistryStatus",
     "ValuationSection",
     "ValuationRangeBar",
     "ValuationPeer",
