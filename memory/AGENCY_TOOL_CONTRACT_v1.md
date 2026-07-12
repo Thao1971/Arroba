@@ -1,4 +1,7 @@
 # CONTRATO DE INTEGRACIÓN v1.0 — Agency Tool → arroba.com
+
+> DEPRECADO 2026-07-06. Superseded por ARROBA_V2_INTEGRATION_GUIDE.md + arroba.v2.json (`/app/memory/sources/empresa_v1/`). V1 sigue byte-idéntico y en runtime. Mantenido por trazabilidad histórica.
+
 **Fuente única de verdad para la integración. Sin dependencia de implementación interna.**
 _Versión: `arroba-integration-contract-v1` · 2026-07-04 · Estado: **VIGENTE**_
 

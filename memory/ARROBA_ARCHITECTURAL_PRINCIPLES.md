@@ -87,6 +87,16 @@ Este documento contiene 3 principios filosóficos y 3 reglas operativas. Ambos b
   - Layouts de una columna quedan explícitamente prohibidos para la ficha de empresa; ver `ARROBA_UI_VISUAL_REFERENCES.md`.
 - **Referencias**: `CANONICAL_SCREENS.md`, `ARROBA_UI_VISUAL_REFERENCES.md`.
 
+### R14 · Un COMP = un componente React
+
+- **Definición canónica**: cada componente identificado en el ACC con un COMP-XXXX corresponde a exactamente un componente React en la implementación. No se permiten componentes React que agrupen múltiples COMP-XXXX, ni componentes React sin COMP-ID asociado en la Ficha de Empresa.
+- **Propósito**: garantizar trazabilidad 1:1 entre canon funcional y código, y permitir cobertura medible del ACC.
+- **Implicaciones**:
+  - Cada componente React debe declarar en un JSDoc o comentario cabecera su COMP-ID.
+  - Los tests deben verificar la cobertura del ACC por COMP-ID.
+  - Un componente marcado como BLOCKED en el ACC debe existir en el árbol React como stub (renderizando `UnavailableBlock`) con su COMP-ID declarado.
+- **Referencias**: `sources/empresa_v1/ACC_v0.1.md`.
+
 ---
 
 ## Precedencia

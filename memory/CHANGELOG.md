@@ -1,5 +1,11 @@
 # CHANGELOG — ARROBA Platform
 
+## 🎯 06 Jul 2026 · SPRINT F0 · Ingesta canónica de la nueva SoT de la Ficha de Empresa
+
+- SPRINT F0 · Ingesta canónica de la nueva SoT de la Ficha de Empresa: ZIP visual, ACC v0.1 (66 componentes), Agency Tool V2 (54 endpoints), integration guide V2. Deprecados: ARROBA_UI_VISUAL_REFERENCES.md, AGENCY_TOOL_CONTRACT_v1.md, ARROBA_INTEGRATION_PACK_v1.md, ARROBA_B6F_DESIGN_PROPOSAL_v1.md, ARROBA_CONSUMER_INTEGRATION_PLAN_v1.md (mantenidos como legacy con banner). Añadida regla R14 (Un COMP = un componente React). CanonicalEntityMockupClient.tsx marcado como legacy pendiente de movimiento en F0.1.
+
+---
+
 ## 📚 06 Jul 2026 · CANON — Consolidación documental
 
 - CANON · Consolidación documental: creados ARROBA_CANON.md (puerta única) y ARROBA_ARCHITECTURAL_PRINCIPLES.md (SoT de principios y reglas). Archivado ROADMAP.md → _legacy/memory/. Marcado canonical_pack_v1.0/ como snapshot histórico. Añadido banner de referencia canónica a docs afectados. Sin cambios en código.

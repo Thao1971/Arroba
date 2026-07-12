@@ -8,6 +8,15 @@ Su objetivo es:
 2. Declarar la Source of Truth para cada ámbito del producto.
 3. Fijar el orden de precedencia cuando dos documentos entren en conflicto.
 
+## Source of Truth de la Ficha de Empresa (Sprint F0)
+
+A partir de 2026-07-06 la Ficha de Empresa tiene una única SoT compuesta por:
+- **SoT visual (estructura, layout, UX)**: `/app/memory/sources/empresa_v1/empresa_html/`
+- **SoT funcional (comportamiento, contratos)**: `/app/memory/sources/empresa_v1/ACC_v0.1.md`
+- **SoT contrato Agency Tool (V2)**: `/app/memory/sources/empresa_v1/ARROBA_V2_INTEGRATION_GUIDE.md` + `/app/memory/sources/empresa_v1/arroba.v2.json`
+
+Cualquier documento previo relativo a la Ficha de Empresa queda DEPRECADO. Consultar los banners al inicio de esos archivos.
+
 ## Documentos que forman el canon vivo
 
 | Documento | Ruta | Ámbito |
@@ -45,6 +54,9 @@ Su objetivo es:
 | Referencias visuales | `ARROBA_UI_VISUAL_REFERENCES.md` |
 | Puerta de entrada al conocimiento | `ARROBA_CANON.md` (este archivo) |
 | Índice navegable | `CANON_INDEX.md` |
+| Ficha de Empresa (visual) | `sources/empresa_v1/empresa_html/` |
+| Ficha de Empresa (funcional) | `sources/empresa_v1/ACC_v0.1.md` |
+| Contrato Agency Tool (V2) | `sources/empresa_v1/ARROBA_V2_INTEGRATION_GUIDE.md` + `sources/empresa_v1/arroba.v2.json` |
 
 ## Orden de precedencia (jerarquía canónica)
 

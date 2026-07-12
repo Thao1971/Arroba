@@ -1,5 +1,8 @@
 # ARROBA — Referencias Visuales Canónicas (v1)
 
+> DEPRECADO 2026-07-06. Superseded por /app/memory/sources/empresa_v1/empresa_html/ (SoT visual) + /app/memory/sources/empresa_v1/ACC_v0.1.md (SoT funcional). Mantenido por trazabilidad histórica.
+
+
 > Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
 
 

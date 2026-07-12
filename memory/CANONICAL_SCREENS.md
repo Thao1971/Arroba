@@ -32,7 +32,8 @@ Verificación automática: `/app/frontend/src/__tests__/canonical_screens_guard.
 | 11 | **Workspace de empresa** | `/app/frontend/src/app/[locale]/(authenticated)/w/[workspace_id]/page.tsx` | ✅ Activa | 2026-02-06 |
 | 12 | **Design System (admin · living)** | `/app/frontend/src/app/[locale]/(authenticated)/internal/design-system/page.tsx` | ✅ Activa | 2026-02-06 |
 | 13 | **Ficha de empresa · mixed-access** (contenedor de datos) | `/app/frontend/src/app/[locale]/empresa/[cif]/page.tsx` + `/app/frontend/src/components/entity/CompanyPageClient.tsx` | ✅ Activa | 2026-02-06 |
-| 14 | **Ficha de empresa · SoT visual R13** (layout canónico 3-col) | `/app/frontend/src/components/mockups/entity-canonical/CanonicalEntityMockupClient.tsx` | ✅ Activa · **inmutable** durante B.6.f | 2026-02-06 |
+| 14 | **Ficha de empresa · SoT visual R13** (layout canónico 3-col) | `/app/frontend/src/components/mockups/entity-canonical/CanonicalEntityMockupClient.tsx` | ⚠️ **LEGACY (Sprint F0 supersedes)** · movimiento a `/app/_legacy/` pendiente al arrancar F0.1 | 2026-07-06 |
+| 15 | **Ficha de empresa (Sprint F0)** · SoT visual + funcional canónica | `/app/memory/sources/empresa_v1/empresa_html/` (SoT visual) + `/app/memory/sources/empresa_v1/ACC_v0.1.md` (SoT funcional) + `arroba.v2.json` (SoT contrato) | ✅ **Activa** · inmutable durante Sprint F0 | 2026-07-06 |
 
 **Nota sobre la ficha de empresa (#13 y #14):**
 - `#14` es la **SoT visual R13** — layout canónico 3-columnas (Header · Nav izquierda · Contenido central · Deal Panel derecho · Composer FAB). Cualquier evolución visual de la ficha empresa debe partir literalmente de este archivo.

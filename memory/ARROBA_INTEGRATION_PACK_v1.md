@@ -1,5 +1,8 @@
 # INTEGRATION PACK — Agency Tool → arroba.com
 
+> DEPRECADO 2026-07-06. Superseded por V2. Consultar `/app/memory/sources/empresa_v1/`. Mantenido por trazabilidad histórica.
+
+
 > Nota canónica: los principios (P1 Explainability First, P2 Intelligence over Data, P3 Zero Coupling) y reglas (R11, R12, R13) referenciados en este documento están formalizados en 'ARROBA_ARCHITECTURAL_PRINCIPLES.md'. Puerta de entrada al canon: 'ARROBA_CANON.md'.
 
 **Documento único y autosuficiente para integrar arroba.com contra el contrato `arroba.v1`.**
