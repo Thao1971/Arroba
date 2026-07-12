@@ -1,5 +1,8 @@
 # CHANGELOG — ARROBA Platform
 
+- CANON · Logo arroba: PNG `/public/brand/logo.png` (1596×664) declarado activo canónico oficial hasta entrega de SVG por diseño. Uso: `height: 55` según ZIP `ce-app.jsx` L35.
+
+
 ## 🏗 06 Jul 2026 · SPRINT F0.1b · Reconstrucción del layout canónico — ENTREGADO
 
 Reescritura completa del shell de la Ficha de Empresa mirando **exclusivamente el ZIP** como Source of Truth. Los componentes internos de F0.1 (COMP-1001..1005, COMP-1010, COMP-P-0001..0006) se reutilizan sin cambios de comportamiento; sólo el layout de composición se rehizo.

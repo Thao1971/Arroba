@@ -12,22 +12,10 @@
  * quedan como links de navegación estilizados (sin ruta destino) que al
  * seleccionarse cambian el `section` local (visible como `UnavailableBlock`
  * en el content column).
+ *
+ * F0.1c (2026-07-06): sidebar sin iconos (labels solos), alineado con el ZIP.
  */
 import { useMemo } from 'react';
-import {
-  BookOpen,
-  LineChart,
-  Scale,
-  Users,
-  ShieldAlert,
-  BarChart3,
-  Trophy,
-  GitCompare,
-  Zap,
-  Sparkles,
-  FileText,
-  Archive,
-} from 'lucide-react';
 
 export type SectionKey =
   | 'resumen'
@@ -46,28 +34,27 @@ export type SectionKey =
 interface Item {
   key: SectionKey;
   label: string;
-  icon: React.ReactNode;
 }
 
 const GROUP_PERFIL: Item[] = [
-  { key: 'resumen', label: 'Resumen', icon: <BookOpen size={14} strokeWidth={1.8} /> },
-  { key: 'finanzas', label: 'Finanzas', icon: <LineChart size={14} strokeWidth={1.8} /> },
-  { key: 'valoracion', label: 'Valoración', icon: <Scale size={14} strokeWidth={1.8} /> },
-  { key: 'propiedad', label: 'Propiedad', icon: <Users size={14} strokeWidth={1.8} /> },
-  { key: 'gobierno', label: 'Gobierno', icon: <ShieldAlert size={14} strokeWidth={1.8} /> },
-  { key: 'mercado', label: 'Mercado', icon: <BarChart3 size={14} strokeWidth={1.8} /> },
-  { key: 'ranking', label: 'Rankings', icon: <Trophy size={14} strokeWidth={1.8} /> },
-  { key: 'comparativa', label: 'Comparativa', icon: <GitCompare size={14} strokeWidth={1.8} /> },
+  { key: 'resumen', label: 'Resumen' },
+  { key: 'finanzas', label: 'Finanzas' },
+  { key: 'valoracion', label: 'Valoración' },
+  { key: 'propiedad', label: 'Propiedad' },
+  { key: 'gobierno', label: 'Gobierno' },
+  { key: 'mercado', label: 'Mercado' },
+  { key: 'ranking', label: 'Rankings' },
+  { key: 'comparativa', label: 'Comparativa' },
 ];
 
 const GROUP_INTELIGENCIA: Item[] = [
-  { key: 'senales', label: 'Señales', icon: <Zap size={14} strokeWidth={1.8} /> },
-  { key: 'oportunidades', label: 'Oportunidades', icon: <Sparkles size={14} strokeWidth={1.8} /> },
+  { key: 'senales', label: 'Señales' },
+  { key: 'oportunidades', label: 'Oportunidades' },
 ];
 
 const GROUP_FUENTES: Item[] = [
-  { key: 'registros', label: 'Registros públicos', icon: <FileText size={14} strokeWidth={1.8} /> },
-  { key: 'documentos', label: 'Documentos', icon: <Archive size={14} strokeWidth={1.8} /> },
+  { key: 'registros', label: 'Registros públicos' },
+  { key: 'documentos', label: 'Documentos' },
 ];
 
 export interface CompanySectionNavProps {
@@ -110,9 +97,8 @@ function Group({
               key={it.key}
               onClick={() => onChange(it.key)}
               data-testid={`section-nav-item-${it.key}`}
-              className="inline-flex items-center w-full text-left"
+              className="w-full text-left"
               style={{
-                gap: '10px',
                 padding: '7px 10px',
                 borderRadius: '8px',
                 fontSize: '13px',
@@ -123,9 +109,6 @@ function Group({
                 cursor: 'pointer',
               }}
             >
-              <span style={{ opacity: active ? 1 : 0.75, display: 'inline-flex' }}>
-                {it.icon}
-              </span>
               {it.label}
             </button>
           );

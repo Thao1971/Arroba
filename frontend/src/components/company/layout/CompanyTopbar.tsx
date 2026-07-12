@@ -26,7 +26,7 @@ export function CompanyTopbar() {
         className="mx-auto flex items-center gap-4"
         style={{
           maxWidth: 'min(1760px, 95vw)',
-          padding: '13px 28px',
+          padding: '8px 28px',
           minHeight: '72px',
         }}
       >
@@ -37,15 +37,10 @@ export function CompanyTopbar() {
           aria-label="arroba"
         >
           <img
-            src="/logo-arroba.svg"
+            src="/brand/logo.png"
             alt="arroba"
-            style={{ height: '55px', filter: 'none' }}
-            onError={(e) => {
-              // Fallback textual si el SVG no existe
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
+            style={{ height: '55px', width: 'auto', display: 'block' }}
           />
-          <span className="font-display font-black text-h4 text-[#E8001D]">arroba</span>
         </Link>
 
         <div className="flex" style={{ gap: '4px', marginLeft: '32px' }}>

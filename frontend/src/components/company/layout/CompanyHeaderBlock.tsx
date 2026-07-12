@@ -37,7 +37,7 @@ export function CompanyHeaderBlock({ identity }: CompanyHeaderBlockProps) {
         className="mx-auto"
         style={{
           maxWidth: 'min(1760px, 95vw)',
-          padding: '20px 28px',
+          padding: '18px 28px',
         }}
       >
         {/* Breadcrumb */}
@@ -46,9 +46,10 @@ export function CompanyHeaderBlock({ identity }: CompanyHeaderBlockProps) {
           className="flex items-center flex-wrap"
           style={{
             gap: '6px',
-            fontSize: '12.5px',
+            fontSize: '12px',
             color: 'var(--text-secondary, #6B6B6B)',
-            marginBottom: '14px',
+            marginBottom: '10px',
+            lineHeight: 1.3,
           }}
         >
           <Link href="/analiza" style={{ color: 'inherit', textDecoration: 'none' }}>

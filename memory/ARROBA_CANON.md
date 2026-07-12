@@ -35,6 +35,15 @@ Cualquier documento previo relativo a la Ficha de Empresa queda DEPRECADO. Consu
 | Pantallas canónicas | `/app/memory/CANONICAL_SCREENS.md` | Registro autoritativo de pantallas activas y legacy |
 | Referencias visuales | `/app/memory/ARROBA_UI_VISUAL_REFERENCES.md` | Referencias visuales canónicas (ficha empresa 3-col + composer Valora) |
 | PRD | `/app/memory/PRD.md` | Estado vivo del desarrollo del producto |
+
+### Activo canónico · Logo de arroba
+
+| Asset | Ruta canónica | Formato | Estado |
+|---|---|---|---|
+| Logo arroba (oficial) | `/app/frontend/public/brand/logo.png` (byte-idéntico al `uploads/logo.png` del ZIP) | PNG 1596×664 · 258 KB | Canónico hasta que el equipo de diseño proporcione un SVG oficial. Uso: `<img src="/brand/logo.png" alt="arroba" style={{height: 55}}>` |
+| Tarea de sustitución futura | — | SVG | Cuando el equipo de diseño entregue el SVG oficial, se sustituirá mediante tarea dedicada (no como parte de un sprint funcional). |
+
+Decisión registrada 2026-07-06 durante Sprint F0.1c tras auditoría de las 4 ubicaciones autorizadas (ZIP, `_design_intake/uploads/`, `_legacy/frontend/`, `frontend/public/`).
 | Changelog | `/app/memory/CHANGELOG.md` | Registro cronológico de cambios |
 | Index navegable | `/app/memory/CANON_INDEX.md` | Índice navegable del conocimiento |
 

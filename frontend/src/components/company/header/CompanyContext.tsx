@@ -68,14 +68,15 @@ export function CompanyContext({ identity }: CompanyContextProps) {
   return (
     <section
       data-testid={HEADER_TESTIDS.context}
-      className="flex items-center gap-3 flex-wrap text-body-sm text-text-muted"
+      className="flex items-center gap-2 flex-wrap text-text-muted"
+      style={{ fontSize: '12.5px', lineHeight: 1.3 }}
     >
       {items.map((item) => {
         const chip = (
           <span
             key={item.testId}
             data-testid={item.testId}
-            className="inline-flex items-center gap-1.5"
+            className="inline-flex items-center gap-1"
           >
             {item.icon}
             {item.label}
@@ -97,7 +98,8 @@ export function CompanyContext({ identity }: CompanyContextProps) {
           {sectors.slice(0, 3).map((s) => (
             <span
               key={s}
-              className="text-caption font-medium text-text-primary bg-surface-muted border border-border-default px-2 py-0.5 rounded-full"
+              className="font-medium text-text-primary bg-surface-muted border border-border-default rounded-full"
+              style={{ fontSize: '11px', padding: '0 8px', lineHeight: 1.6 }}
             >
               {s}
             </span>
@@ -112,7 +114,7 @@ export function CompanyContext({ identity }: CompanyContextProps) {
           data-testid={`${HEADER_TESTIDS.context}-website`}
           className="inline-flex items-center gap-1 text-brand-primary font-semibold hover:underline"
         >
-          <ExternalLink size={13} aria-hidden />
+          <ExternalLink size={12} aria-hidden />
           {domain ?? web}
         </a>
       )}

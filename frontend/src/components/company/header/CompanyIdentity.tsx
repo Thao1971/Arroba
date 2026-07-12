@@ -62,17 +62,19 @@ export function CompanyIdentity({ identity }: CompanyIdentityProps) {
         {avatarInitials}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <h1
             data-testid={`${HEADER_TESTIDS.identity}-legal-name`}
-            className="font-display text-2xl font-extrabold text-text-primary leading-none truncate"
+            className="font-display font-extrabold text-text-primary truncate"
+            style={{ fontSize: '22px', lineHeight: 1.1 }}
           >
             {legalName ?? '—'}
           </h1>
           {commercialName && commercialName !== legalName && (
             <span
               data-testid={`${HEADER_TESTIDS.identity}-commercial-name`}
-              className="font-body text-body-sm font-semibold text-text-muted"
+              className="font-body font-semibold text-text-muted"
+              style={{ fontSize: '13px' }}
             >
               · {commercialName}
             </span>
@@ -91,17 +93,21 @@ export function CompanyIdentity({ identity }: CompanyIdentityProps) {
                 data-testid={`${HEADER_TESTIDS.identity}-verified`}
                 className={cn(
                   'inline-flex items-center gap-1',
-                  'text-caption font-semibold text-success',
+                  'font-semibold text-success',
                   'bg-success-subtle border border-success/30',
-                  'px-2 py-0.5 rounded',
+                  'rounded',
                 )}
+                style={{ fontSize: '11px', padding: '1px 6px' }}
               >
-                <CheckCircle2 size={12} aria-hidden /> Verificada
+                <CheckCircle2 size={11} aria-hidden /> Verificada
               </span>
             </Tooltip>
           )}
         </div>
-        <div className="mt-1 flex items-center gap-2 flex-wrap text-body-sm text-text-muted">
+        <div
+          className="flex items-center gap-1.5 flex-wrap text-text-muted"
+          style={{ marginTop: '2px', fontSize: '12.5px', lineHeight: 1.3 }}
+        >
           {cif && (
             <span data-testid={`${HEADER_TESTIDS.identity}-cif`}>
               CIF <span className="font-mono">{cif}</span>

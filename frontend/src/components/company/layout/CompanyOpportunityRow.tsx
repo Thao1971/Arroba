@@ -26,9 +26,9 @@ export function CompanyOpportunityRow() {
       data-testid="ficha-opportunity-row"
       className="flex items-center flex-wrap"
       style={{
-        gap: '20px',
-        marginTop: '18px',
-        paddingTop: '18px',
+        gap: '16px',
+        marginTop: '12px',
+        paddingTop: '12px',
         borderTop: '1px solid var(--border-default, rgba(0,0,0,0.08))',
       }}
     >
