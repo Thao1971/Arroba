@@ -1,0 +1,101 @@
+{
+  "zip": {
+    "topbar": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 72
+    },
+    "companyHeader": {
+      "x": 0,
+      "y": 72,
+      "w": 1440,
+      "h": 201
+    },
+    "dealBanner": {
+      "x": 0,
+      "y": 273,
+      "w": 1440,
+      "h": 46
+    },
+    "mainGrid": {
+      "x": 36,
+      "y": 319,
+      "w": 1368,
+      "h": 1897
+    },
+    "sidebar": {
+      "x": 64,
+      "y": 343,
+      "w": 210,
+      "h": 522
+    },
+    "content": {
+      "x": 306,
+      "y": 343,
+      "w": 678,
+      "h": 1793
+    },
+    "dealPanel": {
+      "x": 1016,
+      "y": 343,
+      "w": 360,
+      "h": 670
+    },
+    "composer": null,
+    "gridComputedCols": "210px 678px 360px",
+    "gridComputedGap": "32px"
+  },
+  "impl": {
+    "topbar": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 73
+    },
+    "companyHeader": {
+      "x": 0,
+      "y": 73,
+      "w": 1440,
+      "h": 271
+    },
+    "dealBanner": {
+      "x": 0,
+      "y": 344,
+      "w": 1440,
+      "h": 50
+    },
+    "mainGrid": {
+      "x": 36,
+      "y": 394,
+      "w": 1368,
+      "h": 1441
+    },
+    "sidebar": {
+      "x": 64,
+      "y": 418,
+      "w": 210,
+      "h": 1337
+    },
+    "content": {
+      "x": 306,
+      "y": 418,
+      "w": 678,
+      "h": 1337
+    },
+    "dealPanel": {
+      "x": 1016,
+      "y": 418,
+      "w": 360,
+      "h": 804
+    },
+    "composer": {
+      "x": 1356,
+      "y": 816,
+      "w": 56,
+      "h": 56
+    },
+    "gridComputedCols": "210px 678px 360px",
+    "gridComputedGap": "32px"
+  }
+}

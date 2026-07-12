@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>F0.1b · Panel de QA visual</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #101010;
+      background: #f5f5f0;
+      padding: 32px;
+      line-height: 1.5;
+    }
+    header {
+      max-width: 1440px;
+      margin: 0 auto 40px;
+    }
+    h1 {
+      font-size: 28px;
+      margin: 0 0 4px;
+      font-weight: 900;
+    }
+    header p { margin: 0; color: #6b6b6b; font-size: 14px; }
+    a { color: #e8001d; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    section {
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 14px;
+      padding: 24px;
+    }
+    section h2 {
+      font-size: 18px;
+      margin: 0 0 16px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    section h2 small {
+      font-weight: 500;
+      color: #6b6b6b;
+      font-size: 13px;
+      margin-left: 8px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    figure {
+      margin: 0;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fafafa;
+    }
+    figure a { display: block; }
+    figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #fff;
+    }
+    figcaption {
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #101010;
+      background: #fff;
+      border-top: 1px solid rgba(0,0,0,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    figcaption code {
+      font-size: 11px;
+      background: #f1eee7;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #6b6b6b;
+    }
+    .meta {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #f1eee7;
+      color: #6b6b6b;
+      margin-right: 4px;
+    }
+    footer {
+      max-width: 1440px;
+      margin: 40px auto 0;
+      color: #6b6b6b;
+      font-size: 12.5px;
+    }
+    ul { padding-left: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>F0.1b · Panel de QA visual</h1>
+    <p>
+      Sprint F0.1b · Reconstrucción del layout canónico de la Ficha de Empresa.
+      Referencia visual única: ZIP oficial <code>empresa_html/design_handoff_empresa/</code>.
+      Ficha en vivo: <a href="/es/empresa-f01/B47820150">/es/empresa-f01/B47820150</a>.
+    </p>
+  </header>
+  <main>
+    <section>
+      <h2>1 · Referencia ZIP <small>fuente única del diseño canónico</small></h2>
+      <div class="grid">
+        <figure>
+          <a href="zip_viewport_1440x900.png" target="_blank"><img src="zip_viewport_1440x900.png" alt="ZIP viewport 1440x900"></a>
+          <figcaption>ZIP · viewport 1440×900 <code>zip_viewport_1440x900.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="zip_fullpage.png" target="_blank"><img src="zip_fullpage.png" alt="ZIP fullpage"></a>
+          <figcaption>ZIP · full-page (1440×2216) <code>zip_fullpage.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="zip_topbar.png" target="_blank"><img src="zip_topbar.png" alt="ZIP topbar"></a>
+          <figcaption>ZIP · topbar <code>zip_topbar.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="zip_header.png" target="_blank"><img src="zip_header.png" alt="ZIP company header"></a>
+          <figcaption>ZIP · company header <code>zip_header.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="zip_deal_banner.png" target="_blank"><img src="zip_deal_banner.png" alt="ZIP deal banner"></a>
+          <figcaption>ZIP · deal banner (rojo) <code>zip_deal_banner.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="zip_sidebar.png" target="_blank"><img src="zip_sidebar.png" alt="ZIP sidebar"></a>
+          <figcaption>ZIP · section-nav (sidebar) <code>zip_sidebar.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="zip_content_resumen.png" target="_blank"><img src="zip_content_resumen.png" alt="ZIP content resumen"></a>
+          <figcaption>ZIP · content column (Resumen) <code>zip_content_resumen.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="zip_deal_panel.png" target="_blank"><img src="zip_deal_panel.png" alt="ZIP deal panel"></a>
+          <figcaption>ZIP · deal panel (derecha) <code>zip_deal_panel.png</code></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>2 · Implementación arroba <small>reconstrucción viva a partir del ZIP</small></h2>
+      <div class="grid">
+        <figure>
+          <a href="impl_viewport_1440x900.png" target="_blank"><img src="impl_viewport_1440x900.png" alt="Impl viewport"></a>
+          <figcaption>Impl · viewport 1440×900 <code>impl_viewport_1440x900.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="impl_fullpage.png" target="_blank"><img src="impl_fullpage.png" alt="Impl fullpage"></a>
+          <figcaption>Impl · full-page (1440×1878) <code>impl_fullpage.png</code></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>3 · Side-by-side ZIP ↔ Impl <small>comparativa horizontal</small></h2>
+      <div class="grid" style="grid-template-columns: 1fr;">
+        <figure>
+          <a href="side_by_side_viewport.png" target="_blank"><img src="side_by_side_viewport.png" alt="side by side viewport"></a>
+          <figcaption>Side-by-side · viewport 2880×900 (ZIP izquierda · impl derecha) <code>side_by_side_viewport.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="side_by_side_fullpage.png" target="_blank"><img src="side_by_side_fullpage.png" alt="side by side fullpage"></a>
+          <figcaption>Side-by-side · full-page 2880×2216 <code>side_by_side_fullpage.png</code></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>4 · Overlays pixel-diff <small>diagnóstico cuantitativo</small></h2>
+      <div class="grid">
+        <figure>
+          <a href="overlay_viewport_50.png" target="_blank"><img src="overlay_viewport_50.png" alt="overlay 50%"></a>
+          <figcaption>Overlay 50 % opacidad (ZIP sobre impl) <code>overlay_viewport_50.png</code></figcaption>
+        </figure>
+        <figure>
+          <a href="overlay_diff_viewport.png" target="_blank"><img src="overlay_diff_viewport.png" alt="overlay diff"></a>
+          <figcaption>Diff highlight verde (ImageMagick <code>compare -metric AE</code>) <code>overlay_diff_viewport.png</code></figcaption>
+        </figure>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <p>Documentación técnica: <code>/app/memory/sources/empresa_v1/F0_1b_LAYOUT_SPEC.md</code>, <code>F0_1b_REMAINING_DIFFS.md</code>.</p>
+  </footer>
+</body>
+</html>

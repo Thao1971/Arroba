@@ -18,7 +18,6 @@ import type { IdentitySection } from '@/lib/companies/intelligence-types';
 
 import { CompanyIdentity } from '../header/CompanyIdentity';
 import { CompanyContext } from '../header/CompanyContext';
-import { CompanyPublicStatus } from '../header/CompanyPublicStatus';
 import { CompanyOpportunityRow } from './CompanyOpportunityRow';
 
 export interface CompanyHeaderBlockProps {
@@ -68,10 +67,9 @@ export function CompanyHeaderBlock({ identity }: CompanyHeaderBlockProps) {
           className="flex items-start justify-between flex-wrap"
           style={{ gap: '20px' }}
         >
-          <div className="flex-1 min-w-0 flex flex-col" style={{ gap: '8px' }}>
+          <div className="flex-1 min-w-0 flex flex-col" style={{ gap: '2px' }}>
             <CompanyIdentity identity={identity} />
             <CompanyContext identity={identity} />
-            <CompanyPublicStatus identity={identity} />
           </div>
           <div className="flex items-center" style={{ gap: '6px' }}>
             <MiniButton icon={<Bookmark size={14} strokeWidth={1.9} />} label="Guardar" testId="ch-btn-guardar" />
