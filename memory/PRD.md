@@ -3,6 +3,20 @@
 > **Última actualización**: 2026-06-25 — **🧊 CANONICAL BASELINE v1.0 — Sprint 0 (6 specs) + Sprint 0.5 (Ciclos A y B) cerrados. Documentación canónica consolidada y congelada. Cero código de producto modificado en estos sprints.**
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
+
+---
+
+## 🔴 Estado activo · 2026-07-06
+
+**Sprint F0.2 · Finanzas · BLOQUEADO por dependencia externa** desde 2026-07-06.
+- **Motivo**: Agency Tool Master Layer vacío (0/13 CIFs con datos tras sondeo del 2026-07-06).
+- **Prohibida** cualquier solución temporal en Arroba: no poblar mocks financieros propios · no crear empresas especiales para la UI · no scraping · no modificar contratos.
+- **Se reanuda** cuando el proveedor externo confirme datos reales disponibles (ver `sources/empresa_v1/F0_2_UNBLOCK_CHECKLIST.md`).
+- **Planificación completa preparada** para reanudación inmediata: `sources/empresa_v1/F0_2_PLAN.md`.
+- **Sprints F0.3..F0.12** continúan bloqueados por precedencia normal (no por dependencia externa).
+- **Regla nueva canónica** activada: **R15 · Datos reales o Unavailable** (`memory/ARROBA_ARCHITECTURAL_PRINCIPLES.md`). Sustituye para siempre cualquier lógica "histórico ilustrativo" · resuelve la contradicción C14.4.
+
+
 ---
 
 ## 🧊 CANONICAL BASELINE v1.0 — 2026-06-25 (Sprint 0 + Sprint 0.5)

@@ -1,5 +1,16 @@
 # CHANGELOG — ARROBA Platform
 
+## 🛑 06 Jul 2026 · SPRINT F0.2 · PAUSA OFICIAL · Bloqueo por dependencia externa
+
+**F0.2 · PAUSA OFICIAL · Bloqueo por dependencia externa** · Agency Tool Master Layer sin datos reales tras sondeo de 13 CIFs (Iberdrola, Repsol, BBVA, Telefónica, Grifols, Naturgy, Inditex, Aena, ACS, Mapfre, Amadeus, Santander, `mc_olmedo`). Prohibidas soluciones temporales en Arroba: no populan mocks propios · no scraping para frontend · no modificar contratos. Planificación `F0_2_PLAN.md` + `F0_2_UNBLOCK_CHECKLIST.md` preparadas para reanudación inmediata.
+
+Nueva regla canónica activada: **R15 · Datos reales o Unavailable** (`ARROBA_ARCHITECTURAL_PRINCIPLES.md`). Resuelve la contradicción C14.4 (histórico ilustrativo) para siempre y aplica a Cuenta de Resultados, Balance, Cash Flow, Ratios, Gráficos de evolución, Comparativas históricas, Intelligence Layer.
+
+Cero código de producción escrito para F0.2. `AGENCY_TOOL_MODE=mock` restaurado tras el sondeo. Pytest 250/250 · Vitest 180/180 · Guards R13+R14 verdes (sin regresiones porque nada del código se ha tocado).
+
+---
+
+
 - CANON · Logo arroba: PNG `/public/brand/logo.png` (1596×664) declarado activo canónico oficial hasta entrega de SVG por diseño. Uso: `height: 55` según ZIP `ce-app.jsx` L35.
 
 

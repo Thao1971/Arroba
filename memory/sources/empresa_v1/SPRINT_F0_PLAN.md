@@ -55,24 +55,29 @@ Reglas transversales (aplicables a todos los sub-sprints):
 
 ## F0.2 · Finanzas
 
+**Estado**: 🔴 **BLOQUEADO por dependencia externa** desde 2026-07-06.
+**Motivo**: Agency Tool Master Layer vacío. Sondeo del 2026-07-06 sobre 13 CIFs de referencia (12 IBEX35 + `mc_olmedo`) devuelve `company not found in Master Layer` en el 100 % de casos, tanto en `POST /api/v1/financial-intelligence/analyze` como en `POST /api/v2/company-intelligence/identity`. `POST /api/v1/semantic-intelligence/search` devuelve `count: 0` (base semántica también vacía).
+**Prohibición vigente**: no poblar mocks propios · no crear empresas especiales para la UI · no scraping para alimentar únicamente el frontend · no modificar contratos.
+**Reanudación**: automática cuando `F0_2_UNBLOCK_CHECKLIST.md` esté 100 % 🟢. Planificación en `F0_2_PLAN.md`.
+
 **COMP-IDs incluidos** (7 componentes · Capítulo 6):
-- COMP-3001 · Financial Workspace · READY (contenedor)
-- COMP-3002 · Financial Intelligence · READY
-- COMP-3003 · Income Statement · READY
-- COMP-3004 · Balance Sheet · READY
-- COMP-3005 · Cash Flow · **BLOCKED** (schema V2 no expone `cash_flow`) → stub
-- COMP-3006 · Financial Ratios · READY
-- COMP-3007 · Period Selector · READY
+- COMP-3001 · Financial Overview · READY (post-desbloqueo)
+- COMP-3002 · Income Statement · READY (post-desbloqueo)
+- COMP-3003 · Balance Sheet · READY (post-desbloqueo)
+- COMP-3004 · Ratios · READY (post-desbloqueo)
+- COMP-3005 · Cash Flow · **BLOCKED** (schema V2 no expone `cash_flow`) → stub incluso post-desbloqueo
+- COMP-3006 · Financial Trends / Evolution · READY (post-desbloqueo)
+- COMP-3007 · Financial Anomalies · READY (post-desbloqueo)
 
 **Endpoints V2 necesarios**:
-- `POST /api/v1/financial-intelligence/analyze` (income + balance + ratios)
-- `GET /api/v1/financial-intelligence/ratios/catalog`
+- `POST /api/v1/financial-intelligence/analyze` (income + balance + ratios + anomalies)
+- `GET /api/v1/financial-intelligence/ratios/catalog` (si aplica)
 
-**Cobertura**: READY 6/7 · BLOCKED 1 (COMP-3005 Cash Flow → stub).
+**Cobertura teórica post-desbloqueo**: READY 6/7 · BLOCKED 1 (COMP-3005 Cash Flow → stub).
 
-**Contradicciones**: C14.4 (histórico 2020-2023 real vs ilustrativo) — alta · requiere confirmación del endpoint que trae la serie histórica.
+**Contradicciones**: C14.4 (histórico ilustrativo) RESUELTA por el usuario 2026-07-06 mediante regla R15 · Datos reales o Unavailable (ver `ARROBA_ARCHITECTURAL_PRINCIPLES.md`).
 
-**Dependencias**: F0.1 (Header identidad).
+**Dependencias**: F0.1 ✅ · Agency Tool Master Layer poblado 🔴.
 
 ---
 
@@ -301,7 +306,7 @@ Reglas transversales (aplicables a todos los sub-sprints):
 | Sub-sprint | Sección | Total COMP | READY | BLOCKED | Contradicciones bloqueantes |
 |---|---|---|---|---|---|
 | F0.1 | Header + Perfil | 6 (+Perfil visual) | 5 | 1 (stub) | C2, C14.5, C14.2 |
-| F0.2 | Finanzas | 7 | 6 | 1 (stub Cash Flow) | C14.4 |
+| F0.2 | Finanzas | 7 | 6 | 1 (stub Cash Flow) | **🔴 BLOQUEADO · dependencia externa** (Agency Tool Master Layer vacío · 13/13 CIFs sin datos · pausa oficial 2026-07-06 · ver `F0_2_UNBLOCK_CHECKLIST.md`) |
 | F0.3 | Valoración | 8 | 5 | 3 (stubs avanzados) | C5, C11 |
 | F0.4 | Propiedad | 6 | 0 | 6 (todos stub) | Ownership Engine ausente V2 |
 | F0.5 | Gobierno | 7 | 0 | 7 (todos stub) | Governance Engine ausente V2 |
