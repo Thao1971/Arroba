@@ -35,6 +35,11 @@ from src.modules.intelligence_layer.interfaces.resolve import (
     ResolveNotFoundError,
     ResolveProviderError,
 )
+from src.modules.intelligence_layer.interfaces.valuation import (
+    ValuationAnalysis,
+    ValuationNotFoundError,
+    ValuationProviderError,
+)
 from src.modules.intelligence_layer.interfaces.semantic import (
     SemanticCatalog,
     SemanticNotFoundError,
@@ -85,6 +90,56 @@ def _cif_param(
     cif: str = Path(..., min_length=9, max_length=9, regex=r"^[A-Za-z]\d{8}$"),
 ) -> str:
     return cif.upper()
+
+
+@companies_intel_router.get(
+    "/{cif}/valuation",
+    response_model=ValuationAnalysis,
+    summary="Valoración canónica (arroba-valuation-v1) · F0.3",
+)
+async def get_company_valuation(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # auth requerida
+) -> ValuationAnalysis:
+    """Devuelve la valoración canónica `arroba-valuation-v1` de la empresa.
+
+    Orquestación:
+      1. `resolve_by_cif` (F0.2 · para 404 canónico si el CIF no existe).
+      2. `analyze_valuation(master_id)` contra el endpoint dedicado del motor.
+
+    Cache 1h. `bridge_components`, `scenarios` y `sensitivity` quedan `None`
+    hasta que el motor los exponga (F0.3 · BLOCKED BY DATA).
+    """
+    router = get_intelligence_router()
+    try:
+        resolved = await router.resolve_by_cif(cif)
+    except ResolveNotFoundError as exc:
+        raise NotFoundError("valuation_cif_not_found", code="resolve_not_found") from exc
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except ResolveProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    try:
+        analysis = await router.analyze_valuation(resolved.master_id)
+    except ValuationNotFoundError as exc:
+        raise NotFoundError("valuation_not_available", code="valuation_not_available") from exc
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except ValuationProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Provider"] = router._get_valuation_provider().provider_name
+    # `master_id` se propaga al contrato interno (útil para debugging/logs);
+    # el frontend NUNCA lo muestra al usuario final (F0.2-OP3).
+    return analysis
 
 
 @companies_intel_router.get(
@@ -205,35 +260,6 @@ async def get_company_financial_analysis(
     response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
     response.headers["X-Provider"] = router._get_financial_provider().provider_name
     return analysis
-
-
-@companies_intel_router.get(
-    "/{cif}/valuation",
-    response_model=Valuation,
-    summary="Valoración canónica (§6.3) — proxy intelligence_layer",
-)
-async def get_company_valuation(
-    response: Response,
-    cif: str = Depends(_cif_param),
-    user: UserPublic = Depends(get_current_user),
-) -> Valuation:
-    """Devuelve `financial-intelligence/valuation` §6.3 con `engine_version=arroba-financial-v1`."""
-    router = get_intelligence_router()
-    try:
-        val = await router.get_valuation(cif)
-    except FinancialNotFoundError as exc:
-        raise NotFoundError("valuation_not_found", code="valuation_not_found") from exc
-    except BreakerOpenError as exc:
-        raise ProviderUnavailableError(
-            "circuit_breaker_open", code="provider_unavailable"
-        ) from exc
-    except FinancialProviderError as exc:
-        raise ProviderError(exc.error_class, code="provider_error") from exc
-
-    settings = get_intelligence_settings()
-    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
-    response.headers["X-Provider"] = router._get_financial_provider().provider_name
-    return val
 
 
 @intelligence_router.get(

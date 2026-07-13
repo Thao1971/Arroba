@@ -17,6 +17,7 @@ import type {
   FinancialSection,
   IdentitySection,
   SemanticSection,
+  ValuationAnalysis,
   ValuationSection,
 } from './intelligence-types';
 
@@ -46,6 +47,15 @@ export const intelligenceClient = {
   financialAnalysis: (cif: string) =>
     _get<FinancialAnalysis>(`/api/companies/${encodeURIComponent(cif)}/financial-analysis`),
 
+  /**
+   * F0.3 · endpoint canónico `/valuation` (arroba-valuation-v1).
+   * Devuelve method + multiple + EV/Equity + range + hypotheses + lineage +
+   * confidence. bridge_components/scenarios/sensitivity son `null` en F0.3
+   * (BLOCKED BY DATA hasta que el motor los exponga).
+   */
+  valuation: (cif: string) =>
+    _get<ValuationAnalysis>(`/api/companies/${encodeURIComponent(cif)}/valuation`),
+
   valuationSection: (cif: string) =>
     _get<ValuationSection>(`/api/companies/${encodeURIComponent(cif)}/section/valuation`),
 
@@ -55,4 +65,4 @@ export const intelligenceClient = {
     ),
 };
 
-export type { IdentitySection, FinancialSection, FinancialAnalysis, ValuationSection, SemanticSection };
+export type { IdentitySection, FinancialSection, FinancialAnalysis, ValuationAnalysis, ValuationSection, SemanticSection };

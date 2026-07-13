@@ -61,6 +61,12 @@ from src.modules.intelligence_layer.interfaces.semantic import (
     SemanticSearchResponse,
     SimilarCompanies,
 )
+from src.modules.intelligence_layer.interfaces.valuation import (
+    ValuationAnalysis,
+    ValuationNotFoundError,
+    ValuationProvider,
+    ValuationProviderError,
+)
 from src.modules.intelligence_layer.observability import (
     errors_total,
     request_duration_seconds,
@@ -81,10 +87,14 @@ from src.modules.intelligence_layer.providers.agency_tool.resolve import (
 from src.modules.intelligence_layer.providers.agency_tool.semantic import (
     AgencyToolSemanticProvider,
 )
+from src.modules.intelligence_layer.providers.agency_tool.valuation import (
+    AgencyToolValuationProvider,
+)
 from src.modules.intelligence_layer.providers.mock.financial import MockFinancialProvider
 from src.modules.intelligence_layer.providers.mock.master import MockMasterProvider
 from src.modules.intelligence_layer.providers.mock.resolve import MockResolveProvider
 from src.modules.intelligence_layer.providers.mock.semantic import MockSemanticProvider
+from src.modules.intelligence_layer.providers.mock.valuation import MockValuationProvider
 
 log = get_logger("intelligence_layer.router")
 
@@ -93,6 +103,10 @@ IDENTITY_MAPPING_TTL_SECONDS = 24 * 60 * 60
 # F0.2 · TTL del cache `resolve` (CIF → master_id + canonical_name). 24h por
 # defecto (identificación estable en el proveedor). Ver `intelligence_cache`.
 RESOLVE_MAPPING_TTL_SECONDS = 24 * 60 * 60
+# F0.3 · TTL del cache de valoración (equity/EV/multiplier). 1h por defecto
+# (equivalente al de financial-analyze; la valoración depende del bloque
+# financiero del ejercicio auditado).
+VALUATION_TTL_SECONDS = 60 * 60
 
 
 class IntelligenceRouter:
@@ -110,6 +124,7 @@ class IntelligenceRouter:
         self._financial_provider: FinancialProvider | None = None
         self._semantic_provider: SemanticProvider | None = None
         self._resolve_provider: ResolveProvider | None = None
+        self._valuation_provider: ValuationProvider | None = None
         self._breakers: dict[tuple[str, str], CircuitBreaker] = {}
 
     # ---------- Proveedor Master (Identity) ----------
@@ -154,6 +169,15 @@ class IntelligenceRouter:
             else:
                 self._resolve_provider = MockResolveProvider()
         return self._resolve_provider
+
+    # ---------- Proveedor Valuation (F0.3) ----------
+    def _get_valuation_provider(self) -> ValuationProvider:
+        if self._valuation_provider is None:
+            if self.settings.agency_tool_mode == "real":
+                self._valuation_provider = AgencyToolValuationProvider()
+            else:
+                self._valuation_provider = MockValuationProvider()
+        return self._valuation_provider
 
     def _get_breaker(self, provider: str, engine: str) -> CircuitBreaker:
         key = (provider, engine)
@@ -259,6 +283,96 @@ class IntelligenceRouter:
         except ResolveNotFoundError:
             raise
         return ResolveResult.model_validate(payload)
+
+    # ================================================================
+    # Valuation Engine (F0.3 · financial-intelligence/valuation)
+    # ================================================================
+
+    async def analyze_valuation(self, identifier: str) -> ValuationAnalysis:
+        """`POST /financial-intelligence/valuation` con cache 1h + breaker + métricas.
+
+        `identifier` puede ser CIF o `master_id`. Errores canónicos:
+          * `ValuationNotFoundError` → 404 en el proveedor.
+          * `ValuationProviderError` → 5xx / unauthorized.
+        """
+        provider = self._get_valuation_provider()
+        engine = "valuation"
+        provider_name = provider.provider_name
+        # No forzar upper: master_id llega en minúsculas (`mc_*`); CIF puede
+        # llegar en cualquier case → normalizamos sólo si parece CIF.
+        ident_raw = identifier.strip()
+        ident_norm = ident_raw.upper() if not ident_raw.lower().startswith("mc_") else ident_raw
+        ttl = VALUATION_TTL_SECONDS
+        breaker = self._get_breaker(provider_name, engine)
+        cache_key = build_key(
+            provider=provider_name,
+            engine=engine,
+            method="analyze_valuation",
+            master_id=ident_norm,
+        )
+
+        async def _compute() -> dict[str, Any]:
+            start = time.monotonic()
+
+            async def _invoke() -> ValuationAnalysis:
+                return await provider.analyze_valuation(ident_norm)
+
+            try:
+                record = await breaker.call(_invoke)
+            except BreakerOpenError:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class="server_5xx"
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name,
+                    engine=engine,
+                    method="analyze_valuation",
+                    status="breaker_open",
+                ).inc()
+                raise
+            except ValuationNotFoundError:
+                requests_total.labels(
+                    provider=provider_name,
+                    engine=engine,
+                    method="analyze_valuation",
+                    status="not_found",
+                ).inc()
+                raise
+            except ValuationProviderError as exc:
+                errors_total.labels(
+                    provider=provider_name, engine=engine, error_class=exc.error_class
+                ).inc()
+                requests_total.labels(
+                    provider=provider_name,
+                    engine=engine,
+                    method="analyze_valuation",
+                    status="error",
+                ).inc()
+                raise
+            finally:
+                request_duration_seconds.labels(
+                    provider=provider_name, engine=engine, method="analyze_valuation"
+                ).observe(time.monotonic() - start)
+
+            requests_total.labels(
+                provider=provider_name,
+                engine=engine,
+                method="analyze_valuation",
+                status="ok",
+            ).inc()
+            return record.model_dump(mode="json")
+
+        try:
+            payload = await self.cache.get_or_compute(
+                engine=engine,
+                key=cache_key,
+                ttl_s=ttl,
+                compute=_compute,
+                error_ttl_s=self.settings.intelligence_cache_error_ttl_seconds,
+            )
+        except ValuationNotFoundError:
+            raise
+        return ValuationAnalysis.model_validate(payload)
 
     async def _call_master(self, *, method: str, identifier: str) -> MasterRecord:
         provider = self._get_master_provider()
@@ -716,4 +830,5 @@ __all__ = [
     "reset_intelligence_router_for_tests",
     "IDENTITY_MAPPING_TTL_SECONDS",
     "RESOLVE_MAPPING_TTL_SECONDS",
+    "VALUATION_TTL_SECONDS",
 ]

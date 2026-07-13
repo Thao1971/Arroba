@@ -25,10 +25,12 @@ import type {
   FinancialSection,
   IdentitySection,
   SemanticSection,
+  ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 
 import { CompanyPerfil } from '../perfil/CompanyPerfil';
 import { CompanyFinanzas } from '../finanzas/CompanyFinanzas';
+import { CompanyValoracion } from '../valoracion/CompanyValoracion';
 
 import { CompanyTopbar } from './CompanyTopbar';
 import { CompanyHeaderBlock } from './CompanyHeaderBlock';
@@ -44,6 +46,8 @@ export interface CompanyFichaLayoutProps {
   financial: FinancialSection | null;
   financialAnalysis: FinancialAnalysis | null;
   financialAnalysisLoading?: boolean;
+  valuation: ValuationAnalysis | null;
+  valuationLoading?: boolean;
   semantic: SemanticSection | null;
 }
 
@@ -53,6 +57,8 @@ export function CompanyFichaLayout({
   financial,
   financialAnalysis,
   financialAnalysisLoading,
+  valuation,
+  valuationLoading,
   semantic,
 }: CompanyFichaLayoutProps) {
   const [section, setSection] = useState<SectionKey>('resumen');
@@ -103,7 +109,14 @@ export function CompanyFichaLayout({
               loading={financialAnalysisLoading}
             />
           )}
-          {section !== 'resumen' && section !== 'finanzas' && (
+          {section === 'valoracion' && (
+            <CompanyValoracion
+              cif={cif}
+              valuation={valuation}
+              loading={valuationLoading}
+            />
+          )}
+          {section !== 'resumen' && section !== 'finanzas' && section !== 'valoracion' && (
             <SectionPlaceholder section={section} />
           )}
         </div>

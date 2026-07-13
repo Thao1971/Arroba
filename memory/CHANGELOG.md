@@ -1,5 +1,62 @@
 # CHANGELOG — ARROBA Platform
 
+## 🟢 13 Jul 2026 · SPRINT F0.3 · Sección Valoración · Entregable mínimo entregado
+
+**Caso canónico `A87803862` (TOTALENERGIES) con valoración real del Intelligence Engine (`arroba-valuation-v1`).**
+
+### Backend
+- Nuevo `POST /api/v1/financial-intelligence/valuation` proxied Zero Coupling → `GET /api/companies/{cif}/valuation` (interfaces + provider real + mock + endpoint público).
+- Contrato interno canónico `ValuationAnalysis` (`arroba-valuation-v1`) con `range` enriquecido (`central=enterprise_value` añadido por arroba), `confidence_level` derivado (low/medium/high), `method_label` humano.
+- Orquestación: `resolve_by_cif` (F0.2) → `analyze_valuation(master_id)`. Cache 1h. Circuit breaker + métricas Prometheus `engine="valuation"`.
+- Endpoint viejo `/valuation` (schema `Valuation` legacy) **eliminado**; reemplazado por el nuevo `ValuationAnalysis`.
+- Fix: `master_id` (formato `mc_[0-9a-f]{12}`) preserva case en `analyze_valuation` (el motor sólo lo reconoce en minúsculas).
+
+### Frontend
+- Nueva sección `components/company/valoracion/` con COMP-4001..4007 (`@componentId` en JSDoc).
+- **COMP-4001** Overview · 4 KPIs (EV, Equity, Múltiplo, Confidence).
+- **COMP-4002** Method · label + descripción + fórmula (nivel 3) + lineage.
+- **COMP-4003** Range · 3 barras + 3 cards low/central/high (color coded).
+- **COMP-4004** Hypotheses · lista textual del motor + confidence badge.
+- **COMP-4005** EV Bridge · **BLOCKED** (motor no expone `bridge_components`) con nota reportada de deuda neta.
+- **COMP-4006** Scenarios · **DEGRADED** · 3 escenarios Bajo/Medio/Alto derivados del `range` real + Equity por escenario si `hypotheses[]` reporta deuda neta.
+- **COMP-4007** Sensitivity · **BLOCKED** (motor no expone matriz).
+- CTA "Valoración avanzada" (dark card · 75 créditos · botón "Solicitar valoración avanzada").
+- Orquestador `CompanyValoracion` (contenedor · exento R14) integrado en `CompanyFichaLayout` cuando `section === 'valoracion'`.
+- `intelligence-client.ts` extendido con `valuation(cif)`.
+
+### Reglas · Cumplimiento
+- ✅ **R15**: rango real del motor, sin interpolar. Bridge/Sensitivity BLOCKED con motivo trazable. Sliders del ZIP eliminados.
+- ✅ **R14**: COMP-4001..4007 con `@componentId` declarado.
+- ✅ **R13**: layout F0.1c intacto · componentes F0.1/F0.2 no tocados.
+- ✅ **R5**: `engine_version="arroba-valuation-v1"`.
+- ✅ **P1**: confidence badge, lineage visible, hypotheses source-grounded.
+- ✅ **P3**: proxy dedicado.
+- ✅ **F0.2-OP1..OP6**: CIF UI-facing · master_id interno · contratos v1/v2 públicos congelados.
+
+### Tests
+- **Pytest** 287/287 verde (276 F0.2 + 11 F0.3).
+- **Vitest** 200/200 verde (189 F0.2 + 11 F0.3).
+- tsc verde.
+
+### Entregables (ver `sources/empresa_v1/F0_3_DELIVERABLE.md`)
+- URL preview: `/es/empresa-f01/A87803862` → sidebar "Valoración".
+- Capturas públicas: `/qa/f0_3/f03_val_{level1,level2,level3,level3_scroll,blocked_blocks,cta}.jpeg`.
+
+Backend queda en `AGENCY_TOOL_MODE=real` para las capturas.
+
+---
+
+## 🟢 12 Jul 2026 · SPRINT F0.2 · APROBADA por el usuario · Cash Flow BLOCKED BY DATA · Balance multi-año pendiente de motor · Ninguna acción correctiva en Arroba.
+
+Aprobación explícita del usuario tras revisión del entregable mínimo:
+- Cash Flow permanece BLOCKED hasta que el Intelligence Engine exponga el bloque `cashflow` estructurado. Cuando lo entregue, COMP-3005 pasa a READY automáticamente sin cambios de layout.
+- Balance multi-año queda pendiente del motor (`statements.balance_sheet` sólo trae último ejercicio). Cuando el motor entregue histórico, columnas previas de COMP-3003 nivel 3 se rellenarán sin cambios de código.
+- Sin workarounds. Sin mocks. Sin cálculos frontend.
+- Overlay pixel-diff no se produce en F0.2 (reservado para auditoría visual global al terminar la ficha).
+- Sugerencia "Ver evolución completa" (COMP-3006) diferida al backlog transversal (`memory/BACKLOG_TRANSVERSAL.md` · MEJORA-001).
+
+---
+
 ## 🟢 12 Jul 2026 · SPRINT F0.2 · Sección Finanzas · Entregable mínimo entregado
 
 **Caso canónico `A87803862` (TOTALENERGIES ELECTRICIDAD Y GAS ESPAÑA · `mc_80e03f1e1627`) visible en producción con datos reales del Intelligence Engine.**

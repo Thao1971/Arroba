@@ -323,6 +323,43 @@ export interface FinancialAnalysis {
 }
 
 /* ============================================================
+ * ValuationAnalysis (F0.3 · arroba-valuation-v1)
+ * ============================================================ */
+
+export interface ValuationRange {
+  low: number | null;
+  central: number | null;  // = enterprise_value canónico (arroba lo enriquece)
+  high: number | null;
+}
+
+export interface ValuationLineage {
+  financials_source: string | null;
+  basis: string | null;
+  year: number | null;
+}
+
+export interface ValuationAnalysis {
+  master_id: string | null;
+  cif_normalized: string | null;
+  method: string | null;
+  method_label: string | null;
+  multiple: number | null;
+  multiple_basis: string | null;
+  enterprise_value: number | null;
+  equity_value: number | null;
+  range: ValuationRange | null;
+  confidence: number | null;
+  confidence_level: 'low' | 'medium' | 'high' | null;
+  hypotheses: string[];
+  lineage: ValuationLineage | null;
+  bridge_components: Array<Record<string, unknown>> | null;
+  scenarios: Array<Record<string, unknown>> | null;
+  sensitivity: Record<string, unknown> | null;
+  has_valuation: boolean;
+  engine_version: string;  // "arroba-valuation-v1"
+}
+
+/* ============================================================
  * IdentitySection
  * ============================================================ */
 

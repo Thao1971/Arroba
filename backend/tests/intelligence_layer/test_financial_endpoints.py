@@ -116,20 +116,16 @@ async def test_financial_analysis_200_with_injected_provider(alice: AsyncClient,
     assert r.headers.get("X-Provider") == "agency_tool"
 
 
-# ---------- valuation ----------
+# ---------- valuation (F0.3 · arroba-valuation-v1 · ver test_valuation_endpoint.py) ----------
+# El endpoint /valuation ahora usa el contrato `ValuationAnalysis` de F0.3.
+# Los tests canónicos viven en `test_valuation_endpoint.py`; aquí sólo
+# retención de auth guard.
 
 
 @pytest.mark.asyncio
 async def test_valuation_requires_auth(client: AsyncClient):
     r = await client.get("/api/companies/B47820150/valuation")
     assert r.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_valuation_returns_404_in_mock_mode(alice: AsyncClient, force_mock_mode):
-    r = await alice.get("/api/companies/B47820150/valuation")
-    assert r.status_code == 404
-    assert r.json()["code"] == "valuation_not_found"
 
 
 # ---------- ratios/catalog ----------

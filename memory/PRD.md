@@ -1,23 +1,22 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-07-12 — **🟢 Sprint F0.2 (Finanzas) · Entregable mínimo entregado**. Caso canónico `A87803862` (TOTALENERGIES) visible en producción con datos reales del Intelligence Engine (Iberinform). COMP-3001..3007 implementados. COMP-3005 Cash Flow BLOCKED (motor devuelve `cashflow:null`). Pytest 276/276 · Vitest 189/189.
+> **Última actualización**: 2026-07-13 — **🟢 Sprint F0.3 (Valoración) · Entregable mínimo entregado**. Caso canónico `A87803862` (TOTALENERGIES) con valoración real del motor. COMP-4001..4004 READY · COMP-4006 DEGRADED · COMP-4005/4007 BLOCKED BY DATA. Pytest 287/287 · Vitest 200/200.
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 
 ---
 
-## 🟢 Estado activo · 2026-07-12
+## 🟢 Estado activo · 2026-07-13
 
-**Sprint F0.2 · Finanzas · ENTREGABLE MÍNIMO COMPLETADO**.
-- **Caso canónico validado**: `A87803862` (TOTALENERGIES ELECTRICIDAD Y GAS ESPAÑA · `mc_80e03f1e1627`).
-- **Backend**: proxy `resolve` (CIF → master_id) + `identity V2` + `financial-analyze` con mapper adaptado al shape actual del Intelligence Engine (`statements` wrapper + `evolution.points` + `explainability.data_source`).
-- **Frontend**: sección Finanzas dentro del layout F0.1c. IntelCard source-grounded, selector de 4 bloques (P&L · Balance · Cash Flow · Ratios) × 3 niveles (Ejecutiva · Categorías · Detalle).
-- **URL preview**: `https://bda5adf2-2809-4e4d-80da-4a47b994f2fe.preview.emergentagent.com/es/empresa-f01/A87803862` (login `buyer@arroba.com`).
-- **Capturas públicas**: `/qa/f0_2/f02_finanzas_{level1,level3_pnl,level3_balance,cashflow_blocked,ratios}.jpeg`.
-- **Documento entregable**: `sources/empresa_v1/F0_2_DELIVERABLE.md`.
-- **Cumplimiento**: R15 · P1 · R5 · R13 · R14 · P3 · F0.2-OP1..OP6 · contratos v1+v2 congelados durante el sprint.
+**Sprint F0.2 · Finanzas · ✅ APROBADO** · Cash Flow BLOCKED BY DATA · Balance multi-año pendiente de motor.
 
-**Sprint F0.3..F0.12** continúan pendientes por precedencia normal.
+**Sprint F0.3 · Valoración · ENTREGABLE MÍNIMO COMPLETADO** (2026-07-13).
+- Endpoint canónico: `POST /api/v1/financial-intelligence/valuation` proxied via `GET /api/companies/{cif}/valuation` (contrato `arroba-valuation-v1`).
+- COMP-4001..4007 implementados. COMP-4001..4004 READY · COMP-4006 DEGRADED · COMP-4005/4007 BLOCKED BY DATA.
+- URL preview: `/es/empresa-f01/A87803862` → sidebar Valoración.
+- Entregable: `sources/empresa_v1/F0_3_DELIVERABLE.md`.
+
+**Sprint F0.4..F0.12** continúan pendientes por precedencia normal.
 
 
 ---

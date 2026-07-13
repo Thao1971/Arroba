@@ -26,6 +26,7 @@ const EXCLUDED_DIRS = new Set(['_lib', 'lib', 'layout', '__pycache__', 'node_mod
 const LAYOUT_CONTAINERS = new Set<string>([
   'perfil/CompanyPerfil.tsx',
   'finanzas/CompanyFinanzas.tsx',
+  'valoracion/CompanyValoracion.tsx',
   'CompanyFichaF01Client.tsx',
 ]);
 const COMP_ID_REGEX = /@componentId\s+(COMP(?:-P)?-[A-Z0-9]+)/;

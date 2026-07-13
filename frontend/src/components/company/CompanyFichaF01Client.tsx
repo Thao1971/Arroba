@@ -16,6 +16,7 @@ import type {
   FinancialSection,
   IdentitySection,
   SemanticSection,
+  ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { Spinner } from '@/components/ds';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
@@ -48,6 +49,11 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const { data: financialAnalysis, isLoading: financialAnalysisLoading } = useSWR<FinancialAnalysis | null>(
     ['ficha-f02-financial-analysis', cifUpper],
     () => intelligenceClient.financialAnalysis(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: valuation, isLoading: valuationLoading } = useSWR<ValuationAnalysis | null>(
+    ['ficha-f03-valuation', cifUpper],
+    () => intelligenceClient.valuation(cifUpper),
     FETCH_CONFIG,
   );
   const { data: semantic } = useSWR<SemanticSection | null>(
@@ -101,6 +107,8 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
       financial={financial ?? null}
       financialAnalysis={financialAnalysis ?? null}
       financialAnalysisLoading={financialAnalysisLoading}
+      valuation={valuation ?? null}
+      valuationLoading={valuationLoading}
       semantic={semantic ?? null}
     />
   );
