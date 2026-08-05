@@ -1,0 +1,37 @@
+# Frontend build ignore (Emergent Cloud Build)
+
+# Dependencies (se instalan en el container con yarn install)
+node_modules
+.pnp
+.pnp.js
+
+# Next.js build artifacts (se regeneran en el container)
+.next/cache
+.next/trace
+out
+build
+dist
+
+# Testing
+coverage
+*.tsbuildinfo
+
+# Local env overrides (nunca deben llegar al container)
+.env.local
+.env.*.local
+
+# Editors/IDE
+.idea
+.vscode
+
+# Screenshots QA locales (no forman parte de la imagen productiva)
+# public/qa/  ← MANTENIDO en el bundle porque son entregables públicos
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# System
+.DS_Store
