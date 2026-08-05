@@ -168,6 +168,17 @@ async def root() -> dict:
     return {"name": "arroba.com API", "version": "0.0.1", "stage": "E0.3"}
 
 
+# ── Root-level health probes for Kubernetes/Emergent ─────────────────────────
+# Cero lógica, sin chequeo de dependencias (Mongo, etc.).
+# Existen SOLO para satisfacer los sondeos de la plataforma en la raíz.
+# El /api/health de arriba mantiene el chequeo completo intacto.
+@app.get("/health", include_in_schema=False)
+@app.get("/livez", include_in_schema=False)
+@app.get("/readyz", include_in_schema=False)
+async def health_root() -> dict:
+    return {"status": "ok"}
+
+
 def _custom_openapi() -> dict:
     if app.openapi_schema:
         return app.openapi_schema
