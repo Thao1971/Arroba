@@ -42,10 +42,6 @@ class IntelligenceSettings(BaseSettings):
     agency_tool_connect_timeout_ms: int = 5_000
     agency_tool_retry_max: int = 3
     agency_tool_max_concurrent: int = 20  # semáforo por motor
-    # Límite GLOBAL de peticiones simultáneas al origin intel (todos los motores).
-    # intel.arroba.com es sensible a ráfagas (>3 req/<1s → 520). Serializa el
-    # fan-out paralelo del SWR de la ficha para no tumbar el origin.
-    agency_tool_global_max_concurrent: int = 3
 
     # ---------- API Key slots (rotación sin downtime · [pack §7.1]) ----------
     arroba_service_api_key_primary: str = ""

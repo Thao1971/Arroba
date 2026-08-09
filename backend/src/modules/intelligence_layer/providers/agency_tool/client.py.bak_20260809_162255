@@ -70,15 +70,6 @@ class AgencyToolClient:
         self.settings = settings or get_intelligence_settings()
         self._client: httpx.AsyncClient | None = None
         self._lock = asyncio.Lock()
-        # Límite global de concurrencia contra intel (anti-ráfaga 520). Lazy para
-        # ligarlo al event loop en el primer uso.
-        self._sem: asyncio.Semaphore | None = None
-
-    def _get_sem(self) -> asyncio.Semaphore:
-        if self._sem is None:
-            n = max(1, int(getattr(self.settings, "agency_tool_global_max_concurrent", 3)))
-            self._sem = asyncio.Semaphore(n)
-        return self._sem
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -143,28 +134,25 @@ class AgencyToolClient:
 
         client = await self._get_client()
 
-        # Anti-ráfaga: cap global de peticiones simultáneas al origin intel.
-        # intel.arroba.com da 520 bajo fan-out paralelo; serializamos aquí.
-        async with self._get_sem():
-            for key_idx, key in enumerate([primary, secondary]):
-                if not key:
-                    continue
-                resp = await self._call_with_retries(client, method, path, key, json=json, params=params)
-                klass = classify_status(resp.status_code)
-                if klass == "unauthorized" and key_idx == 0 and secondary:
-                    log.warning(
-                        "agency_tool.primary_unauthorized_fallback_secondary",
-                        path=path,
-                        status_code=resp.status_code,
-                    )
-                    continue  # fallback a secondary
-                return resp
+        for key_idx, key in enumerate([primary, secondary]):
+            if not key:
+                continue
+            resp = await self._call_with_retries(client, method, path, key, json=json, params=params)
+            klass = classify_status(resp.status_code)
+            if klass == "unauthorized" and key_idx == 0 and secondary:
+                log.warning(
+                    "agency_tool.primary_unauthorized_fallback_secondary",
+                    path=path,
+                    status_code=resp.status_code,
+                )
+                continue  # fallback a secondary
+            return resp
 
-            raise AgencyToolHTTPError(
-                status_code=401,
-                error_class="unauthorized",
-                message="ambas API keys (primary y secondary) fallaron",
-            )
+        raise AgencyToolHTTPError(
+            status_code=401,
+            error_class="unauthorized",
+            message="ambas API keys (primary y secondary) fallaron",
+        )
 
     async def _call_with_retries(
         self,
