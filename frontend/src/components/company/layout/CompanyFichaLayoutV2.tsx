@@ -1,33 +1,26 @@
 'use client';
 /**
- * CompanyFichaLayoutV2 — Ficha de Empresa redibujada desde el mockup canónico
- * `arroba.com/mockups/ficha-empresa-f01.html` (decisión Daniel 2026-08-08).
- * Pasada de fidelidad visual 2026-08-09: estilo de marca (#FF5757), tarjetas,
- * tipografía, anillos, tablas, chips, barra EV, compradores y dock del Copilot,
- * acercándolo al mockup. NO consume datos: recibe las secciones ya cargadas por
- * `CompanyFichaF01Client` (identity/financial/valuation/semantic/signal/buyers/
- * opportunities). R4/R10: el front NO calcula; solo pinta lo que llega.
+ * CompanyFichaLayoutV2 — Ficha de Empresa reproducida 1:1 desde la fuente
+ * canónica `arroba.com/mockups/ficha-empresa-f01.html` (Daniel 2026-08-09:
+ * "usa siempre la fuente"). El CSS es el del mockup, extraído verbatim y
+ * scopeado bajo `.afk` (ver fichaMockupCss.ts). El maquetado reproduce las
+ * clases del mockup; los datos son SIEMPRE reales (R4/R10: el front no calcula
+ * ni inventa). Las secciones sin motor cableado quedan como "pronto".
  */
-import { useEffect, useRef, useState } from 'react';
-
+import { useMemo, useState } from 'react';
 import {
-  Activity, Coins, FileText, GitCompare, Globe, LayoutDashboard, Lightbulb,
-  type LucideIcon, Network, Scale, Share2, Star, Target, Users,
+  Activity, BarChart3, Bell, Bookmark, Coins, Euro, FileText, Files, GitCompare,
+  Hourglass, LayoutGrid, type LucideIcon, Network, PieChart, Scale, Share2,
+  Target, Users, Zap,
 } from 'lucide-react';
 
 import type {
-  FinancialAnalysis,
-  FinancialSection,
-  FinancialTableBlock,
-  IdentitySection,
-  RecommendationSet,
-  SemanticSection,
-  SignalAnalysis,
+  BuyerItem, FinancialAnalysis, FinancialSection, FinancialTableBlock,
+  IdentitySection, RecommendationSet, SemanticSection, SignalAnalysis,
   ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
-
-const RED = '#FF5757';
+import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 
 export interface CompanyFichaLayoutV2Props {
   identity: IdentitySection;
@@ -43,602 +36,588 @@ export interface CompanyFichaLayoutV2Props {
 }
 
 type SectionId =
-  | 'resumen' | 'finanzas' | 'valoracion' | 'comparativa' | 'propiedad'
-  | 'gobierno' | 'mercado' | 'rankings' | 'senales' | 'oportunidades' | 'comite';
+  | 'resumen' | 'finanzas' | 'valoracion' | 'propiedad' | 'gobierno' | 'mercado'
+  | 'rankings' | 'comparativa' | 'senales' | 'oportunidades' | 'comite'
+  | 'sucesion' | 'sector' | 'registros' | 'documentos';
 
-const NAV: { id: SectionId; label: string; ready: boolean; icon: LucideIcon }[] = [
-  { id: 'resumen', label: 'Resumen', ready: true, icon: LayoutDashboard },
-  { id: 'finanzas', label: 'Finanzas', ready: true, icon: Coins },
-  { id: 'valoracion', label: 'Valoración', ready: true, icon: Scale },
-  { id: 'comparativa', label: 'Comparativa', ready: true, icon: GitCompare },
-  { id: 'propiedad', label: 'Propiedad', ready: false, icon: Network },
-  { id: 'gobierno', label: 'Gobierno', ready: false, icon: Users },
-  { id: 'mercado', label: 'Mercado', ready: false, icon: Globe },
-  { id: 'rankings', label: 'Rankings', ready: false, icon: Target },
-  { id: 'senales', label: 'Señales', ready: true, icon: Activity },
-  { id: 'oportunidades', label: 'Oportunidades', ready: true, icon: Lightbulb },
-  { id: 'comite', label: 'Comité de inversión', ready: false, icon: Scale },
+interface NavItem { id: SectionId; label: string; icon: LucideIcon; ready: boolean; grp: string; }
+const NAV: NavItem[] = [
+  { id: 'resumen', label: 'Resumen', icon: LayoutGrid, ready: true, grp: 'Perfil' },
+  { id: 'finanzas', label: 'Finanzas', icon: Euro, ready: true, grp: 'Perfil' },
+  { id: 'valoracion', label: 'Valoración', icon: Coins, ready: true, grp: 'Perfil' },
+  { id: 'propiedad', label: 'Propiedad', icon: Network, ready: false, grp: 'Perfil' },
+  { id: 'gobierno', label: 'Gobierno', icon: Users, ready: false, grp: 'Perfil' },
+  { id: 'mercado', label: 'Mercado', icon: BarChart3, ready: false, grp: 'Perfil' },
+  { id: 'rankings', label: 'Rankings', icon: Target, ready: false, grp: 'Perfil' },
+  { id: 'comparativa', label: 'Comparativa', icon: GitCompare, ready: true, grp: 'Perfil' },
+  { id: 'senales', label: 'Señales', icon: Activity, ready: true, grp: 'Inteligencia' },
+  { id: 'oportunidades', label: 'Oportunidades', icon: Zap, ready: true, grp: 'Inteligencia' },
+  { id: 'comite', label: 'Comité de inversión', icon: Scale, ready: false, grp: 'Inteligencia' },
+  { id: 'sucesion', label: 'Sucesión', icon: Hourglass, ready: false, grp: 'Inteligencia' },
+  { id: 'sector', label: 'Sector & Roll-up', icon: PieChart, ready: false, grp: 'Inteligencia' },
+  { id: 'registros', label: 'Registros públicos', icon: FileText, ready: false, grp: 'Fuentes' },
+  { id: 'documentos', label: 'Documentos', icon: Files, ready: false, grp: 'Fuentes' },
 ];
 
 /* ============================ helpers ============================ */
-function useCountUp(target: number | null | undefined, duration = 900): number {
-  const [val, setVal] = useState(0);
-  const raf = useRef<number | null>(null);
-  useEffect(() => {
-    if (target === null || target === undefined || !isFinite(target)) { setVal(0); return; }
-    const start = performance.now();
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setVal(target * eased);
-      if (t < 1) raf.current = requestAnimationFrame(step);
-    };
-    raf.current = requestAnimationFrame(step);
-    return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [target, duration]);
-  return val;
-}
+const RED = '#FF5757', DARK = '#2a2724', N = '#9A9A93', N2 = '#E9E9E5', OK = '#1B9E5A', INFO = '#2563EB';
 
 function fmtEUR(v: number | null | undefined): string {
   if (v === null || v === undefined) return '—';
-  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} M€`;
-  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)} k€`;
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toLocaleString('es-ES', { maximumFractionDigits: 0 })} k€`;
   return `${v.toLocaleString('es-ES')} €`;
 }
 function fmtNum(v: number | null | undefined): string {
   return v === null || v === undefined ? '—' : v.toLocaleString('es-ES');
 }
-function fmtPct(v: number | null | undefined): string {
-  return v === null || v === undefined ? '—' : `${v.toFixed(1)}%`;
+/** Márgenes/crecimiento llegan del motor como fracción (0,29 = 29%). */
+function pctF(v: number | null | undefined): string {
+  if (v === null || v === undefined) return '—';
+  const n = Math.abs(v) <= 1.5 ? v * 100 : v;
+  return `${n.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%`;
+}
+function clamp100(v: number | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const n = v <= 1 ? v * 100 : v;
+  return Math.max(0, Math.min(100, n));
 }
 function fmtCell(value: number | null, format: string): string {
   if (value === null || value === undefined) return '—';
-  if (format === 'percent') return `${value.toFixed(1)}%`;
-  if (format === 'ratio' || format === 'multiple') return `${value.toFixed(2)}×`;
+  if (format === 'percent') return `${value.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%`;
+  if (format === 'ratio' || format === 'multiple') return `${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}×`;
   if (format === 'currency') return fmtEUR(value);
   return value.toLocaleString('es-ES');
 }
 function fmtDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  return isNaN(d.getTime()) ? null : d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-const RATIO_CAT_LABEL: Record<string, string> = {
-  profitability: 'Rentabilidad', liquidity: 'Liquidez', solvency: 'Solvencia',
-  efficiency: 'Eficiencia', growth: 'Crecimiento',
-};
-const LEVEL_NAMES: Record<number, string> = { 1: 'Ejecutiva', 2: 'Negocio', 3: 'Detalle', 4: 'Máximo' };
+function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-/* ============================ átomos UI ============================ */
-function Card({ title, sub, children, pad = true }: { title?: string; sub?: string; children: React.ReactNode; pad?: boolean }) {
-  return (
-    <div className="af-card" style={{ padding: pad ? 20 : 0 }}>
-      {title && <h3 className="af-cardh"><span className="af-key" />{title}</h3>}
-      {sub && <div className="af-cs">{sub}</div>}
-      {children}
-    </div>
-  );
+/* ---- charts (SVG string, portados verbatim del mockup) ---- */
+interface Serie { name: string; data: number[]; color: string; area?: boolean; }
+function lineChartSVG(series: Serie[], labels: string[]): string {
+  if (!series.length || !labels.length) return '';
+  const w = 680, h = 230, pl = 44, pr = 14, pt = 18, pb = 28, iw = w - pl - pr, ih = h - pt - pb;
+  const max = Math.max(...series.flatMap((s) => s.data)) * 1.15 || 1, min = 0;
+  const x = (i: number) => pl + iw * i / Math.max(1, labels.length - 1);
+  const y = (v: number) => pt + ih - (v - min) / (max - min) * ih;
+  let g = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto">`;
+  for (let k = 0; k <= 4; k++) { const yy = pt + ih * k / 4; g += `<line x1="${pl}" y1="${yy}" x2="${w - pr}" y2="${yy}" stroke="${N2}"/><text x="${pl - 8}" y="${yy + 4}" text-anchor="end" font-size="10" fill="${N}">${(max - (max - min) * k / 4).toFixed(0)}</text>`; }
+  labels.forEach((l, i) => g += `<text x="${x(i)}" y="${h - 8}" text-anchor="middle" font-size="10.5" fill="${N}">${esc(l)}</text>`);
+  series.forEach((s) => {
+    const p = s.data.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+    if (s.area) g += `<polygon points="${pl},${pt + ih} ${p} ${w - pr},${pt + ih}" fill="${s.color}" opacity=".08"/>`;
+    g += `<polyline points="${p}" fill="none" stroke="${s.color}" stroke-width="2.6"/>`;
+    s.data.forEach((v, i) => { g += `<circle cx="${x(i)}" cy="${y(v)}" r="3.6" fill="#fff" stroke="${s.color}" stroke-width="2"/>`; });
+  });
+  let lx = pl; series.forEach((s) => { g += `<circle cx="${lx}" cy="11" r="4" fill="${s.color}"/><text x="${lx + 9}" y="15" font-size="10.5" fill="#4E4E48">${esc(s.name)}</text>`; lx += s.name.length * 6.6 + 30; });
+  return g + '</svg>';
 }
-function Fact({ k, v }: { k: string; v: string }) {
-  return (
-    <div>
-      <div className="af-lbl">{k}</div>
-      <div className="af-factv">{v}</div>
-    </div>
-  );
+function ringSVG(val: number, label: string, color: string): string {
+  const r = 34, c = 2 * Math.PI * r, off = c * (1 - val / 100);
+  return `<div class="lbl">${esc(label)}</div><svg width="92" height="92" viewBox="0 0 92 92"><circle cx="46" cy="46" r="${r}" fill="none" stroke="${N2}" stroke-width="8"/><circle cx="46" cy="46" r="${r}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 46 46)"/><text x="46" y="52" text-anchor="middle" font-size="22" font-weight="750" fill="#161412">${Math.round(val)}</text></svg>`;
 }
-function Kpi({ label, raw, format, sub }: { label: string; raw: number | null | undefined; format: (n: number) => string; sub?: string }) {
-  const animated = useCountUp(raw ?? null);
-  const display = raw === null || raw === undefined ? '—' : format(animated);
-  return (
-    <div className="af-kpi">
-      <div className="af-lbl">{label}</div>
-      <div className="af-kpiv">{display}</div>
-      {sub && <div className="af-kpisub">{sub}</div>}
-    </div>
-  );
-}
-function Tip({ label, children }: { label: string; children: React.ReactNode }) {
-  const [show, setShow] = useState(false);
-  return (
-    <span className="af-tipw" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
-      <span className="af-tiptrg">{children}</span>
-      {show && <span className="af-tip">{label}</span>}
-    </span>
-  );
-}
-function HeaderBtn({ icon: Icon, label, primary }: { icon: LucideIcon; label: string; primary?: boolean }) {
-  return (
-    <button type="button" className={primary ? 'af-btn af-btn-primary' : 'af-btn'}>
-      <Icon size={14} /> {label}
-    </button>
-  );
-}
-function Ring({ label, value, color, pendingNote }: { label: string; value: number | null; color: string; pendingNote?: string }) {
-  let v = value;
-  if (v != null && v <= 1) v = v * 100;
-  if (v != null) v = Math.max(0, Math.min(100, v));
-  const animated = useCountUp(v ?? 0, 900);
-  const R = 30, C = 2 * Math.PI * R;
-  const offset = v == null ? C : C * (1 - animated / 100);
-  return (
-    <div className="af-ringw" title={v == null ? pendingNote : undefined}>
-      <svg width={84} height={84} viewBox="0 0 84 84">
-        <circle cx={42} cy={42} r={R} fill="none" stroke="#F0EDE8" strokeWidth={8} />
-        {v != null && (
-          <circle cx={42} cy={42} r={R} fill="none" stroke={color} strokeWidth={8}
-            strokeDasharray={C} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 42 42)" />
-        )}
-        <text x={42} y={48} textAnchor="middle" fontSize={20} fontWeight={750} fill={v == null ? '#B8B0A6' : '#141210'}>
-          {v == null ? '—' : Math.round(animated)}
-        </text>
-      </svg>
-      <div className="af-ringlbl">{label}</div>
-    </div>
-  );
-}
-function MiniBars({ values }: { values: (number | null)[] }) {
-  const nums = values.map((v) => v ?? 0);
-  const max = Math.max(1, ...nums.map((n) => Math.abs(n)));
-  const w = 170, h = 46, gap = 6;
-  const bw = (w - gap * (nums.length - 1)) / Math.max(1, nums.length);
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: 'auto' }}>
-      {nums.map((n, i) => {
-        const bh = Math.max(3, (Math.abs(n) / max) * (h - 4));
-        return <rect key={i} x={i * (bw + gap)} y={h - bh} width={bw} height={bh} rx={3} fill={RED} opacity={0.3 + 0.7 * (i / Math.max(1, nums.length - 1))} />;
-      })}
-    </svg>
-  );
-}
-function EVRangeBar({ low, central, high }: { low: number | null; high: number | null; central: number | null }) {
-  if (low === null || high === null || high <= low) return null;
-  const pos = central !== null ? Math.min(100, Math.max(0, ((central - low) / (high - low)) * 100)) : 50;
-  return (
-    <div style={{ marginTop: 14 }}>
-      <div className="af-evtrack"><div className="af-evfill" /><div className="af-evknob" style={{ left: `calc(${pos}% - 9px)` }} /></div>
-      <div className="af-evlabels"><span>{fmtEUR(low)}</span><span className="af-evc">{fmtEUR(central)}</span><span>{fmtEUR(high)}</span></div>
-    </div>
-  );
+
+function Html({ html, className, id }: { html: string; className?: string; id?: string }) {
+  return <div className={className} id={id} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 function Soon({ label }: { label: string }) {
   return (
-    <UnavailableBlock testId={`ficha-v2-soon-${label}`} title={`${label} · próximamente`}
-      description="Esta sección se conectará a su motor de inteligencia en la siguiente fase de cableado."
-      req="intelligence_layer · provider pendiente" />
+    <div className="card">
+      <UnavailableBlock testId={`ficha-soon-${label}`} title={`${label} · próximamente`}
+        description="Esta sección se conectará a su motor de inteligencia en la siguiente fase de cableado."
+        req="intelligence_layer · provider pendiente" />
+    </div>
   );
+}
+
+/* ============================ RESUMEN ============================ */
+function Resumen(p: CompanyFichaLayoutV2Props) {
+  const { identity, financial, financialAnalysis, semantic, signal, buyers } = p;
+  const cls = identity.classification, loc = identity.location, sz = identity.size;
+  const k = financialAnalysis?.kpis ?? null;
+
+  const evo = financial?.evolution;
+  const chart = useMemo(() => {
+    if (!evo || !evo.series.length) return '';
+    const series: Serie[] = evo.series.slice(0, 2).map((s, i) => ({
+      name: s.format === 'currency' ? `${s.label} (M€)` : s.label,
+      data: s.values.map((v) => (v == null ? 0 : s.format === 'currency' ? v / 1_000_000 : v)),
+      color: i === 0 ? RED : DARK, area: i === 0,
+    }));
+    return lineChartSVG(series, evo.years.map(String));
+  }, [evo]);
+
+  const quality = clamp100(financialAnalysis?.financial_quality?.score ?? null);
+  const opp = clamp100(signal?.score?.signal_score ?? null);
+  const topFit = clamp100(buyers?.recommendations?.[0]?.score ?? null);
+  const rings: { v: number; label: string; color: string }[] = [];
+  if (quality != null) rings.push({ v: quality, label: 'Calidad', color: OK });
+  if (topFit != null) rings.push({ v: topFit, label: 'Encaje comprador', color: RED });
+  if (opp != null) rings.push({ v: opp, label: 'Oportunidad', color: INFO });
+
+  return (
+    <section className="panel on">
+      <div className="hero">
+        <div className="t">Resumen de compañía</div>
+        {(identity.description || identity.objeto_social) ? (
+          <p>{identity.description || identity.objeto_social}</p>
+        ) : (
+          <p>{identity.legal_name ?? 'La compañía'} opera en {cls.cnae_description ?? 'su sector'}{loc.provincia ? `, con domicilio en ${loc.provincia}` : ''}.</p>
+        )}
+        {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
+      </div>
+
+      {chart && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3><span className="k" />Evolución financiera</h3>
+          <div className="cs">Facturación y EBITDA · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
+          <Html html={chart} />
+        </div>
+      )}
+
+      {k && (
+        <div className="kgrid" style={{ marginTop: 16 }}>
+          <div className="kpi"><div className="l">Facturación</div><div className="v">{fmtEUR(k.revenue ?? null)}</div>{k.revenue_growth_yoy != null && <div className={`d ${k.revenue_growth_yoy >= 0 ? 'up' : 'down'}`}>{k.revenue_growth_yoy >= 0 ? '▲' : '▼'} {pctF(k.revenue_growth_yoy)} YoY</div>}</div>
+          <div className="kpi"><div className="l">EBITDA</div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf">margen {pctF(k.ebitda_margin)}</div>}</div>
+          <div className="kpi"><div className="l">Resultado neto</div><div className="v">{fmtEUR(k.net_income ?? null)}</div>{k.net_margin != null && <div className="d inf">margen {pctF(k.net_margin)}</div>}</div>
+          <div className="kpi"><div className="l">Empleados</div><div className="v">{fmtNum(sz.employees_total)}</div><div className="d inf">plantilla</div></div>
+        </div>
+      )}
+
+      <div className="row r2" style={{ marginTop: 16 }}>
+        {rings.length > 0 && (
+          <div className="card">
+            <h3><span className="k" />Scores de inteligencia</h3>
+            <div className="cs">Calculados por Arroba</div>
+            <div className="scores" style={{ gridTemplateColumns: `repeat(${rings.length},1fr)` }}>
+              {rings.map((r) => <Html key={r.label} className="ring" html={ringSVG(r.v, r.label, r.color)} />)}
+            </div>
+          </div>
+        )}
+        <div className="card">
+          <h3><span className="k" />Identificación</h3>
+          <div className="cs">Datos registrales · fuentes verificadas + BORME</div>
+          <div className="idrow"><span className="k">Razón social</span><span className="v">{identity.legal_name ?? '—'}</span></div>
+          <div className="idrow"><span className="k">CIF</span><span className="v">{identity.cif_normalized ?? '—'}</span></div>
+          {identity.registry_status?.legal_form && <div className="idrow"><span className="k">Forma jurídica</span><span className="v">{identity.registry_status.legal_form}</span></div>}
+          <div className="idrow"><span className="k">CNAE</span><span className="v">{cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_description ?? ''}` : '—'}</span></div>
+          <div className="idrow"><span className="k">Domicilio</span><span className="v">{[loc.municipio, loc.provincia].filter(Boolean).join(' · ') || '—'}</span></div>
+          <div className="idrow"><span className="k">Capital social</span><span className="v">{fmtEUR(sz.capital_social)}</span></div>
+          {identity.contact.web && <div className="idrow"><span className="k">Web</span><span className="v">{identity.contact.web}</span></div>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ============================ FINANZAS ============================ */
+const RLEVEL: Record<string, number> = { total: 1, subtotal: 2, line: 2, derived: 3 };
+function filterRows(b: FinancialTableBlock, lvl: number): FinancialTableBlock {
+  return { years: b.years, rows: b.rows.filter((r) => (RLEVEL[r.category] ?? 3) <= lvl) };
 }
 function FinTable({ block }: { block: FinancialTableBlock }) {
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table className="af-table">
-        <thead>
-          <tr><th>Concepto</th>{block.years.map((y) => <th key={y} className="r">{y}</th>)}</tr>
-        </thead>
-        <tbody>
-          {block.rows.map((row) => {
-            const strong = row.category === 'total' || row.category === 'subtotal';
-            return (
-              <tr key={row.key}>
-                <td style={{ fontWeight: strong ? 700 : 400 }}>{row.label}</td>
-                {row.values.map((c, i) => (
-                  <td key={i} className="r tab" style={{ fontWeight: strong ? 700 : 500, color: c.semantic === 'positive' ? '#1B9E5A' : c.semantic === 'negative' ? '#C0392B' : '#141210' }}>
-                    {fmtCell(c.value, c.format)}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <table className="rec">
+      <tbody>
+        <tr><th>Concepto</th>{block.years.map((y) => <th key={y} style={{ textAlign: 'right' }}>{y}</th>)}</tr>
+        {block.rows.map((row) => {
+          const strong = row.category === 'total' || row.category === 'subtotal';
+          return (
+            <tr key={row.key}>
+              <td>{strong ? <b>{row.label}</b> : row.label}</td>
+              {row.values.map((c, i) => (
+                <td key={i} style={{ textAlign: 'right' }} className={c.semantic === 'positive' ? 'up' : c.semantic === 'negative' ? 'down' : undefined}>
+                  {strong ? <b>{fmtCell(c.value, c.format)}</b> : fmtCell(c.value, c.format)}
+                </td>
+              ))}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+const RATIO_FAM: { key: string; label: string }[] = [
+  { key: 'growth', label: 'Crecimiento' }, { key: 'profitability', label: 'Rentabilidad' },
+  { key: 'liquidity', label: 'Liquidez' }, { key: 'solvency', label: 'Solvencia' },
+  { key: 'efficiency', label: 'Circulante / eficiencia' },
+];
+function Finanzas({ financial }: { financial: FinancialSection | null }) {
+  const [tab, setTab] = useState<'pl' | 'balance' | 'ratios'>('pl');
+  const [lvl, setLvl] = useState(1);
+  if (!financial || (!financial.profit_loss && !financial.balance && !(financial.ratios?.items?.length))) return <Soon label="Finanzas" />;
+  const ratios = financial.ratios?.items ?? [];
+  const fams = RATIO_FAM.filter((f) => ratios.some((r) => r.category === f.key));
+  const lvlName = ['', 'Ejecutiva', 'Negocio', 'Detalle', 'Máximo'][lvl];
+  return (
+    <section className="panel on">
+      <div className="sec-h">Finanzas</div>
+      <div className="sec-s">Cuenta de resultados, balance y ratios — de la vista ejecutiva al detalle contable.</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="seg dark">
+          <button className={tab === 'pl' ? 'on' : ''} onClick={() => setTab('pl')}>Cuenta de resultados</button>
+          <button className={tab === 'balance' ? 'on' : ''} onClick={() => setTab('balance')}>Balance</button>
+          <button className={tab === 'ratios' ? 'on' : ''} onClick={() => setTab('ratios')}>Ratios</button>
+        </div>
+        <span style={{ flex: 1 }} />
+        {tab !== 'ratios' && (
+          <div className="lvlctl">
+            <span className="lb">Nivel de detalle</span>
+            <input type="range" min={1} max={3} step={1} value={lvl} onChange={(e) => setLvl(Number(e.target.value))} className="lvlrange" />
+            <span className="lvlval">{lvlName}</span>
+          </div>
+        )}
+      </div>
+
+      {tab === 'pl' && (financial.profit_loss
+        ? <div className="card"><h3><span className="k" />Cuenta de resultados</h3><div className="cs">Arrastra "Nivel de detalle" para desplegar más partidas</div><FinTable block={filterRows(financial.profit_loss, lvl)} /></div>
+        : <Soon label="Cuenta de resultados" />)}
+      {tab === 'balance' && (financial.balance
+        ? <div className="card"><h3><span className="k" />Balance</h3><FinTable block={filterRows(financial.balance, lvl)} /></div>
+        : <Soon label="Balance" />)}
+
+      {tab === 'ratios' && (fams.length ? (
+        <div className="card">
+          <h3><span className="k" />Ratios financieros</h3>
+          <div className="cs">Valor · percentil sectorial. Pasa el ratón por cada ratio para su definición.</div>
+          <div className="rfams">
+            {fams.map((f) => (
+              <div key={f.key} className="rfam">
+                <h5><span className="k" />{f.label}</h5>
+                {ratios.filter((r) => r.category === f.key).map((r) => {
+                  const pct = r.benchmark?.percentile;
+                  return (
+                    <div key={r.key} className="rrow">
+                      <span className="rn" title={r.formula ?? undefined}>{r.name}</span>
+                      <span className="rv">{fmtCell(r.value, r.format)}</span>
+                      {pct != null ? <span className="rp"><i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span> : <span className="rp na">—</span>}
+                      <span className="rt f">▬</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="rleg">
+            <span><span className="srcdot r" /> Dato recibido (verificado)</span>
+            <span><span className="srcdot c" /> Calculado por Arroba</span>
+            <span>Barra = percentil sectorial</span>
+          </div>
+        </div>
+      ) : <Soon label="Ratios" />)}
+    </section>
+  );
+}
+
+/* ============================ VALORACIÓN ============================ */
+function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnalysis | null; financialAnalysis: FinancialAnalysis | null }) {
+  if (!valuation || !valuation.has_valuation) return <Soon label="Valoración" />;
+  const r = valuation.range;
+  const q = clamp100(financialAnalysis?.financial_quality?.score ?? null);
+  const maxEv = r ? (Math.max(r.low ?? 0, r.central ?? 0, r.high ?? 0) || 1) : 1;
+  const pctOf = (v: number | null) => (v == null ? 0 : Math.max(6, Math.min(100, (v / maxEv) * 100)));
+  return (
+    <section className="panel on">
+      <div className="sec-h">Valoración</div>
+      <div className="sec-s">Aproximación de valor por múltiplos comparables. Estimación orientativa, no una valoración formal.</div>
+      <div className="intel" style={{ borderColor: 'var(--n200)', background: 'var(--n50)' }}>
+        <p><b>💲 Equity Value ajustado por deuda financiera neta.</b> El valor mostrado es una aproximación devuelta por el motor.</p>
+      </div>
+      <div className="row r3" style={{ marginTop: 16 }}>
+        {q != null && (
+          <div className="card">
+            <h3><span className="k" />Posicionamiento</h3>
+            <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Html className="ring" html={ringSVG(q, 'Quality Score', OK)} /></div>
+            <div className="cs" style={{ textAlign: 'center', marginTop: 8 }}>de 100 · calidad financiera</div>
+          </div>
+        )}
+        {r && (
+          <div className="card">
+            <h3><span className="k" />Enterprise Value</h3>
+            <div className="evrow"><span className="lb">Bajo</span><div className="evbar"><i style={{ width: `${pctOf(r.low)}%`, background: 'var(--red)' }} /></div><span className="val">{fmtEUR(r.low)}</span></div>
+            <div className="evrow"><span className="lb">Medio</span><div className="evbar"><i style={{ width: `${pctOf(r.central)}%`, background: 'var(--info)' }} /></div><span className="val">{fmtEUR(r.central)}</span></div>
+            <div className="evrow"><span className="lb">Alto</span><div className="evbar"><i style={{ width: `${pctOf(r.high)}%`, background: 'var(--ok)' }} /></div><span className="val">{fmtEUR(r.high)}</span></div>
+            {valuation.multiple != null && <div className="idrow" style={{ marginTop: 10 }}><span className="k">Múltiplo</span><span className="v">{valuation.multiple.toLocaleString('es-ES', { maximumFractionDigits: 1 })}× {valuation.multiple_basis ?? 'EBITDA'}</span></div>}
+            <div className="idrow"><span className="k" style={{ fontWeight: 700, color: 'var(--n900)' }}>Equity value</span><span className="v" style={{ color: 'var(--red-hover)' }}>{fmtEUR(valuation.equity_value)}</span></div>
+          </div>
+        )}
+      </div>
+      {valuation.hypotheses.length > 0 && (
+        <div className="card">
+          <h3><span className="k" />¿Por qué este valor?</h3>
+          <div className="cs">El motor devuelve la explicación, no solo el número — sin cifras inventadas</div>
+          <div style={{ paddingTop: 4 }}>
+            {valuation.hypotheses.map((h, i) => <div key={i} style={{ fontSize: 13, color: 'var(--n700)', padding: '4px 0', lineHeight: 1.55 }}>◆ {h}</div>)}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ============================ COMPARATIVA ============================ */
+function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; buyers?: RecommendationSet | null }) {
+  const [sel, setSel] = useState(0);
+  const list = buyers?.recommendations ?? [];
+  const similar = semantic?.similar ?? [];
+  const chips = [...(semantic?.activities ?? []), ...(semantic?.markets ?? []), ...(semantic?.keywords ?? [])].slice(0, 8);
+  if (!list.length && !similar.length && !chips.length) return <Soon label="Comparativa" />;
+  const cur: BuyerItem | undefined = list[sel];
+  const fitEntries = cur ? Object.entries(cur.fit_dimensions ?? {}) : [];
+  return (
+    <section className="panel on">
+      <div className="sec-h">Comparativa</div>
+      <div className="sec-s">Con quién se compara la empresa y quién encajaría como comprador.</div>
+
+      {chips.length > 0 && (
+        <div className="card">
+          <h3><span className="k" />Perfil de negocio</h3>
+          <div className="cs">Los rasgos con los que Arroba busca sus comparables</div>
+          <div className="chips">{chips.map((c, i) => <span key={i} className={`schip${i > 2 ? ' n' : ''}`}>{c}</span>)}</div>
+        </div>
+      )}
+
+      {list.length > 0 && (
+        <div className="card">
+          <h3><span className="k" />Compradores que mejor encajarían con esta compañía</h3>
+          <div className="cs">Ordenados por encaje (0–100). Haz clic en un comprador para ver por qué encaja.</div>
+          <table className="rec buyers">
+            <tbody>
+              <tr><th>Comprador</th><th>Tipo</th><th>Encaje</th><th>Por qué, en una línea</th></tr>
+              {list.map((b, i) => {
+                const fit = clamp100(b.score) ?? 0;
+                return (
+                  <tr key={b.master_id ?? i} className={i === sel ? 'on' : ''} onClick={() => setSel(i)} style={{ cursor: 'pointer' }}>
+                    <td>{b.name ?? 'Comprador'}</td>
+                    <td>{b.recommendation_type ?? b.sector ?? '—'}</td>
+                    <td><span className="fit">{Math.round(fit)}</span><span className="mbar"><i style={{ width: `${fit}%` }} /></span></td>
+                    <td>{b.reason ?? '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="buywhy">Arroba cruza el <b>perfil de esta compañía</b> (sector, tamaño, márgenes, territorio y estructura) con las <b>tesis de compra activas</b>. Cada encaje se calcula frente a los rasgos concretos de la empresa, no es un listado genérico.</div>
+        </div>
+      )}
+
+      <div className="row r2">
+        {cur && (
+          <div className="card">
+            <h3><span className="k" />Por qué encaja <span className="whytag">{cur.name ?? ''}</span></h3>
+            <div className="cs">Descomposición del encaje {Math.round(clamp100(cur.score) ?? 0)}/100. Cada factor compara al comprador con las necesidades de la compañía.</div>
+            <div>
+              {fitEntries.map(([kk, v]) => {
+                const val = clamp100(v) ?? 0;
+                return (
+                  <div key={kk} className="fac"><span className="fn">{kk}</span><span className="fb"><i style={{ width: `${val}%` }} /></span><span className="fv">{Math.round(val)}</span></div>
+                );
+              })}
+            </div>
+            {cur.reason && <div className="whynar">{cur.reason}</div>}
+          </div>
+        )}
+        {similar.length > 0 && (
+          <div className="card">
+            <h3><span className="k" />Empresas parecidas</h3>
+            <div className="cs">La similitud la calcula el <b>Fingerprint</b>: modelo de negocio, sector, tamaño, márgenes y territorio.</div>
+            {similar.map((s, i) => (
+              <div key={s.master_id ?? i} className="simrow">
+                <div className="lg">{(s.name || '?').slice(0, 2).toUpperCase()}</div>
+                <div>
+                  <div className="snm">{s.name}</div>
+                  <div className="sd">{[s.sector, s.region].filter(Boolean).join(' · ')}</div>
+                  {s.matched_dimensions.length > 0 && <div className="sb">Se parece en <b>{s.matched_dimensions.join(', ')}</b>.</div>}
+                </div>
+                <div className="sm"><b>{s.score.toLocaleString('es-ES', { maximumFractionDigits: 2 })}</b><small>similitud</small></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ============================ SEÑALES ============================ */
+function Senales({ signal }: { signal?: SignalAnalysis | null }) {
+  const items = signal?.signals ?? [];
+  if (!items.length) return <Soon label="Señales" />;
+  const cls = (pol: string | null) => pol === 'positive' ? 'ok' : pol === 'negative' ? 'r' : pol === 'warning' ? 'w' : 'i';
+  return (
+    <section className="panel on">
+      <div className="sec-h">Señales</div>
+      <div className="sec-s">Hechos y eventos que Arroba ha detectado y que hacen a la compañía más (o menos) atractiva para una operación.</div>
+      <div className="tl">
+        {items.map((s) => (
+          <div key={s.signal_id} className={`ev ${cls(s.polarity)}`}>
+            <div className="mk" />
+            <div className="c">
+              <div className="th">
+                <div>
+                  <div className="t">{s.title ?? s.signal_type ?? 'Señal'}</div>
+                  {s.severity && <div className="m">Severidad {s.severity}{s.confidence != null ? ` · confianza ${Math.round(s.confidence * 100)}%` : ''}</div>}
+                </div>
+                {s.category && <span className="tag">{s.category}</span>}
+              </div>
+              {fmtDate(s.detected_at) && <div className="yr">{fmtDate(s.detected_at)}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ============================ OPORTUNIDADES ============================ */
+function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | null }) {
+  const items = opportunities?.recommendations ?? [];
+  if (!items.length) return <Soon label="Oportunidades" />;
+  return (
+    <section className="panel on">
+      <div className="sec-h">Oportunidades</div>
+      <div className="sec-s">Las jugadas que tienen sentido para esta empresa, ordenadas por lo atractivas que son.</div>
+      <div className="card">
+        <h3><span className="k" />Atractivo por dimensión estratégica</h3>
+        <div className="cs">Puntuación 0–100 de cada tesis para esta compañía</div>
+        {items.map((o, i) => {
+          const v = clamp100(o.score) ?? 0;
+          return (
+            <div key={o.master_id ?? i} className="dim"><span className="dn">{o.name ?? o.recommendation_type ?? 'Tesis'}</span><span className="db"><i style={{ width: `${v}%` }} /></span><span className="dv">{Math.round(v)}</span></div>
+          );
+        })}
+      </div>
+      <div className="row r2">
+        {items.slice(0, 2).map((o, i) => (
+          <div key={i} className="card">
+            <h3><span className="k" />{o.name ?? o.recommendation_type ?? 'Tesis'}</h3>
+            {o.reason && <p style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6 }}>{o.reason}</p>}
+            {(o.recommended_actions ?? []).map((a, j) => <div key={j} className="sact" style={{ marginTop: j === 0 ? 10 : 0 }}>→ {a}</div>)}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ============================ COPILOT ============================ */
+const AT_GRID = ['..XXXX..', '.X....X.', 'X..XX..X', 'X.X..X.X', 'X.X..X.X', 'X..XXXXX', '.X......', '..XXXX..'];
+function AtMark({ color = '#fff', size = 18 }: { color?: string; size?: number }) {
+  const cell = size / 8;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="arrobamark">
+      {AT_GRID.flatMap((row, r) => row.split('').map((c, x) => c === 'X'
+        ? <rect key={`${r}-${x}`} x={x * cell} y={r * cell} width={cell * 0.82} height={cell * 0.82} rx={cell * 0.2} fill={color} /> : null))}
+    </svg>
+  );
+}
+function Copilot({ name }: { name: string }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  return (
+    <div className="cop-wrap">
+      <div className={`cop${open ? ' open' : ''}`}>
+        <div className="cop-panel">
+          <div className="cop-phead"><span className="lbl">arroba copilot · {name}</span><button className="ci-min" onClick={() => setOpen(false)}>—</button></div>
+          <div className="pad"><div className="note">Pregunta sobre esta compañía y el Copilot responde con sus motores.</div></div>
+        </div>
+        <div className="cop-chips">
+          {['Prepárame un teaser', 'Riesgos para el comprador', '¿Quién me la compraría?'].map((c) => (
+            <span key={c} className="ccchip" onClick={() => { setOpen(true); setText(c); }}><span className="cs">✦</span> {c}</span>
+          ))}
+        </div>
+        <div className="cop-bar" onClick={() => setOpen(true)}>
+          <button className="ci-add" aria-label="Adjuntar"><AtMark color="#9A9A93" size={16} /></button>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Pregunta al copilot…" rows={1} />
+          <button className="ci-send" aria-label="Enviar">↑</button>
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ============================ secciones ============================ */
-function Resumen({ identity, financialAnalysis, valuation, semantic, signal, buyers }: Pick<CompanyFichaLayoutV2Props, 'identity' | 'financialAnalysis' | 'valuation' | 'semantic' | 'signal' | 'buyers'>) {
-  const loc = identity.location, cls = identity.classification;
-  const k = financialAnalysis?.kpis ?? null;
-  const quality = financialAnalysis?.financial_quality?.score ?? null;
-  const opportunity = signal?.score?.signal_score ?? null;
-  const topBuyer = buyers?.recommendations?.[0]?.score ?? null;
-  const engagement = topBuyer != null ? (topBuyer <= 1 ? topBuyer * 100 : topBuyer) : null;
+/* ============================ LAYOUT ============================ */
+export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
+  const { identity } = props;
+  const [active, setActive] = useState<SectionId>('resumen');
+  const [collapsed, setCollapsed] = useState(false);
+
+  const name = identity.legal_name ?? identity.cif_normalized ?? 'Empresa';
+  const cls = identity.classification;
+  const grps = ['Perfil', 'Inteligencia', 'Fuentes'];
+
   return (
-    <>
-      <Card title="Scoring Arroba" sub="Calidad · encaje · oportunidad">
-        <div className="af-rings">
-          <Ring label="Calidad" value={quality} color="#1B9E5A" />
-          <Ring label="Encaje" value={engagement} color={RED} pendingNote="Se activa al cablear el motor de recomendación" />
-          <Ring label="Oportunidad" value={opportunity} color="#2563EB" pendingNote="Se activa al cablear el motor de señales" />
-        </div>
-        <div className="af-note">Con dato real de sus motores: calidad financiera · encaje de comprador · señales.</div>
-      </Card>
-
-      {k && (
-        <div className="af-kpigrid">
-          <Kpi label="Facturación" raw={k.revenue ?? null} format={fmtEUR} />
-          <Kpi label="EBITDA" raw={k.ebitda ?? null} format={fmtEUR} sub={k.ebitda_margin != null ? `margen ${fmtPct(k.ebitda_margin)}` : undefined} />
-          <Kpi label="Resultado neto" raw={k.net_income ?? null} format={fmtEUR} sub={k.net_margin != null ? `margen ${fmtPct(k.net_margin)}` : undefined} />
-          <Kpi label="Crecimiento" raw={k.revenue_cagr ?? k.revenue_growth_yoy ?? null} format={(n) => `${n.toFixed(1)}%`} sub={k.revenue_cagr != null ? 'CAGR' : 'interanual'} />
-        </div>
-      )}
-
-      <Card title="Resumen de la compañía">
-        <p className="af-body">
-          {identity.description || identity.objeto_social ||
-            `${identity.legal_name ?? 'La compañía'} opera en ${cls.cnae_description ?? 'su sector'}${loc.provincia ? `, con domicilio en ${loc.provincia}` : ''}.`}
-        </p>
-        <div className="af-facts">
-          <Fact k="CIF" v={identity.cif_normalized ?? '—'} />
-          <Fact k="CNAE" v={cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_section ?? ''}` : '—'} />
-          <Fact k="Provincia" v={loc.provincia ?? '—'} />
-          <Fact k="Empleados" v={fmtNum(identity.size.employees_total)} />
-          <Fact k="Capital social" v={fmtEUR(identity.size.capital_social)} />
-          <Fact k="Órganos" v={fmtNum(identity.officers_count)} />
-          <Fact k="Valoración (EV)" v={fmtEUR(valuation?.enterprise_value ?? null)} />
-          <Fact k="Web" v={identity.contact.web ?? '—'} />
-        </div>
-      </Card>
-      {semantic?.value_proposition && (
-        <Card title="Qué hace" sub="Perfil semántico"><p className="af-body">{semantic.value_proposition}</p></Card>
-      )}
-    </>
-  );
-}
-
-function rowMinLevel(cat: string): number { return cat === 'total' || cat === 'subtotal' ? 1 : cat === 'line' ? 2 : 3; }
-function filterBlock(b: FinancialTableBlock, level: number): FinancialTableBlock {
-  return { years: b.years, rows: b.rows.filter((r) => rowMinLevel(r.category) <= level) };
-}
-function Finanzas({ financial }: { financial: FinancialSection | null }) {
-  const [level, setLevel] = useState(1);
-  if (!financial) return <Soon label="Finanzas" />;
-  const ratios = financial.ratios?.items ?? [];
-  const cats = Array.from(new Set(ratios.map((r) => r.category)));
-  if (!financial.profit_loss && !financial.balance && ratios.length === 0 && !financial.evolution) return <Soon label="Finanzas" />;
-  return (
-    <>
-      <div className="af-slider">
-        <span className="af-lbl">Nivel de detalle</span>
-        <input type="range" min={1} max={4} step={1} value={level} onChange={(e) => setLevel(Number(e.target.value))} style={{ accentColor: RED, width: 150 }} />
-        <span className="af-sliderv">{LEVEL_NAMES[level]}</span>
-      </div>
-      {financial.evolution && financial.evolution.series.length > 0 && (
-        <Card title="Evolución" sub={financial.evolution.years.join(' · ')}>
-          <div className="af-evo">
-            {financial.evolution.series.slice(0, 2).map((s) => (
-              <div key={s.key}><div className="af-lbl" style={{ marginBottom: 4 }}>{s.label}</div><MiniBars values={s.values} /></div>
-            ))}
+    <div className="afk">
+      <style>{FICHA_MOCKUP_CSS}</style>
+      <div className="wrap">
+        <div className="crumb">Analizar / Empresas / <b>{name}</b></div>
+        <div className="chead">
+          <div className="clogo">{name.slice(0, 2).toUpperCase()}</div>
+          <div>
+            <h1>{name}
+              {identity.registry_status?.mercantile_status && <span className="vbadge v">● {identity.registry_status.mercantile_status}</span>}
+            </h1>
+            <div className="csub">{[identity.legal_name, identity.cif_normalized ? `CIF ${identity.cif_normalized}` : null, cls.cnae_description, identity.location.provincia].filter(Boolean).join(' · ')}{identity.contact.web && <> · <a>{identity.contact.web} ↗</a></>}</div>
           </div>
-        </Card>
-      )}
-      {financial.profit_loss && <Card title="Cuenta de resultados"><FinTable block={filterBlock(financial.profit_loss, level)} /></Card>}
-      {financial.balance && <Card title="Balance"><FinTable block={filterBlock(financial.balance, level)} /></Card>}
-      {level >= 2 && ratios.length > 0 && (
-        <Card title="Ratios financieros" sub="Valor · percentil sectorial">
-          {cats.map((cat) => (
-            <div key={cat} style={{ marginBottom: 12 }}>
-              <div className="af-lbl" style={{ marginBottom: 4 }}>{RATIO_CAT_LABEL[cat] ?? cat}</div>
-              {ratios.filter((r) => r.category === cat).map((r) => (
-                <div key={r.key} className="af-row">
-                  {r.formula ? <Tip label={r.formula}><span>{r.name}</span></Tip> : <span>{r.name}</span>}
-                  <span className="af-rowr">
-                    {r.benchmark?.percentile != null && <span className="af-chip">P{Math.round(r.benchmark.percentile)}</span>}
-                    <b className="tab">{fmtCell(r.value, r.format)}</b>
-                  </span>
+          <div className="actions">
+            <button className="btn"><Bookmark size={15} /> Guardar</button>
+            <button className="btn"><Bell size={15} /> Seguir</button>
+            <button className="btn"><Share2 size={15} /></button>
+          </div>
+        </div>
+
+        <div className="grid">
+          <aside className={`side${collapsed ? ' collapsed' : ''}`}>
+            <div className="siderail">
+              <div className="railtop"><button className="toggle" onClick={() => setCollapsed((c) => !c)}>‹</button></div>
+              {grps.map((g) => (
+                <div key={g}>
+                  <div className="grp">{g}</div>
+                  {NAV.filter((n) => n.grp === g).map((n) => {
+                    const Icon = n.icon;
+                    return (
+                      <div key={n.id} className={`snav${n.id === active ? ' on' : ''}`} onClick={() => setActive(n.id)}>
+                        <span className="ic"><Icon size={18} /></span>
+                        <span className="tx">{n.label}</span>
+                        {!n.ready && !collapsed && <span className="tx" style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--n400)' }}>pronto</span>}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
             </div>
-          ))}
-        </Card>
-      )}
-    </>
-  );
-}
+          </aside>
 
-function Valoracion({ valuation }: { valuation: ValuationAnalysis | null }) {
-  if (!valuation || !valuation.has_valuation) return <Soon label="Valoración" />;
-  return (
-    <Card title="Valoración" sub={valuation.method_label ?? valuation.method ?? undefined}>
-      <div className="af-facts3">
-        <Fact k="Enterprise Value" v={fmtEUR(valuation.enterprise_value)} />
-        <Fact k="Equity Value" v={fmtEUR(valuation.equity_value)} />
-        <Fact k="Múltiplo" v={valuation.multiple ? `${valuation.multiple.toFixed(1)}× ${valuation.multiple_basis ?? ''}` : '—'} />
-      </div>
-      {valuation.range && <EVRangeBar low={valuation.range.low} central={valuation.range.central} high={valuation.range.high} />}
-      {valuation.hypotheses.length > 0 && (
-        <ul className="af-hyp">{valuation.hypotheses.map((h, i) => <li key={i}>{h}</li>)}</ul>
-      )}
-    </Card>
-  );
-}
-
-function BuyerList({ items, title, sub }: { items: RecommendationSet['recommendations']; title: string; sub: string }) {
-  return (
-    <Card title={title} sub={sub}>
-      {items.map((b) => (
-        <div key={b.master_id ?? b.name} className="af-brow">
-          <div className="af-browtop">
-            <div style={{ flex: 1 }}>
-              <div className="af-bname">{b.name ?? 'Comprador'}</div>
-              <div className="af-bsub">{[b.sector, b.recommendation_type].filter(Boolean).join(' · ')}</div>
-            </div>
-            {b.score != null && (
-              <div style={{ textAlign: 'right' }}>
-                <div className="af-bscore">{Math.round(b.score <= 1 ? b.score * 100 : b.score)}</div>
-                <div className="af-lbl">encaje</div>
-              </div>
+          <main className="main">
+            {active === 'resumen' && <Resumen {...props} />}
+            {active === 'finanzas' && <Finanzas financial={props.financial} />}
+            {active === 'valoracion' && <Valoracion valuation={props.valuation} financialAnalysis={props.financialAnalysis} />}
+            {active === 'comparativa' && <Comparativa semantic={props.semantic} buyers={props.buyers} />}
+            {active === 'senales' && <Senales signal={props.signal} />}
+            {active === 'oportunidades' && <Oportunidades opportunities={props.opportunities} />}
+            {['propiedad', 'gobierno', 'mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
+              <section className="panel on">
+                <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>
+                <Soon label={NAV.find((n) => n.id === active)?.label ?? active} />
+              </section>
             )}
-          </div>
-          {Object.keys(b.fit_dimensions ?? {}).length > 0 && (
-            <div className="af-chips">{Object.entries(b.fit_dimensions).map(([k, v]) => (
-              <span key={k} className="af-chip">{k} {Math.round(v <= 1 ? v * 100 : v)}</span>
-            ))}</div>
-          )}
-          {b.reason && <div className="af-bsub" style={{ marginTop: 4 }}>{b.reason}</div>}
-        </div>
-      ))}
-    </Card>
-  );
-}
-function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; buyers?: RecommendationSet | null }) {
-  const items = semantic?.similar ?? [];
-  const buyerItems = buyers?.recommendations ?? [];
-  if (items.length === 0 && buyerItems.length === 0) return <Soon label="Comparativa" />;
-  return (
-    <>
-      {buyerItems.length > 0 && <BuyerList items={buyerItems} title="Compradores que mejor encajarían" sub="Ordenados por encaje (fit); el detalle explica por qué encaja cada uno." />}
-      {items.length > 0 && (
-        <Card title="Empresas parecidas" sub="Similitud por Fingerprint (modelo, sector, tamaño, márgenes, territorio)">
-          {items.map((s) => (
-            <div key={s.master_id ?? s.name} className="af-simrow">
-              <div style={{ flex: 1 }}>
-                <div className="af-bname">{s.name}</div>
-                <div className="af-bsub">{[s.sector, s.region].filter(Boolean).join(' · ')}{s.matched_dimensions.length > 0 && ` · se parece en ${s.matched_dimensions.join(', ')}`}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}><div className="af-bscore">{s.score.toFixed(2)}</div><div className="af-lbl">similitud</div></div>
+          </main>
+
+          <aside className="deal">
+            <div className="escc">Próxima acción</div>
+            <div className="dcard">
+              <div className="dh"><div className="k">◉ Estado de la compañía</div><div className="v">Pendiente</div></div>
+              <div className="db"><p>La recomendación por perfil y estado (en venta, buscando capital, comprando…) se activará al cablear el estado de la compañía a su motor.</p></div>
             </div>
-          ))}
-        </Card>
-      )}
-    </>
-  );
-}
-
-function Senales({ signal }: { signal?: SignalAnalysis | null }) {
-  const items = signal?.signals ?? [];
-  if (items.length === 0) return <Soon label="Señales" />;
-  const pol = (p: string | null) => p === 'positive' ? '#1B9E5A' : p === 'negative' ? '#C0392B' : '#8A827A';
-  return (
-    <Card title="Señales" sub={signal?.score?.signal_score != null ? `Signal score ${Math.round(signal.score.signal_score)}` : undefined}>
-      {items.map((s) => (
-        <div key={s.signal_id} className="af-simrow" style={{ alignItems: 'flex-start' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: pol(s.polarity), marginTop: 6, flexShrink: 0 }} />
-          <div style={{ flex: 1, marginLeft: 10 }}>
-            <div className="af-bname">{s.title ?? s.signal_type ?? 'Señal'}</div>
-            <div className="af-bsub">{[s.category, s.severity ? `severidad ${s.severity}` : null, s.detected_at].filter(Boolean).join(' · ')}</div>
-          </div>
-          {s.confidence != null && <span className="af-bsub">{Math.round(s.confidence * 100)}%</span>}
+          </aside>
         </div>
-      ))}
-    </Card>
-  );
-}
-function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | null }) {
-  const items = opportunities?.recommendations ?? [];
-  if (items.length === 0) return <Soon label="Oportunidades" />;
-  return <BuyerList items={items} title="Oportunidades detectadas" sub="Tesis y movimientos con encaje para esta compañía" />;
-}
+      </div>
 
-/* ============================ Copilot dock (@ dot-matrix) ============================ */
-const AT_GRID = ['..XXXX..', '.X....X.', 'X..XX..X', 'X.X..X.X', 'X.X..X.X', 'X..XXXXX', '.X......', '..XXXX..'];
-function AtMark({ color = '#fff', size = 20 }: { color?: string; size?: number }) {
-  const cell = size / 8;
-  const rects: React.ReactNode[] = [];
-  AT_GRID.forEach((row, r) => row.split('').forEach((c, x) => {
-    if (c === 'X') rects.push(<rect key={`${r}-${x}`} x={x * cell} y={r * cell} width={cell * 0.82} height={cell * 0.82} rx={cell * 0.2} fill={color} />);
-  }));
-  return <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>{rects}</svg>;
-}
-function CopilotDock({ companyName }: { companyName: string }) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState('');
-  if (!open) {
-    return (
-      <div className="af-dockmin"><button onClick={() => setOpen(true)} className="af-dockbtn"><AtMark /> Preguntar al Copilot</button></div>
-    );
-  }
-  return (
-    <div className="af-dock">
-      <div className="af-dockhead">
-        <span className="af-dockat"><AtMark size={16} /></span>
-        <span className="af-dockttl">Copilot · {companyName}</span>
-        <button onClick={() => setOpen(false)} className="af-dockmini" aria-label="Minimizar">—</button>
-      </div>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Pregunta sobre esta compañía…" rows={2} className="af-dockta" />
-      <div className="af-dockfoot">
-        <div className="af-chips">
-          {['¿Es atractiva a esta valoración?', '¿Quién encaja como comprador?', 'Resume los riesgos'].map((c) => (
-            <button key={c} onClick={() => setText(c)} className="af-chip af-chipbtn">{c}</button>
-          ))}
-        </div>
-        <button className="af-btn af-btn-primary" style={{ opacity: text.trim() ? 1 : 0.5 }} disabled={!text.trim()}>Enviar</button>
-      </div>
+      <Copilot name={name} />
     </div>
   );
 }
-
-/* ============================ layout ============================ */
-export function CompanyFichaLayoutV2({
-  identity, financial, financialAnalysis, valuation, semantic, signal, buyers, opportunities,
-}: CompanyFichaLayoutV2Props) {
-  const [active, setActive] = useState<SectionId>('resumen');
-  const [navOpen, setNavOpen] = useState(true);
-
-  return (
-    <div className="af-wrap">
-      <style>{AF_CSS}</style>
-
-      <header className="af-header">
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="af-eyebrow">{identity.classification.cnae_description ?? 'Empresa'}</div>
-          <h1 className="af-title">{identity.legal_name ?? identity.cif_normalized ?? 'Empresa'}</h1>
-          <div className="af-sub">{[identity.cif_normalized, identity.location.provincia].filter(Boolean).join(' · ')}</div>
-          {(fmtDate(identity.metadata?.updated_at) || identity.metadata?.confidence?.level) && (
-            <div className="af-meta">
-              {fmtDate(identity.metadata?.updated_at) && <span>Actualizado {fmtDate(identity.metadata?.updated_at)}</span>}
-              {identity.metadata?.confidence?.level && <span className="af-chip">confianza {identity.metadata.confidence.level}</span>}
-            </div>
-          )}
-        </div>
-        <div className="af-actions">
-          <HeaderBtn icon={Star} label="Watchlist" />
-          <HeaderBtn icon={Share2} label="Compartir" />
-          <HeaderBtn icon={FileText} label="Generar informe" primary />
-        </div>
-      </header>
-
-      <div className="af-body-grid">
-        <nav className="af-nav" style={{ width: navOpen ? 232 : 60 }} onMouseEnter={() => setNavOpen(true)}>
-          <button className="af-navcollapse" onClick={() => setNavOpen((o) => !o)} aria-label="Colapsar">{navOpen ? '«' : '»'}</button>
-          {navOpen && <div className="af-navgrp">Empresa</div>}
-          {NAV.map((n) => {
-            const on = n.id === active; const Icon = n.icon;
-            return (
-              <button key={n.id} onClick={() => setActive(n.id)} title={n.label} className={`af-navitem${on ? ' on' : ''}`}>
-                <Icon size={17} style={{ flexShrink: 0 }} />
-                {navOpen && <span>{n.label}</span>}
-                {navOpen && !n.ready && <span className="af-soon">pronto</span>}
-              </button>
-            );
-          })}
-        </nav>
-
-        <main className="af-main">
-          {active === 'resumen' && <Resumen identity={identity} financialAnalysis={financialAnalysis} valuation={valuation} semantic={semantic} signal={signal} buyers={buyers} />}
-          {active === 'finanzas' && <Finanzas financial={financial} />}
-          {active === 'valoracion' && <Valoracion valuation={valuation} />}
-          {active === 'comparativa' && <Comparativa semantic={semantic} buyers={buyers} />}
-          {active === 'senales' && <Senales signal={signal} />}
-          {active === 'oportunidades' && <Oportunidades opportunities={opportunities} />}
-          {['propiedad', 'gobierno', 'mercado', 'rankings', 'comite'].includes(active) && (
-            <Soon label={NAV.find((n) => n.id === active)?.label ?? active} />
-          )}
-        </main>
-
-        <aside className="af-aside">
-          <div className="af-nba">
-            <div className="af-nbah">Próxima acción</div>
-            <div className="af-nbat">La recomendación por perfil y estado se activará al cablear el estado de la compañía.</div>
-          </div>
-        </aside>
-      </div>
-
-      <CopilotDock companyName={identity.legal_name ?? identity.cif_normalized ?? 'empresa'} />
-    </div>
-  );
-}
-
-/* ============================ estilos (look mockup) ============================ */
-const AF_CSS = `
-.af-wrap{min-height:100vh;background:#FAF8F5;color:#141210;font-feature-settings:"tnum" 0}
-.af-wrap .tab{font-variant-numeric:tabular-nums}
-.af-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A827A;margin-bottom:3px}
-.af-body{font-size:14px;line-height:1.6;color:#3A362F;margin:0}
-/* header */
-.af-header{display:flex;align-items:flex-start;gap:16px;padding:20px 28px;background:#fff;border-bottom:1px solid #ECE9E4;position:sticky;top:0;z-index:20}
-.af-eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#B8B0A6}
-.af-title{font-size:24px;font-weight:800;letter-spacing:-.01em;margin:2px 0 0;color:#141210;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.af-sub{font-size:13.5px;color:#8A827A;margin-top:2px}
-.af-meta{font-size:11px;color:#B8B0A6;margin-top:6px;display:flex;align-items:center;gap:8px}
-.af-actions{display:flex;gap:8px;flex-shrink:0}
-.af-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;border-radius:9px;padding:8px 13px;background:#fff;color:#3A362F;border:1px solid #ECE9E4;cursor:pointer;transition:.14s}
-.af-btn:hover{border-color:#D9D3CB;background:#FCFBF9}
-.af-btn-primary{background:#141210;color:#fff;border:0}
-.af-btn-primary:hover{background:#2a2620}
-/* layout grid */
-.af-body-grid{display:flex}
-.af-nav{flex-shrink:0;background:#fff;border-right:1px solid #ECE9E4;padding:14px 0;min-height:calc(100vh - 78px);transition:width .16s}
-.af-navcollapse{margin:0 14px 8px;font-size:13px;color:#B8B0A6;background:none;border:0;cursor:pointer}
-.af-navgrp{padding:6px 18px 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#C7BFB5}
-.af-navitem{width:100%;text-align:left;display:flex;align-items:center;gap:11px;padding:9px 18px;font-size:13.5px;font-weight:550;color:#3A362F;background:none;border:0;border-left:3px solid transparent;cursor:pointer;transition:.12s}
-.af-navitem:hover{background:#FAF8F5}
-.af-navitem.on{color:#E84545;font-weight:750;background:#FFF1F1;border-left-color:#FF5757}
-.af-soon{margin-left:auto;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:#F0EDE8;color:#8A827A;border-radius:100px;padding:2px 7px}
-.af-main{flex:1;padding:24px 28px;max-width:820px}
-.af-aside{flex-shrink:0;width:300px;padding:24px 20px}
-@media(max-width:1100px){.af-aside{display:none}}
-/* cards */
-.af-card{background:#fff;border:1px solid #ECE9E4;border-radius:14px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,18,16,.03);animation:afIn .4s ease both}
-.af-cardh{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:700;color:#141210;margin:0 0 2px}
-.af-key{width:4px;height:15px;border-radius:3px;background:#FF5757;flex-shrink:0}
-.af-cs{font-size:12px;color:#8A827A;margin-bottom:14px}
-/* scoring rings */
-.af-rings{display:flex;gap:44px;justify-content:center;flex-wrap:wrap;padding:6px 0 2px}
-.af-ringw{display:flex;flex-direction:column;align-items:center;gap:6px}
-.af-ringlbl{font-size:12px;font-weight:650;color:#3A362F}
-.af-note{font-size:11px;text-align:center;color:#B8B0A6;margin-top:8px}
-/* kpis */
-.af-kpigrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-@media(max-width:720px){.af-kpigrid{grid-template-columns:repeat(2,1fr)}}
-.af-kpi{background:#fff;border:1px solid #ECE9E4;border-radius:12px;padding:15px;animation:afIn .4s ease both}
-.af-kpiv{font-size:22px;font-weight:800;color:#141210;letter-spacing:-.01em}
-.af-kpisub{font-size:11px;color:#8A827A;margin-top:2px}
-/* facts */
-.af-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:16px}
-.af-facts3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-@media(max-width:720px){.af-facts{grid-template-columns:repeat(2,1fr)}}
-.af-factv{font-size:14px;font-weight:650;color:#141210;word-break:break-word}
-/* tables */
-.af-table{width:100%;border-collapse:collapse;font-size:13px}
-.af-table th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A827A;padding:0 10px 9px;border-bottom:1px solid #ECE9E4}
-.af-table th.r{text-align:right}
-.af-table td{padding:9px 10px;border-top:1px solid #F3F0EB;color:#3A362F}
-.af-table td.r{text-align:right}
-/* rows / chips */
-.af-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;font-size:13px;border-top:1px solid #F3F0EB;color:#3A362F}
-.af-rowr{display:flex;align-items:center;gap:10px}
-.af-chip{font-size:10.5px;font-weight:650;background:#FFF1F1;color:#E84545;border-radius:100px;padding:2px 9px;white-space:nowrap}
-.af-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.af-chipbtn{cursor:pointer;border:0}
-/* slider */
-.af-slider{display:inline-flex;align-items:center;gap:12px;background:#fff;border:1px solid #ECE9E4;border-radius:100px;padding:8px 16px;margin-bottom:16px}
-.af-sliderv{font-size:13px;font-weight:750;color:#E84545;min-width:76px}
-.af-evo{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-/* valuation range */
-.af-evtrack{position:relative;height:8px;border-radius:100px;background:#F0EDE8}
-.af-evfill{position:absolute;inset:0;border-radius:100px;background:#FFE0E0}
-.af-evknob{position:absolute;top:-5px;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid #FF5757;box-shadow:0 1px 4px rgba(20,18,16,.2)}
-.af-evlabels{display:flex;justify-content:space-between;font-size:11px;color:#8A827A;margin-top:7px}
-.af-evc{color:#E84545;font-weight:750}
-.af-hyp{margin:12px 0 0;padding-left:18px;font-size:12px;color:#8A827A;line-height:1.6}
-/* buyers / similar / signals rows */
-.af-brow{padding:11px 0;border-top:1px solid #F3F0EB}
-.af-brow:first-child,.af-simrow:first-child{border-top:0}
-.af-browtop{display:flex;align-items:center;gap:12px}
-.af-simrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #F3F0EB}
-.af-bname{font-size:13.5px;font-weight:650;color:#141210}
-.af-bsub{font-size:11.5px;color:#8A827A;line-height:1.45}
-.af-bscore{font-size:15px;font-weight:800;color:#E84545}
-/* tooltip */
-.af-tipw{position:relative;display:inline-flex}
-.af-tiptrg{border-bottom:1px dotted #B8B0A6;cursor:help}
-.af-tip{position:absolute;bottom:calc(100% + 6px);left:0;z-index:60;background:#141210;color:#fff;font-size:12px;line-height:1.45;padding:8px 10px;border-radius:8px;width:230px;box-shadow:0 8px 24px rgba(20,18,16,.28);pointer-events:none}
-/* NBA */
-.af-nba{background:#141210;color:#fff;border-radius:14px;padding:16px}
-.af-nbah{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#FF5757;font-weight:700;margin-bottom:5px}
-.af-nbat{font-size:13px;color:#EDEAE5;line-height:1.5}
-/* copilot dock */
-.af-dockmin{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:50}
-.af-dockbtn{display:inline-flex;align-items:center;gap:9px;background:#141210;color:#fff;border:0;border-radius:100px;padding:12px 20px;font-size:14px;font-weight:650;box-shadow:0 8px 28px rgba(20,18,16,.28);cursor:pointer}
-.af-dock{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:50;width:min(680px,92vw);background:#fff;border:1px solid #ECE9E4;border-radius:18px;box-shadow:0 18px 48px rgba(20,18,16,.22);padding:14px;animation:afIn .22s ease both}
-.af-dockhead{display:flex;align-items:center;gap:9px;margin-bottom:10px}
-.af-dockat{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#141210}
-.af-dockttl{font-size:12.5px;font-weight:700;color:#141210}
-.af-dockmini{margin-left:auto;font-size:16px;color:#8A827A;background:none;border:0;cursor:pointer}
-.af-dockta{width:100%;resize:none;font-size:14px;padding:10px;border-radius:10px;border:1px solid #ECE9E4;color:#141210;outline:none}
-.af-dockta:focus{border-color:#FF5757}
-.af-dockfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap}
-@keyframes afIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-`;
