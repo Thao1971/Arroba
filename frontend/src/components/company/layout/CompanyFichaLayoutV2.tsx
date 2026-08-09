@@ -2,18 +2,18 @@
 /**
  * CompanyFichaLayoutV2 — Ficha de Empresa redibujada desde el mockup canónico
  * `arroba.com/mockups/ficha-empresa-f01.html` (decisión Daniel 2026-08-08).
- *
- * NO consume datos: recibe las secciones ya cargadas por `CompanyFichaF01Client`
- * (identity/financial/financialAnalysis/valuation/semantic) — mismas props que el
- * layout anterior — y solo cambia la capa visual (3 columnas + nav lateral
- * colapsable + cabecera + columna Next-Best-Action + dock del Copilot).
- *
- * Secciones con dato real HOY: Resumen, Finanzas, Valoración, Comparativa
- * (empresas parecidas). El resto se muestran como bloque "Próximamente" hasta
- * cablear su provider en el intelligence_layer (signal/recommendation/strategy/…).
- * R4/R10: el front NO calcula; solo pinta lo que llega. Campos ausentes → null.
+ * Pasada de fidelidad visual 2026-08-09: estilo de marca (#FF5757), tarjetas,
+ * tipografía, anillos, tablas, chips, barra EV, compradores y dock del Copilot,
+ * acercándolo al mockup. NO consume datos: recibe las secciones ya cargadas por
+ * `CompanyFichaF01Client` (identity/financial/valuation/semantic/signal/buyers/
+ * opportunities). R4/R10: el front NO calcula; solo pinta lo que llega.
  */
 import { useEffect, useRef, useState } from 'react';
+
+import {
+  Activity, Coins, FileText, GitCompare, Globe, LayoutDashboard, Lightbulb,
+  type LucideIcon, Network, Scale, Share2, Star, Target, Users,
+} from 'lucide-react';
 
 import type {
   FinancialAnalysis,
@@ -25,39 +25,9 @@ import type {
   SignalAnalysis,
   ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
-import {
-  Activity, Coins, FileText, GitCompare, Globe, LayoutDashboard, Lightbulb,
-  type LucideIcon, Network, Scale, Share2, Star, Target, Users,
-} from 'lucide-react';
-
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
 
 const RED = '#FF5757';
-
-/** Count-up animado (presentacional). Devuelve el valor interpolado 0→target. */
-function useCountUp(target: number | null | undefined, duration = 800): number {
-  const [val, setVal] = useState(0);
-  const raf = useRef<number | null>(null);
-  useEffect(() => {
-    if (target === null || target === undefined || !isFinite(target)) {
-      setVal(0);
-      return;
-    }
-    const start = performance.now();
-    const from = 0;
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-      setVal(from + (target - from) * eased);
-      if (t < 1) raf.current = requestAnimationFrame(step);
-    };
-    raf.current = requestAnimationFrame(step);
-    return () => {
-      if (raf.current) cancelAnimationFrame(raf.current);
-    };
-  }, [target, duration]);
-  return val;
-}
 
 export interface CompanyFichaLayoutV2Props {
   identity: IdentitySection;
@@ -73,17 +43,8 @@ export interface CompanyFichaLayoutV2Props {
 }
 
 type SectionId =
-  | 'resumen'
-  | 'finanzas'
-  | 'valoracion'
-  | 'comparativa'
-  | 'propiedad'
-  | 'gobierno'
-  | 'mercado'
-  | 'rankings'
-  | 'senales'
-  | 'oportunidades'
-  | 'comite';
+  | 'resumen' | 'finanzas' | 'valoracion' | 'comparativa' | 'propiedad'
+  | 'gobierno' | 'mercado' | 'rankings' | 'senales' | 'oportunidades' | 'comite';
 
 const NAV: { id: SectionId; label: string; ready: boolean; icon: LucideIcon }[] = [
   { id: 'resumen', label: 'Resumen', ready: true, icon: LayoutDashboard },
@@ -99,10 +60,25 @@ const NAV: { id: SectionId; label: string; ready: boolean; icon: LucideIcon }[] 
   { id: 'comite', label: 'Comité de inversión', ready: false, icon: Scale },
 ];
 
-// Nota: la navegación global (Mi trabajo / Cuenta / 3 pilares) vive en el SHELL
-// del producto, no en el rail de secciones de la ficha. Se añadirá al montar el shell.
+/* ============================ helpers ============================ */
+function useCountUp(target: number | null | undefined, duration = 900): number {
+  const [val, setVal] = useState(0);
+  const raf = useRef<number | null>(null);
+  useEffect(() => {
+    if (target === null || target === undefined || !isFinite(target)) { setVal(0); return; }
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setVal(target * eased);
+      if (t < 1) raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => { if (raf.current) cancelAnimationFrame(raf.current); };
+  }, [target, duration]);
+  return val;
+}
 
-/* ---------------- helpers de formato (presentación, no cálculo) ---------------- */
 function fmtEUR(v: number | null | undefined): string {
   if (v === null || v === undefined) return '—';
   if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)} M€`;
@@ -112,6 +88,9 @@ function fmtEUR(v: number | null | undefined): string {
 function fmtNum(v: number | null | undefined): string {
   return v === null || v === undefined ? '—' : v.toLocaleString('es-ES');
 }
+function fmtPct(v: number | null | undefined): string {
+  return v === null || v === undefined ? '—' : `${v.toFixed(1)}%`;
+}
 function fmtCell(value: number | null, format: string): string {
   if (value === null || value === undefined) return '—';
   if (format === 'percent') return `${value.toFixed(1)}%`;
@@ -119,95 +98,132 @@ function fmtCell(value: number | null, format: string): string {
   if (format === 'currency') return fmtEUR(value);
   return value.toLocaleString('es-ES');
 }
-function fmtPct(v: number | null | undefined): string {
-  return v === null || v === undefined ? '—' : `${v.toFixed(1)}%`;
+function fmtDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-
 const RATIO_CAT_LABEL: Record<string, string> = {
-  profitability: 'Rentabilidad',
-  liquidity: 'Liquidez',
-  solvency: 'Solvencia',
-  efficiency: 'Eficiencia',
-  growth: 'Crecimiento',
+  profitability: 'Rentabilidad', liquidity: 'Liquidez', solvency: 'Solvencia',
+  efficiency: 'Eficiencia', growth: 'Crecimiento',
 };
+const LEVEL_NAMES: Record<number, string> = { 1: 'Ejecutiva', 2: 'Negocio', 3: 'Detalle', 4: 'Máximo' };
 
-/** Barra mini de evolución (una serie) — SVG inline, sin librería. */
-function MiniBars({ values }: { values: (number | null)[] }) {
-  const nums = values.map((v) => (v ?? 0));
-  const max = Math.max(1, ...nums.map((n) => Math.abs(n)));
-  const w = 160, h = 40, gap = 4;
-  const bw = (w - gap * (nums.length - 1)) / Math.max(1, nums.length);
+/* ============================ átomos UI ============================ */
+function Card({ title, sub, children, pad = true }: { title?: string; sub?: string; children: React.ReactNode; pad?: boolean }) {
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: 'auto' }}>
-      {nums.map((n, i) => {
-        const bh = Math.max(2, (Math.abs(n) / max) * (h - 4));
-        return <rect key={i} x={i * (bw + gap)} y={h - bh} width={bw} height={bh} rx={2} fill={RED} opacity={0.25 + 0.75 * (i / Math.max(1, nums.length - 1))} />;
-      })}
-    </svg>
-  );
-}
-
-/** Barra de rango de valoración low·central·high. */
-function EVRangeBar({ low, central, high }: { low: number | null; high: number | null; central: number | null }) {
-  if (low === null || high === null || high <= low) return null;
-  const pos = central !== null ? Math.min(100, Math.max(0, ((central - low) / (high - low)) * 100)) : 50;
-  return (
-    <div className="mt-3">
-      <div className="relative h-2 rounded-full" style={{ background: '#F0EDE8' }}>
-        <div className="absolute top-0 bottom-0 rounded-full" style={{ left: 0, width: '100%', background: '#FFE0E0' }} />
-        <div className="absolute -top-1.5 w-4 h-4 rounded-full border-2" style={{ left: `calc(${pos}% - 8px)`, background: '#fff', borderColor: RED }} />
-      </div>
-      <div className="flex justify-between text-[11px] mt-1" style={{ color: '#8A827A' }}>
-        <span>{fmtEUR(low)}</span><span style={{ color: RED, fontWeight: 700 }}>{fmtEUR(central)}</span><span>{fmtEUR(high)}</span>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- subcomponentes ---------------- */
-function Card({ title, sub, children }: { title?: string; sub?: string; children: React.ReactNode }) {
-  return (
-    <div
-      className="rounded-xl p-5 mb-4"
-      style={{ background: '#fff', border: '1px solid var(--border, #ECE9E4)', animation: 'arrFadeUp .4s ease both' }}
-    >
-      {title && <h3 className="text-sm font-semibold mb-1" style={{ color: '#141210' }}>{title}</h3>}
-      {sub && <div className="text-xs mb-3" style={{ color: '#8A827A' }}>{sub}</div>}
+    <div className="af-card" style={{ padding: pad ? 20 : 0 }}>
+      {title && <h3 className="af-cardh"><span className="af-key" />{title}</h3>}
+      {sub && <div className="af-cs">{sub}</div>}
       {children}
     </div>
   );
 }
-
+function Fact({ k, v }: { k: string; v: string }) {
+  return (
+    <div>
+      <div className="af-lbl">{k}</div>
+      <div className="af-factv">{v}</div>
+    </div>
+  );
+}
+function Kpi({ label, raw, format, sub }: { label: string; raw: number | null | undefined; format: (n: number) => string; sub?: string }) {
+  const animated = useCountUp(raw ?? null);
+  const display = raw === null || raw === undefined ? '—' : format(animated);
+  return (
+    <div className="af-kpi">
+      <div className="af-lbl">{label}</div>
+      <div className="af-kpiv">{display}</div>
+      {sub && <div className="af-kpisub">{sub}</div>}
+    </div>
+  );
+}
+function Tip({ label, children }: { label: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="af-tipw" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <span className="af-tiptrg">{children}</span>
+      {show && <span className="af-tip">{label}</span>}
+    </span>
+  );
+}
+function HeaderBtn({ icon: Icon, label, primary }: { icon: LucideIcon; label: string; primary?: boolean }) {
+  return (
+    <button type="button" className={primary ? 'af-btn af-btn-primary' : 'af-btn'}>
+      <Icon size={14} /> {label}
+    </button>
+  );
+}
+function Ring({ label, value, color, pendingNote }: { label: string; value: number | null; color: string; pendingNote?: string }) {
+  let v = value;
+  if (v != null && v <= 1) v = v * 100;
+  if (v != null) v = Math.max(0, Math.min(100, v));
+  const animated = useCountUp(v ?? 0, 900);
+  const R = 30, C = 2 * Math.PI * R;
+  const offset = v == null ? C : C * (1 - animated / 100);
+  return (
+    <div className="af-ringw" title={v == null ? pendingNote : undefined}>
+      <svg width={84} height={84} viewBox="0 0 84 84">
+        <circle cx={42} cy={42} r={R} fill="none" stroke="#F0EDE8" strokeWidth={8} />
+        {v != null && (
+          <circle cx={42} cy={42} r={R} fill="none" stroke={color} strokeWidth={8}
+            strokeDasharray={C} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 42 42)" />
+        )}
+        <text x={42} y={48} textAnchor="middle" fontSize={20} fontWeight={750} fill={v == null ? '#B8B0A6' : '#141210'}>
+          {v == null ? '—' : Math.round(animated)}
+        </text>
+      </svg>
+      <div className="af-ringlbl">{label}</div>
+    </div>
+  );
+}
+function MiniBars({ values }: { values: (number | null)[] }) {
+  const nums = values.map((v) => v ?? 0);
+  const max = Math.max(1, ...nums.map((n) => Math.abs(n)));
+  const w = 170, h = 46, gap = 6;
+  const bw = (w - gap * (nums.length - 1)) / Math.max(1, nums.length);
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', maxWidth: w, height: 'auto' }}>
+      {nums.map((n, i) => {
+        const bh = Math.max(3, (Math.abs(n) / max) * (h - 4));
+        return <rect key={i} x={i * (bw + gap)} y={h - bh} width={bw} height={bh} rx={3} fill={RED} opacity={0.3 + 0.7 * (i / Math.max(1, nums.length - 1))} />;
+      })}
+    </svg>
+  );
+}
+function EVRangeBar({ low, central, high }: { low: number | null; high: number | null; central: number | null }) {
+  if (low === null || high === null || high <= low) return null;
+  const pos = central !== null ? Math.min(100, Math.max(0, ((central - low) / (high - low)) * 100)) : 50;
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div className="af-evtrack"><div className="af-evfill" /><div className="af-evknob" style={{ left: `calc(${pos}% - 9px)` }} /></div>
+      <div className="af-evlabels"><span>{fmtEUR(low)}</span><span className="af-evc">{fmtEUR(central)}</span><span>{fmtEUR(high)}</span></div>
+    </div>
+  );
+}
+function Soon({ label }: { label: string }) {
+  return (
+    <UnavailableBlock testId={`ficha-v2-soon-${label}`} title={`${label} · próximamente`}
+      description="Esta sección se conectará a su motor de inteligencia en la siguiente fase de cableado."
+      req="intelligence_layer · provider pendiente" />
+  );
+}
 function FinTable({ block }: { block: FinancialTableBlock }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
+    <div style={{ overflowX: 'auto' }}>
+      <table className="af-table">
         <thead>
-          <tr>
-            <th className="text-left py-2 pr-3 font-semibold" style={{ color: '#8A827A' }}>Concepto</th>
-            {block.years.map((y) => (
-              <th key={y} className="text-right py-2 px-3 font-semibold" style={{ color: '#8A827A' }}>{y}</th>
-            ))}
-          </tr>
+          <tr><th>Concepto</th>{block.years.map((y) => <th key={y} className="r">{y}</th>)}</tr>
         </thead>
         <tbody>
           {block.rows.map((row) => {
             const strong = row.category === 'total' || row.category === 'subtotal';
             return (
-              <tr key={row.key} style={{ borderTop: '1px solid var(--border, #F0EDE8)' }}>
-                <td className="py-2 pr-3" style={{ color: '#3A362F', fontWeight: strong ? 700 : 400 }}>{row.label}</td>
+              <tr key={row.key}>
+                <td style={{ fontWeight: strong ? 700 : 400 }}>{row.label}</td>
                 {row.values.map((c, i) => (
-                  <td
-                    key={i}
-                    className="py-2 px-3 text-right tabular-nums"
-                    style={{
-                      fontWeight: strong ? 700 : 500,
-                      color:
-                        c.semantic === 'positive' ? '#1B9E5A'
-                          : c.semantic === 'negative' ? '#C0392B'
-                            : '#141210',
-                    }}
-                  >
+                  <td key={i} className="r tab" style={{ fontWeight: strong ? 700 : 500, color: c.semantic === 'positive' ? '#1B9E5A' : c.semantic === 'negative' ? '#C0392B' : '#141210' }}>
                     {fmtCell(c.value, c.format)}
                   </td>
                 ))}
@@ -220,21 +236,9 @@ function FinTable({ block }: { block: FinancialTableBlock }) {
   );
 }
 
-function Soon({ label }: { label: string }) {
-  return (
-    <UnavailableBlock
-      testId={`ficha-v2-soon-${label}`}
-      title={`${label} · próximamente`}
-      description="Esta sección se conectará a su motor de inteligencia en la siguiente fase de cableado."
-      req="intelligence_layer · provider pendiente"
-    />
-  );
-}
-
-/* ---------------- secciones ---------------- */
+/* ============================ secciones ============================ */
 function Resumen({ identity, financialAnalysis, valuation, semantic, signal, buyers }: Pick<CompanyFichaLayoutV2Props, 'identity' | 'financialAnalysis' | 'valuation' | 'semantic' | 'signal' | 'buyers'>) {
-  const loc = identity.location;
-  const cls = identity.classification;
+  const loc = identity.location, cls = identity.classification;
   const k = financialAnalysis?.kpis ?? null;
   const quality = financialAnalysis?.financial_quality?.score ?? null;
   const opportunity = signal?.score?.signal_score ?? null;
@@ -243,29 +247,29 @@ function Resumen({ identity, financialAnalysis, valuation, semantic, signal, buy
   return (
     <>
       <Card title="Scoring Arroba" sub="Calidad · encaje · oportunidad">
-        <div className="flex gap-10 justify-center flex-wrap py-1">
+        <div className="af-rings">
           <Ring label="Calidad" value={quality} color="#1B9E5A" />
           <Ring label="Encaje" value={engagement} color={RED} pendingNote="Se activa al cablear el motor de recomendación" />
           <Ring label="Oportunidad" value={opportunity} color="#2563EB" pendingNote="Se activa al cablear el motor de señales" />
         </div>
-        <div className="text-[11px] text-center mt-2" style={{ color: '#B8B0A6' }}>
-          Los tres con dato real de sus motores (calidad financiera · encaje de comprador · señales).
-        </div>
+        <div className="af-note">Con dato real de sus motores: calidad financiera · encaje de comprador · señales.</div>
       </Card>
+
       {k && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="af-kpigrid">
           <Kpi label="Facturación" raw={k.revenue ?? null} format={fmtEUR} />
           <Kpi label="EBITDA" raw={k.ebitda ?? null} format={fmtEUR} sub={k.ebitda_margin != null ? `margen ${fmtPct(k.ebitda_margin)}` : undefined} />
           <Kpi label="Resultado neto" raw={k.net_income ?? null} format={fmtEUR} sub={k.net_margin != null ? `margen ${fmtPct(k.net_margin)}` : undefined} />
           <Kpi label="Crecimiento" raw={k.revenue_cagr ?? k.revenue_growth_yoy ?? null} format={(n) => `${n.toFixed(1)}%`} sub={k.revenue_cagr != null ? 'CAGR' : 'interanual'} />
         </div>
       )}
+
       <Card title="Resumen de la compañía">
-        <p className="text-sm leading-relaxed" style={{ color: '#3A362F' }}>
+        <p className="af-body">
           {identity.description || identity.objeto_social ||
             `${identity.legal_name ?? 'La compañía'} opera en ${cls.cnae_description ?? 'su sector'}${loc.provincia ? `, con domicilio en ${loc.provincia}` : ''}.`}
         </p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div className="af-facts">
           <Fact k="CIF" v={identity.cif_normalized ?? '—'} />
           <Fact k="CNAE" v={cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_section ?? ''}` : '—'} />
           <Fact k="Provincia" v={loc.provincia ?? '—'} />
@@ -276,174 +280,52 @@ function Resumen({ identity, financialAnalysis, valuation, semantic, signal, buy
           <Fact k="Web" v={identity.contact.web ?? '—'} />
         </div>
       </Card>
-      {semantic && semantic.value_proposition && (
-        <Card title="Qué hace" sub="Perfil semántico">
-          <p className="text-sm leading-relaxed" style={{ color: '#3A362F' }}>{semantic.value_proposition}</p>
-        </Card>
+      {semantic?.value_proposition && (
+        <Card title="Qué hace" sub="Perfil semántico"><p className="af-body">{semantic.value_proposition}</p></Card>
       )}
     </>
   );
 }
 
-function Fact({ k, v }: { k: string; v: string }) {
-  return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: '#8A827A' }}>{k}</div>
-      <div className="text-sm font-semibold" style={{ color: '#141210' }}>{v}</div>
-    </div>
-  );
+function rowMinLevel(cat: string): number { return cat === 'total' || cat === 'subtotal' ? 1 : cat === 'line' ? 2 : 3; }
+function filterBlock(b: FinancialTableBlock, level: number): FinancialTableBlock {
+  return { years: b.years, rows: b.rows.filter((r) => rowMinLevel(r.category) <= level) };
 }
-
-/** Anillo de scoring con relleno horario animado (0–100). value=null → pendiente. */
-function Ring({ label, value, color, pendingNote }: { label: string; value: number | null; color: string; pendingNote?: string }) {
-  let v = value;
-  if (v != null && v <= 1) v = v * 100; // normaliza 0–1 → 0–100
-  if (v != null) v = Math.max(0, Math.min(100, v));
-  const animated = useCountUp(v ?? 0, 900);
-  const R = 26;
-  const C = 2 * Math.PI * R;
-  const offset = v == null ? C : C * (1 - animated / 100);
-  return (
-    <div className="flex flex-col items-center gap-1" title={v == null ? pendingNote : undefined}>
-      <svg width={76} height={76} viewBox="0 0 76 76">
-        <circle cx={38} cy={38} r={R} fill="none" stroke="#F0EDE8" strokeWidth={7} />
-        {v != null && (
-          <circle
-            cx={38} cy={38} r={R} fill="none" stroke={color} strokeWidth={7}
-            strokeDasharray={C} strokeDashoffset={offset} strokeLinecap="round"
-            transform="rotate(-90 38 38)"
-          />
-        )}
-        <text x={38} y={43} textAnchor="middle" fontSize={17} fontWeight={700} fill={v == null ? '#B8B0A6' : '#141210'}>
-          {v == null ? '—' : Math.round(animated)}
-        </text>
-      </svg>
-      <div className="text-[11px] font-semibold" style={{ color: '#3A362F' }}>{label}</div>
-    </div>
-  );
-}
-
-function fmtDate(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-/** Tooltip propio (hover) al estilo del mockup — sin dependencias. */
-function Tip({ label, children }: { label: string; children: React.ReactNode }) {
-  const [show, setShow] = useState(false);
-  return (
-    <span
-      className="relative inline-flex"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-    >
-      <span style={{ borderBottom: '1px dotted #B8B0A6', cursor: 'help' }}>{children}</span>
-      {show && (
-        <span
-          role="tooltip"
-          style={{
-            position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, zIndex: 60,
-            background: '#141210', color: '#fff', fontSize: 12, lineHeight: 1.45,
-            padding: '8px 10px', borderRadius: 8, width: 230, whiteSpace: 'normal',
-            boxShadow: '0 8px 24px rgba(20,18,16,.28)', pointerEvents: 'none',
-          }}
-        >
-          {label}
-        </span>
-      )}
-    </span>
-  );
-}
-
-function HeaderBtn({ icon: Icon, label, primary }: { icon: LucideIcon; label: string; primary?: boolean }) {
-  return (
-    <button
-      type="button"
-      className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-lg px-3 py-1.5"
-      style={
-        primary
-          ? { background: RED, color: '#fff' }
-          : { background: '#fff', color: '#3A362F', border: '1px solid #ECE9E4' }
-      }
-    >
-      <Icon size={14} />
-      {label}
-    </button>
-  );
-}
-
-function Kpi({ label, raw, format, sub }: { label: string; raw: number | null | undefined; format: (n: number) => string; sub?: string }) {
-  const animated = useCountUp(raw ?? null);
-  const display = raw === null || raw === undefined ? '—' : format(animated);
-  return (
-    <div className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid #ECE9E4', animation: 'arrFadeUp .4s ease both' }}>
-      <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: '#8A827A' }}>{label}</div>
-      <div className="text-xl font-bold tabular-nums" style={{ color: '#141210' }}>{display}</div>
-      {sub && <div className="text-[11px] mt-0.5" style={{ color: '#8A827A' }}>{sub}</div>}
-    </div>
-  );
-}
-
-const LEVEL_NAMES: Record<number, string> = { 1: 'Ejecutiva', 2: 'Negocio', 3: 'Detalle', 4: 'Máximo' };
-function rowMinLevel(cat: string): number {
-  if (cat === 'total' || cat === 'subtotal') return 1;
-  if (cat === 'line') return 2;
-  return 3; // derived
-}
-function filterBlock(block: FinancialTableBlock, level: number): FinancialTableBlock {
-  return { years: block.years, rows: block.rows.filter((r) => rowMinLevel(r.category) <= level) };
-}
-
 function Finanzas({ financial }: { financial: FinancialSection | null }) {
   const [level, setLevel] = useState(1);
   if (!financial) return <Soon label="Finanzas" />;
   const ratios = financial.ratios?.items ?? [];
   const cats = Array.from(new Set(ratios.map((r) => r.category)));
-  const hasTables = !!(financial.profit_loss || financial.balance);
-  if (!hasTables && ratios.length === 0 && !financial.evolution) return <Soon label="Finanzas" />;
-
+  if (!financial.profit_loss && !financial.balance && ratios.length === 0 && !financial.evolution) return <Soon label="Finanzas" />;
   return (
     <>
-      {/* Slider nivel de detalle (presentacional; controla qué filas se muestran) */}
-      <div className="flex items-center gap-3 mb-4 rounded-full px-4 py-2 w-fit" style={{ background: '#fff', border: '1px solid #ECE9E4' }}>
-        <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#8A827A' }}>Nivel de detalle</span>
-        <input type="range" min={1} max={4} step={1} value={level} onChange={(e) => setLevel(Number(e.target.value))} style={{ accentColor: RED, width: 140 }} />
-        <span className="text-sm font-bold" style={{ color: '#E84545', minWidth: 76 }}>{LEVEL_NAMES[level]}</span>
+      <div className="af-slider">
+        <span className="af-lbl">Nivel de detalle</span>
+        <input type="range" min={1} max={4} step={1} value={level} onChange={(e) => setLevel(Number(e.target.value))} style={{ accentColor: RED, width: 150 }} />
+        <span className="af-sliderv">{LEVEL_NAMES[level]}</span>
       </div>
-
       {financial.evolution && financial.evolution.series.length > 0 && (
         <Card title="Evolución" sub={financial.evolution.years.join(' · ')}>
-          <div className="grid grid-cols-2 gap-6">
+          <div className="af-evo">
             {financial.evolution.series.slice(0, 2).map((s) => (
-              <div key={s.key}>
-                <div className="text-xs mb-1" style={{ color: '#8A827A' }}>{s.label}</div>
-                <MiniBars values={s.values} />
-              </div>
+              <div key={s.key}><div className="af-lbl" style={{ marginBottom: 4 }}>{s.label}</div><MiniBars values={s.values} /></div>
             ))}
           </div>
         </Card>
       )}
-
       {financial.profit_loss && <Card title="Cuenta de resultados"><FinTable block={filterBlock(financial.profit_loss, level)} /></Card>}
       {financial.balance && <Card title="Balance"><FinTable block={filterBlock(financial.balance, level)} /></Card>}
-
       {level >= 2 && ratios.length > 0 && (
         <Card title="Ratios financieros" sub="Valor · percentil sectorial">
           {cats.map((cat) => (
-            <div key={cat} className="mb-3">
-              <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: '#8A827A' }}>{RATIO_CAT_LABEL[cat] ?? cat}</div>
+            <div key={cat} style={{ marginBottom: 12 }}>
+              <div className="af-lbl" style={{ marginBottom: 4 }}>{RATIO_CAT_LABEL[cat] ?? cat}</div>
               {ratios.filter((r) => r.category === cat).map((r) => (
-                <div key={r.key} className="flex items-center justify-between py-1.5 text-sm" style={{ borderTop: '1px solid #F0EDE8' }}>
-                  {r.formula
-                    ? <Tip label={r.formula}><span style={{ color: '#3A362F' }}>{r.name}</span></Tip>
-                    : <span style={{ color: '#3A362F' }}>{r.name}</span>}
-                  <span className="flex items-center gap-3">
-                    {r.benchmark?.percentile != null && (
-                      <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#FFF1F1', color: '#E84545' }}>P{Math.round(r.benchmark.percentile)}</span>
-                    )}
-                    <b className="tabular-nums" style={{ color: '#141210' }}>{fmtCell(r.value, r.format)}</b>
+                <div key={r.key} className="af-row">
+                  {r.formula ? <Tip label={r.formula}><span>{r.name}</span></Tip> : <span>{r.name}</span>}
+                  <span className="af-rowr">
+                    {r.benchmark?.percentile != null && <span className="af-chip">P{Math.round(r.benchmark.percentile)}</span>}
+                    <b className="tab">{fmtCell(r.value, r.format)}</b>
                   </span>
                 </div>
               ))}
@@ -459,274 +341,181 @@ function Valoracion({ valuation }: { valuation: ValuationAnalysis | null }) {
   if (!valuation || !valuation.has_valuation) return <Soon label="Valoración" />;
   return (
     <Card title="Valoración" sub={valuation.method_label ?? valuation.method ?? undefined}>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="af-facts3">
         <Fact k="Enterprise Value" v={fmtEUR(valuation.enterprise_value)} />
         <Fact k="Equity Value" v={fmtEUR(valuation.equity_value)} />
         <Fact k="Múltiplo" v={valuation.multiple ? `${valuation.multiple.toFixed(1)}× ${valuation.multiple_basis ?? ''}` : '—'} />
       </div>
-      {valuation.range && (
-        <EVRangeBar low={valuation.range.low} central={valuation.range.central} high={valuation.range.high} />
-      )}
+      {valuation.range && <EVRangeBar low={valuation.range.low} central={valuation.range.central} high={valuation.range.high} />}
       {valuation.hypotheses.length > 0 && (
-        <ul className="mt-3 text-xs list-disc pl-4" style={{ color: '#8A827A' }}>
-          {valuation.hypotheses.map((h, i) => <li key={i}>{h}</li>)}
-        </ul>
+        <ul className="af-hyp">{valuation.hypotheses.map((h, i) => <li key={i}>{h}</li>)}</ul>
       )}
     </Card>
   );
 }
 
+function BuyerList({ items, title, sub }: { items: RecommendationSet['recommendations']; title: string; sub: string }) {
+  return (
+    <Card title={title} sub={sub}>
+      {items.map((b) => (
+        <div key={b.master_id ?? b.name} className="af-brow">
+          <div className="af-browtop">
+            <div style={{ flex: 1 }}>
+              <div className="af-bname">{b.name ?? 'Comprador'}</div>
+              <div className="af-bsub">{[b.sector, b.recommendation_type].filter(Boolean).join(' · ')}</div>
+            </div>
+            {b.score != null && (
+              <div style={{ textAlign: 'right' }}>
+                <div className="af-bscore">{Math.round(b.score <= 1 ? b.score * 100 : b.score)}</div>
+                <div className="af-lbl">encaje</div>
+              </div>
+            )}
+          </div>
+          {Object.keys(b.fit_dimensions ?? {}).length > 0 && (
+            <div className="af-chips">{Object.entries(b.fit_dimensions).map(([k, v]) => (
+              <span key={k} className="af-chip">{k} {Math.round(v <= 1 ? v * 100 : v)}</span>
+            ))}</div>
+          )}
+          {b.reason && <div className="af-bsub" style={{ marginTop: 4 }}>{b.reason}</div>}
+        </div>
+      ))}
+    </Card>
+  );
+}
 function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; buyers?: RecommendationSet | null }) {
   const items = semantic?.similar ?? [];
   const buyerItems = buyers?.recommendations ?? [];
   if (items.length === 0 && buyerItems.length === 0) return <Soon label="Comparativa" />;
   return (
     <>
-      {buyerItems.length > 0 && (
-        <Card title="Compradores que mejor encajarían" sub="Ordenados por encaje (fit). El detalle explica por qué encaja cada uno.">
-          {buyerItems.map((b) => (
-            <div key={b.master_id ?? b.name} className="py-2.5" style={{ borderTop: '1px solid #F0EDE8' }}>
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="text-sm font-semibold" style={{ color: '#141210' }}>{b.name ?? 'Comprador'}</div>
-                  <div className="text-xs" style={{ color: '#8A827A' }}>{[b.sector, b.recommendation_type].filter(Boolean).join(' · ')}</div>
-                </div>
-                {b.score != null && (
-                  <div className="text-right">
-                    <div className="text-sm font-bold" style={{ color: RED }}>{Math.round((b.score <= 1 ? b.score * 100 : b.score))}</div>
-                    <div className="text-[10px]" style={{ color: '#8A827A' }}>encaje</div>
-                  </div>
-                )}
+      {buyerItems.length > 0 && <BuyerList items={buyerItems} title="Compradores que mejor encajarían" sub="Ordenados por encaje (fit); el detalle explica por qué encaja cada uno." />}
+      {items.length > 0 && (
+        <Card title="Empresas parecidas" sub="Similitud por Fingerprint (modelo, sector, tamaño, márgenes, territorio)">
+          {items.map((s) => (
+            <div key={s.master_id ?? s.name} className="af-simrow">
+              <div style={{ flex: 1 }}>
+                <div className="af-bname">{s.name}</div>
+                <div className="af-bsub">{[s.sector, s.region].filter(Boolean).join(' · ')}{s.matched_dimensions.length > 0 && ` · se parece en ${s.matched_dimensions.join(', ')}`}</div>
               </div>
-              {Object.keys(b.fit_dimensions ?? {}).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {Object.entries(b.fit_dimensions).map(([k, v]) => (
-                    <span key={k} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: '#FFF1F1', color: '#E84545' }}>
-                      {k} {Math.round((v <= 1 ? v * 100 : v))}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {b.reason && <div className="text-xs mt-1" style={{ color: '#8A827A' }}>{b.reason}</div>}
+              <div style={{ textAlign: 'right' }}><div className="af-bscore">{s.score.toFixed(2)}</div><div className="af-lbl">similitud</div></div>
             </div>
           ))}
         </Card>
-      )}
-      {items.length > 0 && (
-    <Card title="Empresas parecidas" sub="Similitud por Fingerprint (modelo, sector, tamaño, márgenes, territorio)">
-      {items.map((s) => (
-        <div key={s.master_id ?? s.name} className="flex items-center gap-3 py-2" style={{ borderTop: '1px solid #F0EDE8' }}>
-          <div className="flex-1">
-            <div className="text-sm font-semibold" style={{ color: '#141210' }}>{s.name}</div>
-            <div className="text-xs" style={{ color: '#8A827A' }}>
-              {[s.sector, s.region].filter(Boolean).join(' · ')}
-              {s.matched_dimensions.length > 0 && ` · se parece en ${s.matched_dimensions.join(', ')}`}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm font-bold" style={{ color: RED }}>{s.score.toFixed(2)}</div>
-            <div className="text-[10px]" style={{ color: '#8A827A' }}>similitud</div>
-          </div>
-        </div>
-      ))}
-    </Card>
       )}
     </>
   );
 }
 
-function Senales({ signal }: { signal: SignalAnalysis | null | undefined }) {
+function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   const items = signal?.signals ?? [];
   if (items.length === 0) return <Soon label="Señales" />;
-  const polColor = (p: string | null) =>
-    p === 'positive' ? '#1B9E5A' : p === 'negative' ? '#C0392B' : '#8A827A';
+  const pol = (p: string | null) => p === 'positive' ? '#1B9E5A' : p === 'negative' ? '#C0392B' : '#8A827A';
   return (
-    <Card
-      title="Señales"
-      sub={signal?.score?.signal_score != null ? `Signal score ${Math.round(signal.score.signal_score)}` : undefined}
-    >
+    <Card title="Señales" sub={signal?.score?.signal_score != null ? `Signal score ${Math.round(signal.score.signal_score)}` : undefined}>
       {items.map((s) => (
-        <div key={s.signal_id} className="flex items-start gap-3 py-2" style={{ borderTop: '1px solid #F0EDE8' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: polColor(s.polarity), marginTop: 6, flexShrink: 0 }} />
-          <div className="flex-1">
-            <div className="text-sm font-semibold" style={{ color: '#141210' }}>{s.title ?? s.signal_type ?? 'Señal'}</div>
-            <div className="text-xs" style={{ color: '#8A827A' }}>
-              {[s.category, s.severity ? `severidad ${s.severity}` : null, s.detected_at].filter(Boolean).join(' · ')}
-            </div>
+        <div key={s.signal_id} className="af-simrow" style={{ alignItems: 'flex-start' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: pol(s.polarity), marginTop: 6, flexShrink: 0 }} />
+          <div style={{ flex: 1, marginLeft: 10 }}>
+            <div className="af-bname">{s.title ?? s.signal_type ?? 'Señal'}</div>
+            <div className="af-bsub">{[s.category, s.severity ? `severidad ${s.severity}` : null, s.detected_at].filter(Boolean).join(' · ')}</div>
           </div>
-          {s.confidence != null && (
-            <span className="text-[11px]" style={{ color: '#8A827A' }}>{Math.round(s.confidence * 100)}%</span>
-          )}
+          {s.confidence != null && <span className="af-bsub">{Math.round(s.confidence * 100)}%</span>}
         </div>
       ))}
     </Card>
   );
 }
-
 function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | null }) {
   const items = opportunities?.recommendations ?? [];
   if (items.length === 0) return <Soon label="Oportunidades" />;
-  return (
-    <Card title="Oportunidades detectadas" sub="Tesis y movimientos con encaje para esta compañía">
-      {items.map((o) => (
-        <div key={o.master_id ?? o.name} className="py-2.5" style={{ borderTop: '1px solid #F0EDE8' }}>
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <div className="text-sm font-semibold" style={{ color: '#141210' }}>{o.name ?? 'Oportunidad'}</div>
-              <div className="text-xs" style={{ color: '#8A827A' }}>{o.recommendation_type ?? ''}</div>
-            </div>
-            {o.score != null && (
-              <div className="text-right">
-                <div className="text-sm font-bold" style={{ color: RED }}>{Math.round(o.score <= 1 ? o.score * 100 : o.score)}</div>
-                <div className="text-[10px]" style={{ color: '#8A827A' }}>encaje</div>
-              </div>
-            )}
-          </div>
-          {o.reason && <div className="text-xs mt-1" style={{ color: '#8A827A' }}>{o.reason}</div>}
-        </div>
-      ))}
-    </Card>
-  );
+  return <BuyerList items={items} title="Oportunidades detectadas" sub="Tesis y movimientos con encaje para esta compañía" />;
 }
 
-/** Dock del Copilot: minimizado (píldora) ↔ abierto (composer). Stub sin backend. */
+/* ============================ Copilot dock (@ dot-matrix) ============================ */
+const AT_GRID = ['..XXXX..', '.X....X.', 'X..XX..X', 'X.X..X.X', 'X.X..X.X', 'X..XXXXX', '.X......', '..XXXX..'];
+function AtMark({ color = '#fff', size = 20 }: { color?: string; size?: number }) {
+  const cell = size / 8;
+  const rects: React.ReactNode[] = [];
+  AT_GRID.forEach((row, r) => row.split('').forEach((c, x) => {
+    if (c === 'X') rects.push(<rect key={`${r}-${x}`} x={x * cell} y={r * cell} width={cell * 0.82} height={cell * 0.82} rx={cell * 0.2} fill={color} />);
+  }));
+  return <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>{rects}</svg>;
+}
 function CopilotDock({ companyName }: { companyName: string }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   if (!open) {
     return (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-        <button
-          onClick={() => setOpen(true)}
-          className="rounded-full px-5 py-3 text-sm font-semibold shadow-lg"
-          style={{ background: RED, color: '#fff' }}
-        >
-          @ Preguntar al Copilot
-        </button>
-      </div>
+      <div className="af-dockmin"><button onClick={() => setOpen(true)} className="af-dockbtn"><AtMark /> Preguntar al Copilot</button></div>
     );
   }
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(680px,92vw)]" style={{ animation: 'arrFadeUp .25s ease both' }}>
-      <div className="rounded-2xl shadow-2xl p-3" style={{ background: '#fff', border: '1px solid #ECE9E4' }}>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="grid place-items-center w-6 h-6 rounded-md text-xs font-bold" style={{ background: RED, color: '#fff' }}>@</span>
-          <span className="text-xs font-semibold" style={{ color: '#141210' }}>Copilot · {companyName}</span>
-          <button onClick={() => setOpen(false)} className="ml-auto text-sm" style={{ color: '#8A827A' }} aria-label="Minimizar">—</button>
+    <div className="af-dock">
+      <div className="af-dockhead">
+        <span className="af-dockat"><AtMark size={16} /></span>
+        <span className="af-dockttl">Copilot · {companyName}</span>
+        <button onClick={() => setOpen(false)} className="af-dockmini" aria-label="Minimizar">—</button>
+      </div>
+      <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Pregunta sobre esta compañía…" rows={2} className="af-dockta" />
+      <div className="af-dockfoot">
+        <div className="af-chips">
+          {['¿Es atractiva a esta valoración?', '¿Quién encaja como comprador?', 'Resume los riesgos'].map((c) => (
+            <button key={c} onClick={() => setText(c)} className="af-chip af-chipbtn">{c}</button>
+          ))}
         </div>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Pregunta sobre esta compañía…"
-          rows={2}
-          className="w-full resize-none text-sm p-2 rounded-lg outline-none"
-          style={{ border: '1px solid #ECE9E4', color: '#141210' }}
-        />
-        <div className="flex items-center justify-between mt-2">
-          <div className="flex gap-2 flex-wrap">
-            {['¿Es atractiva a esta valoración?', '¿Quién encaja como comprador?', 'Resume los riesgos'].map((c) => (
-              <button key={c} onClick={() => setText(c)} className="text-[11px] px-2.5 py-1 rounded-full" style={{ background: '#FFF1F1', color: '#E84545' }}>{c}</button>
-            ))}
-          </div>
-          <button className="text-sm font-semibold px-4 py-1.5 rounded-lg" style={{ background: RED, color: '#fff', opacity: text.trim() ? 1 : 0.5 }} disabled={!text.trim()}>
-            Enviar
-          </button>
-        </div>
+        <button className="af-btn af-btn-primary" style={{ opacity: text.trim() ? 1 : 0.5 }} disabled={!text.trim()}>Enviar</button>
       </div>
     </div>
   );
 }
 
-/* ---------------- layout ---------------- */
+/* ============================ layout ============================ */
 export function CompanyFichaLayoutV2({
-  identity,
-  financial,
-  financialAnalysis,
-  valuation,
-  semantic,
-  signal,
-  buyers,
-  opportunities,
+  identity, financial, financialAnalysis, valuation, semantic, signal, buyers, opportunities,
 }: CompanyFichaLayoutV2Props) {
   const [active, setActive] = useState<SectionId>('resumen');
   const [navOpen, setNavOpen] = useState(true);
 
   return (
-    <div className="min-h-screen" style={{ background: '#FAF8F5' }}>
-      {/* Cabecera */}
-      <header className="px-6 py-4 flex items-start gap-4" style={{ background: '#fff', borderBottom: '1px solid #ECE9E4' }}>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs uppercase tracking-wide" style={{ color: '#8A827A' }}>
-            {identity.classification.cnae_description ?? 'Empresa'}
-          </div>
-          <h1 className="text-xl font-bold truncate" style={{ color: '#141210' }}>
-            {identity.legal_name ?? identity.cif_normalized ?? 'Empresa'}
-          </h1>
-          <div className="text-sm" style={{ color: '#8A827A' }}>
-            {[identity.cif_normalized, identity.location.provincia].filter(Boolean).join(' · ')}
-          </div>
+    <div className="af-wrap">
+      <style>{AF_CSS}</style>
+
+      <header className="af-header">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="af-eyebrow">{identity.classification.cnae_description ?? 'Empresa'}</div>
+          <h1 className="af-title">{identity.legal_name ?? identity.cif_normalized ?? 'Empresa'}</h1>
+          <div className="af-sub">{[identity.cif_normalized, identity.location.provincia].filter(Boolean).join(' · ')}</div>
           {(fmtDate(identity.metadata?.updated_at) || identity.metadata?.confidence?.level) && (
-            <div className="text-[11px] mt-1 flex items-center gap-2" style={{ color: '#B8B0A6' }}>
+            <div className="af-meta">
               {fmtDate(identity.metadata?.updated_at) && <span>Actualizado {fmtDate(identity.metadata?.updated_at)}</span>}
-              {identity.metadata?.confidence?.level && (
-                <span className="px-1.5 py-0.5 rounded-full" style={{ background: '#F0EDE8', color: '#8A827A' }}>
-                  confianza {identity.metadata.confidence.level}
-                </span>
-              )}
+              {identity.metadata?.confidence?.level && <span className="af-chip">confianza {identity.metadata.confidence.level}</span>}
             </div>
           )}
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="af-actions">
           <HeaderBtn icon={Star} label="Watchlist" />
           <HeaderBtn icon={Share2} label="Compartir" />
           <HeaderBtn icon={FileText} label="Generar informe" primary />
         </div>
       </header>
 
-      <div className="flex">
-        {/* Nav lateral colapsable */}
-        <nav
-          className="shrink-0 transition-all py-4"
-          style={{ width: navOpen ? 220 : 56, background: '#fff', borderRight: '1px solid #ECE9E4', minHeight: 'calc(100vh - 76px)' }}
-          onMouseEnter={() => setNavOpen(true)}
-        >
-          <button
-            className="mx-3 mb-3 text-xs"
-            style={{ color: '#8A827A' }}
-            onClick={() => setNavOpen((o) => !o)}
-            aria-label="Colapsar navegación"
-          >
-            {navOpen ? '«' : '»'}
-          </button>
-          {navOpen && <div className="px-4 mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: '#B8B0A6' }}>Empresa</div>}
+      <div className="af-body-grid">
+        <nav className="af-nav" style={{ width: navOpen ? 232 : 60 }} onMouseEnter={() => setNavOpen(true)}>
+          <button className="af-navcollapse" onClick={() => setNavOpen((o) => !o)} aria-label="Colapsar">{navOpen ? '«' : '»'}</button>
+          {navOpen && <div className="af-navgrp">Empresa</div>}
           {NAV.map((n) => {
-            const on = n.id === active;
-            const Icon = n.icon;
+            const on = n.id === active; const Icon = n.icon;
             return (
-              <button
-                key={n.id}
-                onClick={() => setActive(n.id)}
-                title={n.label}
-                className="w-full text-left px-4 py-2 text-sm flex items-center gap-2.5"
-                style={{
-                  color: on ? RED : '#3A362F',
-                  fontWeight: on ? 700 : 500,
-                  background: on ? '#FFF1F1' : 'transparent',
-                  borderLeft: on ? `3px solid ${RED}` : '3px solid transparent',
-                }}
-              >
-                <Icon size={16} style={{ flexShrink: 0 }} />
+              <button key={n.id} onClick={() => setActive(n.id)} title={n.label} className={`af-navitem${on ? ' on' : ''}`}>
+                <Icon size={17} style={{ flexShrink: 0 }} />
                 {navOpen && <span>{n.label}</span>}
-                {navOpen && !n.ready && (
-                  <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: '#F0EDE8', color: '#8A827A' }}>pronto</span>
-                )}
+                {navOpen && !n.ready && <span className="af-soon">pronto</span>}
               </button>
             );
           })}
         </nav>
 
-        {/* Contenido */}
-        <main className="flex-1 p-6 max-w-4xl">
+        <main className="af-main">
           {active === 'resumen' && <Resumen identity={identity} financialAnalysis={financialAnalysis} valuation={valuation} semantic={semantic} signal={signal} buyers={buyers} />}
           {active === 'finanzas' && <Finanzas financial={financial} />}
           {active === 'valoracion' && <Valoracion valuation={valuation} />}
@@ -738,22 +527,118 @@ export function CompanyFichaLayoutV2({
           )}
         </main>
 
-        {/* Columna Next-Best-Action (placeholder hasta cablear estado/intención) */}
-        <aside className="shrink-0 p-5 hidden lg:block" style={{ width: 300 }}>
-          <div className="rounded-xl p-4" style={{ background: '#141210', color: '#fff' }}>
-            <div className="text-xs uppercase tracking-wide mb-1" style={{ color: RED }}>Próxima acción</div>
-            <div className="text-sm" style={{ color: '#EDEAE5' }}>
-              La recomendación por perfil y estado se activará al cablear el estado de la compañía.
-            </div>
+        <aside className="af-aside">
+          <div className="af-nba">
+            <div className="af-nbah">Próxima acción</div>
+            <div className="af-nbat">La recomendación por perfil y estado se activará al cablear el estado de la compañía.</div>
           </div>
         </aside>
       </div>
 
-      {/* Dock Copilot funcional */}
       <CopilotDock companyName={identity.legal_name ?? identity.cif_normalized ?? 'empresa'} />
-
-      {/* Keyframes de animación (scoped, sin librería) */}
-      <style>{`@keyframes arrFadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}`}</style>
     </div>
   );
 }
+
+/* ============================ estilos (look mockup) ============================ */
+const AF_CSS = `
+.af-wrap{min-height:100vh;background:#FAF8F5;color:#141210;font-feature-settings:"tnum" 0}
+.af-wrap .tab{font-variant-numeric:tabular-nums}
+.af-lbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A827A;margin-bottom:3px}
+.af-body{font-size:14px;line-height:1.6;color:#3A362F;margin:0}
+/* header */
+.af-header{display:flex;align-items:flex-start;gap:16px;padding:20px 28px;background:#fff;border-bottom:1px solid #ECE9E4;position:sticky;top:0;z-index:20}
+.af-eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#B8B0A6}
+.af-title{font-size:24px;font-weight:800;letter-spacing:-.01em;margin:2px 0 0;color:#141210;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.af-sub{font-size:13.5px;color:#8A827A;margin-top:2px}
+.af-meta{font-size:11px;color:#B8B0A6;margin-top:6px;display:flex;align-items:center;gap:8px}
+.af-actions{display:flex;gap:8px;flex-shrink:0}
+.af-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;border-radius:9px;padding:8px 13px;background:#fff;color:#3A362F;border:1px solid #ECE9E4;cursor:pointer;transition:.14s}
+.af-btn:hover{border-color:#D9D3CB;background:#FCFBF9}
+.af-btn-primary{background:#141210;color:#fff;border:0}
+.af-btn-primary:hover{background:#2a2620}
+/* layout grid */
+.af-body-grid{display:flex}
+.af-nav{flex-shrink:0;background:#fff;border-right:1px solid #ECE9E4;padding:14px 0;min-height:calc(100vh - 78px);transition:width .16s}
+.af-navcollapse{margin:0 14px 8px;font-size:13px;color:#B8B0A6;background:none;border:0;cursor:pointer}
+.af-navgrp{padding:6px 18px 4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#C7BFB5}
+.af-navitem{width:100%;text-align:left;display:flex;align-items:center;gap:11px;padding:9px 18px;font-size:13.5px;font-weight:550;color:#3A362F;background:none;border:0;border-left:3px solid transparent;cursor:pointer;transition:.12s}
+.af-navitem:hover{background:#FAF8F5}
+.af-navitem.on{color:#E84545;font-weight:750;background:#FFF1F1;border-left-color:#FF5757}
+.af-soon{margin-left:auto;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:#F0EDE8;color:#8A827A;border-radius:100px;padding:2px 7px}
+.af-main{flex:1;padding:24px 28px;max-width:820px}
+.af-aside{flex-shrink:0;width:300px;padding:24px 20px}
+@media(max-width:1100px){.af-aside{display:none}}
+/* cards */
+.af-card{background:#fff;border:1px solid #ECE9E4;border-radius:14px;margin-bottom:16px;box-shadow:0 1px 2px rgba(20,18,16,.03);animation:afIn .4s ease both}
+.af-cardh{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:700;color:#141210;margin:0 0 2px}
+.af-key{width:4px;height:15px;border-radius:3px;background:#FF5757;flex-shrink:0}
+.af-cs{font-size:12px;color:#8A827A;margin-bottom:14px}
+/* scoring rings */
+.af-rings{display:flex;gap:44px;justify-content:center;flex-wrap:wrap;padding:6px 0 2px}
+.af-ringw{display:flex;flex-direction:column;align-items:center;gap:6px}
+.af-ringlbl{font-size:12px;font-weight:650;color:#3A362F}
+.af-note{font-size:11px;text-align:center;color:#B8B0A6;margin-top:8px}
+/* kpis */
+.af-kpigrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:720px){.af-kpigrid{grid-template-columns:repeat(2,1fr)}}
+.af-kpi{background:#fff;border:1px solid #ECE9E4;border-radius:12px;padding:15px;animation:afIn .4s ease both}
+.af-kpiv{font-size:22px;font-weight:800;color:#141210;letter-spacing:-.01em}
+.af-kpisub{font-size:11px;color:#8A827A;margin-top:2px}
+/* facts */
+.af-facts{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:16px}
+.af-facts3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:720px){.af-facts{grid-template-columns:repeat(2,1fr)}}
+.af-factv{font-size:14px;font-weight:650;color:#141210;word-break:break-word}
+/* tables */
+.af-table{width:100%;border-collapse:collapse;font-size:13px}
+.af-table th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8A827A;padding:0 10px 9px;border-bottom:1px solid #ECE9E4}
+.af-table th.r{text-align:right}
+.af-table td{padding:9px 10px;border-top:1px solid #F3F0EB;color:#3A362F}
+.af-table td.r{text-align:right}
+/* rows / chips */
+.af-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;font-size:13px;border-top:1px solid #F3F0EB;color:#3A362F}
+.af-rowr{display:flex;align-items:center;gap:10px}
+.af-chip{font-size:10.5px;font-weight:650;background:#FFF1F1;color:#E84545;border-radius:100px;padding:2px 9px;white-space:nowrap}
+.af-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.af-chipbtn{cursor:pointer;border:0}
+/* slider */
+.af-slider{display:inline-flex;align-items:center;gap:12px;background:#fff;border:1px solid #ECE9E4;border-radius:100px;padding:8px 16px;margin-bottom:16px}
+.af-sliderv{font-size:13px;font-weight:750;color:#E84545;min-width:76px}
+.af-evo{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+/* valuation range */
+.af-evtrack{position:relative;height:8px;border-radius:100px;background:#F0EDE8}
+.af-evfill{position:absolute;inset:0;border-radius:100px;background:#FFE0E0}
+.af-evknob{position:absolute;top:-5px;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid #FF5757;box-shadow:0 1px 4px rgba(20,18,16,.2)}
+.af-evlabels{display:flex;justify-content:space-between;font-size:11px;color:#8A827A;margin-top:7px}
+.af-evc{color:#E84545;font-weight:750}
+.af-hyp{margin:12px 0 0;padding-left:18px;font-size:12px;color:#8A827A;line-height:1.6}
+/* buyers / similar / signals rows */
+.af-brow{padding:11px 0;border-top:1px solid #F3F0EB}
+.af-brow:first-child,.af-simrow:first-child{border-top:0}
+.af-browtop{display:flex;align-items:center;gap:12px}
+.af-simrow{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #F3F0EB}
+.af-bname{font-size:13.5px;font-weight:650;color:#141210}
+.af-bsub{font-size:11.5px;color:#8A827A;line-height:1.45}
+.af-bscore{font-size:15px;font-weight:800;color:#E84545}
+/* tooltip */
+.af-tipw{position:relative;display:inline-flex}
+.af-tiptrg{border-bottom:1px dotted #B8B0A6;cursor:help}
+.af-tip{position:absolute;bottom:calc(100% + 6px);left:0;z-index:60;background:#141210;color:#fff;font-size:12px;line-height:1.45;padding:8px 10px;border-radius:8px;width:230px;box-shadow:0 8px 24px rgba(20,18,16,.28);pointer-events:none}
+/* NBA */
+.af-nba{background:#141210;color:#fff;border-radius:14px;padding:16px}
+.af-nbah{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#FF5757;font-weight:700;margin-bottom:5px}
+.af-nbat{font-size:13px;color:#EDEAE5;line-height:1.5}
+/* copilot dock */
+.af-dockmin{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:50}
+.af-dockbtn{display:inline-flex;align-items:center;gap:9px;background:#141210;color:#fff;border:0;border-radius:100px;padding:12px 20px;font-size:14px;font-weight:650;box-shadow:0 8px 28px rgba(20,18,16,.28);cursor:pointer}
+.af-dock{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:50;width:min(680px,92vw);background:#fff;border:1px solid #ECE9E4;border-radius:18px;box-shadow:0 18px 48px rgba(20,18,16,.22);padding:14px;animation:afIn .22s ease both}
+.af-dockhead{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.af-dockat{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#141210}
+.af-dockttl{font-size:12.5px;font-weight:700;color:#141210}
+.af-dockmini{margin-left:auto;font-size:16px;color:#8A827A;background:none;border:0;cursor:pointer}
+.af-dockta{width:100%;resize:none;font-size:14px;padding:10px;border-radius:10px;border:1px solid #ECE9E4;color:#141210;outline:none}
+.af-dockta:focus{border-color:#FF5757}
+.af-dockfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap}
+@keyframes afIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+`;
