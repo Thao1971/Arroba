@@ -19,6 +19,7 @@ import type {
   IdentitySection, RecommendationSet, SemanticSection, SignalAnalysis,
   ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
+import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 
 export interface CompanyFichaLayoutV2Props {
@@ -123,13 +124,12 @@ function ringSVG(val: number, label: string, color: string): string {
 function Html({ html, className, id }: { html: string; className?: string; id?: string }) {
   return <div className={className} id={id} dangerouslySetInnerHTML={{ __html: html }} />;
 }
-/** Componente vacío estándar: dato que el motor aún no proporciona. */
-function Pending({ label }: { label?: string }) {
+function Soon({ label }: { label: string }) {
   return (
-    <div className="card" style={{ textAlign: 'center', padding: '28px 20px' }}>
-      <div style={{ fontSize: 20, opacity: 0.45, marginBottom: 6 }}>◔</div>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--n700)' }}>Pendiente de información{label ? ` · ${label}` : ''}</div>
-      <div className="cs" style={{ marginTop: 4, marginBottom: 0 }}>Este dato aún no lo proporciona el motor para esta compañía.</div>
+    <div className="card">
+      <UnavailableBlock testId={`ficha-soon-${label}`} title={`${label} · próximamente`}
+        description="Esta sección se conectará a su motor de inteligencia en la siguiente fase de cableado."
+        req="intelligence_layer · provider pendiente" />
     </div>
   );
 }
@@ -171,25 +171,25 @@ function Resumen(p: CompanyFichaLayoutV2Props) {
         {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
       </div>
 
-      {chart ? (
+      {chart && (
         <div className="card" style={{ marginTop: 16 }}>
           <h3><span className="k" />Evolución financiera</h3>
           <div className="cs">Facturación y EBITDA · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
           <Html html={chart} />
         </div>
-      ) : <div style={{ marginTop: 16 }}><Pending label="Evolución financiera" /></div>}
+      )}
 
-      {k ? (
+      {k && (
         <div className="kgrid" style={{ marginTop: 16 }}>
           <div className="kpi"><div className="l">Facturación</div><div className="v">{fmtEUR(k.revenue ?? null)}</div>{k.revenue_growth_yoy != null && <div className={`d ${k.revenue_growth_yoy >= 0 ? 'up' : 'down'}`}>{k.revenue_growth_yoy >= 0 ? '▲' : '▼'} {pctF(k.revenue_growth_yoy)} YoY</div>}</div>
           <div className="kpi"><div className="l">EBITDA</div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf">margen {pctF(k.ebitda_margin)}</div>}</div>
           <div className="kpi"><div className="l">Resultado neto</div><div className="v">{fmtEUR(k.net_income ?? null)}</div>{k.net_margin != null && <div className="d inf">margen {pctF(k.net_margin)}</div>}</div>
           <div className="kpi"><div className="l">Empleados</div><div className="v">{fmtNum(sz.employees_total)}</div><div className="d inf">plantilla</div></div>
         </div>
-      ) : <div style={{ marginTop: 16 }}><Pending label="Indicadores financieros" /></div>}
+      )}
 
       <div className="row r2" style={{ marginTop: 16 }}>
-        {rings.length > 0 ? (
+        {rings.length > 0 && (
           <div className="card">
             <h3><span className="k" />Scores de inteligencia</h3>
             <div className="cs">Calculados por Arroba</div>
@@ -197,7 +197,7 @@ function Resumen(p: CompanyFichaLayoutV2Props) {
               {rings.map((r) => <Html key={r.label} className="ring" html={ringSVG(r.v, r.label, r.color)} />)}
             </div>
           </div>
-        ) : <Pending label="Scores de inteligencia" />}
+        )}
         <div className="card">
           <h3><span className="k" />Identificación</h3>
           <div className="cs">Datos registrales · fuentes verificadas + BORME</div>
@@ -249,7 +249,7 @@ const RATIO_FAM: { key: string; label: string }[] = [
 function Finanzas({ financial }: { financial: FinancialSection | null }) {
   const [tab, setTab] = useState<'pl' | 'balance' | 'ratios'>('pl');
   const [lvl, setLvl] = useState(1);
-  if (!financial || (!financial.profit_loss && !financial.balance && !(financial.ratios?.items?.length))) return <Pending label="Finanzas" />;
+  if (!financial || (!financial.profit_loss && !financial.balance && !(financial.ratios?.items?.length))) return <Soon label="Finanzas" />;
   const ratios = financial.ratios?.items ?? [];
   const fams = RATIO_FAM.filter((f) => ratios.some((r) => r.category === f.key));
   const lvlName = ['', 'Ejecutiva', 'Negocio', 'Detalle', 'Máximo'][lvl];
@@ -274,11 +274,11 @@ function Finanzas({ financial }: { financial: FinancialSection | null }) {
       </div>
 
       {tab === 'pl' && (financial.profit_loss
-        ? <div className="card"><h3><span className="k" />Cuenta de resultados</h3><div className="cs">Arrastra {'"Nivel de detalle"'} para desplegar más partidas</div><FinTable block={filterRows(financial.profit_loss, lvl)} /></div>
-        : <Pending label="Cuenta de resultados" />)}
+        ? <div className="card"><h3><span className="k" />Cuenta de resultados</h3><div className="cs">Arrastra "Nivel de detalle" para desplegar más partidas</div><FinTable block={filterRows(financial.profit_loss, lvl)} /></div>
+        : <Soon label="Cuenta de resultados" />)}
       {tab === 'balance' && (financial.balance
         ? <div className="card"><h3><span className="k" />Balance</h3><FinTable block={filterRows(financial.balance, lvl)} /></div>
-        : <Pending label="Balance" />)}
+        : <Soon label="Balance" />)}
 
       {tab === 'ratios' && (fams.length ? (
         <div className="card">
@@ -308,14 +308,14 @@ function Finanzas({ financial }: { financial: FinancialSection | null }) {
             <span>Barra = percentil sectorial</span>
           </div>
         </div>
-      ) : <Pending label="Ratios" />)}
+      ) : <Soon label="Ratios" />)}
     </section>
   );
 }
 
 /* ============================ VALORACIÓN ============================ */
 function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnalysis | null; financialAnalysis: FinancialAnalysis | null }) {
-  if (!valuation || !valuation.has_valuation) return <Pending label="Valoración" />;
+  if (!valuation || !valuation.has_valuation) return <Soon label="Valoración" />;
   const r = valuation.range;
   const q = clamp100(financialAnalysis?.financial_quality?.score ?? null);
   const maxEv = r ? (Math.max(r.low ?? 0, r.central ?? 0, r.high ?? 0) || 1) : 1;
@@ -365,7 +365,7 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
   const list = buyers?.recommendations ?? [];
   const similar = semantic?.similar ?? [];
   const chips = [...(semantic?.activities ?? []), ...(semantic?.markets ?? []), ...(semantic?.keywords ?? [])].slice(0, 8);
-  if (!list.length && !similar.length && !chips.length) return <Pending label="Comparativa" />;
+  if (!list.length && !similar.length && !chips.length) return <Soon label="Comparativa" />;
   const cur: BuyerItem | undefined = list[sel];
   const fitEntries = cur ? Object.entries(cur.fit_dimensions ?? {}) : [];
   return (
@@ -446,7 +446,7 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
 /* ============================ SEÑALES ============================ */
 function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   const items = signal?.signals ?? [];
-  if (!items.length) return <Pending label="Señales" />;
+  if (!items.length) return <Soon label="Señales" />;
   const cls = (pol: string | null) => pol === 'positive' ? 'ok' : pol === 'negative' ? 'r' : pol === 'warning' ? 'w' : 'i';
   return (
     <section className="panel on">
@@ -476,7 +476,7 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
 /* ============================ OPORTUNIDADES ============================ */
 function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | null }) {
   const items = opportunities?.recommendations ?? [];
-  if (!items.length) return <Pending label="Oportunidades" />;
+  if (!items.length) return <Soon label="Oportunidades" />;
   return (
     <section className="panel on">
       <div className="sec-h">Oportunidades</div>
@@ -602,7 +602,7 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             {['propiedad', 'gobierno', 'mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
               <section className="panel on">
                 <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>
-                <Pending label={NAV.find((n) => n.id === active)?.label ?? active} />
+                <Soon label={NAV.find((n) => n.id === active)?.label ?? active} />
               </section>
             )}
           </main>
