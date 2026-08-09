@@ -47,11 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user = data?.user ?? null;
   const memberships = data?.memberships ?? [];
   const isAuthenticated = !!user;
-  // Fuente de verdad del "cargando": la petición ya se resolvió si tenemos
-  // `data` O `error` (incluido el 401). NO dependemos de `isLoading` de SWR,
-  // que en algunos casos (401 + shouldRetryOnError=false) no baja a false y
-  // dejaba el guard en spinner eterno (RequireAuth) sin redirigir a /login.
-  const settled = data !== undefined || error !== undefined;
 
   const login = useCallback<AuthContextValue['login']>(async (payload) => {
     await apiClient.auth.login(payload);
@@ -86,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     memberships,
-    isLoading: skip ? false : (isLoading && !settled),
+    isLoading: skip ? false : isLoading,
     isAuthenticated,
     login,
     register,

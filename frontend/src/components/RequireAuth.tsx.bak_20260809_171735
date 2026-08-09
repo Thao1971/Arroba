@@ -1,6 +1,6 @@
 'use client';
 import { useRouter, usePathname } from 'next/navigation';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { Spinner } from '@/components/ds';
 
@@ -24,23 +24,8 @@ export function RequireAuth({
   const router = useRouter();
   const pathname = usePathname();
 
-  // Red de seguridad: si la auth no se resuelve en 6s (p.ej. /api/auth/me se
-  // queda colgada), dejamos de esperar y tratamos como no-autenticado → redirect.
-  // Evita el "Cargando…" eterno del guard.
-  const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    if (!isLoading) {
-      setTimedOut(false);
-      return;
-    }
-    const t = setTimeout(() => setTimedOut(true), 6000);
-    return () => clearTimeout(t);
-  }, [isLoading]);
-
-  const resolving = isLoading && !timedOut;
-
-  useEffect(() => {
-    if (resolving) return;
+    if (isLoading) return;
     if (!isAuthenticated) {
       const next = encodeURIComponent(pathname || '/');
       router.replace(`${loginPath}?next=${next}`);
@@ -49,9 +34,9 @@ export function RequireAuth({
     if (role && user?.role !== role) {
       router.replace(fallbackPath);
     }
-  }, [isAuthenticated, resolving, role, user, router, pathname, loginPath, fallbackPath]);
+  }, [isAuthenticated, isLoading, role, user, router, pathname, loginPath, fallbackPath]);
 
-  if (resolving) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-text-muted gap-3">
         <Spinner /> Cargando…
