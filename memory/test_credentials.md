@@ -1,186 +1,60 @@
-# Credenciales de Test — arroba.com (E0.4)
+# ARROBA Test Credentials (disposable — smoke Fase H)
 
-> **Reset E0**: el backend nuevo (FastAPI monolito modular) NO importa datos del
-> repo legacy. Las cuentas que aparecían en versiones anteriores de este archivo
-> (admin@arroba.com, sellers/buyers demo) viven solo en el código legacy en
-> `/app/_legacy/` y NO existen en la base de datos `arroba_com` del backend E0.
+## Auth type
+email_password_cookie
 
-## Cuenta admin oficial (E0.4)
+## Base URL
+- Backend (para curl S2S): http://localhost:8001
+- Preview (para browser tests): https://musing-hellman-9.preview.emergentagent.com
+- Preview alt (UUID-based): https://bda5adf2-2809-4e4d-80da-4a47b994f2fe.preview.emergentagent.com
 
-| Email | Password | Role | Notas |
-|---|---|---|---|
-| **`admin@arroba.dev`** | **`Admin1234!`** | `admin` | Bootstrap admin sembrado por `python scripts/seed_admin.py`. Idempotente; se puede re-ejecutar sin duplicar. |
+## Endpoints
+- Login: POST /api/auth/login
+  - Body: { "email": "...", "password": "..." }
+  - Content-Type: application/json
+  - Response 200: { "user": {...}, "session_expires_at": "ISO-8601" }
+- Register: POST /api/auth/register
+  - Body: { "email": "...", "password": "..." (min 8 chars), "full_name": "..." (optional) }
+  - Response 201: same shape as login
+- Me/verify: GET /api/auth/me
+  - Response 200: { "user": {...}, "memberships": [...] }
+  - Response 401 sin sesión: { "detail": "no_session", "code": "no_session" }
+- Cookie name: arroba_session
+- Cookie attrs local (HTTP): HttpOnly=Y, SameSite=lax, Secure=N, Path=/, Max-Age=604800 (7d)
+- Cookie attrs preview (HTTPS): HttpOnly=Y, SameSite=lax, Secure=Y, Path=/, Max-Age=604800 (7d)
 
-### Cómo regenerar / restaurar el admin
-```bash
-cd /app/backend
-python scripts/seed_admin.py
-# → [seed_admin] created admin user (o "updated")
+## Test user
+- Email: test.arroba+neo@arroba.com
+- Password: YofQgBFAo1wuC0d#
+- user_id: user_8bcce445ac69
+- Role: subscriber
+- email_verified: false (irrelevante para sesión: la cookie se emite en register/login sin verificación)
+- session_expires_at: rolling +7d desde el último login
+
+## How Playwright should inject the cookie
+### Option A (preferred): API login + storageState
+```js
+const loginRes = await request.post('https://musing-hellman-9.preview.emergentagent.com/api/auth/login', {
+  data: { email: 'test.arroba+neo@arroba.com', password: 'YofQgBFAo1wuC0d#' }
+});
+// La cookie viene en loginRes.headers()['set-cookie']. Extraerla, luego:
+await context.addCookies([{
+  name: 'arroba_session',
+  value: '<sess_...>',
+  domain: 'musing-hellman-9.preview.emergentagent.com',
+  path: '/',
+  httpOnly: true,
+  secure: true,
+  sameSite: 'Lax'
+}]);
+await page.goto('https://musing-hellman-9.preview.emergentagent.com/es/empresa-f01/B28184687');
 ```
 
-### Por qué un script y no un endpoint
-E0.4 explícitamente **no expone endpoint público para promover usuarios a admin**.
-Razón: requiere un admin para crear admins (chicken-and-egg). El primer admin se
-siembra siempre por script. Endpoints de promoción admin-to-admin llegan en etapas
-posteriores cuando ya exista un admin.
+### Option B (fallback): UI login
+Navegar a `/es/login`, rellenar email + password con selectors `input[name="email"]` (o `input[type="email"]`) y `input[name="password"]` (o `input[type="password"]`), submit, esperar redirección, luego navegar a la ficha.
 
-## Estado real del backend
-
-- Auth + register + login + Emergent OAuth session exchange operativos.
-- Cookies httpOnly con `Secure` automático cuando hay `X-Forwarded-Proto: https`.
-- Roles disponibles (enum `Role`): `anonymous`, `subscriber` (default al registrar),
-  `corporate`, `investor`, `advisor`, `admin`.
-- Agency Tool adapter en **mock**; admin CRUD sobre `master_companies_mock`.
-
-## Cómo autenticar para tests
-
-### Crear un usuario nuevo (subscriber)
-```bash
-curl -X POST http://localhost:8001/api/auth/register \
-  -H "Content-Type: application/json" \
-  -c /tmp/cookies.txt \
-  -d '{"email":"tester@arrobatest.com","password":"Test1234!","full_name":"Tester"}'
-# → 201, cookie httpOnly `arroba_session` en /tmp/cookies.txt
-```
-
-### Login con usuario existente (admin)
-```bash
-curl -X POST http://localhost:8001/api/auth/login \
-  -H "Content-Type: application/json" \
-  -c /tmp/cookies.txt \
-  -d '{"email":"admin@arroba.dev","password":"Admin1234!"}'
-# → 200
-```
-
-### Usar sesión
-```bash
-curl -b /tmp/cookies.txt http://localhost:8001/api/auth/me
-# → 200, { user: {...}, memberships: [...] }
-```
-
-### Logout
-```bash
-curl -X POST -b /tmp/cookies.txt http://localhost:8001/api/auth/logout
-# 200 always (idempotent)
-```
-
-## Smoke con el adapter (necesita admin)
-
-```bash
-# 1) login admin
-curl -X POST http://localhost:8001/api/auth/login -c /tmp/cookies.txt \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@arroba.dev","password":"Admin1234!"}'
-
-# 2) crear master_company_mock
-curl -X POST http://localhost:8001/api/admin/agency-tool/master-companies-mock \
-  -b /tmp/cookies.txt -H "Content-Type: application/json" \
-  -d '{"legal_name":"Acme Agency","cif":"B12345678","sector":"Performance"}'
-
-# 3) consultar via endpoint público (devuelve X-Source: mock)
-curl -i -b /tmp/cookies.txt http://localhost:8001/api/agency-tool/companies/{id}
-
-# 4) status de adapters
-curl -b /tmp/cookies.txt http://localhost:8001/api/agency-tool/status
-```
-
-## Usuarios de smoke test ya creados
-
-Durante E0.3/E0.3.1 y E1.1 quedaron persistidos en MongoDB usuarios funcionales
-que el tester puede reusar para pruebas exploratorias:
-
-| Email | Password | Role | Notas |
-|---|---|---|---|
-| `smoke_e031_2@arrobatest.com` | `Smoke123!` | `subscriber` | Sin memberships → al login va a `/onboarding`. Útil para probar el journey conversacional. |
-| `smoke_e031_3@arrobatest.com` | `Smoke123!` | `subscriber` | Idem. |
-
-## Demo Users (E1.5)
-
-Sembrados por `python scripts/seed_demo_users.py`. Todos comparten la misma
-organización **"ARROBA Demo Org"** (`tax_id=B99999999`, `org_id=org_a720ff5087aa`).
-Cuatro usuarios distintos con `m&a role` metadata distinto — pero la UI no
-diferencia aún por ese rol (vendrá en E1.7 — Role-based Surfaces).
-
-| Email | Password | M&A role | Notas |
-|---|---|---|---|
-| `buyer@arroba.com`   | `Arroba2026!` | `buyer`       | Sesión funcional al instante. |
-| `seller@arroba.com`  | `Arroba2026!` | `seller`      | Sesión funcional al instante. |
-| `advisor@arroba.com` | `Arroba2026!` | `advisor`     | Sesión funcional al instante. |
-| `equipo@arroba.com`  | `Arroba2026!` | `team_member` | Sesión funcional al instante. |
-
-Todos: `is_active=true`, `email_verified=true`, `role_in_org=operator`,
-`membership.status=active`. Skipean el OnboardingGuard porque ya tienen
-membership activa.
-
-Idempotente: re-ejecutar el seed actualiza password + status + role sin
-duplicar registros.
-
-Casos de uso:
-- **Compartición team E1.5**: buyer crea un workspace, lo comparte con
-  `visibility=team`, otro de los 4 (mismo org) lo lee desde `/es/historial`.
-- **Cross-user permissions**: probar que el extender un workspace solo lo
-  hace `created_by` (test cubre 403 para los demás).
-- **Role-based surfaces (E1.7+)**: cuando construyamos pantallas
-  diferenciadas por rol M&A (buyer / seller / advisor), estos 4 usuarios
-  permitirán comparar UX en paralelo.
-
-
-Los usuarios `e11-flow*-<timestamp>@arrobatest.com` creados por el smoke test de
-E1.1 quedan persistidos y ya tienen `Grupo Olmedo Hoteles, S.L.` como org. Para
-**limpiar** datos de smoke:
-
-```bash
-mongosh arroba_com --eval "db.users.deleteMany({email: /e11-flow/}); db.organizations.deleteMany({legal_name: /Grupo Olmedo/, created_by: {\$ne: 'user_174ea4693938'}}); db.memberships.deleteMany({user_id: {\$in: db.users.find({email: /e11-flow/},{_id:0,user_id:1}).map(u=>u.user_id)}})"
-```
-
-## Convenciones internas
-
-- Cookie de sesión: `arroba_session` (httpOnly, SameSite=Lax, `max_age=7d`).
-- `Secure` activado automáticamente cuando el request llega con `X-Forwarded-Proto: https`.
-- Header de request tracking: `X-Request-ID` (auto-generado si no se envía).
-- Header en errores: response `code` estable (`invalid_credentials`,
-  `email_already_registered`, `invitation_email_mismatch`, `admin_required`,
-  `master_company_not_found`, `master_company_duplicate_unique_field`, etc.).
-- Header en respuestas del Agency Tool adapter: `X-Source: mock` (en E0.4) o `X-Source: real` (post-REQ-001).
-
----
-
-## Sprint 1 — Primer flujo vertical (2026-06)
-
-### Cuentas recomendadas para el flujo E2E
-
-| Escenario | Email | Password | Rol | Notas |
-|---|---|---|---|---|
-| **Usuario autenticado (recomendado para C1-C15)** | `buyer@arroba.com` | `Arroba2026!` | `subscriber` | Con membership activa. Skipea onboarding. |
-| Admin (solo para C14/C15/API admin) | `admin@arroba.dev` | `Admin1234!` | `admin` | |
-| Viewer anónimo (para C7) | — | — | — | Sin login. Solo acceso a secciones 1-3 públicas. |
-
-### Empresas de test disponibles en `master_companies_mock`
-
-| Nombre | CIF | Sector | Uso en tests |
-|---|---|---|---|
-| **Grupo Olmedo Hoteles, S.L.** | **B47820150** | Hoteles | Empresa principal del brief. Usar para C4/C5/C6/C8. |
-| Kitchen Studio, S.L. | B86540112 | Software | Empresa secundaria para disambiguator. |
-| Clínica Veterinaria Vallés, S.L. | B08540200 | Salud | Empresa alternativa para C13 (Next Best Actions). |
-| Cadena Hotelera Atlántica, S.L. | B36710222 | Hoteles | Comparable de Olmedo. |
-| Bodegas Riojana Norte, S.A. | A26320888 | Alimentación | Test de CIF con letra `A`. |
-
-### Flujo E2E esperado (feliz path)
-
-1. Login con `buyer@arroba.com` / `Arroba2026!` → aterrizar en `/es`.
-2. Home privada visible con saludo dinámico. Composer permanente inferior visible.
-3. Click en tarjeta "Analizar una empresa" → Composer se expande.
-4. Escribir `Grupo Olmedo` en el Composer → resuelve → navega a `/es/empresa/B47820150`.
-5. Ficha carga con 12 módulos (verificable por `data-testid="entity-section-*"`).
-6. Header dock muestra "✦ Company Advisor de Grupo Olmedo Hoteles, S.L.".
-7. Click en `RefreshButton` de sección Análisis → animación `animate-section-pulse` 700ms + nuevo `NarrativeBlock`.
-8. Click en watchlist toggle → persiste + reload confirma persistencia.
-
-### Regenerar seeds
-```bash
-cd /app/backend
-python scripts/seed_admin.py
-python scripts/seed_demo_users.py
-python scripts/seed_master_companies_e14.py
-```
-
+## Notes
+- Usuario desechable creado el 2026-08-09T15:58:33Z. No usar en prod. No usar para nada más allá del smoke Fase H.
+- RequireAuth del frontend valida sesión llamando a GET /api/auth/me. Si devuelve 401 no_session, redirige a /login.
+- La cookie `__cf_bm` que aparece en Set-Cookie es de Cloudflare Bot Management (no es de la app; ignorar).
+- Para debug: `curl -b cookies.jar http://localhost:8001/api/auth/me` debe devolver 200 con user.email == "test.arroba+neo@arroba.com".
