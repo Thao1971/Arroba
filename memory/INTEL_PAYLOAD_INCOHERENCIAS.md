@@ -28,6 +28,18 @@ Detectadas durante **B-1.3 (Intel I-1)** — algunos campos vienen poblados solo
 | **Fallback aplicado** | Sí (B-1.3 Fase 1 · patch) — `valuation.benchmark ?? financialAnalysis?.valuation?.benchmark ?? null` y `valuation.methodology ?? financialAnalysis?.valuation?.methodology ?? null` |
 | **Contrato canónico** | `arroba-valuation-v1` (`ValuationAnalysis` interface) |
 
+### 3 · `statements.cash_flow.cash_conversion.value` con `format="percent"`
+
+| Aspecto | Detalle |
+|---|---|
+| **Poblado en** | `GET /api/companies/{cif}/financial-analysis.statements.cash_flow.rows` (fila `key="cash_conversion"`) |
+| **Payload observado** | Ambos años vienen `{"value": 0.6568, "format": "percent"}` y `{"value": 0.6608, "format": "percent"}` (Servier `B28184687`) — semánticamente ambiguo: valores en el rango `[0,1]` sugieren **ratio decimal**, pero `format: percent` fuerza al helper `fmtCell` a suffix `%` sin multiplicar × 100, pintándose como `0,7%` en vez de `65,7%` que es la convención Corporate Finance para "Conversión de caja (OCF/EBITDA)". |
+| **Consumidor afectado** | `CashFlowTable` en `frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` (B-2.5) |
+| **Fallback aplicado** | **NO** — R15 estricto, se pinta lo que llega. El helper `fmtCell(value, 'percent')` no multiplica × 100 (contrato compartido con las tablas de Ratios y KPIs, donde los porcentajes ya vienen en base 100). |
+| **Contrato canónico** | `arroba-financial-v1` — passthrough (`HARDENING-005`) |
+| **Impacto UX** | Bajo · celda numéricamente correcta bajo la interpretación literal del formato; interpretación semántica confusa para el analista Corporate Finance. Aplicable únicamente a la fila `cash_conversion` (rows `cf_operating`, `cf_capex`, `cf_financing`, `cf_net_change`, `free_cash_flow` vienen con `format: currency` y se pintan correctamente). |
+| **Decisión Intel esperada** | (a) Multiplicar × 100 en origen y devolver `65.68` con `format: percent`; o (b) devolver `0.6568` con `format: ratio` (que el helper renderiza como `0,66×`) — cualquiera de las dos armoniza con el contrato existente. |
+
 ## Recomendación
 
 Escalar a equipo Intel para **armonizar los contratos canónicos** entre endpoints. Idealmente:

@@ -7,7 +7,7 @@
  * clases del mockup; los datos son SIEMPRE reales (R4/R10: el front no calcula
  * ni inventa). Las secciones sin motor cableado quedan como "pronto".
  */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Activity, BarChart3, Bell, Bookmark, Coins, Euro, FileText, Files, GitCompare,
   Hourglass, LayoutGrid, Lock, type LucideIcon, Network, PieChart, Scale, Share2,
@@ -15,9 +15,9 @@ import {
 } from 'lucide-react';
 
 import type {
-  BuyerItem, FinancialAnalysis, FinancialAnalysisRatioDetail, FinancialSection, FinancialTableBlock,
-  IdentitySection, RecommendationSet, SemanticSection, SignalAnalysis,
-  ValuationAnalysis, ValuationBenchmark,
+  BuyerItem, CashFlowRow, CashFlowStatement, FinancialAnalysis, FinancialAnalysisRatioDetail,
+  FinancialSection, FinancialTableBlock, IdentitySection, RecommendationSet, SemanticSection,
+  SignalAnalysis, ValuationAnalysis, ValuationBenchmark,
 } from '@/lib/companies/intelligence-types';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 import { notify } from '@/lib/notify';
@@ -491,6 +491,67 @@ function FinTable({ block }: { block: FinancialTableBlock }) {
     </table>
   );
 }
+
+/* ============================ CASH FLOW ============================ */
+/**
+ * B-2.5 · Estado de flujos de efectivo.
+ * Passthrough puro desde `analysis.cash_flow` (Intel · `analyze.statements.cash_flow`).
+ * R15: sin cálculos de subtotales en frontend; solo pintamos las 6 filas que llegan.
+ * Los `values[i]` alinean 1:1 con `years[i]`. Los signos (Capex/financing negativos)
+ * se preservan tal como los emite Intel; `fmtCell` los renderiza con separador `es-ES`.
+ */
+const CF_CATEGORY_LABEL: Record<string, string> = {
+  operating: 'Actividades de explotación',
+  investing: 'Actividades de inversión',
+  financing: 'Actividades de financiación',
+  net_change: 'Variación de tesorería',
+  summary: 'Indicadores',
+};
+const CF_CATEGORY_ORDER: readonly string[] = ['operating', 'investing', 'financing', 'net_change', 'summary'];
+function CashFlowTable({ cf }: { cf: CashFlowStatement }) {
+  const groups = useMemo(() => {
+    const map = new Map<string, CashFlowRow[]>();
+    for (const row of cf.rows) {
+      const cat = String(row.category);
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(row);
+    }
+    const ordered = [...CF_CATEGORY_ORDER.filter((c) => map.has(c)), ...Array.from(map.keys()).filter((c) => !CF_CATEGORY_ORDER.includes(c))];
+    return ordered.map((cat) => ({ cat, label: CF_CATEGORY_LABEL[cat] ?? cat, rows: map.get(cat)! }));
+  }, [cf]);
+  const colCount = cf.years.length + 1;
+  return (
+    <table className="rec" data-testid="cashflow-table">
+      <tbody>
+        <tr><th>Concepto</th>{cf.years.map((y) => <th key={y} style={{ textAlign: 'right' }}>{y}</th>)}</tr>
+        {groups.map(({ cat, label, rows }) => (
+          <Fragment key={cat}>
+            <tr className="subhead"><td colSpan={colCount} style={{ paddingTop: 8, opacity: 0.72, fontSize: 12, letterSpacing: 0.4, textTransform: 'uppercase' }}>{label}</td></tr>
+            {rows.map((row) => {
+              const strong = row.category === 'net_change';
+              return (
+                <tr key={row.key} data-testid={`cashflow-row-${row.key}`}>
+                  <td>{strong ? <b>{row.label}</b> : row.label}</td>
+                  {cf.years.map((_, i) => {
+                    const cell = row.values[i];
+                    const value = cell?.value ?? null;
+                    const format = cell?.format ?? 'currency';
+                    return (
+                      <td key={i} style={{ textAlign: 'right' }}>
+                        {strong ? <b>{fmtCell(value, String(format))}</b> : fmtCell(value, String(format))}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </Fragment>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 const RATIO_FAM: { key: string; label: string }[] = [
   { key: 'growth', label: 'Crecimiento' }, { key: 'profitability', label: 'Rentabilidad' },
   { key: 'liquidity', label: 'Liquidez' }, { key: 'solvency', label: 'Solvencia' },
@@ -513,7 +574,7 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
         <div className="seg dark">
           <button className={tab === 'pl' ? 'on' : ''} onClick={() => setTab('pl')}>Cuenta de resultados</button>
           <button className={tab === 'balance' ? 'on' : ''} onClick={() => setTab('balance')}>Balance</button>
-          <button className={tab === 'cashflow' ? 'on' : ''} onClick={() => setTab('cashflow')}>Cash Flow</button>
+          <button className={tab === 'cashflow' ? 'on' : ''} onClick={() => setTab('cashflow')} data-testid="finanzas-tab-cashflow">Flujos de efectivo</button>
           <button className={tab === 'ratios' ? 'on' : ''} onClick={() => setTab('ratios')}>Ratios</button>
         </div>
         <span style={{ flex: 1 }} />
@@ -551,7 +612,9 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
       {tab === 'balance' && (financial.balance
         ? <div className="card"><h3><span className="k" />Balance</h3><FinTable block={filterRows(financial.balance, lvl)} /></div>
         : <Pending label="Balance" />)}
-      {tab === 'cashflow' && <Pending label="Flujo de caja" />}
+      {tab === 'cashflow' && (analysis?.cash_flow && Array.isArray(analysis.cash_flow.rows) && analysis.cash_flow.rows.length > 0
+        ? <div className="card"><h3><span className="k" />Estado de flujos de efectivo</h3><div className="cs">Fuente: cuentas depositadas (PGC) · flujos por actividad y resumen (FCF, conversión de caja).</div><CashFlowTable cf={analysis.cash_flow} /></div>
+        : <Empty label="Estado de flujos de efectivo" />)}
 
       {tab === 'ratios' && (fams.length ? (
         <div className="card">

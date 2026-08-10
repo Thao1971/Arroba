@@ -113,6 +113,7 @@ class FinancialAnalysis(BaseModel):
     valuation: dict | None = None  # F0.2 · bloque valuation embebido (opcional)
     assessment: dict | None = None  # F0.2 · {strengths[], weaknesses[], risks[]}
     ranking: dict | None = None  # B-2.1 · HARDENING-003 · passthrough analyze.ranking (sector_revenue_percentile, market_position, locality_position, explain[])
+    cash_flow: dict | None = None  # B-2.5 · HARDENING-005 · passthrough analyze.statements.cash_flow ({years[], rows[]}); coexiste con `cashflow` legacy (que puede venir null)
     size_band: str | None = None
     explainability: dict | None = None
 

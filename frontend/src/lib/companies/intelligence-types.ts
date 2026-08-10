@@ -317,6 +317,31 @@ export interface FinancialAnalysisRanking {
   explain?: string[] | null;
 }
 
+/**
+ * B-2.5 · Estado de flujos de efectivo · passthrough desde analyze.statements.cash_flow (Intel I-1).
+ * Shape observado en Servier `B28184687`:
+ *   - `years`: array descendente de años (más reciente → más antiguo).
+ *   - `rows[]`: 6 filas categorizadas (`operating`, `investing`, `financing`,
+ *     `net_change`, `summary`). Cada `values[i]` alinea con `years[i]`.
+ *   - `values[].format`: `currency` o `percent`.
+ * R15 estricto: no derivar subtotales en frontend, sólo renderizar lo que llega.
+ */
+export type CashFlowRowCategory = 'operating' | 'investing' | 'financing' | 'net_change' | 'summary';
+export interface CashFlowValue {
+  value?: number | null;
+  format?: 'currency' | 'percent' | string | null;
+}
+export interface CashFlowRow {
+  key: string;
+  label: string;
+  category: CashFlowRowCategory | string;
+  values: CashFlowValue[];
+}
+export interface CashFlowStatement {
+  years: number[];
+  rows: CashFlowRow[];
+}
+
 export interface FinancialAnalysis {
   master_id: string | null;
   cif_normalized: string | null;
@@ -334,6 +359,7 @@ export interface FinancialAnalysis {
   income_statement: FinancialAnalysisIncomeStatement | null;
   balance_sheet: FinancialAnalysisBalanceSheet | null;
   cashflow: Record<string, unknown> | null;
+  cash_flow: CashFlowStatement | null;
   ratios: Record<string, FinancialAnalysisRatioDetail | number> | Record<string, never>;
   financial_quality: FinancialAnalysisQuality | null;
   evolution: FinancialAnalysisEvolution | null;

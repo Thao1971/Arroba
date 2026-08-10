@@ -230,6 +230,7 @@ class AgencyToolFinancialProvider(FinancialProvider):
             valuation=doc.get("valuation") if isinstance(doc.get("valuation"), dict) else None,
             assessment=assessment_raw,
             ranking=doc.get("ranking") if isinstance(doc.get("ranking"), dict) else None,
+            cash_flow=statements.get("cash_flow") if isinstance(statements.get("cash_flow"), dict) else None,
             size_band=doc.get("size_band"),
             explainability=explainability_raw,
             engine_version=INTERNAL_ENGINE_VERSION,
