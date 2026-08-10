@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 import type {
-  BuyerItem, FinancialAnalysis, FinancialAnalysisRatioDetail, FinancialSection, FinancialTableBlock,
+  BuyerItem, FinancialAnalysis, FinancialSection, FinancialTableBlock,
   IdentitySection, RecommendationSet, SemanticSection, SignalAnalysis,
   ValuationAnalysis, ValuationBenchmark,
 } from '@/lib/companies/intelligence-types';
@@ -494,70 +494,7 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
           </div>
         </div>
       ) : <Pending label="Ratios" />)}
-
-      {tab === 'ratios' && <RatiosTrendCard analysis={analysis} />}
     </section>
-  );
-}
-
-/** Tarjeta B-1.4 · Ratios financieros con evolución (▲▼) vs año anterior, alimentada por /financial-analysis.ratios.*. */
-const RATIO_TREND_META: ReadonlyArray<{ key: string; label: string; abbrTitle?: string; format: 'pct' | 'eur' }> = [
-  { key: 'ebitda_margin', label: 'Margen EBITDA', format: 'pct' },
-  { key: 'ebit_margin', label: 'Margen EBIT', format: 'pct' },
-  { key: 'net_margin', label: 'Margen neto', format: 'pct' },
-  { key: 'roa', label: 'ROA', abbrTitle: 'Return On Assets: Beneficio neto / Activos totales. Rentabilidad de los activos.', format: 'pct' },
-  { key: 'roe', label: 'ROE', abbrTitle: 'Return On Equity: Beneficio neto / Fondos propios. Rentabilidad del accionista.', format: 'pct' },
-  { key: 'solvency', label: 'Solvencia', format: 'pct' },
-  { key: 'debt_ratio', label: 'Ratio de deuda', format: 'pct' },
-  { key: 'revenue_per_employee', label: 'Ingresos por empleado', format: 'eur' },
-  { key: 'capital_intensity', label: 'Intensidad de capital', format: 'pct' },
-];
-
-function fmtRatioValue(v: number | null | undefined, format: 'pct' | 'eur'): string {
-  if (v === null || v === undefined) return '—';
-  if (format === 'pct') return `${(v * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })} %`;
-  return `${v.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €`;
-}
-
-function fmtRatioDelta(v: number | null | undefined, format: 'pct' | 'eur'): string {
-  if (v === null || v === undefined) return '';
-  const sign = v > 0 ? '+' : '';
-  if (format === 'pct') return `${sign}${(v * 100).toLocaleString('es-ES', { maximumFractionDigits: 2 })} pp`;
-  return `${sign}${v.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €`;
-}
-
-function RatiosTrendCard({ analysis }: { analysis: FinancialAnalysis | null }) {
-  const raw = analysis?.ratios;
-  if (!raw || typeof raw !== 'object') return null;
-  const items = RATIO_TREND_META.map((meta) => {
-    const cell = (raw as Record<string, FinancialAnalysisRatioDetail | number | undefined>)[meta.key];
-    if (!cell || typeof cell !== 'object' || cell.available === false || cell.value == null) return null;
-    return { meta, detail: cell };
-  }).filter((x): x is { meta: typeof RATIO_TREND_META[number]; detail: FinancialAnalysisRatioDetail } => x !== null);
-  if (items.length === 0) return null;
-  return (
-    <div className="card" style={{ marginTop: 16 }}>
-      <style>{`.rat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:12px}.rat-card{border:1px solid var(--n200);border-radius:var(--r);padding:12px 14px;background:var(--n0);cursor:help}.rat-card .lbl{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--n700);text-transform:uppercase;letter-spacing:.4px}.rat-card .val{font-size:22px;font-weight:800;color:var(--n900);margin-top:6px}.rat-card .dlt{font-size:12.5px;margin-top:2px}.rat-card .up{color:#16a34a}.rat-card .down{color:#dc2626}`}</style>
-      <h3><span className="k" />Ratios financieros</h3>
-      <div className="cs">Valor y variación vs año anterior. Pasa el ratón por cada tarjeta para ver la definición.</div>
-      <div className="rat-grid">
-        {items.map(({ meta, detail }) => {
-          const trend = detail.trend;
-          const trendClass = trend === '▲' ? 'up' : trend === '▼' ? 'down' : '';
-          const tooltip = detail.explanation || detail.formula || undefined;
-          return (
-            <div key={meta.key} className="rat-card" title={tooltip}>
-              <div className="lbl">
-                <span>{meta.abbrTitle ? <abbr title={meta.abbrTitle}>{meta.label}</abbr> : meta.label}</span>
-                {trend && <span className={trendClass}>{trend}</span>}
-              </div>
-              <div className="val">{fmtRatioValue(detail.value, meta.format)}</div>
-              {detail.delta != null && <div className={`dlt ${trendClass}`}>{fmtRatioDelta(detail.delta, meta.format)}</div>}
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
