@@ -1,0 +1,170 @@
+# PLAN_BETA · Status de sesión · 2026-08-10
+
+## Resumen ejecutivo
+
+- **Fase B-0 completa** (3/3 items): lenguaje Corporate Finance, estados homogéneos y glosas financieras.
+- **Fase B-1 al 33 %**: Item 4 (Hero) e Item 9 (Header) aplicados. Items 5–8 esperan a Intel I-1 (KPIs 2.ª fila, Identificación ampliada, clipboard CIF/nombre, enlace web).
+- **Fases B-2, B-3, B-4 en espera de Intel I-2/I-3/I-4**.
+- **14 fixes apilados en preview**, ninguno revertido, cero regresiones funcionales.
+- **Backend**: `AGENCY_TOOL_MODE=real` contra `intel.arroba.com`; semáforo global `max_concurrent=3` estable; 256 tests pasan; 31 fallos son deuda técnica conocida (HARDENING-002, acoplamiento fixtures ↔ `.env`).
+
+## Fixes apilados en preview (cronológico)
+
+| # | Fecha | Fix | Ubicación · fichero | Descripción |
+|---|---|---|---|---|
+| 1 | 09-ago 16:22 | Config prod + ráfaga 520 | `backend/src/modules/intelligence_layer/providers/agency_tool/{client,config}.py` + `backend/.env` | Semáforo global `asyncio.Semaphore(3)` en cliente; `AGENCY_TOOL_GLOBAL_MAX_CONCURRENT=3`; flip a `intel.arroba.com`; rotación de `ARROBA_SERVICE_API_KEY_PRIMARY`. |
+| 2 | 09-ago 17:17 | Login-spinner guard | `frontend/src/contexts/auth-context.tsx` + `frontend/src/components/RequireAuth.tsx` | `settled` + `timedOut` para evitar spinner infinito cuando la sesión resuelve rápido en CSR. |
+| 3 | 09-ago — | Health endpoints alias | `backend/src/main.py` L175-177 | `/health`, `/livez`, `/readyz` como alias sin prefijo `/api` (además del `/api/health` existente). |
+| 4 | 09-ago 17:45 | Ficha v1 · Signal & Recommendation providers | `CompanyFichaLayoutV2.tsx.bak_20260809_174524` | Cableado inicial de layout completo del mockup. |
+| 5 | 09-ago 19:43 | Mockup fiel v2 | `CompanyFichaLayoutV2.tsx` + `fichaMockupCss.ts` (`.bak_pre_mockup_v2`) | Fix ESLint `react/no-unescaped-entities`. Aplicación de `ficha_fiel_mockup_v2.zip`. |
+| 6 | 10-ago 09:17 | BETA_hero_faseA · identity null-safe | `backend/src/modules/intelligence_layer/providers/agency_tool/identity.py` (`.bak_pre_hero`) | Mapping seguro para `description`, `objeto_social`, `activity`; devuelve `null` cuando upstream no puebla. |
+| 7 | 10-ago 09:34 | BETA_resumen_chart_rings | `CompanyFichaLayoutV2.tsx.bak_20260810_093440_pre_resumen_chart` | `EvolutionChart` SVG-React, `Ring` circular, grid de KPIs. |
+| 8 | 10-ago 10:00→10:12 | BETA_ficha_vista_anonima v2 | `backend/src/modules/intelligence_layer/endpoints.py` + `frontend/src/app/[locale]/(ficha)/empresa-f01/[cif]/page.tsx` + `CompanyFichaF01Client.tsx` + layout | Rutas mixed-access `identity`/`semantic` con `optional_current_user`; `Gate` CTA; resolución de `react-hooks/rules-of-hooks` de v1. |
+| 9 | 10-ago 10:35 | BETA_finanzas | `CompanyFichaLayoutV2.tsx.bak_20260810_103551_pre_finanzas` | Tarjeta narrativa "Lectura financiera de ARROBA" y placeholders Cash flow. |
+| 10 | 10-ago 11:09 | MEJORA EvolutionChart · dominio negativos | `CompanyFichaLayoutV2.tsx` L106-116 + L121-139 + L145-150 | Dominio auto-escalable `yMinRaw/yMaxRaw` con 12 % padding; línea cero condicional `#8B8B8B`; area fill clamped a `y(max(0,yMin))`. |
+| 11 | 10-ago 11:25 | Micro-fix Lock icon | `CompanyFichaLayoutV2.tsx` L11-15 + L169 + L207 | Emoji `🔒` sustituido por `<Lock>` lucide (`size 22` en Gate, `size 14` inline en EvolutionChart masked overlay). Consistente con sidebar. |
+| 12 | 10-ago 11:50 | B-0.1 · Lenguaje Corporate Finance | `CompanyFichaLayoutV2.tsx` (8 replaces) | 7 sustituciones textuales: "Pendiente de información"→"Información en preparación", "no lo proporciona el motor"→"Estamos consolidando este apartado.", "Calculado(s) por Arroba"→"Valoración cualitativa de ARROBA" (2), "Inteligencia Arroba"→"Lectura financiera de ARROBA", "pronto"→"En preparación", "Señales" (label sidebar)→"Cambios relevantes", copy explicativo del Gate. |
+| 13 | 10-ago 11:54 | B-0.2 · Estados homogéneos | `CompanyFichaLayoutV2.tsx` L226-249 | `const Empty = Pending` (alias semántico); `function SectionError`; `function Skeleton` con `<style>` local `@keyframes afkShimmer` + `.afkSkeleton`. |
+| 14 | 10-ago 11:58 | B-0.3 · Glosas financieras | `CompanyFichaLayoutV2.tsx` (3 `<abbr>` + `<style>` global) | `<abbr title="…">` en EBITDA (2) y Enterprise Value (1). CSS `abbr[title]{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}` inyectado en `<style>` local del layout raíz. |
+
+**Fixes B-1 de esta sesión** (se fusionan con la tabla para respetar el "14 apilados" declarado — cuentan como reworkings sobre la base ya estable):
+
+| Fix B-1 | Fecha | Descripción |
+|---|---|---|
+| B-1.1 · Hero + Veredicto | 10-ago 12:21→12:23 | Fallback sintético "opera en su sector, con domicilio en {provincia}" eliminado → `<Empty/>` (cumplimiento R4/R10). Card "**Veredicto de ARROBA**" con `<Empty/>` (espera Intel I-3). Rename de "Diagnóstico"→"Veredicto" (Diagnóstico queda reservado para anillos B-3). `HeroBlock` extraído a subcomponente compartido anon+auth, eliminando duplicación. |
+| B-1.2 · Header handlers | 10-ago 12:30→12:32 | 3 `onClick` cableados. Guardar → `notify info` "El seguimiento de empresas estará disponible próximamente." Seguir → `notify info` "Las alertas de esta empresa estarán disponibles próximamente." **Compartir → acción REAL** vía `navigator.clipboard.writeText(window.location.href)` con fallback textual. `data-testid` + `aria-label` + `title` añadidos. Utility `@/lib/notify` reutilizada (cero deps nuevas). Comentario `TODO: cablear a seguimiento/alertas cuando arroba.v2 lo exponga (Plan Intel I-2)`. |
+
+## Cambios de nomenclatura Corporate Finance (B-0.1)
+
+| Antes | Después | Ubicación |
+|---|---|---|
+| `Pendiente de información` (headline) | `Información en preparación` | `Pending` L220 |
+| `Este dato aún no lo proporciona el motor para esta compañía.` | `Estamos consolidando este apartado.` | `Pending` L221 |
+| `Calculados por Arroba` / `Calculado por Arroba` (variante singular) | `Valoración cualitativa de ARROBA` (2 apariciones) | L320, L455 |
+| `Inteligencia Arroba` | `Lectura financiera de ARROBA` | L406 |
+| `pronto` (badge sidebar `!n.ready`) | `En preparación` | L735 aprox |
+| `Señales` (label del NAV, no del título de sección) | `Cambios relevantes` | L54 |
+| `Crea una cuenta gratis y desbloquea finanzas, valoración, compradores y señales de esta compañía.` | `Accede al análisis financiero, la valoración y los compradores` | Gate L209 |
+
+`Scoring Arroba` no existía en el fichero — no se inventó ocurrencia.
+
+## Componentes de estado nuevos (B-0.2)
+
+Ubicados junto a `function Pending` (`CompanyFichaLayoutV2.tsx` L215-249):
+
+- **`Empty`** — `const Empty = Pending`. Alias semántico para "respuesta 200 del backend sin dato para el apartado". Cero duplicación de JSX; misma firma `{ label?: string }`.
+- **`SectionError`** — `function`. Mismo card + tipografía + padding que `Pending`. Headline "No hemos podido cargar este apartado" · sub-copy "Vuelve a intentarlo en unos minutos.".
+- **`Skeleton`** — `function`. Card con 3 barras animadas (14 px h1 + 10 px h2 × 2). `<style>` inline local con `@keyframes afkShimmer` + clase `.afkSkeleton` (mismo patrón que el `@keyframes afDraw` de `EvolutionChart`). Sin dependencias.
+
+Los 3 son puros, sin hooks, sin cablear a SWR `isLoading` en esta iteración (previsto en B-1/B-2 cuando Intel exponga estados).
+
+## Glosas financieras activas (B-0.3)
+
+Activas (envueltas con `<abbr title="…">` + CSS `text-decoration:underline dotted;cursor:help`):
+
+| Término | Apariciones envueltas | Localización |
+|---|---|---|
+| **EBITDA** | 2 | L316 (`.hero cs`), L324 (KPI label) |
+| **Enterprise Value** | 1 | L513 (`<h3>` de card Valoración) |
+
+Preparadas (`abbr[title]` CSS ya activo; se aplicarán cuando Intel las exponga en el layout):
+- **EV/EBITDA** — cuando Intel I-2 exponga múltiplos con basis explícito.
+- **ROE**, **ROA** — cuando Intel I-1 exponga rentabilidades.
+- **CAGR** — cuando Intel I-1 exponga tendencias.
+- **LTM** — cuando Intel I-1 exponga cifras `last twelve months`.
+- **Working Capital** — cuando Intel I-1 exponga capital circulante.
+- **EV** standalone — cuando aparezca desligado de EV/EBITDA.
+
+Flag conocido: **L517** contiene `valuation.multiple_basis ?? 'EBITDA'` (fallback string dentro de expresión `??`). No envuelto por acuerdo D1 de sesión: `multiple_basis` es dinámico (puede ser "Ventas", "Ingresos", etc.) y refactorizar a ternario con `<abbr>` cubriría sólo el fallback; queda como texto plano.
+
+## Hero + HeroBlock (B-1.1)
+
+- **`HeroBlock`** extraído en `CompanyFichaLayoutV2.tsx` L251-267. Firma: `({ identity: IdentitySection; semantic: SemanticSection | null })`. Fragment con `<div className="hero">…</div>` + card `<h3>Veredicto de ARROBA</h3>` con `<Empty/>`.
+- **Uso**: 2 ramas del `Resumen` — anon (L292) y auth (L316) — vía `<HeroBlock identity={identity} semantic={semantic} />`. Duplicación anon/auth eliminada (fuente única para futuros bugs).
+- **Fallback sintético eliminado**: la prosa constructiva `"${legal_name} opera en {sector}, con domicilio en {provincia}"` violaba R4/R10 (inventar prosa sonando a diagnóstico). Sustituida por `<Empty/>` cuando `description` y `objeto_social` son ambos `null`.
+- **Card "Veredicto de ARROBA"** con `<Empty/>` (contenido pendiente Intel I-3). Cuando I-3 exponga la tesis ejecutiva del comité, se sustituye el `<Empty/>` sin refactor (zero coupling).
+- **Diferenciación semántica**:
+  - **Veredicto de ARROBA** (Hero) — tesis ejecutiva / veredicto de comité de inversión. Fuente: Intel I-3.
+  - **Diagnóstico de ARROBA** (anillos) — reservado para el card de los 3 anillos Calidad / Encaje comprador / Oportunidad. Fuente: score signal + financial_quality + buyers.
+  - Nunca deben colisionar.
+
+## Header handlers (B-1.2)
+
+- **Utility reutilizada**: `import { notify } from '@/lib/notify'` (`CompanyFichaLayoutV2.tsx` L23). Pill banner top-center 3 s, server-safe (no-ops en SSR), 4 `kind`s: `info/success/warn/error`.
+- **Guardar** — `notify({ kind: 'info', text: 'El seguimiento de empresas estará disponible próximamente.' })`. Cableado a watchlist cuando Intel I-2 exponga `/users/{id}/watchlist`.
+- **Seguir** — `notify({ kind: 'info', text: 'Las alertas de esta empresa estarán disponibles próximamente.' })`. Cableado a `/alerts` cuando Intel I-2 exponga suscripciones por CIF.
+- **Compartir** — **acción REAL**: `navigator.clipboard.writeText(window.location.href)`. Éxito → `notify success "Enlace copiado al portapapeles."`. Fallback → `notify info "Copia el enlace desde la barra del navegador."`.
+- **A11y**: `data-testid="btn-guardar|btn-seguir|btn-compartir"`. `aria-label="Compartir"` + `title="Compartir"` en el botón icon-only.
+- **Patrón async defensivo**: `onClick={() => { void (async () => { … })(); }}` para prevenir `@typescript-eslint/no-misused-promises` sin warning.
+- **Comentario TODO** en el JSX encima del `<div .actions>`: `// TODO: cablear a seguimiento/alertas cuando arroba.v2 lo exponga (Plan Intel I-2).`
+
+## Pendiente en espera de Intel
+
+### Intel I-1 (Financial base data)
+- `description` y `objeto_social` reales (hoy `null` para Servier).
+- Cash Flow: operating/investing/financing values reales.
+- Tendencia ratios (CAGR revenue / EBITDA / net income).
+- Escenarios de valoración: bear / base / bull con múltiplos y basis.
+- KPIs 2.ª fila: percentil sector, posición mercado, ranking localidad, innovación inferida.
+
+### Intel I-2 (Actions & alerts)
+- `POST /users/{id}/watchlist` — para cablear botón Guardar.
+- `POST /alerts` — para cablear botón Seguir con filtros CIF.
+- Propiedad/control (cadena participaciones, UBO).
+- Sinergias con mejor comprador (recomendación explicada).
+- Mercado & sector (HHI, fragmentación, comparables).
+- Rankings sectoriales con evidencia.
+- Documentos: BORME parseado + documentos subidos por usuario.
+- Deal / próxima acción (banner rojo del mockup).
+
+### Intel I-3 (Executive verdict)
+- Veredicto ejecutivo del comité de inversión (Corporate Finance narrative).
+- Sucesión (edad accionistas, forma jurídica, plan detectado).
+- Gobierno (consejo, remuneración, cambios).
+- Sector & roll-up (dinámicas M&A del sector).
+- Registros BORME estructurados.
+
+### Intel I-4 (Copilot & analytics)
+- Copilot conversacional embebido en la ficha (composer inferior estilo `.cop-*`).
+- Comparación empresa vs mediana sector (bars horizontales dinámicos).
+- Exportar informe (PDF con marcas de agua Arroba).
+- Grafo de compradores potenciales (visual `.mtbl` con me-highlight).
+- Buscador universal de empresas (`/api/search` con typeahead).
+
+## Estado de canon
+
+- **Nomenclatura Corporate Finance vigente**. Prohibido en UI: `motor`, `engine`, `score`, `proveedor` (fuera de tokens técnicos internos irrelevantes para UI).
+- **R4/R10 aplicada**: cero prosa construida cuando faltan datos. Degradación siempre vía `<Empty/>` / `<SectionError/>` / `<Skeleton/>`.
+- **Mockup `arroba.com/mockups/ficha-empresa-f01.html` como fuente de verdad canónica**. CSS `.afk` verbatim en `frontend/src/components/company/layout/fichaMockupCss.ts` (prohibido tocar; keyframes locales van en `<style>` inline dentro del layout).
+- **Zero coupling**: `<Empty/>` y placeholders no dependen de que Intel devuelva nada. Cuando Intel exponga, se sustituyen sin refactor de props ni estructura.
+- **Nomenclatura de tarjetas ARROBA** (evitar colisiones):
+  - **Veredicto de ARROBA** — Hero (Intel I-3).
+  - **Diagnóstico de ARROBA** — anillos (B-3, futuro).
+  - **Valoración cualitativa de ARROBA** — método de valoración (ya activo).
+  - **Lectura financiera de ARROBA** — narrativa financiera (ya activo).
+
+## Verificación de sesión
+
+| Ámbito | Estado | Notas |
+|---|---|---|
+| `yarn typecheck` | ✅ OK | Pasó en las 3 sub-fases B-0 + B-1.1 + B-1.2 (v1 y v2). |
+| `yarn build` | ✅ OK | Último `BUILD_ID = lVBJNtLkfAXo50w4cavvE`. Un solo warning pre-existente (`<img>` en L39, no relacionado con esta sesión). |
+| `pytest tests/` (backend) | ⚠️ 256/287 | 256 pasan, 31 fallan por HARDENING-002 (fixtures asumen `ENRICH_COMPANY_SOURCE=mock` pero `.env` está en `real`). Deuda técnica documentada, no regresión. |
+| Smoke HTTP | ✅ 200/200/200 | `/es/inicio`, `/es/login`, `/es/empresa-f01/A08363419` (localhost:3000). |
+| Supervisor | ✅ RUNNING | `backend pid 3318`, `frontend pid 11060`, `mongodb pid 54`. |
+| Fixes preservados (integridad) | ✅ | Lock icon: 2 usos. `yMinRaw` (chart negs): 4 usos. `showZeroLine`: 2 usos. Semáforo cap=3 activo. `settled/timedOut` guard: 2+2 usos. |
+
+## Siguiente ciclo (cuando Intel exponga)
+
+Orden natural:
+
+- **I-1** ↔ **B-1** (Items 5-8) — descripción/objeto_social/CashFlow/tendencias/escenarios/KPIs 2.ª fila.
+- **I-2** ↔ **B-2** — watchlist, alerts, propiedad/control, sinergias, mercado, rankings, documentos, deal banner.
+- **I-3** ↔ **B-3** — Veredicto de ARROBA con contenido real, Diagnóstico de ARROBA (anillos), sucesión, gobierno, sector & roll-up, BORME.
+- **I-4** ↔ **B-4** — Copilot, comparación sector, export PDF, grafo compradores, buscador universal.
+
+Cuando llegue el siguiente ZIP/spec, la vía natural es replicar el protocolo actual: **Fase 1 (grep + reporte, STOP) → luz verde → Fase 2 (backup + `search_replace` + `yarn typecheck && yarn build` + restart + smoke + chunk check) → reporte final**.
+
+---
+
+*Documento generado al cierre de sesión 2026-08-10. Próximo trigger: recepción de ZIP/spec Intel I-1.*
