@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Activity, BarChart3, Bell, Bookmark, Coins, Euro, FileText, Files, GitCompare,
-  Hourglass, LayoutGrid, Lock, type LucideIcon, Network, PieChart, Scale, Share2,
+  Hourglass, LayoutGrid, type LucideIcon, Network, PieChart, Scale, Share2,
   Target, Users, Zap,
 } from 'lucide-react';
 
@@ -166,7 +166,7 @@ function EvolutionChart({ series, years, masked }: { series: EvoSerie[]; years: 
         <div style={{ position: 'absolute', left: `${tip.x}%`, top: `${tip.y}%`, transform: 'translate(-50%,-130%)', background: '#161412', color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 10px', borderRadius: 8, whiteSpace: 'nowrap', pointerEvents: 'none', boxShadow: '0 8px 24px rgba(20,18,16,.28)', zIndex: 5 }}>{tip.text}</div>
       )}
       {masked && (
-        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'var(--n500)', fontSize: 13, fontWeight: 700 }}><Lock size={14} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />Regístrate para ver las cifras</div>
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'var(--n500)', fontSize: 13, fontWeight: 700 }}>🔒 Regístrate para ver las cifras</div>
       )}
     </div>
   );
@@ -204,7 +204,7 @@ function Ring({ val, label, color }: { val: number; label: string; color: string
 function Gate({ what }: { what: string }) {
   return (
     <div className="card" style={{ textAlign: 'center', padding: '34px 22px' }}>
-      <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Lock size={22} strokeWidth={2} color="var(--n500)" /></div>
+      <div style={{ fontSize: 26, marginBottom: 8 }}>🔒</div>
       <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--n900)' }}>Regístrate para ver {what}</div>
       <div className="cs" style={{ marginTop: 6, marginBottom: 16 }}>Crea una cuenta gratis y desbloquea finanzas, valoración, compradores y señales de esta compañía.</div>
       <a href="/es/login" className="btn primary" style={{ display: 'inline-flex' }}>Registrarse o entrar</a>
