@@ -638,10 +638,25 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
                 <h5><span className="k" />{f.label}</h5>
                 {ratios.filter((r) => r.category === f.key).map((r) => {
                   const pct = r.benchmark?.percentile;
+                  // ÍTEM 3 · Turno post-D · fix R15: `FinancialRatioItem.value` viene
+                  // como ratio decimal `[−1,1]` cuando `format="percent"`. El helper
+                  // global `fmtCell` no multiplica × 100 (uso compartido con Cash
+                  // Flow, currency, ratio), así que aplicamos bridging local
+                  // acotado al render de ratios de esta card. Coherente con
+                  // `fmtRatioValue` del `RatiosTrendCard` (que ya × 100). Cero
+                  // efecto sobre `ratio`, `multiple`, o `value=null` (sigue `—`).
+                  let displayValue: number | null = r.value;
+                  if (
+                    r.format === 'percent' &&
+                    typeof displayValue === 'number' &&
+                    Math.abs(displayValue) <= 1
+                  ) {
+                    displayValue = displayValue * 100;
+                  }
                   return (
                     <div key={r.key} className="rrow">
                       <span className="rn" title={r.formula ?? undefined}>{r.name}</span>
-                      <span className="rv">{fmtCell(r.value, r.format)}</span>
+                      <span className="rv">{fmtCell(displayValue, r.format)}</span>
                       {pct != null ? <span className="rp"><i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span> : <span className="rp na">—</span>}
                       <span className="rt f">▬</span>
                     </div>
@@ -737,12 +752,11 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
     if (!raw) return fallback[i];
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   };
-  const b = valuation.benchmark
-    ?? (financialAnalysis?.valuation as { benchmark?: ValuationBenchmark | null } | null)?.benchmark
-    ?? null;
-  const methodology = valuation.methodology
-    ?? (financialAnalysis?.valuation as { methodology?: string | null } | null)?.methodology
-    ?? null;
+  // ÍTEM 1 · Turno post-D · Retirado fallback a `financialAnalysis.valuation`.
+  // Ahora `valuation` proviene del agregador `ficha.finances.valuation`
+  // (Turno D · cobertura 6/6 para benchmark + methodology). R15 puro.
+  const b = valuation.benchmark;
+  const methodology = valuation.methodology;
   const fmtMillions = (v: number | null | undefined): string => (v == null ? '—' : `${(v / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`);
   return (
     <section className="panel on">
@@ -902,30 +916,100 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
 }
 
 /* ============================ SEÑALES ============================ */
+/**
+ * ÍTEM 2 · Turno post-D · consumo enriquecido del payload `signal-intelligence`.
+ * Preserva el estilo timeline del mockup (`.tl .ev`) y añade:
+ *   · `explanation` como texto principal (prosa CF, R15 literal).
+ *   · `evidence.{metric, value, window}` como bullet secundario.
+ *   · `dimensions.{impact, urgency, persistence, confidence}` como tags.
+ *   · `rule.id` como pie discreto (meta-información del motor).
+ * Empty state · copy Corporate Finance: "Sin señales relevantes".
+ */
+const SIG_SEVERITY_LABEL: Record<string, string> = {
+  risk: 'Riesgo',
+  opportunity: 'Oportunidad',
+  info: 'Informativo',
+  warning: 'Alerta',
+  critical: 'Crítica',
+};
+const SIG_DIM_LABEL: Record<string, string> = {
+  impact: 'Impacto',
+  urgency: 'Urgencia',
+  persistence: 'Persistencia',
+  confidence: 'Confianza',
+};
+function fmtNumOrText(v: number | string | null | undefined): string {
+  if (v == null) return '—';
+  if (typeof v === 'number') {
+    if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`;
+    return v.toLocaleString('es-ES', { maximumFractionDigits: 2 });
+  }
+  return String(v);
+}
 function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   const items = signal?.signals ?? [];
-  if (!items.length) return <Pending label="Señales" />;
+  if (!items.length) {
+    // ÍTEM 2 · Turno post-D · copy Corporate Finance exacto (no reusa `Empty` estándar
+    // porque `Empty` prepone "Información en preparación · {label}").
+    return (
+      <section className="panel on" data-testid="senales-empty">
+        <div className="sec-h">Señales</div>
+        <div className="card" style={{ textAlign: 'center', padding: '28px 20px' }}>
+          <div style={{ fontSize: 20, opacity: 0.45, marginBottom: 6 }}>◔</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--n700)' }}>Sin señales relevantes</div>
+        </div>
+      </section>
+    );
+  }
   const cls = (pol: string | null) => pol === 'positive' ? 'ok' : pol === 'negative' ? 'r' : pol === 'warning' ? 'w' : 'i';
   return (
-    <section className="panel on">
+    <section className="panel on" data-testid="senales-section">
+      <style>{`.sig-explain{font-size:14px;color:var(--n800);line-height:1.55;margin-top:6px}.sig-evidence{font-size:12.5px;color:var(--n700);margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.sig-evidence .lb{color:var(--n600);text-transform:uppercase;letter-spacing:.3px;font-size:11px}.sig-dims{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.sig-dim{padding:3px 10px;border-radius:999px;background:var(--n100);color:var(--n800);font-size:11.5px;font-weight:600}.sig-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}.sig-actions .a{padding:3px 8px;border:1px solid var(--n200);border-radius:6px;font-size:11.5px;color:var(--n700)}.sig-rule{font-size:10.5px;color:var(--n500);margin-top:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2px}`}</style>
       <div className="sec-h">Señales</div>
       <div className="sec-s">Hechos y eventos que Arroba ha detectado y que hacen a la compañía más (o menos) atractiva para una operación.</div>
       <div className="tl">
-        {items.map((s) => (
-          <div key={s.signal_id} className={`ev ${cls(s.polarity)}`}>
-            <div className="mk" />
-            <div className="c">
-              <div className="th">
-                <div>
-                  <div className="t">{s.title ?? s.signal_type ?? 'Señal'}</div>
-                  {s.severity && <div className="m">Severidad {s.severity}{s.confidence != null ? ` · confianza ${Math.round(s.confidence * 100)}%` : ''}</div>}
+        {items.map((s) => {
+          const dims = s.dimensions ?? null;
+          const evi = s.evidence ?? null;
+          const severityLabel = s.severity ? (SIG_SEVERITY_LABEL[s.severity] ?? s.severity) : null;
+          return (
+            <div key={s.signal_id} className={`ev ${cls(s.polarity)}`} data-testid={`senal-${s.signal_id}`}>
+              <div className="mk" />
+              <div className="c">
+                <div className="th">
+                  <div>
+                    <div className="t">{s.title ?? s.signal_type ?? 'Señal'}</div>
+                    {severityLabel && <div className="m">{severityLabel}{s.confidence != null ? ` · confianza ${Math.round(s.confidence * 100)}%` : ''}</div>}
+                  </div>
+                  {s.category && <span className="tag">{s.category}</span>}
                 </div>
-                {s.category && <span className="tag">{s.category}</span>}
+                {s.explanation && <div className="sig-explain">{s.explanation}</div>}
+                {evi && (evi.metric || evi.value != null) && (
+                  <div className="sig-evidence">
+                    <span className="lb">Evidencia</span>
+                    {evi.metric && <span><b>{evi.metric}</b></span>}
+                    {evi.value != null && <span>· {fmtNumOrText(evi.value)}</span>}
+                    {evi.window && <span>· {evi.window}</span>}
+                  </div>
+                )}
+                {dims && Object.keys(dims).length > 0 && (
+                  <div className="sig-dims">
+                    {(Object.entries(dims) as Array<[string, number]>).filter(([, v]) => typeof v === 'number').map(([k, v]) => (
+                      <span key={k} className="sig-dim">{SIG_DIM_LABEL[k] ?? k}: {Math.round(v * 100)}%</span>
+                    ))}
+                  </div>
+                )}
+                {(s.recommended_actions?.length ?? 0) > 0 && (
+                  <div className="sig-actions">
+                    {(s.recommended_actions ?? []).map((a, j) => <span key={j} className="a">→ {a}</span>)}
+                  </div>
+                )}
+                {fmtDate(s.detected_at) && <div className="yr">{fmtDate(s.detected_at)}</div>}
+                {s.rule?.id && <div className="sig-rule">Regla · {s.rule.id}</div>}
               </div>
-              {fmtDate(s.detected_at) && <div className="yr">{fmtDate(s.detected_at)}</div>}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

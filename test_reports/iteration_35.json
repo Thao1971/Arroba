@@ -1,0 +1,50 @@
+{
+  "summary": "Frontend-only regression for the 3-item bundle (Item 1 valuation waterfall retirement, Item 2 signals enrichment + empty copy, Item 3 R15 bug fix on Ratios card). All three critical items PASS end-to-end on the preview URL against authenticated test.arroba+neo@arroba.com. Item 3 (the P0 bug fix): Servier B28184687 Finanzas > Ratios shows Margen EBITDA 11,3% / Margen EBIT 7,8% / Margen neto 6,2% / ROA 10,4% / ROE 14,2% (base 100, NO -0% / 0%). Productividad 474.566,99× and Intensidad de capital 0,59× keep the × suffix (ratio format untouched). NCR B28031458 now shows Margen EBITDA -0,5% (was -0% before the bridging) and Productividad 261.735,27×. Second-card RatiosTrendCard renders in parallel with matching values (Margen EBITDA 11,3 % +1,14 pp, ROE 14,2 % +1,92 pp, etc.), confirming the two bridging paths are consistent. Item 1: Servier network trace shows EXACTLY 6 unique /api/companies/B28184687/* endpoints (buyers, ficha, opportunities, section, signals, and no separate /valuation) — the SWR waterfall reduction is verified. Valoración section still paints Posicionamiento (Quality Score ring), Enterprise Value (3 scenarios + Múltiplo + Equity value), Benchmark del sector (percentile + peers + subject/median margen EBITDA + ingresos), and the <details.method> Metodología block. Item 2: OPEL B50949346 Cambios relevantes paints 6 signals with severity label (Riesgo/Informativo/positive), confidence %, prose explanation, Evidencia block (metric + value + window), 4 dimension chips (Impacto/Confianza/Urgencia/Persistencia in %), recommended_actions pills, detected_at, and 'Regla · <rule_id>' mono-font footer. Regression B-2.1 (rankings #2 de 9, #1 de 34, percentil 100 + rankings-explain-card) and B-2.5 (cashflow 6 rows, cash_conversion bridged to 65,7%/66,1%) both pass. Anonymous access to /es/empresa-f01/B28184687 still gates with 'Registrarse o entrar' CTA and no M€ figure leaks in the SSR HTML.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": {
+    "item_3_bug_fix_R15_ratios_bridging": [
+      "Servier B28184687 Ratios card: Margen EBITDA 11,3% · Margen EBIT 7,8% · Margen neto 6,2% · ROA 10,4% · ROE 14,2% (base 100, ninguno -0% / 0%) ✓",
+      "Servier Productividad (ingresos/empleado) 474.566,99× y Intensidad de capital 0,59× MANTIENEN el sufijo × (format=ratio no afectado) ✓",
+      "NCR B28031458 Margen EBITDA -0,5% (payload -0.0047 → bridging × 100 → correcto). Antes del fix pintaba -0% ✓",
+      "NCR Productividad 261.735,27× conserva sufijo × (no cambia a %) ✓",
+      "RatiosTrendCard (segunda card) sigue pintando Margen EBITDA 11,3 % + trend ▲/▼ + delta pp; los 9 ratios renderizan sin regresión ✓"
+    ],
+    "item_1_valuation_waterfall_retirement": [
+      "Servier B28184687 network trace: 6 llamadas únicas a /api/companies/B28184687/* → {buyers, ficha, opportunities, section, signals} ✓",
+      "/api/companies/B28184687/valuation NO se llama (hook SWR legacy retirado) ✓",
+      "Valoración section paints: 'Posicionamiento' (Quality Score ring), 'Enterprise Value' (Bajo/Medio/Alto + Múltiplo + Equity value), 'Benchmark del sector' (percentil + peers + margenes subject/mediana + ingresos), <details.method>Metodología</details> ✓"
+    ],
+    "item_2_senales_enriched": [
+      "OPEL B50949346 senales-section presente, 6 senal-<id> items ✓",
+      "Primera señal (financial.net_loss): severidad 'Riesgo · confianza 76%', prose 'Resultado neto negativo en el último ejercicio.', Evidencia net_income · -31,3 M€ · latest, 4 chips (Impacto 78% · Confianza 76% · Urgencia 60% · Persistencia 50%), 2 acciones (→ analyze, → investigate), fecha '10 ago 2026', pie 'Regla · financial.net_loss' en mono-font ✓",
+      "Segunda señal (market.fragmented_sector): mismos campos, severidad 'Informativo', evidence peers_count · 8 · latest ✓"
+    ],
+    "regressions": [
+      "B-2.1 Rankings Servier: kpi-market-position '#2 de 9', kpi-locality-position '#1 de 34', kpi-sector-percentile '100º', rankings-explain-card presente con bullets ✓",
+      "B-2.5 Cash Flow Servier: cashflow-table 6 rows; cashflow-row-cash_conversion muestra 65,7% / 66,1% (bridging OK, NO 0,7%) ✓",
+      "Anonymous B28184687: 'Registrarse o entrar' CTA presente, 'Regístrate para ver …' Gate visible, sin fuga de 'M€' en el HTML SSR ✓"
+    ],
+    "not_verifiable_by_data": [
+      "Item 2 empty state 'Sin señales relevantes' via CIF Servier B28184687: el backend ahora devuelve 6 señales para Servier (growth.ebitda_expansion, market.outperforms_peers, market.fragmented_sector, …), así que senales-empty NO se pinta en este CIF. Se validó por código (L950-963 CompanyFichaLayoutV2.tsx): renderiza data-testid='senales-empty' con texto exacto 'Sin señales relevantes' sin prefijo 'Información en preparación · ' cuando items.length===0. Falta un CIF de test cuyo /signals devuelva signals=[] para regresión UI directa."
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_35.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CompanyFichaLayoutV2.tsx L648-655 · el guardado del bridging está acotado a `format==='percent' && Math.abs(value)<=1`, que preserva correctamente valores como 12.5 (ya en base 100) o -0.0047 (base 1 → -0,5%). Un ratio percent LEGÍTIMO en base 100 con |value|<=1 (ej. 0.8%) también se multiplicaría por 100, pintando 80%. Muy improbable en payloads reales de rentabilidad, pero conviene documentar el borde o mover el switch a un flag del contrato Intel cuando armonicen (mismo tema que la nota de INTEL_PAYLOAD_INCOHERENCIAS.md caso 3 para cash_flow).",
+    "Item 2 empty state depende de que /signals devuelva signals=[]. Actualmente Servier tiene 6 señales inyectadas por el motor, no hay CIF con array vacío disponible entre los 6 de test. Considerar un fixture o el propio 'sin motor' para regresión del copy exacto."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only)", "frontend": "100% (13/13 subchecks; empty-state UI verified by code review because no CIF de test tiene signals=[])"},
+  "seed_data_creation": "Ninguno. Login vía POST /api/auth/login con test.arroba+neo@arroba.com; cookie arroba_session preexistente. Los 3 CIFs (B28184687, B28031458, B50949346) fueron navegados en modo lectura.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "test.arroba+neo@arroba.com / YofQgBFAo1wuC0d# (from /app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "Los tres ítems del bundle post-D están verdes en frontend. El único gap testado por código y no por UI live es la card 'Sin señales relevantes' porque Servier ahora devuelve 6 signals (el CIF asumido como 'sin señales' en el enunciado no lo está). Si se necesita regresión UI del empty state, hará falta un CIF de test con /signals → {signals:[]} o mockear la respuesta.",
+  "rca_of_the_issue": "N/A · fix bug R15 verificado en producción del preview. El bridging local × 100 en la card 'Ratios financieros' (L648-655) resuelve el pintado incorrecto de rentabilidad sin tocar cash_flow ni ratios/multiples. La coherencia con RatiosTrendCard.fmtRatioValue (L694-698) queda comprobada: ambos multiplican × 100 solo para percent."
+}

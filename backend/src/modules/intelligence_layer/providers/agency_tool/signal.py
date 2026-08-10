@@ -91,6 +91,11 @@ class AgencyToolSignalProvider(SignalProvider):
                     confidence=s.get("confidence") or (dims.get("confidence") if dims else None),
                     detected_at=s.get("detected_at"),
                     recommended_actions=list(s.get("recommended_actions") or []),
+                    # HARDENING-007 · passthrough aditivo
+                    explanation=s.get("explanation") if isinstance(s.get("explanation"), str) else None,
+                    evidence=s.get("evidence") if isinstance(s.get("evidence"), dict) else None,
+                    dimensions=dims if dims else None,
+                    rule=s.get("rule") if isinstance(s.get("rule"), dict) else None,
                 )
             )
         score_raw = doc.get("score") if isinstance(doc.get("score"), dict) else {}

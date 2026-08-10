@@ -123,6 +123,45 @@ function adaptIdentityFromFicha(
   return identity;
 }
 
+/**
+ * ÍTEM 1 · Turno post-D · adapter · mapea `ficha.finances.valuation` (dict rico
+ * de Intel: 14 claves) al shape `ValuationAnalysis` que consume `Valoracion`.
+ * Passthrough puro (R15): sin cálculos, solo reasignación de claves. `has_valuation`
+ * se deriva del hecho de que el bloque exista y traiga al menos `range` o `equity_value`.
+ */
+function adaptValuationFromFinances(
+  raw: Record<string, unknown> | null | undefined,
+  cif: string,
+): ValuationAnalysis | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const get = (k: string): unknown => (raw as Record<string, unknown>)[k];
+  const range = get('range') as ValuationAnalysis['range'];
+  const equity = get('equity_value') as number | null;
+  const has = range != null || equity != null;
+  return {
+    master_id: null,
+    cif_normalized: cif.toUpperCase(),
+    method: (get('method') as string | null) ?? null,
+    method_label: null,
+    multiple: (get('multiple') as number | null) ?? null,
+    multiple_basis: (get('multiple_basis') as string | null) ?? null,
+    enterprise_value: (get('enterprise_value') as number | null) ?? null,
+    equity_value: equity ?? null,
+    range: range ?? null,
+    confidence: (get('confidence') as number | null) ?? null,
+    confidence_level: null,
+    hypotheses: (get('hypotheses') as string[] | null) ?? [],
+    lineage: (get('lineage') as ValuationAnalysis['lineage']) ?? null,
+    bridge_components: null,
+    scenarios: (get('scenarios') as ValuationAnalysis['scenarios']) ?? null,
+    sensitivity: null,
+    benchmark: (get('benchmark') as ValuationAnalysis['benchmark']) ?? null,
+    methodology: (get('methodology') as string | null) ?? null,
+    has_valuation: has,
+    engine_version: 'arroba-ficha-v1',
+  };
+}
+
 export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const cifUpper = cif.toUpperCase();
   // Mixed-access: identidad + perfil semántico son públicos; las secciones con
@@ -143,6 +182,16 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
 
   const identity = ficha ? adaptIdentityFromFicha(ficha.identity, cifUpper) : null;
   const financialAnalysis = ficha?.finances ?? null;
+  // ÍTEM 1 · Turno post-D · Retirado hook SWR `/valuation` legacy (que devolvía
+  // benchmark=null y methodology="" en 7/7 CIFs); consumimos `ficha.finances.valuation`
+  // que Intel puebla con benchmark + methodology reales (Turno D 6/6 cobertura).
+  // Waterfall SWR frontend: 7 → 6 llamadas. R15 estricto: si el bloque no viene o
+  // no tiene `range`/`equity_value`, `Valoracion` degrada a `<Pending/>`.
+  const valuation: ValuationAnalysis | null = adaptValuationFromFinances(
+    financialAnalysis?.valuation as Record<string, unknown> | null | undefined,
+    cifUpper,
+  );
+  const valuationLoading = fichaLoading;
 
   const { data: semantic } = useSWR<SemanticSection | null>(
     ['ficha-f01-semantic', cifUpper],
@@ -152,11 +201,6 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const { data: financial } = useSWR<FinancialSection | null>(
     isAuthenticated ? ['ficha-f01-financial', cifUpper] : null,
     () => intelligenceClient.financialSection(cifUpper),
-    FETCH_CONFIG,
-  );
-  const { data: valuation, isLoading: valuationLoading } = useSWR<ValuationAnalysis | null>(
-    isAuthenticated ? ['ficha-f03-valuation', cifUpper] : null,
-    () => intelligenceClient.valuation(cifUpper),
     FETCH_CONFIG,
   );
   const { data: signal } = useSWR<SignalAnalysis | null>(

@@ -590,6 +590,12 @@ export interface SignalItem {
   confidence: number | null;
   detected_at: string | null;
   recommended_actions: string[];
+  // HARDENING-007 · B-2 Turno post-D · passthrough aditivo desde
+  // `signal-intelligence/analyze` (Intel). R15: sin cálculo, sólo transporte.
+  explanation?: string | null;
+  evidence?: { metric?: string | null; value?: number | string | null; window?: string | null } | null;
+  dimensions?: { impact?: number; confidence?: number; urgency?: number; persistence?: number } | null;
+  rule?: { id?: string; expression?: string; threshold?: number | null; passed?: boolean } | null;
 }
 
 export interface SignalScore {

@@ -17,15 +17,15 @@ Detectadas durante **B-1.3 (Intel I-1)** — algunos campos vienen poblados solo
 | **Fallback aplicado** | Sí (B-1.3 Fase 1) — cascada `identity.description → identity.objeto_social → financialAnalysis?.identity?.description → financialAnalysis?.identity?.objeto_social → <Empty/>` |
 | **Contrato canónico** | `arroba-identity-v1` (según JSDoc de `intelligence-types.ts`) |
 
-### 2 · `valuation.benchmark` / `valuation.methodology`
+### 2 · `valuation.benchmark` / `valuation.methodology` · **RESUELTO 2026-08-10**
 
 | Aspecto | Detalle |
 |---|---|
 | **Poblado en** | `GET /api/companies/{cif}/financial-analysis.valuation.benchmark` y `.methodology` |
-| **NULL en** | `GET /api/companies/{cif}/valuation` (endpoint canónico `arroba-valuation-v1`) |
-| **CIF probado** | `B28184687` (Servier) — payload real observado: `benchmark = null`, `methodology = ""` en `/valuation`; `benchmark = { peers_count: 8, ebitda_margin_percentile: 88, ... }` y `methodology = "Valoración por múltiplo EV/EBITDA (rango 4x–8x…)"` en `/financial-analysis.valuation` |
+| **NULL en** | `GET /api/companies/{cif}/valuation` (endpoint canónico `arroba-valuation-v1`) — verificado en Turno D · 7/7 CIFs siguen devolviendo null/vacío. |
+| **CIF probado** | `B28184687` (Servier) + los 6 CIFs de Turno D (`B28031458, B50949346, A81921611, B82229907, V83153700, A28354132`) · **cobertura 6/6 poblada** en `ficha.finances.valuation.{benchmark, methodology}`. |
 | **Consumidor afectado** | `Valoracion` en `frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` |
-| **Fallback aplicado** | Sí (B-1.3 Fase 1 · patch) — `valuation.benchmark ?? financialAnalysis?.valuation?.benchmark ?? null` y `valuation.methodology ?? financialAnalysis?.valuation?.methodology ?? null` |
+| **Estrategia final** | **2026-08-10 · retirada del fallback**: se retiró el hook SWR `intelligenceClient.valuation(cif)` y el fallback `?? financialAnalysis.valuation.*`. Ahora `Valoracion` consume `valuation` derivado del agregador `ficha.finances.valuation` vía adapter `adaptValuationFromFinances`. Reducción waterfall SWR 7→6. Endpoint backend `/valuation` **permanece operativo** por si otro consumidor lo necesita en el futuro. |
 | **Contrato canónico** | `arroba-valuation-v1` (`ValuationAnalysis` interface) |
 
 ### 3 · `statements.cash_flow.cash_conversion.value` con `format="percent"`
@@ -40,6 +40,7 @@ Detectadas durante **B-1.3 (Intel I-1)** — algunos campos vienen poblados solo
 | **Impacto UX** | Bajo · celda numéricamente correcta bajo la interpretación literal del formato; interpretación semántica confusa para el analista Corporate Finance. Aplicable únicamente a la fila `cash_conversion` (rows `cf_operating`, `cf_capex`, `cf_financing`, `cf_net_change`, `free_cash_flow` vienen con `format: currency` y se pintan correctamente). |
 | **Decisión Intel esperada** | (a) Multiplicar × 100 en origen y devolver `65.68` con `format: percent`; o (b) devolver `0.6568` con `format: ratio` (que el helper renderiza como `0,66×`) — cualquiera de las dos armoniza con el contrato existente. |
 | **BRIDGING APLICADO EN FRONTEND · 2026-08-10** | Aplicado bridging acotado en `CashFlowTable` (Tarea 1): `if (row.key === "cash_conversion" && format === "percent" && typeof value === "number" && Math.abs(value) <= 1) value = value * 100`. **Solo afecta a la fila `cash_conversion`**; el resto del cash-flow (5/6 filas + KPIs, ratios) sigue passthrough puro. **Retirar cuando Intel armonice el contrato** (opción a o b arriba). |
+| **BRIDGING EXTENDIDO · 2026-08-10 · Ratios rentabilidad (post-Turno D · Item 3)** | Mismo patrón aplicado en la card `Ratios financieros` (`CompanyFichaLayoutV2.tsx` L648-655) para todos los `FinancialRatioItem` con `format === "percent" && Math.abs(value) <= 1`. Coherente con `RatiosTrendCard.fmtRatioValue`. **Borde teórico**: un ratio `percent` legítimamente base 100 con valor absoluto ≤ 1 (ej. 0,8 %) también se multiplicaría × 100 → pintaría 80 %. Improbable en payloads reales de rentabilidad; si Intel armoniza contrato (opción a o b), este bridging desaparece automáticamente. |
 
 ## Recomendación
 

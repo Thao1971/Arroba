@@ -24,6 +24,13 @@ class SignalItem(BaseModel):
     confidence: float | None = None
     detected_at: str | None = None
     recommended_actions: list[str] = Field(default_factory=list)
+    # HARDENING-007 · B-2 Turno post-D · passthrough aditivo de campos ricos del
+    # motor `signal-intelligence/analyze` para que la UI (`Senales`) pueda pintar
+    # explanation + evidence + dimensions + rule. R15: sin cálculo, solo transporte.
+    explanation: str | None = None
+    evidence: dict | None = None  # { metric, value, window }
+    dimensions: dict | None = None  # { impact, confidence, urgency, persistence }
+    rule: dict | None = None  # { id, expression, threshold, ... }
 
 
 class SignalScore(BaseModel):
