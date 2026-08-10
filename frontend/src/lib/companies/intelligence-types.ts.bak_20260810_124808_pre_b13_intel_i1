@@ -295,20 +295,10 @@ export interface FinancialAnalysisExplainability {
   ai_used?: boolean | null;
 }
 
-/** Identidad anidada dentro de FinancialAnalysis (Intel I-1 puebla aquí description/objeto_social cuando /section/identity aún los devuelve null). */
-export interface FinancialAnalysisIdentity {
-  name?: string | null;
-  cnae_code?: string | null;
-  cnae_section?: string | null;
-  provincia?: string | null;
-  objeto_social?: string | null;
-  description?: string | null;
-}
-
 export interface FinancialAnalysis {
   master_id: string | null;
   cif_normalized: string | null;
-  identity: FinancialAnalysisIdentity | null;
+  identity: Record<string, unknown> | null;
   cnae_code: string | null;
   cnae_section: string | null;
   provincia: string | null;
@@ -342,24 +332,6 @@ export interface ValuationRange {
   high: number | null;
 }
 
-/** Un escenario de valoración (Intel I-1 devuelve típicamente `conservador` / `base` / `optimista`). */
-export interface ValuationScenario {
-  name: string;
-  enterprise_value: number | null;
-  equity_value: number | null;
-}
-
-/** Benchmark peer para valoración (Intel I-1 v2: subject vs mediana sector, con percentile). */
-export interface ValuationBenchmark {
-  peers_count: number;
-  scope: string | null;
-  median_ebitda_margin: number | null;
-  subject_ebitda_margin: number | null;
-  median_revenue: number | null;
-  subject_revenue: number | null;
-  ebitda_margin_percentile: number | null;
-}
-
 export interface ValuationLineage {
   financials_source: string | null;
   basis: string | null;
@@ -381,10 +353,8 @@ export interface ValuationAnalysis {
   hypotheses: string[];
   lineage: ValuationLineage | null;
   bridge_components: Array<Record<string, unknown>> | null;
-  scenarios: ValuationScenario[] | null;
+  scenarios: Array<Record<string, unknown>> | null;
   sensitivity: Record<string, unknown> | null;
-  benchmark: ValuationBenchmark | null;
-  methodology: string | null;
   has_valuation: boolean;
   engine_version: string;  // "arroba-valuation-v1"
 }

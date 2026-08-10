@@ -38,6 +38,8 @@ const valuation: ValuationAnalysis = {
   bridge_components: null,
   scenarios: null,
   sensitivity: null,
+  benchmark: null,
+  methodology: null,
   has_valuation: true,
   engine_version: 'arroba-valuation-v1',
 };
