@@ -274,12 +274,8 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
           <div className="t">Resumen de compañía</div>
           {(identity.description || identity.objeto_social)
             ? <p>{identity.description || identity.objeto_social}</p>
-            : <Empty />}
+            : <p>{identity.legal_name ?? 'La compañía'} opera en {cls.cnae_description ?? 'su sector'}{loc.provincia ? `, con domicilio en ${loc.provincia}` : ''}.</p>}
           {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
-        </div>
-        <div className="card" style={{ marginTop: 16 }}>
-          <h3><span className="k" />Diagnóstico de ARROBA</h3>
-          <Empty />
         </div>
         <div style={{ marginTop: 16 }}><Gate what="el análisis financiero, la valoración y los compradores" /></div>
         <div className="card" style={{ marginTop: 16 }}>
@@ -309,13 +305,9 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
         {(identity.description || identity.objeto_social) ? (
           <p>{identity.description || identity.objeto_social}</p>
         ) : (
-          <Empty />
+          <p>{identity.legal_name ?? 'La compañía'} opera en {cls.cnae_description ?? 'su sector'}{loc.provincia ? `, con domicilio en ${loc.provincia}` : ''}.</p>
         )}
         {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
-      </div>
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3><span className="k" />Diagnóstico de ARROBA</h3>
-        <Empty />
       </div>
 
       {hasChart ? (
