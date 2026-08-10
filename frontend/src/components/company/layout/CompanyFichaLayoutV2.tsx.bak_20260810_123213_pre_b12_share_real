@@ -64,6 +64,10 @@ const NAV: NavItem[] = [
 /* ============================ helpers ============================ */
 const RED = '#FF5757', DARK = '#2a2724', N = '#9A9A93', N2 = '#E9E9E5', OK = '#1B9E5A', INFO = '#2563EB';
 
+/** Notificación no-op para acciones del header (Guardar/Seguir/Compartir) mientras el backend no esté cableado. */
+const onHeaderAction = (label: string) =>
+  notify({ kind: 'info', text: `${label} en preparación · Estamos consolidando este apartado.` });
+
 function fmtEUR(v: number | null | undefined): string {
   if (v === null || v === undefined) return '—';
   if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`;
@@ -744,40 +748,10 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             </h1>
             <div className="csub">{[identity.legal_name, identity.cif_normalized ? `CIF ${identity.cif_normalized}` : null, cls.cnae_description, identity.location.provincia].filter(Boolean).join(' · ')}{identity.contact.web && <> · <a>{identity.contact.web} ↗</a></>}</div>
           </div>
-          {/* TODO: cablear a seguimiento/alertas cuando arroba.v2 lo exponga (Plan Intel I-2). */}
           <div className="actions">
-            <button
-              className="btn"
-              data-testid="btn-guardar"
-              onClick={() => notify({ kind: 'info', text: 'El seguimiento de empresas estará disponible próximamente.' })}
-            >
-              <Bookmark size={15} /> Guardar
-            </button>
-            <button
-              className="btn"
-              data-testid="btn-seguir"
-              onClick={() => notify({ kind: 'info', text: 'Las alertas de esta empresa estarán disponibles próximamente.' })}
-            >
-              <Bell size={15} /> Seguir
-            </button>
-            <button
-              className="btn"
-              data-testid="btn-compartir"
-              aria-label="Compartir"
-              title="Compartir"
-              onClick={() => {
-                void (async () => {
-                  try {
-                    await navigator.clipboard.writeText(window.location.href);
-                    notify({ kind: 'success', text: 'Enlace copiado al portapapeles.' });
-                  } catch {
-                    notify({ kind: 'info', text: 'Copia el enlace desde la barra del navegador.' });
-                  }
-                })();
-              }}
-            >
-              <Share2 size={15} />
-            </button>
+            <button className="btn" data-testid="btn-guardar" onClick={() => onHeaderAction('Guardar')}><Bookmark size={15} /> Guardar</button>
+            <button className="btn" data-testid="btn-seguir" onClick={() => onHeaderAction('Seguir')}><Bell size={15} /> Seguir</button>
+            <button className="btn" data-testid="btn-compartir" aria-label="Compartir" title="Compartir" onClick={() => onHeaderAction('Compartir')}><Share2 size={15} /></button>
           </div>
         </div>
 
