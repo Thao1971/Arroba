@@ -248,25 +248,6 @@ function Skeleton() {
   );
 }
 
-/** Hero + card "Veredicto de ARROBA" — bloque de portada del Resumen (compartido anon/auth). */
-function HeroBlock({ identity, semantic }: { identity: IdentitySection; semantic: SemanticSection | null }) {
-  return (
-    <>
-      <div className="hero">
-        <div className="t">Resumen de compañía</div>
-        {(identity.description || identity.objeto_social)
-          ? <p>{identity.description || identity.objeto_social}</p>
-          : <Empty />}
-        {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
-      </div>
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3><span className="k" />Veredicto de ARROBA</h3>
-        <Empty />
-      </div>
-    </>
-  );
-}
-
 /* ============================ RESUMEN ============================ */
 function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const { identity, financial, financialAnalysis, semantic, signal, buyers } = p;
@@ -289,7 +270,17 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   if (p.anon) {
     return (
       <section className="panel on">
-        <HeroBlock identity={identity} semantic={semantic} />
+        <div className="hero">
+          <div className="t">Resumen de compañía</div>
+          {(identity.description || identity.objeto_social)
+            ? <p>{identity.description || identity.objeto_social}</p>
+            : <Empty />}
+          {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
+        </div>
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3><span className="k" />Diagnóstico de ARROBA</h3>
+          <Empty />
+        </div>
         <div style={{ marginTop: 16 }}><Gate what="el análisis financiero, la valoración y los compradores" /></div>
         <div className="card" style={{ marginTop: 16 }}>
           <h3><span className="k" />Identificación</h3>
@@ -313,7 +304,19 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
 
   return (
     <section className="panel on">
-      <HeroBlock identity={identity} semantic={semantic} />
+      <div className="hero">
+        <div className="t">Resumen de compañía</div>
+        {(identity.description || identity.objeto_social) ? (
+          <p>{identity.description || identity.objeto_social}</p>
+        ) : (
+          <Empty />
+        )}
+        {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
+      </div>
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3><span className="k" />Diagnóstico de ARROBA</h3>
+        <Empty />
+      </div>
 
       {hasChart ? (
         <div className="card" style={{ marginTop: 16 }}>
