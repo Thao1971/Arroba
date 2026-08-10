@@ -10,7 +10,6 @@
  */
 import useSWR from 'swr';
 
-import { useAuth } from '@/contexts/auth-context';
 import { intelligenceClient } from '@/lib/companies/intelligence-client';
 import type {
   FinancialAnalysis,
@@ -37,11 +36,6 @@ export interface CompanyFichaF01ClientProps {
 
 export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const cifUpper = cif.toUpperCase();
-  // Mixed-access (como `/empresa/[cif]`): identidad + perfil semántico son
-  // públicos; las secciones con cifras (finanzas, valoración, señales,
-  // compradores, oportunidades) solo se piden con sesión → el anónimo ve la
-  // ficha con las cifras enmascaradas y un CTA de registro. `null` key = no fetch.
-  const { isAuthenticated } = useAuth();
 
   const { data: identity, error: identityError, isLoading: identityLoading } =
     useSWR<IdentitySection | null>(
@@ -49,38 +43,38 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
       () => intelligenceClient.identitySection(cifUpper),
       FETCH_CONFIG,
     );
+  const { data: financial } = useSWR<FinancialSection | null>(
+    ['ficha-f01-financial', cifUpper],
+    () => intelligenceClient.financialSection(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: financialAnalysis, isLoading: financialAnalysisLoading } = useSWR<FinancialAnalysis | null>(
+    ['ficha-f02-financial-analysis', cifUpper],
+    () => intelligenceClient.financialAnalysis(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: valuation, isLoading: valuationLoading } = useSWR<ValuationAnalysis | null>(
+    ['ficha-f03-valuation', cifUpper],
+    () => intelligenceClient.valuation(cifUpper),
+    FETCH_CONFIG,
+  );
   const { data: semantic } = useSWR<SemanticSection | null>(
     ['ficha-f01-semantic', cifUpper],
     () => intelligenceClient.semanticSection(cifUpper),
     FETCH_CONFIG,
   );
-  const { data: financial } = useSWR<FinancialSection | null>(
-    isAuthenticated ? ['ficha-f01-financial', cifUpper] : null,
-    () => intelligenceClient.financialSection(cifUpper),
-    FETCH_CONFIG,
-  );
-  const { data: financialAnalysis, isLoading: financialAnalysisLoading } = useSWR<FinancialAnalysis | null>(
-    isAuthenticated ? ['ficha-f02-financial-analysis', cifUpper] : null,
-    () => intelligenceClient.financialAnalysis(cifUpper),
-    FETCH_CONFIG,
-  );
-  const { data: valuation, isLoading: valuationLoading } = useSWR<ValuationAnalysis | null>(
-    isAuthenticated ? ['ficha-f03-valuation', cifUpper] : null,
-    () => intelligenceClient.valuation(cifUpper),
-    FETCH_CONFIG,
-  );
   const { data: signal } = useSWR<SignalAnalysis | null>(
-    isAuthenticated ? ['ficha-f01-signal', cifUpper] : null,
+    ['ficha-f01-signal', cifUpper],
     () => intelligenceClient.signalAnalyze(cifUpper),
     FETCH_CONFIG,
   );
   const { data: buyers } = useSWR<RecommendationSet | null>(
-    isAuthenticated ? ['ficha-f01-buyers', cifUpper] : null,
+    ['ficha-f01-buyers', cifUpper],
     () => intelligenceClient.buyers(cifUpper),
     FETCH_CONFIG,
   );
   const { data: opportunities } = useSWR<RecommendationSet | null>(
-    isAuthenticated ? ['ficha-f01-opportunities', cifUpper] : null,
+    ['ficha-f01-opportunities', cifUpper],
     () => intelligenceClient.opportunities(cifUpper),
     FETCH_CONFIG,
   );
@@ -135,7 +129,6 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
       signal={signal ?? null}
       buyers={buyers ?? null}
       opportunities={opportunities ?? null}
-      authenticated={isAuthenticated}
     />
   );
 }

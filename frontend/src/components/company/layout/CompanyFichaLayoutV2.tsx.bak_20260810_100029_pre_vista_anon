@@ -32,8 +32,6 @@ export interface CompanyFichaLayoutV2Props {
   signal?: SignalAnalysis | null;
   buyers?: RecommendationSet | null;
   opportunities?: RecommendationSet | null;
-  /** false = visitante anónimo (mixed-access): cifras bajo CTA de registro. */
-  authenticated?: boolean;
 }
 
 type SectionId =
@@ -180,18 +178,6 @@ function Ring({ val, label, color }: { val: number; label: string; color: string
     </div>
   );
 }
-/** CTA de registro (mixed-access): el visitante anónimo ve esto en lugar de las cifras. */
-function Gate({ what }: { what: string }) {
-  return (
-    <div className="card" style={{ textAlign: 'center', padding: '34px 22px' }}>
-      <div style={{ fontSize: 26, marginBottom: 8 }}>🔒</div>
-      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--n900)' }}>Regístrate para ver {what}</div>
-      <div className="cs" style={{ marginTop: 6, marginBottom: 16 }}>Crea una cuenta gratis y desbloquea finanzas, valoración, compradores y señales de esta compañía.</div>
-      <a href="/es/login" className="btn primary" style={{ display: 'inline-flex' }}>Registrarse o entrar</a>
-    </div>
-  );
-}
-
 /** Componente vacío estándar: dato que el motor aún no proporciona. */
 function Pending({ label }: { label?: string }) {
   return (
@@ -204,33 +190,10 @@ function Pending({ label }: { label?: string }) {
 }
 
 /* ============================ RESUMEN ============================ */
-function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
+function Resumen(p: CompanyFichaLayoutV2Props) {
   const { identity, financial, financialAnalysis, semantic, signal, buyers } = p;
   const cls = identity.classification, loc = identity.location, sz = identity.size;
   const k = financialAnalysis?.kpis ?? null;
-
-  if (p.anon) {
-    return (
-      <section className="panel on">
-        <div className="hero">
-          <div className="t">Resumen de compañía</div>
-          {(identity.description || identity.objeto_social)
-            ? <p>{identity.description || identity.objeto_social}</p>
-            : <p>{identity.legal_name ?? 'La compañía'} opera en {cls.cnae_description ?? 'su sector'}{loc.provincia ? `, con domicilio en ${loc.provincia}` : ''}.</p>}
-          {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
-        </div>
-        <div style={{ marginTop: 16 }}><Gate what="el análisis financiero, la valoración y los compradores" /></div>
-        <div className="card" style={{ marginTop: 16 }}>
-          <h3><span className="k" />Identificación</h3>
-          <div className="cs">Datos registrales · fuentes verificadas + BORME</div>
-          <div className="idrow"><span className="k">Razón social</span><span className="v">{identity.legal_name ?? '—'}</span></div>
-          <div className="idrow"><span className="k">CIF</span><span className="v">{identity.cif_normalized ?? '—'}</span></div>
-          <div className="idrow"><span className="k">CNAE</span><span className="v">{cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_description ?? ''}` : '—'}</span></div>
-          <div className="idrow"><span className="k">Domicilio</span><span className="v">{[loc.municipio, loc.provincia].filter(Boolean).join(' · ') || '—'}</span></div>
-        </div>
-      </section>
-    );
-  }
 
   const evo = financial?.evolution;
   const evoSeries: EvoSerie[] = useMemo(() => {
@@ -647,7 +610,6 @@ function Copilot({ name }: { name: string }) {
 /* ============================ LAYOUT ============================ */
 export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
   const { identity } = props;
-  const anon = props.authenticated === false;
   const [active, setActive] = useState<SectionId>('resumen');
   const [collapsed, setCollapsed] = useState(false);
 
@@ -698,22 +660,12 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
           </aside>
 
           <main className="main">
-            {active === 'resumen' && <Resumen {...props} anon={anon} />}
-            {active === 'finanzas' && (anon
-              ? <section className="panel on"><div className="sec-h">Finanzas</div><Gate what="las finanzas" /></section>
-              : <Finanzas financial={props.financial} />)}
-            {active === 'valoracion' && (anon
-              ? <section className="panel on"><div className="sec-h">Valoración</div><Gate what="la valoración" /></section>
-              : <Valoracion valuation={props.valuation} financialAnalysis={props.financialAnalysis} />)}
-            {active === 'comparativa' && (anon
-              ? <section className="panel on"><div className="sec-h">Comparativa</div><Gate what="los compradores y comparables" /></section>
-              : <Comparativa semantic={props.semantic} buyers={props.buyers} />)}
-            {active === 'senales' && (anon
-              ? <section className="panel on"><div className="sec-h">Señales</div><Gate what="las señales" /></section>
-              : <Senales signal={props.signal} />)}
-            {active === 'oportunidades' && (anon
-              ? <section className="panel on"><div className="sec-h">Oportunidades</div><Gate what="las oportunidades" /></section>
-              : <Oportunidades opportunities={props.opportunities} />)}
+            {active === 'resumen' && <Resumen {...props} />}
+            {active === 'finanzas' && <Finanzas financial={props.financial} />}
+            {active === 'valoracion' && <Valoracion valuation={props.valuation} financialAnalysis={props.financialAnalysis} />}
+            {active === 'comparativa' && <Comparativa semantic={props.semantic} buyers={props.buyers} />}
+            {active === 'senales' && <Senales signal={props.signal} />}
+            {active === 'oportunidades' && <Oportunidades opportunities={props.opportunities} />}
             {['propiedad', 'gobierno', 'mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
               <section className="panel on">
                 <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>
