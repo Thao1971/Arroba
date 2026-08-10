@@ -351,11 +351,9 @@ const RATIO_FAM: { key: string; label: string }[] = [
   { key: 'liquidity', label: 'Liquidez' }, { key: 'solvency', label: 'Solvencia' },
   { key: 'efficiency', label: 'Circulante / eficiencia' },
 ];
-function Finanzas({ financial, analysis }: { financial: FinancialSection | null; analysis: FinancialAnalysis | null }) {
-  const [tab, setTab] = useState<'pl' | 'balance' | 'cashflow' | 'ratios'>('pl');
+function Finanzas({ financial }: { financial: FinancialSection | null }) {
+  const [tab, setTab] = useState<'pl' | 'balance' | 'ratios'>('pl');
   const [lvl, setLvl] = useState(1);
-  const fq = analysis?.financial_quality ?? null;
-  const hasQuality = !!fq && !!(fq.assessment || fq.strengths?.length || fq.weaknesses?.length || fq.risks?.length);
   if (!financial || (!financial.profit_loss && !financial.balance && !(financial.ratios?.items?.length))) return <Pending label="Finanzas" />;
   const ratios = financial.ratios?.items ?? [];
   const fams = RATIO_FAM.filter((f) => ratios.some((r) => r.category === f.key));
@@ -368,11 +366,10 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
         <div className="seg dark">
           <button className={tab === 'pl' ? 'on' : ''} onClick={() => setTab('pl')}>Cuenta de resultados</button>
           <button className={tab === 'balance' ? 'on' : ''} onClick={() => setTab('balance')}>Balance</button>
-          <button className={tab === 'cashflow' ? 'on' : ''} onClick={() => setTab('cashflow')}>Cash Flow</button>
           <button className={tab === 'ratios' ? 'on' : ''} onClick={() => setTab('ratios')}>Ratios</button>
         </div>
         <span style={{ flex: 1 }} />
-        {(tab === 'pl' || tab === 'balance') && (
+        {tab !== 'ratios' && (
           <div className="lvlctl">
             <span className="lb">Nivel de detalle</span>
             <input type="range" min={1} max={3} step={1} value={lvl} onChange={(e) => setLvl(Number(e.target.value))} className="lvlrange" />
@@ -381,32 +378,12 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
         )}
       </div>
 
-      {hasQuality && (
-        <div className="intel" style={{ marginBottom: 16 }}>
-          <div className="ih"><span className="m">@</span><b>Inteligencia Arroba</b>{fq!.score != null && <span className="tr">Calidad {Math.round(clamp100(fq!.score) ?? 0)}</span>}</div>
-          {fq!.assessment && <p>{fq!.assessment}</p>}
-          <div className="pos-att">
-            {fq!.strengths?.length ? (
-              <div className="pa"><h5>Aspectos positivos</h5>
-                {fq!.strengths.map((t, i) => <div key={i} className="li"><span className="m">✓</span> {t}</div>)}
-              </div>
-            ) : null}
-            {(fq!.weaknesses?.length || fq!.risks?.length) ? (
-              <div className="pa att"><h5>Aspectos de atención</h5>
-                {[...(fq!.weaknesses ?? []), ...(fq!.risks ?? [])].map((t, i) => <div key={i} className="li"><span className="m">⚠</span> {t}</div>)}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
-
       {tab === 'pl' && (financial.profit_loss
         ? <div className="card"><h3><span className="k" />Cuenta de resultados</h3><div className="cs">Arrastra {'"Nivel de detalle"'} para desplegar más partidas</div><FinTable block={filterRows(financial.profit_loss, lvl)} /></div>
         : <Pending label="Cuenta de resultados" />)}
       {tab === 'balance' && (financial.balance
         ? <div className="card"><h3><span className="k" />Balance</h3><FinTable block={filterRows(financial.balance, lvl)} /></div>
         : <Pending label="Balance" />)}
-      {tab === 'cashflow' && <Pending label="Flujo de caja" />}
 
       {tab === 'ratios' && (fams.length ? (
         <div className="card">
@@ -725,7 +702,7 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             {active === 'resumen' && <Resumen {...props} anon={anon} />}
             {active === 'finanzas' && (anon
               ? <section className="panel on"><div className="sec-h">Finanzas</div><Gate what="las finanzas" /></section>
-              : <Finanzas financial={props.financial} analysis={props.financialAnalysis} />)}
+              : <Finanzas financial={props.financial} />)}
             {active === 'valoracion' && (anon
               ? <section className="panel on"><div className="sec-h">Valoración</div><Gate what="la valoración" /></section>
               : <Valoracion valuation={props.valuation} financialAnalysis={props.financialAnalysis} />)}
