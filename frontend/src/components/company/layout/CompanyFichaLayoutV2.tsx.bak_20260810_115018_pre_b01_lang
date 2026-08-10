@@ -51,7 +51,7 @@ const NAV: NavItem[] = [
   { id: 'mercado', label: 'Mercado', icon: BarChart3, ready: false, grp: 'Perfil' },
   { id: 'rankings', label: 'Rankings', icon: Target, ready: false, grp: 'Perfil' },
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, ready: true, grp: 'Perfil' },
-  { id: 'senales', label: 'Cambios relevantes', icon: Activity, ready: true, grp: 'Inteligencia' },
+  { id: 'senales', label: 'Señales', icon: Activity, ready: true, grp: 'Inteligencia' },
   { id: 'oportunidades', label: 'Oportunidades', icon: Zap, ready: true, grp: 'Inteligencia' },
   { id: 'comite', label: 'Comité de inversión', icon: Scale, ready: false, grp: 'Inteligencia' },
   { id: 'sucesion', label: 'Sucesión', icon: Hourglass, ready: false, grp: 'Inteligencia' },
@@ -206,7 +206,7 @@ function Gate({ what }: { what: string }) {
     <div className="card" style={{ textAlign: 'center', padding: '34px 22px' }}>
       <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Lock size={22} strokeWidth={2} color="var(--n500)" /></div>
       <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--n900)' }}>Regístrate para ver {what}</div>
-      <div className="cs" style={{ marginTop: 6, marginBottom: 16 }}>Accede al análisis financiero, la valoración y los compradores</div>
+      <div className="cs" style={{ marginTop: 6, marginBottom: 16 }}>Crea una cuenta gratis y desbloquea finanzas, valoración, compradores y señales de esta compañía.</div>
       <a href="/es/login" className="btn primary" style={{ display: 'inline-flex' }}>Registrarse o entrar</a>
     </div>
   );
@@ -217,8 +217,8 @@ function Pending({ label }: { label?: string }) {
   return (
     <div className="card" style={{ textAlign: 'center', padding: '28px 20px' }}>
       <div style={{ fontSize: 20, opacity: 0.45, marginBottom: 6 }}>◔</div>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--n700)' }}>Información en preparación{label ? ` · ${label}` : ''}</div>
-      <div className="cs" style={{ marginTop: 4, marginBottom: 0 }}>Estamos consolidando este apartado.</div>
+      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--n700)' }}>Pendiente de información{label ? ` · ${label}` : ''}</div>
+      <div className="cs" style={{ marginTop: 4, marginBottom: 0 }}>Este dato aún no lo proporciona el motor para esta compañía.</div>
     </div>
   );
 }
@@ -317,7 +317,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
         {rings.length > 0 ? (
           <div className="card">
             <h3><span className="k" />Scores de inteligencia</h3>
-            <div className="cs">Valoración cualitativa de ARROBA</div>
+            <div className="cs">Calculados por Arroba</div>
             <div className="scores" style={{ gridTemplateColumns: `repeat(${rings.length},1fr)` }}>
               {rings.map((r) => <Ring key={r.label} val={r.v} label={r.label} color={r.color} />)}
             </div>
@@ -403,7 +403,7 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
 
       {hasQuality && (
         <div className="intel" style={{ marginBottom: 16 }}>
-          <div className="ih"><span className="m">@</span><b>Lectura financiera de ARROBA</b>{fq!.score != null && <span className="tr">Calidad {Math.round(clamp100(fq!.score) ?? 0)}</span>}</div>
+          <div className="ih"><span className="m">@</span><b>Inteligencia Arroba</b>{fq!.score != null && <span className="tr">Calidad {Math.round(clamp100(fq!.score) ?? 0)}</span>}</div>
           {fq!.assessment && <p>{fq!.assessment}</p>}
           <div className="pos-att">
             {fq!.strengths?.length ? (
@@ -452,7 +452,7 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
           </div>
           <div className="rleg">
             <span><span className="srcdot r" /> Dato recibido (verificado)</span>
-            <span><span className="srcdot c" /> Valoración cualitativa de ARROBA</span>
+            <span><span className="srcdot c" /> Calculado por Arroba</span>
             <span>Barra = percentil sectorial</span>
           </div>
         </div>
@@ -732,7 +732,7 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
                       <div key={n.id} className={`snav${n.id === active ? ' on' : ''}`} onClick={() => setActive(n.id)}>
                         <span className="ic"><Icon size={18} /></span>
                         <span className="tx">{n.label}</span>
-                        {!n.ready && !collapsed && <span className="tx" style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--n400)' }}>En preparación</span>}
+                        {!n.ready && !collapsed && <span className="tx" style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--n400)' }}>pronto</span>}
                       </div>
                     );
                   })}
