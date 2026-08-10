@@ -7,7 +7,7 @@
  * clases del mockup; los datos son SIEMPRE reales (R4/R10: el front no calcula
  * ni inventa). Las secciones sin motor cableado quedan como "pronto".
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Activity, BarChart3, Bell, Bookmark, Coins, Euro, FileText, Files, GitCompare,
   Hourglass, LayoutGrid, type LucideIcon, Network, PieChart, Scale, Share2,
@@ -93,90 +93,35 @@ function fmtDate(iso: string | null | undefined): string | null {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? null : d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-/* (helpers de escape/SVG-string retirados: los gráficos y anillos son React nativo) */
+function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-/* ---- Evolución financiera: SVG React con ejes numerados + tooltips ---- */
-interface EvoSerie { label: string; data: (number | null)[]; unit: string; color: string; area?: boolean; }
-function EvolutionChart({ series, years, masked }: { series: EvoSerie[]; years: string[]; masked?: boolean }) {
-  const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
-  if (!series.length || !years.length) return null;
+/* ---- charts (SVG string, portados verbatim del mockup) ---- */
+interface Serie { name: string; data: number[]; color: string; area?: boolean; }
+function lineChartSVG(series: Serie[], labels: string[]): string {
+  if (!series.length || !labels.length) return '';
   const w = 680, h = 230, pl = 44, pr = 14, pt = 18, pb = 28, iw = w - pl - pr, ih = h - pt - pb;
-  const nums = series.flatMap((s) => s.data.filter((v): v is number => v != null));
-  const max = (nums.length ? Math.max(...nums) : 1) * 1.15 || 1;
-  const x = (i: number) => pl + iw * i / Math.max(1, years.length - 1);
-  const y = (v: number) => pt + ih - v / max * ih;
-  return (
-    <div style={{ position: 'relative', width: '100%' }}>
-      <style>{`@keyframes afDraw{to{stroke-dashoffset:0}}`}</style>
-      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto' }} onMouseLeave={() => setTip(null)}>
-        {[0, 1, 2, 3, 4].map((k) => {
-          const yy = pt + ih * k / 4;
-          return (
-            <g key={k}>
-              <line x1={pl} y1={yy} x2={w - pr} y2={yy} stroke={N2} />
-              <text x={pl - 8} y={yy + 4} textAnchor="end" fontSize={10} fill={N}>
-                {masked ? '•••' : Math.round(max - max * k / 4).toLocaleString('es-ES')}
-              </text>
-            </g>
-          );
-        })}
-        {years.map((l, i) => <text key={i} x={x(i)} y={h - 8} textAnchor="middle" fontSize={10.5} fill={N}>{l}</text>)}
-        {series.map((s, si) => {
-          const pts = s.data.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(' ');
-          return (
-            <g key={si}>
-              {s.area && !masked && <polygon points={`${pl},${pt + ih} ${pts} ${w - pr},${pt + ih}`} fill={s.color} opacity={0.08} />}
-              <polyline points={pts} fill="none" stroke={s.color} strokeWidth={2.6} opacity={masked ? 0.35 : 1} pathLength={1} style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: `afDraw 1s ease ${si * 0.15}s forwards` }} />
-              {!masked && s.data.map((v, i) => v == null ? null : (
-                <circle key={i} cx={x(i)} cy={y(v)} r={4} fill="#fff" stroke={s.color} strokeWidth={2}
-                  style={{ cursor: 'pointer' }}
-                  onMouseEnter={() => setTip({ x: x(i) / w * 100, y: y(v) / h * 100, text: `${s.label} · ${years[i]}: ${v.toLocaleString('es-ES', { maximumFractionDigits: 2 })} ${s.unit}` })} />
-              ))}
-            </g>
-          );
-        })}
-        {series.map((s, si) => {
-          const lx = pl + si * 150;
-          return <g key={`l${si}`}><circle cx={lx} cy={11} r={4} fill={s.color} /><text x={lx + 9} y={15} fontSize={10.5} fill="#4E4E48">{s.label}</text></g>;
-        })}
-      </svg>
-      {tip && !masked && (
-        <div style={{ position: 'absolute', left: `${tip.x}%`, top: `${tip.y}%`, transform: 'translate(-50%,-130%)', background: '#161412', color: '#fff', fontSize: 12, fontWeight: 600, padding: '7px 10px', borderRadius: 8, whiteSpace: 'nowrap', pointerEvents: 'none', boxShadow: '0 8px 24px rgba(20,18,16,.28)', zIndex: 5 }}>{tip.text}</div>
-      )}
-      {masked && (
-        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'var(--n500)', fontSize: 13, fontWeight: 700 }}>🔒 Regístrate para ver las cifras</div>
-      )}
-    </div>
-  );
+  const max = Math.max(...series.flatMap((s) => s.data)) * 1.15 || 1, min = 0;
+  const x = (i: number) => pl + iw * i / Math.max(1, labels.length - 1);
+  const y = (v: number) => pt + ih - (v - min) / (max - min) * ih;
+  let g = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto">`;
+  for (let k = 0; k <= 4; k++) { const yy = pt + ih * k / 4; g += `<line x1="${pl}" y1="${yy}" x2="${w - pr}" y2="${yy}" stroke="${N2}"/><text x="${pl - 8}" y="${yy + 4}" text-anchor="end" font-size="10" fill="${N}">${(max - (max - min) * k / 4).toFixed(0)}</text>`; }
+  labels.forEach((l, i) => g += `<text x="${x(i)}" y="${h - 8}" text-anchor="middle" font-size="10.5" fill="${N}">${esc(l)}</text>`);
+  series.forEach((s) => {
+    const p = s.data.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+    if (s.area) g += `<polygon points="${pl},${pt + ih} ${p} ${w - pr},${pt + ih}" fill="${s.color}" opacity=".08"/>`;
+    g += `<polyline points="${p}" fill="none" stroke="${s.color}" stroke-width="2.6"/>`;
+    s.data.forEach((v, i) => { g += `<circle cx="${x(i)}" cy="${y(v)}" r="3.6" fill="#fff" stroke="${s.color}" stroke-width="2"/>`; });
+  });
+  let lx = pl; series.forEach((s) => { g += `<circle cx="${lx}" cy="11" r="4" fill="${s.color}"/><text x="${lx + 9}" y="15" font-size="10.5" fill="#4E4E48">${esc(s.name)}</text>`; lx += s.name.length * 6.6 + 30; });
+  return g + '</svg>';
 }
-function Ring({ val, label, color }: { val: number; label: string; color: string }) {
-  const r = 34, c = 2 * Math.PI * r;
-  const [off, setOff] = useState(c);
-  const [num, setNum] = useState(0);
-  useEffect(() => {
-    const t0 = performance.now(), dur = 1150;
-    let raf = 0;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
-      setOff(c * (1 - (val / 100) * e));
-      setNum(Math.round(val * e));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [val, c]);
-  return (
-    <div className="ring">
-      <div className="lbl">{label}</div>
-      <svg width={92} height={92} viewBox="0 0 92 92">
-        <circle cx={46} cy={46} r={r} fill="none" stroke={N2} strokeWidth={8} />
-        <circle cx={46} cy={46} r={r} fill="none" stroke={color} strokeWidth={8} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={off} transform="rotate(-90 46 46)"
-          style={{ transition: 'stroke-dashoffset .1s linear' }} />
-        <text x={46} y={52} textAnchor="middle" fontSize={22} fontWeight={750} fill="#161412">{num}</text>
-      </svg>
-    </div>
-  );
+function ringSVG(val: number, label: string, color: string): string {
+  const r = 34, c = 2 * Math.PI * r, off = c * (1 - val / 100);
+  return `<div class="lbl">${esc(label)}</div><svg width="92" height="92" viewBox="0 0 92 92"><circle cx="46" cy="46" r="${r}" fill="none" stroke="${N2}" stroke-width="8"/><circle cx="46" cy="46" r="${r}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 46 46)"/><text x="46" y="52" text-anchor="middle" font-size="22" font-weight="750" fill="#161412">${Math.round(val)}</text></svg>`;
+}
+
+function Html({ html, className, id }: { html: string; className?: string; id?: string }) {
+  return <div className={className} id={id} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 /** Componente vacío estándar: dato que el motor aún no proporciona. */
 function Pending({ label }: { label?: string }) {
@@ -196,16 +141,15 @@ function Resumen(p: CompanyFichaLayoutV2Props) {
   const k = financialAnalysis?.kpis ?? null;
 
   const evo = financial?.evolution;
-  const evoSeries: EvoSerie[] = useMemo(() => {
-    if (!evo) return [];
-    return evo.series.slice(0, 2).map((s, i) => ({
-      label: s.format === 'currency' ? `${s.label} (M€)` : s.label,
-      unit: s.format === 'currency' ? 'M€' : s.format === 'percent' ? '%' : '',
-      data: s.values.map((v) => (v == null ? null : s.format === 'currency' ? v / 1_000_000 : v)),
+  const chart = useMemo(() => {
+    if (!evo || !evo.series.length) return '';
+    const series: Serie[] = evo.series.slice(0, 2).map((s, i) => ({
+      name: s.format === 'currency' ? `${s.label} (M€)` : s.label,
+      data: s.values.map((v) => (v == null ? 0 : s.format === 'currency' ? v / 1_000_000 : v)),
       color: i === 0 ? RED : DARK, area: i === 0,
     }));
+    return lineChartSVG(series, evo.years.map(String));
   }, [evo]);
-  const hasChart = evo != null && evoSeries.length > 0;
 
   const quality = clamp100(financialAnalysis?.financial_quality?.score ?? null);
   const opp = clamp100(signal?.score?.signal_score ?? null);
@@ -227,11 +171,11 @@ function Resumen(p: CompanyFichaLayoutV2Props) {
         {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
       </div>
 
-      {hasChart ? (
+      {chart ? (
         <div className="card" style={{ marginTop: 16 }}>
           <h3><span className="k" />Evolución financiera</h3>
           <div className="cs">Facturación y EBITDA · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
-          <EvolutionChart series={evoSeries} years={evo!.years.map(String)} />
+          <Html html={chart} />
         </div>
       ) : <div style={{ marginTop: 16 }}><Pending label="Evolución financiera" /></div>}
 
@@ -244,24 +188,13 @@ function Resumen(p: CompanyFichaLayoutV2Props) {
         </div>
       ) : <div style={{ marginTop: 16 }}><Pending label="Indicadores financieros" /></div>}
 
-      <div className="kgrid" style={{ marginTop: 12 }}>
-        {[
-          { l: 'Ranking mercado', s: 'sector · territorio' },
-          { l: 'Ranking sector', s: 'percentil facturación' },
-          { l: 'Localidad', s: 'posición local' },
-          { l: 'Innovación', s: 'inferido' },
-        ].map((it) => (
-          <div key={it.l} className="kpi"><div className="l">{it.l} ✦</div><div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div><div className="d inf">Pendiente · {it.s}</div></div>
-        ))}
-      </div>
-
       <div className="row r2" style={{ marginTop: 16 }}>
         {rings.length > 0 ? (
           <div className="card">
             <h3><span className="k" />Scores de inteligencia</h3>
             <div className="cs">Calculados por Arroba</div>
             <div className="scores" style={{ gridTemplateColumns: `repeat(${rings.length},1fr)` }}>
-              {rings.map((r) => <Ring key={r.label} val={r.v} label={r.label} color={r.color} />)}
+              {rings.map((r) => <Html key={r.label} className="ring" html={ringSVG(r.v, r.label, r.color)} />)}
             </div>
           </div>
         ) : <Pending label="Scores de inteligencia" />}
@@ -398,7 +331,7 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
         {q != null && (
           <div className="card">
             <h3><span className="k" />Posicionamiento</h3>
-            <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Ring val={q} label="Quality Score" color={OK} /></div>
+            <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Html className="ring" html={ringSVG(q, 'Quality Score', OK)} /></div>
             <div className="cs" style={{ textAlign: 'center', marginTop: 8 }}>de 100 · calidad financiera</div>
           </div>
         )}
