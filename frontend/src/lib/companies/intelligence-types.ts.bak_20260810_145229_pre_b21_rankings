@@ -309,14 +309,6 @@ export interface FinancialAnalysisIdentity {
   description?: string | null;
 }
 
-/** Ranking sectorial y geográfico embebido en analyze.ranking (Intel I-1). Todos los campos opcionales. */
-export interface FinancialAnalysisRanking {
-  sector_revenue_percentile?: number | null;
-  market_position?: { rank: number; total: number; scope: string } | null;
-  locality_position?: { rank: number; total: number; scope: string } | null;
-  explain?: string[] | null;
-}
-
 export interface FinancialAnalysis {
   master_id: string | null;
   cif_normalized: string | null;
@@ -339,7 +331,6 @@ export interface FinancialAnalysis {
   evolution: FinancialAnalysisEvolution | null;
   assessment: FinancialAnalysisAssessment | null;
   valuation: Record<string, unknown> | null;
-  ranking: FinancialAnalysisRanking | null;
   explainability: FinancialAnalysisExplainability | null;
   engine_version: string | null;
   generated_at: string | null;

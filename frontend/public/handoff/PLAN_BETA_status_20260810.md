@@ -4,8 +4,10 @@
 
 - **Fase B-0 completa** (3/3 items): lenguaje Corporate Finance, estados homogéneos y glosas financieras.
 - **Fase B-1 al 83 %**: **5/6 items completos** (Item 4 Hero, Item 5 KPIs 2.ª fila, Item 7 Ratios ▲▼, Item 8 Valoración v2, Item 9 Header). Pendiente Item 6 (Identificación ampliada · sin Intel data new).
-- **Fases B-2, B-3, B-4 en espera de Intel I-2/I-3/I-4**.
+- **Fase B-2.1 · Rankings · DONE** (2026-08-10 · verificada sobre CIF `B28184687` LABORATORIOS SERVIER). Salvedad: cobertura limitada a CIFs cacheados en Intel — pendiente escalación `PARA_INTEL_CIFs_muestra.md` para verificar multi-empresa.
+- **Fases B-2 (resto), B-3, B-4 en espera de Intel I-2/I-3/I-4**.
 - **17 fixes apilados en preview**, ninguno revertido, cero regresiones funcionales.
+- **HARDENING-003 · 2026-08-10 · Ampliación aditiva de contrato FinancialAnalysis: campo `ranking: dict | None = None` passthrough desde `analyze.ranking`. No destructivo. Motivo: audit B-2 §3.1 detectó campo poblado en Intel pero omitido en el mapper del proxy.**
 - **Backend**: `AGENCY_TOOL_MODE=real` contra `intel.arroba.com`; semáforo global `max_concurrent=3` estable; 256 tests pasan; 31 fallos son deuda técnica conocida (HARDENING-002, acoplamiento fixtures ↔ `.env`).
 - **Deuda técnica documentada**: `/app/memory/INTEL_PAYLOAD_INCOHERENCIAS.md` — 2 descoordinaciones de payload Intel (identity.description, valuation.benchmark/methodology) resueltas con fallback frontend + escalación pendiente a Intel.
 

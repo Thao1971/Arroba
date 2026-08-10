@@ -112,6 +112,7 @@ const analysis: FinancialAnalysis = {
   },
   engine_version: 'arroba-financial-v1',
   generated_at: '2026-07-12T21:53:22.602413+00:00',
+  ranking: null,
 };
 
 describe('CompanyFinanzas · F0.2 · TOTALENERGIES', () => {

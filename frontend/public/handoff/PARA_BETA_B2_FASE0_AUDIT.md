@@ -1,7 +1,38 @@
 # PARA BETA · B-2 · FASE 0 · Auditoría de endpoints Intel
 
-> Auditoría en modo lectura contra `intel.arroba.com` vía provider `intelligence_layer` (X-API-Key S2S).
-> **NO se ha tocado código de la app**. Script one-shot en `/app/backend/scripts/b2_intel_audit.py` + `b2_intel_deep.py` (ephemeral, borrables).
+## CORRECCIÓN POST-AUDIT (2026-08-10 · verificado por usuario)
+
+El usuario ha verificado en vivo contra `intel.arroba.com` que **`sector-intelligence` y `geo-intelligence` sí existen**, expuestos en el **prefijo público** `/api/v1/public/…/overview` (no company-scoped). La matriz original marcó esos endpoints como 404 porque probó exclusivamente los patrones `GET /company/{cif}/…` y `POST /…-intelligence/analyze` — ambos correctamente 404, pero el patrón público no fue probado.
+
+### Endpoints correctos confirmados
+
+| Endpoint | Prefijo | Verificación usuario |
+|---|---|---|
+| `GET /api/v1/public/sector-intelligence/overview` | público (no company-scoped) | ✅ 200 con JSON real |
+| `GET /api/v1/public/geo-intelligence/overview` (previsible) | público | ✅ (asumido según patrón) |
+| `GET /api/v1/public/economic-intelligence/overview` (previsible) | público | pendiente confirmar |
+
+### Implicación para B-2
+
+- **B-2.6 · Mercado (sector-intelligence + geo-intelligence)** pasa a estado **viable con endpoints públicos**, ejecutar en sub-fase posterior (no en este turno).
+- **Nota arquitectónica**: los endpoints `public/*` no requieren cif, sirven data sectorial/geográfica agregada. La UI tendrá que resolver el sector/provincia de la ficha actual y pedir el `overview` correspondiente. Cache alto (data varía por sector/provincia, no por CIF individual).
+- **Bandera pendiente**: confirmar shape real de `overview` (HHI, fragmentación, comparables, dinámicas M&A, etc.) antes de cablear. Requerirá una Fase 0 mini específica para B-2.6.
+
+### Endpoints que NO cambian de status con esta corrección
+
+- **`control-synergy`**: sigue no verificado (bloqueado por muestra sin buyers > 0).
+- **`alerts`, `company-state`**: siguen 404 confirmados en todos los patrones (incluyendo `/api/v1/public/…`).
+- **`watchlist`**: sigue 401 con S2S (requiere JWT usuario).
+
+### Filas de matriz que se actualizan
+
+| Endpoint | Status original en audit | Status tras corrección |
+|---|---|---|
+| `sector-intelligence` (patrón company-scoped) | ❌ 404 | ❌ 404 (patrón company-scoped no existe · **usar prefijo `/api/v1/public/sector-intelligence/overview`**) |
+| `geo-intelligence` (patrón company-scoped) | ❌ 404 | ❌ 404 (idem · **usar prefijo `/api/v1/public/geo-intelligence/overview`**) |
+| `economic-intelligence` (patrón company-scoped) | ❌ 404 | ❌ 404 (idem · **verificar si existe `/api/v1/public/economic-intelligence/overview`**) |
+
+Ver §5 (Banderas rojas) para el nuevo item de confirmación de shape.
 
 ---
 

@@ -112,6 +112,7 @@ class FinancialAnalysis(BaseModel):
     evolution: dict | None = None  # F0.2 · {trend, years, anomaly, points[]}
     valuation: dict | None = None  # F0.2 · bloque valuation embebido (opcional)
     assessment: dict | None = None  # F0.2 · {strengths[], weaknesses[], risks[]}
+    ranking: dict | None = None  # B-2.1 · HARDENING-003 · passthrough analyze.ranking (sector_revenue_percentile, market_position, locality_position, explain[])
     size_band: str | None = None
     explainability: dict | None = None
 

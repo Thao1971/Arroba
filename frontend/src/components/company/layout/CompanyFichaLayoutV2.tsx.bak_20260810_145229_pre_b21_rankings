@@ -382,61 +382,15 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       )}
 
       <div className="kgrid" style={{ marginTop: 12 }}>
-        {(() => {
-          const rk = financialAnalysis?.ranking ?? null;
-          const mp = rk?.market_position;
-          const lp = rk?.locality_position;
-          const sp = rk?.sector_revenue_percentile;
-          return (
-            <>
-              <div className="kpi" data-testid="kpi-market-position">
-                <div className="l">Posición sectorial</div>
-                {mp && mp.rank != null && mp.total != null ? (
-                  <>
-                    <div className="v">#{mp.rank} <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>de {mp.total}</span></div>
-                    <div className="d inf">{mp.scope}</div>
-                  </>
-                ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
-              </div>
-              <div className="kpi" data-testid="kpi-locality-position">
-                <div className="l">Posición local</div>
-                {lp && lp.rank != null && lp.total != null ? (
-                  <>
-                    <div className="v">#{lp.rank} <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>de {lp.total}</span></div>
-                    <div className="d inf">{lp.scope}</div>
-                  </>
-                ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
-              </div>
-              <div className="kpi" data-testid="kpi-sector-percentile">
-                <div className="l">Percentil de facturación</div>
-                {sp != null ? (
-                  <>
-                    <div className="v">{sp}<span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>º</span></div>
-                    <div className="d inf">en su sector</div>
-                  </>
-                ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
-              </div>
-              <div className="kpi" data-testid="kpi-innovation-pending">
-                <div className="l">Innovación</div>
-                <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>
-                <div className="d inf">En preparación</div>
-              </div>
-            </>
-          );
-        })()}
+        {[
+          { l: 'Ranking mercado', s: 'sector · territorio' },
+          { l: 'Ranking sector', s: 'percentil facturación' },
+          { l: 'Localidad', s: 'posición local' },
+          { l: 'Innovación', s: 'inferido' },
+        ].map((it) => (
+          <div key={it.l} className="kpi"><div className="l">{it.l} ✦</div><div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div><div className="d inf">Pendiente · {it.s}</div></div>
+        ))}
       </div>
-
-      {financialAnalysis?.ranking?.explain && financialAnalysis.ranking.explain.length > 0 && (
-        <div className="card" style={{ marginTop: 12 }} data-testid="rankings-explain-card">
-          <h3><span className="k" />Lectura de posicionamiento</h3>
-          <div className="cs">Comparativa contra el universo sectorial y territorial</div>
-          <ul style={{ margin: 0, paddingLeft: 20, paddingTop: 8 }}>
-            {financialAnalysis.ranking.explain.map((line, i) => (
-              <li key={i} style={{ fontSize: 13.5, color: 'var(--n700)', padding: '3px 0', lineHeight: 1.55 }}>{line}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       <div className="row r2" style={{ marginTop: 16 }}>
         {rings.length > 0 ? (
