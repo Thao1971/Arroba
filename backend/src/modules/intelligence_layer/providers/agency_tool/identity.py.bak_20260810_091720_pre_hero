@@ -233,17 +233,7 @@ class AgencyToolIdentityResolver(MasterProvider):
             financials=Financials(latest=latest, history=history),
             ownership=Ownership(),  # huérfano — REQ contra Agency Tool
             officers_count=None,
-            # Narrativa "qué hace" (Fase A). Fuente: objeto_social del dato maestro +
-            # `description` del pipeline de enriquecimiento (web/scraping) + activity.
-            # Null-safe: si el payload arroba.v2 aún no los expone, quedan None y la
-            # ficha muestra "Pendiente de información" (R4 · no inventar).
-            objeto_social=identity_raw.get("objeto_social") or doc.get("objeto_social"),
-            activity=identity_raw.get("activity") or doc.get("activity"),
-            description=(
-                identity_raw.get("description")
-                or doc.get("description")
-                or (doc.get("enriched") or {}).get("description")
-            ),
+            objeto_social=None,
             provenance={},
             sources=[],
             pipeline_version=None,
