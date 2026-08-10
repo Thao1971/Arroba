@@ -3,10 +3,11 @@
 ## Resumen ejecutivo
 
 - **Fase B-0 completa** (3/3 items): lenguaje Corporate Finance, estados homogéneos y glosas financieras.
-- **Fase B-1 al 33 %**: Item 4 (Hero) e Item 9 (Header) aplicados. Items 5–8 esperan a Intel I-1 (KPIs 2.ª fila, Identificación ampliada, clipboard CIF/nombre, enlace web).
+- **Fase B-1 al 83 %**: **5/6 items completos** (Item 4 Hero, Item 5 KPIs 2.ª fila, Item 7 Ratios ▲▼, Item 8 Valoración v2, Item 9 Header). Pendiente Item 6 (Identificación ampliada · sin Intel data new).
 - **Fases B-2, B-3, B-4 en espera de Intel I-2/I-3/I-4**.
-- **14 fixes apilados en preview**, ninguno revertido, cero regresiones funcionales.
+- **17 fixes apilados en preview**, ninguno revertido, cero regresiones funcionales.
 - **Backend**: `AGENCY_TOOL_MODE=real` contra `intel.arroba.com`; semáforo global `max_concurrent=3` estable; 256 tests pasan; 31 fallos son deuda técnica conocida (HARDENING-002, acoplamiento fixtures ↔ `.env`).
+- **Deuda técnica documentada**: `/app/memory/INTEL_PAYLOAD_INCOHERENCIAS.md` — 2 descoordinaciones de payload Intel (identity.description, valuation.benchmark/methodology) resueltas con fallback frontend + escalación pendiente a Intel.
 
 ## Fixes apilados en preview (cronológico)
 
@@ -27,12 +28,15 @@
 | 13 | 10-ago 11:54 | B-0.2 · Estados homogéneos | `CompanyFichaLayoutV2.tsx` L226-249 | `const Empty = Pending` (alias semántico); `function SectionError`; `function Skeleton` con `<style>` local `@keyframes afkShimmer` + `.afkSkeleton`. |
 | 14 | 10-ago 11:58 | B-0.3 · Glosas financieras | `CompanyFichaLayoutV2.tsx` (3 `<abbr>` + `<style>` global) | `<abbr title="…">` en EBITDA (2) y Enterprise Value (1). CSS `abbr[title]{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}` inyectado en `<style>` local del layout raíz. |
 
-**Fixes B-1 de esta sesión** (se fusionan con la tabla para respetar el "14 apilados" declarado — cuentan como reworkings sobre la base ya estable):
+**Fixes B-1 de esta sesión** (se fusionan con la tabla para respetar el "17 apilados" declarado — cuentan como reworkings sobre la base ya estable):
 
 | Fix B-1 | Fecha | Descripción |
 |---|---|---|
 | B-1.1 · Hero + Veredicto | 10-ago 12:21→12:23 | Fallback sintético "opera en su sector, con domicilio en {provincia}" eliminado → `<Empty/>` (cumplimiento R4/R10). Card "**Veredicto de ARROBA**" con `<Empty/>` (espera Intel I-3). Rename de "Diagnóstico"→"Veredicto" (Diagnóstico queda reservado para anillos B-3). `HeroBlock` extraído a subcomponente compartido anon+auth, eliminando duplicación. |
 | B-1.2 · Header handlers | 10-ago 12:30→12:32 | 3 `onClick` cableados. Guardar → `notify info` "El seguimiento de empresas estará disponible próximamente." Seguir → `notify info` "Las alertas de esta empresa estarán disponibles próximamente." **Compartir → acción REAL** vía `navigator.clipboard.writeText(window.location.href)` con fallback textual. `data-testid` + `aria-label` + `title` añadidos. Utility `@/lib/notify` reutilizada (cero deps nuevas). Comentario `TODO: cablear a seguimiento/alertas cuando arroba.v2 lo exponga (Plan Intel I-2)`. |
+| **B-1.3 · Cablear Intel I-1 (Item 4 wiring + Item 8 Valoración v2)** | 10-ago 12:48→12:54 | Tipos `FinancialAnalysisIdentity`, `ValuationScenario`, `ValuationBenchmark` añadidos en `intelligence-types.ts` (refinamiento back-compat, 0 consumers). `HeroBlock` con cascada `identity.description → identity.objeto_social → financialAnalysis?.identity?.description → financialAnalysis?.identity?.objeto_social → <Empty/>`. `Valoracion` rediseñado: labels `Bajo/Medio/Alto → Conservador/Base/Optimista` desde `scenarios[i].name`; nuevo card standalone "**Benchmark del sector**" (pill percentile + comparativa subject vs mediana); `<details>` "**Metodología**" al final (clases `.method` del mockup). **Fallback añadido** (patch B-1.3.b): `valuation.benchmark ?? financialAnalysis?.valuation?.benchmark`, `valuation.methodology ?? financialAnalysis?.valuation?.methodology`. Deuda documentada en `INTEL_PAYLOAD_INCOHERENCIAS.md`. |
+| **B-1.4 · Item 7 · Card Ratios financieros con ▲▼** | 10-ago 12:58→13:00 | Tipo `FinancialAnalysisRatioDetail` ampliado (+`prev_value`, `+delta`, `+trend`). Nuevo componente `RatiosTrendCard` con grid `.rat-grid`/`.rat-card` (auto-fill min 180px) dentro del tab `ratios` del segmented `Finanzas`. 9 ratios consumidos de `analysis.ratios.*`: ebitda_margin, ebit_margin, net_margin, ROA, ROE, solvency, debt_ratio, revenue_per_employee, capital_intensity. Cada tarjeta: label (con `<abbr>` para ROA/ROE), flecha `▲/▼` verde/rojo, valor grande, delta con signo ("pp" para %, "€" para eur). Complementa (no reemplaza) el card existente de percentiles sectoriales. |
+| **B-1.5 · Item 5 · KPIs Resumen 2.ª fila + TrendPill** | 10-ago 13:03→13:04 | Nuevo `fmtEurCompact` helper (`Intl.NumberFormat` con `notation: 'compact'`). Nuevo `<TrendPill>` para `evolution.trend` con 3 estados: `growth` → verde "● Crecimiento", `stable/flat` → gris "● Estable", `contraction/decline/deterioration` → rojo "● Contracción". Nueva 2.ª fila `.kgrid` en `Resumen` entre la 1.ª (Facturación/EBITDA/…) y la de rankings pending: **CAGR Ingresos (3a)**, **Crecimiento anual** (+ EBITDA growth como sub-línea con `<abbr>`), **Fondos propios** (equity compact), **TrendPill**. Cero tipos nuevos (todo ya en `FinancialAnalysisKpis` + `FinancialAnalysisBalanceSheet` + `FinancialAnalysisEvolution`). |
 
 ## Cambios de nomenclatura Corporate Finance (B-0.1)
 
@@ -147,24 +151,35 @@ Flag conocido: **L517** contiene `valuation.multiple_basis ?? 'EBITDA'` (fallbac
 
 | Ámbito | Estado | Notas |
 |---|---|---|
-| `yarn typecheck` | ✅ OK | Pasó en las 3 sub-fases B-0 + B-1.1 + B-1.2 (v1 y v2). |
-| `yarn build` | ✅ OK | Último `BUILD_ID = lVBJNtLkfAXo50w4cavvE`. Un solo warning pre-existente (`<img>` en L39, no relacionado con esta sesión). |
+| `yarn typecheck` | ✅ OK | Pasó en B-0 (3 sub-fases) + B-1.1 + B-1.2 (v1 y v2) + B-1.3 + B-1.4 + B-1.5. |
+| `yarn build` | ✅ OK | Último `BUILD_ID = IYlzYbo7DCw-8tBJvOrc9` (B-1.5). Un solo warning pre-existente (`<img>` en L39, no relacionado con esta sesión). |
 | `pytest tests/` (backend) | ⚠️ 256/287 | 256 pasan, 31 fallan por HARDENING-002 (fixtures asumen `ENRICH_COMPANY_SOURCE=mock` pero `.env` está en `real`). Deuda técnica documentada, no regresión. |
-| Smoke HTTP | ✅ 200/200/200 | `/es/inicio`, `/es/login`, `/es/empresa-f01/A08363419` (localhost:3000). |
-| Supervisor | ✅ RUNNING | `backend pid 3318`, `frontend pid 11060`, `mongodb pid 54`. |
-| Fixes preservados (integridad) | ✅ | Lock icon: 2 usos. `yMinRaw` (chart negs): 4 usos. `showZeroLine`: 2 usos. Semáforo cap=3 activo. `settled/timedOut` guard: 2+2 usos. |
+| Smoke HTTP | ✅ 200/200/200 | `/es/inicio`, `/es/login`, `/es/empresa-f01/B28184687` (localhost:3000). |
+| Supervisor | ✅ RUNNING | `backend`, `frontend pid 14187`, `mongodb`. |
+| Fixes preservados (integridad) | ✅ | Lock icon: 2 usos. `yMinRaw` (chart negs): 4 usos. `showZeroLine`: 2 usos. Semáforo cap=3 activo. `settled/timedOut` guard: 2+2 usos. Fallback description HeroBlock activo. Fallback benchmark/methodology Valoracion activo. |
+| Datos Intel I-1 en runtime (Servier B28184687) | ✅ | 9 ratios ▲▼, 3 escenarios valoración, benchmark peer (percentile 88, n=8 peers), methodology (173 chars), description (real via fallback), CAGR 9.3%, growth YoY 11.7%/24.4%, equity 71.5 M€, evolution.trend='growth' → pill verde. |
+
+## Preview URL
+
+- Local dev: http://localhost:3000/es/empresa-f01/B28184687
+- Preview público: https://musing-hellman-9.preview.emergentagent.com/es/empresa-f01/B28184687
 
 ## Siguiente ciclo (cuando Intel exponga)
 
 Orden natural:
 
-- **I-1** ↔ **B-1** (Items 5-8) — descripción/objeto_social/CashFlow/tendencias/escenarios/KPIs 2.ª fila.
+- **I-1 completar** ↔ **B-1 restante** — cablear cuando lleguen:
+  - `cashflow` top-level (tab Cash Flow en `Finanzas` sigue con `<Pending/>`).
+  - `financial_quality.assessment/weaknesses/risks` (narrativa Corporate Finance).
+  - `section/semantic.value_proposition` (frase de posicionamiento).
+  - `balance_sheet.st_debt/lt_debt/financial_debt` (deuda desglosada · Item 6 Identificación ampliada).
+  - Armonización endpoints canónicos (retirar fallbacks · ver `INTEL_PAYLOAD_INCOHERENCIAS.md`).
 - **I-2** ↔ **B-2** — watchlist, alerts, propiedad/control, sinergias, mercado, rankings, documentos, deal banner.
 - **I-3** ↔ **B-3** — Veredicto de ARROBA con contenido real, Diagnóstico de ARROBA (anillos), sucesión, gobierno, sector & roll-up, BORME.
 - **I-4** ↔ **B-4** — Copilot, comparación sector, export PDF, grafo compradores, buscador universal.
 
-Cuando llegue el siguiente ZIP/spec, la vía natural es replicar el protocolo actual: **Fase 1 (grep + reporte, STOP) → luz verde → Fase 2 (backup + `search_replace` + `yarn typecheck && yarn build` + restart + smoke + chunk check) → reporte final**.
+Cuando llegue el siguiente ZIP/spec o Intel populate campos nuevos, la vía natural es replicar el protocolo actual: **Fase 1 (grep + reporte, STOP) → luz verde → Fase 2 (backup + `search_replace` + `yarn typecheck && yarn build` + restart + smoke + chunk check) → reporte final**.
 
 ---
 
-*Documento generado al cierre de sesión 2026-08-10. Próximo trigger: recepción de ZIP/spec Intel I-1.*
+*Documento actualizado 2026-08-10 al cierre de B-1.5. Próximo trigger: Intel populate cashflow / assessment / section/semantic, o recepción de ZIP/spec Intel I-2.*
