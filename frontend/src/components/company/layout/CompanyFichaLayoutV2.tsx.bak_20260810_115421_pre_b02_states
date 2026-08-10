@@ -223,31 +223,6 @@ function Pending({ label }: { label?: string }) {
   );
 }
 
-/** Alias semántico de Pending: respuesta 200 del backend sin dato para el apartado. */
-const Empty = Pending;
-
-/** Estado de error de sección: fallo de red / 4xx-5xx al cargar el apartado. */
-function SectionError() {
-  return (
-    <div className="card" style={{ textAlign: 'center', padding: '28px 20px' }}>
-      <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--n700)' }}>No hemos podido cargar este apartado</div>
-      <div className="cs" style={{ marginTop: 4, marginBottom: 0 }}>Vuelve a intentarlo en unos minutos.</div>
-    </div>
-  );
-}
-
-/** Estado de carga estándar: shimmer neutro con la misma tarjeta que Empty/SectionError. */
-function Skeleton() {
-  return (
-    <div className="card" style={{ padding: '28px 20px' }}>
-      <style>{`@keyframes afkShimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}.afkSkeleton{display:block;border-radius:6px;background:linear-gradient(90deg,#eef0f2 0%,#f5f6f8 40%,#eef0f2 80%);background-size:200px 100%;background-repeat:no-repeat;animation:afkShimmer 1.4s ease-in-out infinite}`}</style>
-      <div className="afkSkeleton" style={{ height: 14, width: '55%', marginBottom: 12 }} />
-      <div className="afkSkeleton" style={{ height: 10, width: '80%', marginBottom: 8 }} />
-      <div className="afkSkeleton" style={{ height: 10, width: '70%' }} />
-    </div>
-  );
-}
-
 /* ============================ RESUMEN ============================ */
 function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const { identity, financial, financialAnalysis, semantic, signal, buyers } = p;
