@@ -104,50 +104,30 @@ function EvolutionChart({ series, years, masked }: { series: EvoSerie[]; years: 
   if (!series.length || !years.length) return null;
   const w = 680, h = 230, pl = 44, pr = 14, pt = 18, pb = 28, iw = w - pl - pr, ih = h - pt - pb;
   const nums = series.flatMap((s) => s.data.filter((v): v is number => v != null));
-  const yMinRaw = nums.length ? Math.min(...nums) : 0;
-  const yMaxRaw = nums.length ? Math.max(...nums) : 1;
-  const range = yMaxRaw - yMinRaw;
-  const pad = range === 0 ? (Math.abs(yMaxRaw) * 0.15 || 1) : range * 0.12;
-  const yMin = yMinRaw - pad;
-  const yMax = yMaxRaw + pad;
-  const yRange = yMax - yMin || 1;
-  const showZeroLine = yMinRaw < 0 && yMaxRaw > 0;
+  const max = (nums.length ? Math.max(...nums) : 1) * 1.15 || 1;
   const x = (i: number) => pl + iw * i / Math.max(1, years.length - 1);
-  const y = (v: number) => pt + ih - ((v - yMin) / yRange) * ih;
+  const y = (v: number) => pt + ih - v / max * ih;
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <style>{`@keyframes afDraw{to{stroke-dashoffset:0}}`}</style>
       <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto' }} onMouseLeave={() => setTip(null)}>
         {[0, 1, 2, 3, 4].map((k) => {
           const yy = pt + ih * k / 4;
-          const labelVal = yMax - (yRange * k / 4);
-          const labelDecimals = Math.abs(yMax) < 10 || Math.abs(yMin) < 10 ? 1 : 0;
           return (
             <g key={k}>
               <line x1={pl} y1={yy} x2={w - pr} y2={yy} stroke={N2} />
               <text x={pl - 8} y={yy + 4} textAnchor="end" fontSize={10} fill={N}>
-                {masked ? '•••' : labelVal.toLocaleString('es-ES', { maximumFractionDigits: labelDecimals })}
+                {masked ? '•••' : Math.round(max - max * k / 4).toLocaleString('es-ES')}
               </text>
             </g>
           );
         })}
-        {showZeroLine && !masked && (
-          <g>
-            <line x1={pl} y1={y(0)} x2={w - pr} y2={y(0)} stroke="#8B8B8B" strokeWidth={1.2} />
-            <text x={pl - 8} y={y(0) + 4} textAnchor="end" fontSize={10} fill="#4E4E48">0</text>
-          </g>
-        )}
         {years.map((l, i) => <text key={i} x={x(i)} y={h - 8} textAnchor="middle" fontSize={10.5} fill={N}>{l}</text>)}
         {series.map((s, si) => {
           const pts = s.data.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(' ');
           return (
             <g key={si}>
-              {s.area && !masked && (() => {
-                const baselineY = y(Math.max(0, yMin));
-                const firstX = pl;
-                const lastX = w - pr;
-                return <polygon points={`${firstX},${baselineY} ${pts} ${lastX},${baselineY}`} fill={s.color} opacity={0.08} />;
-              })()}
+              {s.area && !masked && <polygon points={`${pl},${pt + ih} ${pts} ${w - pr},${pt + ih}`} fill={s.color} opacity={0.08} />}
               <polyline points={pts} fill="none" stroke={s.color} strokeWidth={2.6} opacity={masked ? 0.35 : 1} pathLength={1} style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: `afDraw 1s ease ${si * 0.15}s forwards` }} />
               {!masked && s.data.map((v, i) => v == null ? null : (
                 <circle key={i} cx={x(i)} cy={y(v)} r={4} fill="#fff" stroke={s.color} strokeWidth={2}
