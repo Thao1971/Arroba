@@ -93,30 +93,15 @@ async def _seed_master(mock_db, cif: str = "B47820150", **overrides) -> dict:
 @pytest.mark.parametrize(
     "path",
     [
-        # Solo las secciones con cifras exigen sesión. `identity` y `semantic`
-        # son mixed-access (datos públicos de registro) → ver test siguiente.
+        "/api/companies/B47820150/section/identity",
         "/api/companies/B47820150/section/financial",
         "/api/companies/B47820150/section/valuation",
+        "/api/companies/B47820150/section/semantic",
     ],
 )
 async def test_section_endpoints_require_auth(client: AsyncClient, path: str):
     r = await client.get(path)
     assert r.status_code == 401, f"{path} → {r.status_code}"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "path",
-    [
-        "/api/companies/B47820150/section/identity",
-        "/api/companies/B47820150/section/semantic",
-    ],
-)
-async def test_section_endpoints_mixed_access(client: AsyncClient, path: str):
-    """Mixed-access: identidad y perfil semántico son públicos (dato de registro).
-    Sin sesión NO deben exigir auth → 200 (con datos) o 404 (si no existe), nunca 401."""
-    r = await client.get(path)
-    assert r.status_code != 401, f"{path} → {r.status_code} (no debería exigir auth)"
 
 
 # ============================================================

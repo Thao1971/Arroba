@@ -209,19 +209,6 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const cls = identity.classification, loc = identity.location, sz = identity.size;
   const k = financialAnalysis?.kpis ?? null;
 
-  // Hooks SIEMPRE antes de cualquier return condicional (react-hooks/rules-of-hooks).
-  const evo = financial?.evolution;
-  const evoSeries: EvoSerie[] = useMemo(() => {
-    if (!evo) return [];
-    return evo.series.slice(0, 2).map((s, i) => ({
-      label: s.format === 'currency' ? `${s.label} (M€)` : s.label,
-      unit: s.format === 'currency' ? 'M€' : s.format === 'percent' ? '%' : '',
-      data: s.values.map((v) => (v == null ? null : s.format === 'currency' ? v / 1_000_000 : v)),
-      color: i === 0 ? RED : DARK, area: i === 0,
-    }));
-  }, [evo]);
-  const hasChart = evo != null && evoSeries.length > 0;
-
   if (p.anon) {
     return (
       <section className="panel on">
@@ -244,6 +231,18 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       </section>
     );
   }
+
+  const evo = financial?.evolution;
+  const evoSeries: EvoSerie[] = useMemo(() => {
+    if (!evo) return [];
+    return evo.series.slice(0, 2).map((s, i) => ({
+      label: s.format === 'currency' ? `${s.label} (M€)` : s.label,
+      unit: s.format === 'currency' ? 'M€' : s.format === 'percent' ? '%' : '',
+      data: s.values.map((v) => (v == null ? null : s.format === 'currency' ? v / 1_000_000 : v)),
+      color: i === 0 ? RED : DARK, area: i === 0,
+    }));
+  }, [evo]);
+  const hasChart = evo != null && evoSeries.length > 0;
 
   const quality = clamp100(financialAnalysis?.financial_quality?.score ?? null);
   const opp = clamp100(signal?.score?.signal_score ?? null);

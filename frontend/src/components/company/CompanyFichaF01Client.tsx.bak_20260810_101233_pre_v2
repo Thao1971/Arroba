@@ -1,0 +1,141 @@
+'use client';
+/**
+ * CompanyFichaF01Client (Sprint F0.1b) — orquestador de datos de la Ficha de
+ * Empresa. SWR fetch de las tres secciones canónicas + delegación al shell
+ * `CompanyFichaLayout` (contenedor sin COMP-ID).
+ *
+ * Los COMP internos (COMP-1001..1003, COMP-1004, COMP-P-0001..0006) se
+ * consumen sin modificar. La forma del layout la fija `CompanyFichaLayout`
+ * según el ZIP canónico.
+ */
+import useSWR from 'swr';
+
+import { useAuth } from '@/contexts/auth-context';
+import { intelligenceClient } from '@/lib/companies/intelligence-client';
+import type {
+  FinancialAnalysis,
+  FinancialSection,
+  IdentitySection,
+  RecommendationSet,
+  SemanticSection,
+  SignalAnalysis,
+  ValuationAnalysis,
+} from '@/lib/companies/intelligence-types';
+import { Spinner } from '@/components/ds';
+import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
+
+import { CompanyFichaLayoutV2 } from './layout/CompanyFichaLayoutV2';
+
+const FETCH_CONFIG = {
+  revalidateOnFocus: false,
+  shouldRetryOnError: false,
+};
+
+export interface CompanyFichaF01ClientProps {
+  cif: string;
+}
+
+export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
+  const cifUpper = cif.toUpperCase();
+  // Mixed-access (como `/empresa/[cif]`): identidad + perfil semántico son
+  // públicos; las secciones con cifras (finanzas, valoración, señales,
+  // compradores, oportunidades) solo se piden con sesión → el anónimo ve la
+  // ficha con las cifras enmascaradas y un CTA de registro. `null` key = no fetch.
+  const { isAuthenticated } = useAuth();
+
+  const { data: identity, error: identityError, isLoading: identityLoading } =
+    useSWR<IdentitySection | null>(
+      ['ficha-f01-identity', cifUpper],
+      () => intelligenceClient.identitySection(cifUpper),
+      FETCH_CONFIG,
+    );
+  const { data: semantic } = useSWR<SemanticSection | null>(
+    ['ficha-f01-semantic', cifUpper],
+    () => intelligenceClient.semanticSection(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: financial } = useSWR<FinancialSection | null>(
+    isAuthenticated ? ['ficha-f01-financial', cifUpper] : null,
+    () => intelligenceClient.financialSection(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: financialAnalysis, isLoading: financialAnalysisLoading } = useSWR<FinancialAnalysis | null>(
+    isAuthenticated ? ['ficha-f02-financial-analysis', cifUpper] : null,
+    () => intelligenceClient.financialAnalysis(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: valuation, isLoading: valuationLoading } = useSWR<ValuationAnalysis | null>(
+    isAuthenticated ? ['ficha-f03-valuation', cifUpper] : null,
+    () => intelligenceClient.valuation(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: signal } = useSWR<SignalAnalysis | null>(
+    isAuthenticated ? ['ficha-f01-signal', cifUpper] : null,
+    () => intelligenceClient.signalAnalyze(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: buyers } = useSWR<RecommendationSet | null>(
+    isAuthenticated ? ['ficha-f01-buyers', cifUpper] : null,
+    () => intelligenceClient.buyers(cifUpper),
+    FETCH_CONFIG,
+  );
+  const { data: opportunities } = useSWR<RecommendationSet | null>(
+    isAuthenticated ? ['ficha-f01-opportunities', cifUpper] : null,
+    () => intelligenceClient.opportunities(cifUpper),
+    FETCH_CONFIG,
+  );
+
+  if (identityLoading) {
+    return (
+      <div
+        data-testid="ficha-f01-loading"
+        className="py-24 flex items-center justify-center text-body-sm"
+        style={{ color: 'var(--text-secondary, #6B6B6B)' }}
+      >
+        <Spinner /> <span className="ml-3">Cargando ficha…</span>
+      </div>
+    );
+  }
+
+  if (identityError) {
+    return (
+      <div className="py-16 max-w-md mx-auto">
+        <UnavailableBlock
+          testId="ficha-f01-error"
+          title="No hemos podido cargar la empresa"
+          description={`Se ha producido un error al recuperar la identidad de ${cifUpper}. Inténtalo en unos segundos.`}
+          req="Identity resolver · arroba-identity-v1"
+        />
+      </div>
+    );
+  }
+
+  if (!identity) {
+    return (
+      <div className="py-16 max-w-md mx-auto">
+        <UnavailableBlock
+          testId="ficha-f01-not-found"
+          title="Empresa no encontrada"
+          description={`No hay ninguna empresa con CIF ${cifUpper} en las fuentes verificables.`}
+          req="Identity resolver · arroba-identity-v1"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <CompanyFichaLayoutV2
+      identity={identity}
+      financial={financial ?? null}
+      financialAnalysis={financialAnalysis ?? null}
+      financialAnalysisLoading={financialAnalysisLoading}
+      valuation={valuation ?? null}
+      valuationLoading={valuationLoading}
+      semantic={semantic ?? null}
+      signal={signal ?? null}
+      buyers={buyers ?? null}
+      opportunities={opportunities ?? null}
+      authenticated={isAuthenticated}
+    />
+  );
+}
