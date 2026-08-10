@@ -14,6 +14,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from src.core.logging import get_logger
+from src.modules.intelligence_layer.interfaces.ficha import (
+    CompanyFicha,
+    INTERNAL_FICHA_ENGINE_VERSION,
+)
 from src.modules.intelligence_layer.interfaces.financial import (
     BalanceSheet,
     ComparablePeer,
@@ -42,6 +46,7 @@ log = get_logger("intelligence_layer.provider.agency_tool.financial")
 FINANCIAL_ANALYZE_PATH = "/api/v1/financial-intelligence/analyze"
 FINANCIAL_VALUATION_PATH = "/api/v1/financial-intelligence/valuation"
 FINANCIAL_RATIOS_CATALOG_PATH = "/api/v1/financial-intelligence/ratios/catalog"
+FICHA_AGGREGATE_PATH = "/api/v1/company/{cif}/ficha"  # B-2.4 · agregador Intel
 
 # Nombre del engine que arroba emite al frontend (R5 contrato interno decoupled).
 INTERNAL_ENGINE_VERSION = "arroba-financial-v1"
@@ -118,6 +123,64 @@ class AgencyToolFinancialProvider(FinancialProvider):
             ) from exc
 
         return self._map_valuation(cif_norm, data)
+
+    # ---------- ficha aggregator (B-2.4) ----------
+    async def fetch_ficha(self, cif: str) -> CompanyFicha:
+        """`GET /company/{cif}/ficha` — response agregador con todos los bloques.
+
+        Reutiliza `_map_analyze` para el bloque `finances` (preserva `ranking`
+        B-2.1 y `cash_flow` B-2.5). Resto de bloques (`identity`, `ownership`,
+        `governance`, `events`, `ranking` top-level) son passthrough puro
+        (`dict | None`), respetando R15 (no derivar, no filtrar).
+        """
+        cif_norm = cif.upper().strip()
+        path = FICHA_AGGREGATE_PATH.format(cif=cif_norm)
+        try:
+            resp = await self._client.request("GET", path)
+        except AgencyToolHTTPError as exc:
+            raise FinancialProviderError(str(exc), error_class=exc.error_class) from exc
+
+        if resp.status_code == 404:
+            raise FinancialNotFoundError(f"cif={cif_norm}")
+        if resp.status_code in (401, 403):
+            raise FinancialProviderError(
+                f"unauthorized {resp.status_code}", error_class="unauthorized"
+            )
+        if resp.status_code >= 500:
+            raise FinancialProviderError(
+                f"upstream {resp.status_code}", error_class="server_5xx"
+            )
+        if resp.status_code != 200:
+            raise FinancialProviderError(
+                f"unexpected {resp.status_code}", error_class="client_4xx"
+            )
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise FinancialProviderError(
+                f"invalid JSON: {exc}", error_class="server_5xx"
+            ) from exc
+
+        # `finances`: reutilizamos `_map_analyze` para preservar el contrato
+        # `FinancialAnalysis` intacto (mismo shape que `/financial-analysis`,
+        # con ranking + cash_flow ya cableados en HARDENING-003 / HARDENING-005).
+        finances_raw = data.get("finances")
+        finances = (
+            self._map_analyze(cif_norm, finances_raw)
+            if isinstance(finances_raw, dict) and finances_raw
+            else None
+        )
+        return CompanyFicha(
+            cif_normalized=data.get("cif") or data.get("cif_normalized") or cif_norm,
+            master_id=data.get("master_id"),
+            finances=finances,
+            identity=data.get("identity") if isinstance(data.get("identity"), dict) else None,
+            ownership=data.get("ownership") if isinstance(data.get("ownership"), dict) else None,
+            governance=data.get("governance") if isinstance(data.get("governance"), dict) else None,
+            events=data.get("events") if isinstance(data.get("events"), dict) else None,
+            ranking=data.get("ranking") if isinstance(data.get("ranking"), dict) else None,
+            engine_version=INTERNAL_FICHA_ENGINE_VERSION,
+        )
 
     # ---------- ratios catalog (sin identifier) ----------
     async def ratios_catalog(self) -> RatiosCatalog:

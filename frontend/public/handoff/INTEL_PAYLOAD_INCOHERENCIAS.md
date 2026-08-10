@@ -39,6 +39,7 @@ Detectadas durante **B-1.3 (Intel I-1)** — algunos campos vienen poblados solo
 | **Contrato canónico** | `arroba-financial-v1` — passthrough (`HARDENING-005`) |
 | **Impacto UX** | Bajo · celda numéricamente correcta bajo la interpretación literal del formato; interpretación semántica confusa para el analista Corporate Finance. Aplicable únicamente a la fila `cash_conversion` (rows `cf_operating`, `cf_capex`, `cf_financing`, `cf_net_change`, `free_cash_flow` vienen con `format: currency` y se pintan correctamente). |
 | **Decisión Intel esperada** | (a) Multiplicar × 100 en origen y devolver `65.68` con `format: percent`; o (b) devolver `0.6568` con `format: ratio` (que el helper renderiza como `0,66×`) — cualquiera de las dos armoniza con el contrato existente. |
+| **BRIDGING APLICADO EN FRONTEND · 2026-08-10** | Aplicado bridging acotado en `CashFlowTable` (Tarea 1): `if (row.key === "cash_conversion" && format === "percent" && typeof value === "number" && Math.abs(value) <= 1) value = value * 100`. **Solo afecta a la fila `cash_conversion`**; el resto del cash-flow (5/6 filas + KPIs, ratios) sigue passthrough puro. **Retirar cuando Intel armonice el contrato** (opción a o b arriba). |
 
 ## Recomendación
 

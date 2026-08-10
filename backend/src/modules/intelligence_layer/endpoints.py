@@ -17,6 +17,7 @@ from src.modules.auth.dependencies import get_current_user, get_optional_current
 from src.modules.auth.models import UserPublic
 from src.modules.intelligence_layer.circuit_breaker import BreakerOpenError
 from src.modules.intelligence_layer.config import get_intelligence_settings
+from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
 from src.modules.intelligence_layer.interfaces.financial import (
     FinancialAnalysis,
     FinancialNotFoundError,
@@ -270,6 +271,49 @@ async def get_company_financial_analysis(
     response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
     response.headers["X-Provider"] = router._get_financial_provider().provider_name
     return analysis
+
+
+@companies_intel_router.get(
+    "/{cif}/ficha",
+    response_model=CompanyFicha,
+    summary="Ficha agregada (arroba-ficha-v1) · B-2.4 · mixed-access",
+)
+async def get_company_ficha(
+    response: Response,
+    cif: str = Depends(_cif_param),
+    user: UserPublic | None = Depends(get_optional_current_user),
+) -> CompanyFicha:
+    """Agrega en una sola llamada `identity + finances + ownership + governance + events + ranking`.
+
+    Mixed-access:
+      * Anónimo: devuelve `identity`, `ownership`, `governance`, `events`, `ranking`;
+        `finances` se nullifica (secciones con cifras siguen gated bajo `<Gate>`).
+      * Autenticado: payload completo.
+
+    Reduce el waterfall SWR frontend de 5 llamadas Arroba→Intel a 1 (cf.
+    `PARA_BETA_B24_FICHA_SHAPE.md`). Endpoints legacy por sección permanecen
+    operativos hasta deprecación futura.
+    """
+    router = get_intelligence_router()
+    try:
+        ficha = await router.get_company_ficha(cif)
+    except FinancialNotFoundError as exc:
+        raise NotFoundError("ficha_not_found", code="ficha_not_found") from exc
+    except BreakerOpenError as exc:
+        raise ProviderUnavailableError(
+            "circuit_breaker_open", code="provider_unavailable"
+        ) from exc
+    except FinancialProviderError as exc:
+        raise ProviderError(exc.error_class, code="provider_error") from exc
+
+    if user is None:
+        # Mixed-access: bloque gated se nullifica para visitante anónimo.
+        ficha = ficha.model_copy(update={"finances": None})
+
+    settings = get_intelligence_settings()
+    response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
+    response.headers["X-Provider"] = router._get_financial_provider().provider_name
+    return ficha
 
 
 @companies_intel_router.get(

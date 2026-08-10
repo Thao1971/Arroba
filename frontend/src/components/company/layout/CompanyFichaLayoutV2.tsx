@@ -534,8 +534,20 @@ function CashFlowTable({ cf }: { cf: CashFlowStatement }) {
                   <td>{strong ? <b>{row.label}</b> : row.label}</td>
                   {cf.years.map((_, i) => {
                     const cell = row.values[i];
-                    const value = cell?.value ?? null;
+                    let value = cell?.value ?? null;
                     const format = cell?.format ?? 'currency';
+                    // BRIDGING FALLBACK · INTEL_PAYLOAD_INCOHERENCIAS.md caso 3
+                    // Intel entrega cash_conversion con format="percent" pero value en base 1 (ratio).
+                    // El resto de porcentajes del payload ya vienen en base 100.
+                    // Este puente se retira cuando Intel armonice el contrato (opción a o b del documento de incoherencias).
+                    if (
+                      row.key === 'cash_conversion' &&
+                      format === 'percent' &&
+                      typeof value === 'number' &&
+                      Math.abs(value) <= 1
+                    ) {
+                      value = value * 100;
+                    }
                     return (
                       <td key={i} style={{ textAlign: 'right' }}>
                         {strong ? <b>{fmtCell(value, String(format))}</b> : fmtCell(value, String(format))}

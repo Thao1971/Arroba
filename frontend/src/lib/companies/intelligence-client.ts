@@ -13,6 +13,7 @@
  */
 import { apiRequest, ApiError } from '@/lib/api/client';
 import type {
+  CompanyFicha,
   FinancialAnalysis,
   FinancialSection,
   IdentitySection,
@@ -77,6 +78,14 @@ export const intelligenceClient = {
   /** §6.6 · oportunidades detectadas. arroba-recommendation-v1. */
   opportunities: (cif: string, limit = 10) =>
     _get<RecommendationSet>(`/api/companies/${encodeURIComponent(cif)}/opportunities?limit=${limit}`),
+
+  /**
+   * B-2.4 · agregador `/company/{cif}/ficha` (`arroba-ficha-v1`). Devuelve
+   * `identity + finances + ownership + governance + events + ranking` en una
+   * sola llamada. Mixed-access: anónimo recibe `finances=null`.
+   */
+  ficha: (cif: string) =>
+    _get<CompanyFicha>(`/api/companies/${encodeURIComponent(cif)}/ficha`),
 };
 
-export type { IdentitySection, FinancialSection, FinancialAnalysis, ValuationAnalysis, ValuationSection, SemanticSection, SignalAnalysis, RecommendationSet };
+export type { IdentitySection, FinancialSection, FinancialAnalysis, ValuationAnalysis, ValuationSection, SemanticSection, SignalAnalysis, RecommendationSet, CompanyFicha };

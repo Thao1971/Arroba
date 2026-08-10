@@ -631,3 +631,25 @@ export interface RecommendationSet {
   engine_version: string | null;
   generated_at: string | null;
 }
+
+/* ============================================================
+ * CompanyFicha — agregador `/company/{cif}/ficha` (B-2.4 · arroba-ficha-v1)
+ * ============================================================
+ * Un solo response contiene: identity + finances + ownership + governance +
+ * events + ranking. Reduce el waterfall SWR de 5 llamadas a 1. Mixed-access:
+ * el usuario anónimo recibe `finances=null` (secciones con cifras siguen gated).
+ * Passthrough puro: `identity`, `ownership`, `governance`, `events`, `ranking`
+ * (top-level) llegan como `Record<string, unknown>` para consumo específico
+ * en fases futuras (B-2.2 Ownership, B-2.3 Governance, Events shell).
+ */
+export interface CompanyFicha {
+  cif_normalized: string | null;
+  master_id: string | null;
+  finances: FinancialAnalysis | null;
+  identity: Record<string, unknown> | null;
+  ownership: Record<string, unknown> | null;
+  governance: Record<string, unknown> | null;
+  events: Record<string, unknown> | null;
+  ranking: Record<string, unknown> | null;
+  engine_version: string;
+}

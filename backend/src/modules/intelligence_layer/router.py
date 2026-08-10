@@ -31,6 +31,7 @@ from src.modules.intelligence_layer.config import (
     IntelligenceSettings,
     get_intelligence_settings,
 )
+from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
 from src.modules.intelligence_layer.interfaces.financial import (
     FinancialAnalysis,
     FinancialNotFoundError,
@@ -501,6 +502,18 @@ class IntelligenceRouter:
             await self._call_financial(method="valuation", identifier=cif.upper())
         )
 
+    async def get_company_ficha(self, cif: str) -> CompanyFicha:
+        """`GET /company/{cif}/ficha` — agregador B-2.4 con caché + breaker + métricas.
+
+        Reutiliza el pipeline `_call_financial` (semáforo, TTL, breaker) apuntando
+        a `method="ficha"` (dispatcheado a `provider.fetch_ficha`). El payload
+        se serializa como `CompanyFicha.model_dump(mode="json")` y se rehidrata
+        vía `CompanyFicha.model_validate` al leer de caché.
+        """
+        return CompanyFicha.model_validate(
+            await self._call_financial(method="ficha", identifier=cif.upper())
+        )
+
     async def get_ratios_catalog(self) -> RatiosCatalog:
         """`GET /financial-intelligence/ratios/catalog` cacheado 24h (identifier-less)."""
         provider = self._get_financial_provider()
@@ -707,6 +720,8 @@ class IntelligenceRouter:
                     return await provider.analyze(identifier)
                 if method == "valuation":
                     return await provider.valuation(identifier)
+                if method == "ficha":
+                    return await provider.fetch_ficha(identifier)
                 raise ValueError(f"método desconocido: {method}")
 
             try:
