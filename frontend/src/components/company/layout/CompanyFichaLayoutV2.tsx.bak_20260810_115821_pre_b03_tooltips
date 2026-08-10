@@ -313,7 +313,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       {hasChart ? (
         <div className="card" style={{ marginTop: 16 }}>
           <h3><span className="k" />Evolución financiera</h3>
-          <div className="cs">Facturación y <abbr title="Beneficio antes de intereses, impuestos, depreciación y amortización.">EBITDA</abbr> · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
+          <div className="cs">Facturación y EBITDA · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
           <EvolutionChart series={evoSeries} years={evo!.years.map(String)} />
         </div>
       ) : <div style={{ marginTop: 16 }}><Pending label="Evolución financiera" /></div>}
@@ -321,7 +321,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       {k ? (
         <div className="kgrid" style={{ marginTop: 16 }}>
           <div className="kpi"><div className="l">Facturación</div><div className="v">{fmtEUR(k.revenue ?? null)}</div>{k.revenue_growth_yoy != null && <div className={`d ${k.revenue_growth_yoy >= 0 ? 'up' : 'down'}`}>{k.revenue_growth_yoy >= 0 ? '▲' : '▼'} {pctF(k.revenue_growth_yoy)} YoY</div>}</div>
-          <div className="kpi"><div className="l"><abbr title="Beneficio antes de intereses, impuestos, depreciación y amortización.">EBITDA</abbr></div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf">margen {pctF(k.ebitda_margin)}</div>}</div>
+          <div className="kpi"><div className="l">EBITDA</div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf">margen {pctF(k.ebitda_margin)}</div>}</div>
           <div className="kpi"><div className="l">Resultado neto</div><div className="v">{fmtEUR(k.net_income ?? null)}</div>{k.net_margin != null && <div className="d inf">margen {pctF(k.net_margin)}</div>}</div>
           <div className="kpi"><div className="l">Empleados</div><div className="v">{fmtNum(sz.employees_total)}</div><div className="d inf">plantilla</div></div>
         </div>
@@ -510,7 +510,7 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
         )}
         {r && (
           <div className="card">
-            <h3><span className="k" /><abbr title="Valor de la empresa: equity + deuda neta. Métrica de compra teórica.">Enterprise Value</abbr></h3>
+            <h3><span className="k" />Enterprise Value</h3>
             <div className="evrow"><span className="lb">Bajo</span><div className="evbar"><i style={{ width: `${pctOf(r.low)}%`, background: 'var(--red)' }} /></div><span className="val">{fmtEUR(r.low)}</span></div>
             <div className="evrow"><span className="lb">Medio</span><div className="evbar"><i style={{ width: `${pctOf(r.central)}%`, background: 'var(--info)' }} /></div><span className="val">{fmtEUR(r.central)}</span></div>
             <div className="evrow"><span className="lb">Alto</span><div className="evbar"><i style={{ width: `${pctOf(r.high)}%`, background: 'var(--ok)' }} /></div><span className="val">{fmtEUR(r.high)}</span></div>
@@ -727,7 +727,6 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
   return (
     <div className="afk">
       <style>{FICHA_MOCKUP_CSS}</style>
-      <style>{`abbr[title]{text-decoration:underline dotted;text-underline-offset:3px;cursor:help}`}</style>
       <div className="wrap">
         <div className="crumb">Analizar / Empresas / <b>{name}</b></div>
         <div className="chead">
