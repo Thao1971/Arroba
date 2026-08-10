@@ -17,7 +17,7 @@ import {
 import type {
   BuyerItem, FinancialAnalysis, FinancialSection, FinancialTableBlock,
   IdentitySection, RecommendationSet, SemanticSection, SignalAnalysis,
-  ValuationAnalysis, ValuationBenchmark,
+  ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 import { notify } from '@/lib/notify';
@@ -511,12 +511,7 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
     if (!raw) return fallback[i];
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   };
-  const b = valuation.benchmark
-    ?? (financialAnalysis?.valuation as { benchmark?: ValuationBenchmark | null } | null)?.benchmark
-    ?? null;
-  const methodology = valuation.methodology
-    ?? (financialAnalysis?.valuation as { methodology?: string | null } | null)?.methodology
-    ?? null;
+  const b = valuation.benchmark;
   const fmtMillions = (v: number | null | undefined): string => (v == null ? '—' : `${(v / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`);
   return (
     <section className="panel on">
@@ -581,10 +576,10 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
           </div>
         </div>
       )}
-      {methodology && (
+      {valuation.methodology && (
         <details className="method" style={{ marginTop: 16 }}>
           <summary>Metodología</summary>
-          <div className="mbody">{methodology}</div>
+          <div className="mbody">{valuation.methodology}</div>
         </details>
       )}
     </section>
