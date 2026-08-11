@@ -1,5 +1,27 @@
 # PARA INTEL · Solicitud REQ · Ampliar proyección `financial_quality` con campo `verdict`
 
+> ## ✅ RESUELTO · 2026-08-11
+>
+> Intel entregó el `verdict` **pero NO en `financial_quality`** como se pedía en este documento. Lo colocó en un **bloque paralelo `finances.assessment`** con shape ampliado:
+>
+> ```json
+> "finances.assessment": {
+>   "score": 100,
+>   "label": "Sólida",
+>   "assessment": "Calidad financiera sólida (100/100)...",
+>   "verdict": "Perfil financiero sólido y consistente; candidato atractivo para operaciones corporativas.",
+>   "strengths": [...],
+>   "weaknesses": [],
+>   "risks": []
+> }
+> ```
+>
+> Arroba consume la nueva ruta (`ficha.finances.assessment.verdict`) en el Hero card "Veredicto de ARROBA" · passthrough puro · gated. El bloque original `financial_quality` mantiene su shape (`score/assessment/strengths/weaknesses/risks`) y sigue alimentando la card "Lectura financiera de ARROBA" de la pestaña Finanzas — sin modificar. Ambos coexisten sin duplicidad funcional. **REQ cerrado.**
+>
+> Documento histórico preservado tal cual a continuación para trazabilidad.
+
+---
+
 > **Emisor**: Arroba.com (equipo de producto).
 > **Destinatario**: Equipo Intelligence Engine.
 > **Fecha**: 2026-08-11.

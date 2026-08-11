@@ -285,6 +285,12 @@ export interface FinancialAnalysisQuality {
 }
 
 export interface FinancialAnalysisAssessment {
+  score?: number | null;
+  label?: string | null;
+  /** Prosa CF cuantitativa (paridad conceptual con `financial_quality.assessment`). */
+  assessment?: string | null;
+  /** Prosa CF veredictal cualitativa · Hero card "Veredicto de ARROBA" (Intel 2026-08-11). */
+  verdict?: string | null;
   strengths?: string[];
   weaknesses?: string[];
   risks?: string[];

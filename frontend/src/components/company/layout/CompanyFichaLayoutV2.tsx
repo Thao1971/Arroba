@@ -302,6 +302,11 @@ function HeroBlock({ identity, semantic, financialAnalysis }: { identity: Identi
     || financialAnalysis?.identity?.description
     || financialAnalysis?.identity?.objeto_social
     || null;
+  // Hero "Veredicto de ARROBA" · fuente Intel `finances.assessment.verdict` (2026-08-11).
+  // R15: passthrough puro. `financial_quality` sigue alimentando la "Lectura financiera"
+  // de la pestaña Finanzas — no lo tocamos.
+  const verdictRaw = financialAnalysis?.assessment?.verdict ?? null;
+  const verdict = typeof verdictRaw === 'string' && verdictRaw.trim().length > 0 ? verdictRaw.trim() : null;
   return (
     <>
       <div className="hero">
@@ -311,9 +316,9 @@ function HeroBlock({ identity, semantic, financialAnalysis }: { identity: Identi
       </div>
       <div className="card" style={{ marginTop: 16 }}>
         <h3><span className="k" />Veredicto de ARROBA</h3>
-        {/* TODO · cablear a ficha.finances.financial_quality.verdict cuando Intel añada el campo. */}
-        {/* Referencia: /app/memory/PARA_INTEL_financial_quality_verdict.md (P2 · REQ-INTEL). */}
-        <Empty />
+        {verdict
+          ? <p data-testid="hero-verdict-value" style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'var(--n800)' }}>{verdict}</p>
+          : <Empty />}
       </div>
     </>
   );
