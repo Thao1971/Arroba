@@ -1,0 +1,20 @@
+{
+  "summary": "B-2.2 · DPD Ownership validado end-to-end. Pytest 9/9 PASS (6 pre-existentes + 3 nuevos DPD ownership) en /app/backend/tests/intelligence_layer/test_ficha_endpoint.py. Backend curl live contra localhost:8001: (a) ANON B28184687 → ownership={available:true, coverage:{shareholders_count:2}, summary:{total_shareholders:2, tier:'Control mayoritario', top1_pct:73.35}}, finances=null; grep del body 0 hits para 'SERVIER INTERNATIONAL', 'ARTS ET TECHNIQUES', 'controlling_shareholder', 'top1_name', '\"shareholders\"'. (b) AUTH (POST /api/auth/login test.arroba+neo@arroba.com + cookie arroba_session) → ownership passthrough: shareholders[2] con SERVIER INTERNATIONAL,BV pct=73.35 + ARTS ET TECHNIQUES DU PROGRES pct=26.65 (as_of_year=2024), control block completo (controlling_shareholder, top1_name, top1_pct, tier), sin 'summary', finances presente. (c) ANON B28031458 (NCR) → ownership.available:false passthrough sin transformación. Frontend UI (preview URL): ANON /es/empresa-f01/B28184687 → ownership-aggregated visible con ownership-summary-total='2', ownership-summary-tier='Control mayoritario', ownership-summary-top1-pct='73,35%', título 'Estructura accionarial y control', CTA 'Iniciar sesión' presente; 0 fugas PII en DOM hidratado (SERVIER=0, ARTS=0, controlling_shareholder=0, \"shareholders\"=0). AUTH → ownership-nominal + ownership-control-block (accionista controlador SERVIER INTERNATIONAL, BV · 73,35% · Control mayoritario) + ownership-shareholders-table con ownership-shareholder-0 (SERVIER INTERNATIONAL, BV — 73,35% — 2024) y ownership-shareholder-1 (ARTS ET TECHNIQUES DU PROGRES — 26,65% — 2024). EMPTY /es/empresa-f01/B28031458 → ownership-empty 'Información en preparación · Estructura accionarial' sin aggregated/nominal. Regresión Gobierno B-2.3: gobierno-aggregated sigue funcionando en anon con 5 role rows ES-normalizadas (Apoderado 24, Representante 24, Administrador Solidario 4, Auditor de Cuentas Conjunto 2, Auditor 1; total 55) — mejora respecto a iteration_36 donde había 7 buckets con slugs en inglés; el main agent aplicó el mapa i18n sugerido. Cero PII leak confirmado.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/intelligence_layer/test_ficha_endpoint.py",
+    "/app/test_reports/pytest/pytest_results_ficha_b22.xml",
+    "/app/test_reports/iteration_37.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (9/9 pytest + 3/3 curl)", "frontend": "100% (anon aggregated + auth nominal + empty + regresión gobierno; 0 fugas PII)"},
+  "seed_data_creation": "Ninguno. Auth vía POST /api/auth/login con test.arroba+neo@arroba.com (cookie arroba_session).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "test.arroba+neo@arroba.com / YofQgBFAo1wuC0d# (/app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "B-2.2 DPD Ownership completamente verificado con la misma arquitectura union-type que B-2.3. Contrato backend: anon → ownership={available:true, coverage, summary:{total_shareholders, tier?, top1_pct?}} SIN shareholders/control · auth → passthrough con shareholders[]+control{}+coverage SIN summary · available:false → passthrough idéntico ambos modos. Test IDs UI: ownership-empty | ownership-aggregated | ownership-nominal | ownership-shareholders-table | ownership-control-block | ownership-summary-{total|tier|top1-pct} | ownership-shareholder-{i}. Campo real Intel: 'pct' (no 'percentage'). Nombres se ocultan siempre en anon (tanto físicos como jurídicos) — política simplificada 2026-08-11 tras Fase 0 (Intel no emite 'type' y CIFs jurídicos vienen null para extranjeras). Fricción Next.js production build de iteration_36 no reapareció en este turno; bundle estaba fresh.",
+  "rca_of_the_issue": "N/A — no bugs. Todos los criterios de aceptación cumplidos."
+}

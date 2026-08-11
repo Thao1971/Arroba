@@ -17,7 +17,8 @@ import {
 import type {
   BuyerItem, CashFlowRow, CashFlowStatement, FinancialAnalysis, FinancialAnalysisRatioDetail,
   FinancialSection, FinancialTableBlock, GovernanceAggregated, GovernanceBlock, GovernanceNominal,
-  IdentitySection, RecommendationSet, SemanticSection, SignalAnalysis, ValuationAnalysis,
+  IdentitySection, OwnershipAggregated, OwnershipBlock, OwnershipNominal,
+  RecommendationSet, SemanticSection, SignalAnalysis, ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 import { notify } from '@/lib/notify';
@@ -42,6 +43,15 @@ export interface CompanyFichaLayoutV2Props {
    * El frontend NUNCA transforma. Solo renderiza el shape recibido.
    */
   governance?: GovernanceBlock | null;
+  /**
+   * B-2.2 · Bloque `ownership` del agregador `/ficha`. Union type discriminado:
+   *   - Autenticado con datos → shape nominal (shareholders[] + control).
+   *   - Anónimo con datos → shape agregado DPD (summary{total_shareholders,tier?,top1_pct?}).
+   *   - `available:false` → passthrough para ambos.
+   * El backend garantiza que el usuario anónimo NUNCA recibe nombres ni
+   * porcentajes individuales. Cero heurística de clasificación jurídica/física.
+   */
+  ownership?: OwnershipBlock | null;
   /** false = visitante anónimo (mixed-access): cifras bajo CTA de registro. */
   authenticated?: boolean;
 }
@@ -56,7 +66,7 @@ const NAV: NavItem[] = [
   { id: 'resumen', label: 'Resumen', icon: LayoutGrid, ready: true, grp: 'Perfil' },
   { id: 'finanzas', label: 'Finanzas', icon: Euro, ready: true, grp: 'Perfil' },
   { id: 'valoracion', label: 'Valoración', icon: Coins, ready: true, grp: 'Perfil' },
-  { id: 'propiedad', label: 'Propiedad', icon: Network, ready: false, grp: 'Perfil' },
+  { id: 'propiedad', label: 'Propiedad', icon: Network, ready: true, grp: 'Perfil' },
   { id: 'gobierno', label: 'Gobierno', icon: Users, ready: true, grp: 'Perfil' },
   { id: 'mercado', label: 'Mercado', icon: BarChart3, ready: false, grp: 'Perfil' },
   { id: 'rankings', label: 'Rankings', icon: Target, ready: false, grp: 'Perfil' },
@@ -1024,6 +1034,143 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   );
 }
 
+/* ============================ PROPIEDAD (Ownership) ============================ */
+/**
+ * B-2.2 · Estructura accionarial y control.
+ * Union type discriminado desde backend (DPD política simplificada 2026-08-11):
+ *   - `available:false` o null → <Empty/> Corporate Finance.
+ *   - `summary` presente (anónimo) → bloque agregado no identificativo (sin nombres).
+ *   - `shareholders` presente (autenticado) → tabla nominal + control block.
+ * R11 (Frontend Freeze) + R15 (cero derivación).
+ */
+function isOwnershipNominal(o: OwnershipBlock): o is OwnershipNominal {
+  return o.available === true && Array.isArray((o as OwnershipNominal).shareholders);
+}
+function isOwnershipAggregated(o: OwnershipBlock): o is OwnershipAggregated {
+  return o.available === true && typeof (o as OwnershipAggregated).summary === 'object'
+    && typeof (o as OwnershipAggregated).summary?.total_shareholders === 'number';
+}
+function fmtPct(v: number | null | undefined): string {
+  if (v === null || v === undefined) return '—';
+  return `${v.toLocaleString('es-ES', { maximumFractionDigits: 2 })}%`;
+}
+function Propiedad({ ownership }: { ownership?: OwnershipBlock | null }) {
+  if (!ownership || ownership.available !== true) {
+    return (
+      <section className="panel on" data-testid="ownership-empty">
+        <div className="sec-h">Estructura accionarial y control</div>
+        <div className="sec-s">Accionariado y estructura de control según fuentes registrales.</div>
+        <Empty label="Estructura accionarial" />
+      </section>
+    );
+  }
+  if (isOwnershipAggregated(ownership)) {
+    const s = ownership.summary;
+    return (
+      <section className="panel on" data-testid="ownership-aggregated">
+        <div className="sec-h">Estructura accionarial y control</div>
+        <div className="sec-s">Accionariado y estructura de control según fuentes registrales.</div>
+        <div className="card">
+          <h3><span className="k" />Vista agregada</h3>
+          <div className="cs">Datos no identificativos · el detalle nominal se muestra a usuarios registrados</div>
+          <div className="idrow" data-testid="ownership-summary-total">
+            <span className="k">Accionistas registrados</span>
+            <span className="v"><b>{fmtNum(s.total_shareholders)}</b></span>
+          </div>
+          {s.tier && (
+            <div className="idrow" data-testid="ownership-summary-tier">
+              <span className="k">Estructura de control</span>
+              <span className="v"><b>{s.tier}</b></span>
+            </div>
+          )}
+          {s.top1_pct != null && (
+            <div className="idrow" data-testid="ownership-summary-top1-pct">
+              <span className="k">Participación del accionista mayoritario</span>
+              <span className="v"><b>{fmtPct(s.top1_pct)}</b></span>
+            </div>
+          )}
+          <div className="cs" style={{ marginTop: 12, fontStyle: 'italic' }}>
+            <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
+            <a href="/es/login" style={{ color: 'var(--red)', fontWeight: 600, textDecoration: 'none' }}>
+              Iniciar sesión
+            </a> para ver el detalle nominal completo.
+          </div>
+        </div>
+      </section>
+    );
+  }
+  if (isOwnershipNominal(ownership)) {
+    const shs = [...ownership.shareholders].sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+    const ctrl = ownership.control ?? null;
+    return (
+      <section className="panel on" data-testid="ownership-nominal">
+        <div className="sec-h">Estructura accionarial y control</div>
+        <div className="sec-s">Accionariado y estructura de control según fuentes registrales.</div>
+        {ctrl && (ctrl.top1_name || ctrl.tier || ctrl.controlling_shareholder) && (
+          <div className="card" data-testid="ownership-control-block">
+            <h3><span className="k" />Control</h3>
+            <div className="cs">Vector principal de control según el último ejercicio disponible</div>
+            {ctrl.controlling_shareholder && (
+              <div className="idrow">
+                <span className="k">Accionista controlador</span>
+                <span className="v"><b>{ctrl.controlling_shareholder}</b></span>
+              </div>
+            )}
+            {ctrl.top1_name && ctrl.top1_name !== ctrl.controlling_shareholder && (
+              <div className="idrow">
+                <span className="k">Accionista mayoritario</span>
+                <span className="v"><b>{ctrl.top1_name}</b></span>
+              </div>
+            )}
+            {ctrl.top1_pct != null && (
+              <div className="idrow">
+                <span className="k">Participación mayoritaria</span>
+                <span className="v"><b>{fmtPct(ctrl.top1_pct)}</b></span>
+              </div>
+            )}
+            {ctrl.tier && (
+              <div className="idrow">
+                <span className="k">Nivel de control</span>
+                <span className="v"><b>{ctrl.tier}</b></span>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3><span className="k" />Accionistas</h3>
+          <div className="cs">{shs.length} accionista{shs.length === 1 ? '' : 's'} registrado{shs.length === 1 ? '' : 's'} · ordenados por participación descendente</div>
+          {shs.length > 0 ? (
+            <table className="rec" data-testid="ownership-shareholders-table">
+              <tbody>
+                <tr>
+                  <th>Nombre</th>
+                  <th>CIF/NIF</th>
+                  <th style={{ textAlign: 'right' }}>Participación</th>
+                  <th style={{ textAlign: 'right' }}>Ejercicio</th>
+                </tr>
+                {shs.map((sh, i) => (
+                  <tr key={`${sh.name}-${i}`} data-testid={`ownership-shareholder-${i}`}>
+                    <td>{sh.name || '—'}</td>
+                    <td>{sh.cif || '—'}</td>
+                    <td style={{ textAlign: 'right' }}>{fmtPct(sh.pct)}</td>
+                    <td style={{ textAlign: 'right' }}>{sh.as_of_year != null ? String(sh.as_of_year) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <Empty label="Accionistas" />}
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="panel on" data-testid="ownership-unknown">
+      <div className="sec-h">Estructura accionarial y control</div>
+      <Empty label="Estructura accionarial" />
+    </section>
+  );
+}
+
 /* ============================ GOBIERNO ============================ */
 /**
  * B-2.3 · Órgano de administración.
@@ -1287,7 +1434,8 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
               ? <section className="panel on"><div className="sec-h">Oportunidades</div><Gate what="las oportunidades" /></section>
               : <Oportunidades opportunities={props.opportunities} />)}
             {active === 'gobierno' && <Gobierno governance={props.governance} />}
-            {['propiedad', 'mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
+            {active === 'propiedad' && <Propiedad ownership={props.ownership} />}
+            {['mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
               <section className="panel on">
                 <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>
                 <Pending label={NAV.find((n) => n.id === active)?.label ?? active} />

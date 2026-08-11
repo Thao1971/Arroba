@@ -270,6 +270,7 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
       buyers={buyers ?? null}
       opportunities={opportunities ?? null}
       governance={ficha?.governance ?? null}
+      ownership={ficha?.ownership ?? null}
       authenticated={isAuthenticated}
     />
   );

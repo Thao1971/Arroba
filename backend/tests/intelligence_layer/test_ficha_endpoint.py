@@ -309,3 +309,155 @@ async def test_ficha_governance_dpd_available_false_passthrough_both_modes(
     assert r_auth.status_code == 200, r_auth.text
     gov_auth = r_auth.json()["governance"]
     assert gov_auth == unavailable_gov, f"passthrough auth rompe shape: {gov_auth}"
+
+# ================================================================
+# B-2.2 · DPD backend Ownership (2026-08-11)
+# Anonymous aggregation (sin nombres) · Auth passthrough · available:false passthrough.
+# ================================================================
+
+
+def _fake_ownership_nominal() -> dict:
+    """Payload nominal Intel para Servier (`B28184687`) autenticado."""
+    return {
+        "identifier": "B28184687",
+        "cif": "B28184687",
+        "available": True,
+        "shareholders": [
+            {"name": "SERVIER INTERNATIONAL, BV", "cif": None, "pct": 73.35, "as_of_year": 2024},
+            {"name": "ARTS ET TECHNIQUES DU PROGRES", "cif": None, "pct": 26.65, "as_of_year": 2024},
+        ],
+        "control": {
+            "controlling_shareholder": "SERVIER INTERNATIONAL, BV",
+            "top1_pct": 73.35,
+            "top1_name": "SERVIER INTERNATIONAL, BV",
+            "tier": "Control mayoritario",
+        },
+        "coverage": {"shareholders_count": 2},
+        "engine_version": "arroba-company-ficha-v1",
+    }
+
+
+def _fake_ficha_with_ownership(ownership: dict | None):
+    """CompanyFicha stub con ownership parametrizado."""
+    from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
+    from src.modules.intelligence_layer.interfaces.financial import FinancialAnalysis
+    return CompanyFicha(
+        cif_normalized="B28184687",
+        master_id="mc_ownership_test",
+        finances=FinancialAnalysis(cif_normalized="B28184687", has_financials=True),
+        identity={"cif": "B28184687", "legal_name": "SERVIER TEST SA"},
+        ownership=ownership,
+        governance={"available": False},
+        events={"available": False},
+        ranking=None,
+        engine_version="arroba-ficha-v1",
+    )
+
+
+@pytest.mark.asyncio
+async def test_ficha_ownership_dpd_anonymous_hides_all_names(client: AsyncClient):
+    """B-2.2 · Anónimo NO recibe nombres (ni físicos ni jurídicos) · sí `summary`.
+
+    Regla DPD simplificada (2026-08-11): sin discriminación tipo → todos los
+    nombres ocultos en anónimo. Solo `total_shareholders` + `tier` (opcional)
+    + `top1_pct` (opcional, sin nombre).
+    """
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_ownership(_fake_ownership_nominal())
+    )
+
+    r = await client.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    own = body["ownership"]
+    assert own is not None
+    assert own["available"] is True
+    # PII: la clave `shareholders` NO existe en modo anónimo.
+    assert "shareholders" not in own, f"PII leak · shareholders present in anon: {own}"
+    # `control` completo NO existe (contiene top1_name / controlling_shareholder).
+    assert "control" not in own, f"PII leak · control block present: {own}"
+    # `summary` presente con los campos permitidos.
+    assert "summary" in own
+    s = own["summary"]
+    assert s["total_shareholders"] == 2
+    assert s["tier"] == "Control mayoritario"
+    assert s["top1_pct"] == 73.35
+    # No debe emitir top1_name / controlling_shareholder ni nombres.
+    assert "top1_name" not in s
+    assert "controlling_shareholder" not in s
+    # `coverage` original preservado.
+    assert own["coverage"] == {"shareholders_count": 2}
+    # `finances` gated para anónimo (mixed-access baseline).
+    assert body["finances"] is None
+    # Adicional grep de fuga · ningún nombre de accionista en el body.
+    raw = r.text
+    for name_fragment in ("SERVIER INTERNATIONAL", "ARTS ET TECHNIQUES", "controlling_shareholder"):
+        assert name_fragment not in raw, f"PII leak in serialized body: {name_fragment}"
+
+
+@pytest.mark.asyncio
+async def test_ficha_ownership_dpd_auth_passthrough_with_shareholders(alice: AsyncClient):
+    """B-2.2 · Autenticado recibe passthrough completo · shareholders + control intactos."""
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_ownership(_fake_ownership_nominal())
+    )
+
+    r = await alice.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    own = body["ownership"]
+    assert own is not None
+    assert own["available"] is True
+    # PII intacta para autenticado.
+    assert "shareholders" in own
+    shs = own["shareholders"]
+    assert len(shs) == 2
+    assert shs[0]["name"] == "SERVIER INTERNATIONAL, BV"
+    assert shs[0]["pct"] == 73.35
+    # `control` block completo.
+    assert "control" in own
+    ctrl = own["control"]
+    assert ctrl["top1_name"] == "SERVIER INTERNATIONAL, BV"
+    assert ctrl["controlling_shareholder"] == "SERVIER INTERNATIONAL, BV"
+    assert ctrl["tier"] == "Control mayoritario"
+    # NO se emite `summary` en modo autenticado.
+    assert "summary" not in own
+    # `finances` NO nullificado.
+    assert body["finances"] is not None
+
+
+@pytest.mark.asyncio
+async def test_ficha_ownership_dpd_available_false_passthrough_both_modes(
+    client: AsyncClient, alice: AsyncClient
+):
+    """B-2.2 · `ownership.available:false` → passthrough idéntico anon y auth."""
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    unavailable_own = {
+        "identifier": "B00000002",
+        "cif": "B00000002",
+        "available": False,
+        "engine_version": "arroba-company-ficha-v1",
+    }
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_ownership(unavailable_own)
+    )
+    r_anon = await client.get("/api/companies/B00000002/ficha")
+    assert r_anon.status_code == 200, r_anon.text
+    assert r_anon.json()["ownership"] == unavailable_own
+
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_ownership(unavailable_own)
+    )
+    r_auth = await alice.get("/api/companies/B00000002/ficha")
+    assert r_auth.status_code == 200, r_auth.text
+    assert r_auth.json()["ownership"] == unavailable_own
+

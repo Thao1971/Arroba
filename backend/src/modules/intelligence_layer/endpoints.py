@@ -287,15 +287,17 @@ async def get_company_ficha(
     """Agrega en una sola llamada `identity + finances + ownership + governance + events + ranking`.
 
     Mixed-access:
-      * Anónimo: devuelve `identity`, `ownership`, `governance` (**agregado sin
-        PII**), `events`, `ranking`; `finances` se nullifica (secciones con
-        cifras siguen gated bajo `<Gate>`).
-      * Autenticado: payload completo, `governance.officers` con nombres nominales.
+      * Anónimo: devuelve `identity`, `ownership` (**agregado sin nombres**),
+        `governance` (**agregado sin PII**), `events`, `ranking`; `finances` se
+        nullifica (secciones con cifras siguen gated bajo `<Gate>`).
+      * Autenticado: payload completo, con `ownership.shareholders[]` nominales
+        y `governance.officers[]` con nombres.
 
-    B-2.3 · DPD backend (2026-08-11): la anonimización de `governance` se hace
-    en `_anonymize_governance()` **antes** de responder. El frontend anónimo
-    NUNCA recibe la clave `officers`; sólo un `summary` agregado con contadores
-    por `role`. Ver R15 + DPD en `ARROBA_ARCHITECTURAL_PRINCIPLES.md`.
+    B-2.3 · DPD backend governance (2026-08-11): `_anonymize_governance()`
+    elimina `officers` y emite `summary{total, roles[]}`. B-2.2 · DPD backend
+    ownership (2026-08-11): `_anonymize_ownership()` elimina TODOS los nombres
+    (físicos y jurídicos) y emite `summary{total_shareholders, tier?, top1_pct?}`.
+    R15 + DPD estrictos.
 
     Reduce el waterfall SWR frontend de 5 llamadas Arroba→Intel a 1 (cf.
     `PARA_BETA_B24_FICHA_SHAPE.md`). Endpoints legacy por sección permanecen
@@ -360,12 +362,15 @@ async def get_company_ficha(
 
     if user is None:
         # Mixed-access: bloque gated (`finances`) se nullifica para visitante
-        # anónimo. Además, `governance` se anonimiza (DPD · B-2.3): se elimina
-        # la lista nominal `officers` y se emite un `summary` agregado por rol.
+        # anónimo. Además, `governance` y `ownership` se anonimizan (DPD ·
+        # B-2.3 / B-2.2): governance elimina la lista nominal `officers`;
+        # ownership elimina todos los nombres (físicos y jurídicos) y sólo
+        # emite un `summary` no identificativo. Ver R15 + DPD.
         ficha = ficha.model_copy(
             update={
                 "finances": None,
                 "governance": _anonymize_governance(ficha.governance),
+                "ownership": _anonymize_ownership(ficha.ownership),
             }
         )
 
@@ -374,6 +379,73 @@ async def get_company_ficha(
     response.headers["X-Provider"] = router._get_financial_provider().provider_name
     response.headers["X-Ficha-Source"] = ficha_source
     return ficha
+
+
+def _anonymize_ownership(ownership: dict | None) -> dict | None:
+    """B-2.2 · DPD backend · agrega el bloque `ownership` para usuario anónimo.
+
+    Política canónica aprobada (2026-08-11, tras Fase 0 sobre Servier):
+      * Si `ownership` es `None` o no es dict → passthrough.
+      * Si `available` no es `True` → passthrough del bloque tal cual.
+      * Si `available:true` → devuelve un shape agregado NO identificativo,
+        SIN nombres (ni físicos ni jurídicos), SIN cifs individuales, SIN pcts
+        individuales:
+          {
+            "available": True,
+            "coverage": <coverage passthrough>,
+            "summary": {
+              "total_shareholders": <N>,
+              "tier":     <control.tier passthrough, si viene>,     # opcional
+              "top1_pct": <control.top1_pct passthrough, si viene>  # opcional (sin nombre)
+            }
+          }
+
+    Cero heurística de clasificación jurídica/física (descartada por Fase 0:
+    Intel no emite `type` explícito y los CIF llegan `null` para sociedades
+    extranjeras, haciendo la heurística por CIF/nombre poco fiable).
+
+    HARDENING-010: contrato Pydantic `CompanyFicha.ownership` permanece como
+    `dict | None` passthrough. La discriminación de shape entre autenticado
+    (`shareholders`) y anónimo (`summary`) queda a cargo del consumidor
+    (frontend usa union type discriminado).
+    """
+    if ownership is None or not isinstance(ownership, dict):
+        return ownership
+    if ownership.get("available") is not True:
+        return ownership
+
+    shareholders_raw = ownership.get("shareholders")
+    shareholders: list[dict] = (
+        [sh for sh in shareholders_raw if isinstance(sh, dict)]
+        if isinstance(shareholders_raw, list)
+        else []
+    )
+    coverage = ownership.get("coverage") if isinstance(ownership.get("coverage"), dict) else None
+    coverage_count = None
+    if coverage is not None:
+        sc = coverage.get("shareholders_count")
+        if isinstance(sc, int):
+            coverage_count = sc
+    total = coverage_count if coverage_count is not None else len(shareholders)
+
+    summary: dict = {"total_shareholders": total}
+    control = ownership.get("control") if isinstance(ownership.get("control"), dict) else None
+    if control is not None:
+        # `tier` es una etiqueta descriptiva no identificativa (p. ej. "Control
+        # mayoritario", "Control conjunto") · seguro para anónimo.
+        tier = control.get("tier")
+        if isinstance(tier, str) and tier.strip():
+            summary["tier"] = tier.strip()
+        # `top1_pct` es una cifra sin nombre asociado · seguro para anónimo.
+        top1_pct = control.get("top1_pct")
+        if isinstance(top1_pct, (int, float)):
+            summary["top1_pct"] = top1_pct
+
+    return {
+        "available": True,
+        "coverage": coverage,
+        "summary": summary,
+    }
 
 
 def _anonymize_governance(governance: dict | None) -> dict | None:

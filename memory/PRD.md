@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-08-11 — **🟢 B-2.3 · Gobierno con DPD backend · CERRADO**. `_anonymize_governance()` agrega la lista `officers` a un `summary{total, roles[]}` con mapa i18n ES para usuarios anónimos; passthrough completo para autenticados. UI sección "Gobierno" cableada en `CompanyFichaLayoutV2.tsx` con 3 estados (aggregated / nominal / empty). Cero PII en DOM anónimo confirmado. Pytest 6/6 (3 nuevos B-2.3) · Vitest 200/200 · testing_agent iteration_36 100%.
+> **Última actualización**: 2026-08-11 — **🟢 B-2.2 Ownership + B-2.3 Governance con DPD backend · CERRADOS**. Ambos bloques del agregador `/company/{cif}/ficha` implementan Data Protection Directive: usuario anónimo recibe `summary` agregado sin PII, autenticado recibe passthrough nominal. Cero fugas confirmadas E2E. Pytest 9/9 · Vitest 200/200 · testing_agent iter_37 100%.
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 
@@ -8,36 +8,41 @@
 
 ## 🟢 Estado activo · 2026-08-11
 
-**B-2.3 · Gobierno con DPD backend · ✅ CERRADO** (2026-08-11).
-- Backend `_anonymize_governance()` en `/app/backend/src/modules/intelligence_layer/endpoints.py`:
-  - `available:true` + anónimo → `{available:true, coverage, summary:{total, roles:[{role, role_label, count}]}}` con mapa i18n ES (`_GOVERNANCE_ROLE_ES`) que consolida sinónimos EN/ES (`Joint And Several Director` → `Administrador Solidario`, `Representative` → `Representante`, etc.) bajo el mismo bucket.
-  - `available:true` + autenticado → passthrough nominal (`officers[]` con `name/role/since/year`).
-  - `available:false` → passthrough tal cual (branch R15).
-  - Ordenación determinista: `count` desc, luego `role_label` asc.
+**B-2.2 · Ownership con DPD backend · ✅ CERRADO** (2026-08-11).
+- Backend `_anonymize_ownership()` en `endpoints.py`:
+  - `available:true` + anónimo → `{available:true, coverage, summary:{total_shareholders, tier?, top1_pct?}}` **sin nombres, sin cifs individuales, sin pcts individuales** — política simplificada aprobada tras Fase 0.
+  - `available:true` + autenticado → passthrough nominal (`shareholders[]` + `control{}`).
+  - `available:false` → passthrough para ambos.
+  - Sin heurística jurídica/física (Intel no emite `shareholder.type` y CIFs vienen null para sociedades extranjeras).
 - Frontend `CompanyFichaLayoutV2.tsx`:
-  - Prop `governance: GovernanceBlock | null` (union type discriminado `GovernanceNominal | GovernanceAggregated | GovernanceUnavailable`).
-  - Componente `Gobierno` con 3 ramas UI + testids `gobierno-empty | gobierno-aggregated | gobierno-nominal | gobierno-roles-table | gobierno-officers-table | gobierno-role-{slug} | gobierno-officer-{i}`.
-  - NAV item `gobierno` marcado `ready:true`.
-- Verificación E2E (testing_agent iter_36 · 100%): curl anon (55 personas → 5 roles ES) sin fugas · curl auth (55 officers nominales) · Playwright anon + auth UI validados · grep DOM `"officers"`=0 en anon · pytest 6/6 (3 pre-existentes + 3 nuevos DPD).
+  - Prop `ownership: OwnershipBlock | null` (union type `OwnershipNominal | OwnershipAggregated | OwnershipUnavailable`).
+  - Componente `Propiedad` con título CF **"Estructura accionarial y control"** + 3 ramas UI + testids `ownership-{empty|aggregated|nominal|shareholders-table|control-block|summary-*|shareholder-*}`.
+  - NAV `propiedad` marcado `ready:true`.
+  - Corrección crítica: campo Intel real es `pct` (no `percentage`).
+- Verificación E2E (testing_agent iter_37 · 100%): pytest 9/9 · curl anon Servier con 0 hits de nombres · curl auth Servier con 2 shareholders + control block · UI empty NCR limpia · regresión Gobierno intacta.
+
+**B-2.3 · Governance con DPD backend · ✅ CERRADO** (2026-08-11).
+- Backend `_anonymize_governance()`: `available:true` anon → `summary{total, roles[{role, role_label, count}]}` con mapa i18n `_GOVERNANCE_ROLE_ES` (Joint And Several Director → Administrador Solidario, Representative → Representante).
+- Frontend componente `Gobierno` union-discriminated con testids `gobierno-{empty|aggregated|nominal|roles-table|officers-table|role-*|officer-*}`.
+- Verificación: pytest 6/6 · testing_agent iter_36 100% · UI anon 5 roles ES · UI auth 55 officers.
 
 **Sprint F0.3 · Valoración · ENTREGABLE MÍNIMO COMPLETADO** (2026-07-13).
 - Endpoint canónico: `POST /api/v1/financial-intelligence/valuation` proxied via `GET /api/companies/{cif}/valuation` (contrato `arroba-valuation-v1`).
 - COMP-4001..4007 implementados. COMP-4001..4004 READY · COMP-4006 DEGRADED · COMP-4005/4007 BLOCKED BY DATA.
-- URL preview: `/es/empresa-f01/A87803862` → sidebar Valoración.
-- Entregable: `sources/empresa_v1/F0_3_DELIVERABLE.md`.
 
-**Sprint F0.2 · Finanzas · ✅ APROBADO** · Cash Flow BLOCKED BY DATA · Balance multi-año pendiente de motor.
+**Sprint F0.2 · Finanzas · ✅ APROBADO**.
 
-**Backlog priorizado (2026-08-11)**:
-- **P0** B-2.2 Ownership (misma lógica DPD aggregation en backend, shape análogo con `shareholders[]` → summary).
-- **P1** Events shell (`<Empty/>` state, hoy `available=false`).
+**Backlog priorizado (2026-08-11 · post B-2.2)**:
+- **P1** Events shell (`<Empty/>` state para `events.available:false`; hoy sección oculta).
+- **P1** Item 6 · Identificación ampliada (mapear 34 campos nuevos del agregador Intel).
 - **P1** Item 6 · Deuda desglosada (esperando datos Intel).
-- **P1** Item 6 · Identificación ampliada (mapear 34 campos nuevos).
+- **DEPLOY único** post-Events+Item6 (acumular junto con B-2.2 y B-2.3 para push a prod).
+- **Verificación pendiente usuario** — Prod deploy env vars sync (`_KEY_ONETIME.txt` sigue vivo).
 - **P2** control-synergy (bloqueado por `buyers.count=0`).
 - **P2** HARDENING-004 (TTL automático caché Mongo).
-- **P2** HARDENING-002 (31 pytests backend fallando por env coupling — despriorizado).
-- **P2** Retirada fallback `identity.description` (bloqueado, cobertura Intel 1/6).
-- **Verificación pendiente usuario** — Prod deploy env vars sync (`_KEY_ONETIME.txt` sigue vivo).
+- **P2** HARDENING-002 (31 pytests backend con env coupling · despriorizado).
+- **P2** Retirada fallback `identity.description` (cobertura Intel 1/6).
+- **P3** Solicitar a Intel `shareholder.type ∈ {legal, individual}` explícito para habilitar futura discriminación de PII en anon con menor pérdida de valor CF.
 
 **Sprint F0.4..F0.12** continúan pendientes por precedencia normal.
 

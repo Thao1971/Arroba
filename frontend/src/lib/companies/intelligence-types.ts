@@ -706,12 +706,81 @@ export interface GovernanceUnavailable {
 
 export type GovernanceBlock = GovernanceNominal | GovernanceAggregated | GovernanceUnavailable;
 
+/* ============================================================
+ * OwnershipBlock (B-2.2 · DPD backend · 2026-08-11)
+ * ============================================================
+ * Shape del bloque `ownership` del agregador. Union discriminado:
+ *
+ *   1) Autenticado con datos → shape nominal Intel:
+ *      {
+ *        available: true,
+ *        shareholders: [{name, cif, pct, as_of_year}, ...],
+ *        control: {controlling_shareholder, top1_pct, top1_name, tier},
+ *        coverage: {shareholders_count},
+ *        ...
+ *      }
+ *      Campo real es `pct` (NO `percentage`) — Fase 0 Servier confirmada.
+ *
+ *   2) Anónimo con datos → shape agregado DPD (sin nombres):
+ *      {
+ *        available: true,
+ *        coverage,
+ *        summary: {total_shareholders, tier?, top1_pct?}
+ *      }
+ *      Cero nombres (físicos y jurídicos), cero cifs individuales, cero pcts
+ *      individuales. Política simplificada aprobada 2026-08-11.
+ *
+ *   3) available:false → passthrough para ambos.
+ */
+
+export interface OwnershipShareholder {
+  name: string;
+  cif: string | null;
+  pct: number | null;
+  as_of_year: number | null;
+}
+
+export interface OwnershipControl {
+  controlling_shareholder: string | null;
+  top1_pct: number | null;
+  top1_name: string | null;
+  tier: string | null;
+}
+
+export interface OwnershipNominal {
+  available: true;
+  shareholders: OwnershipShareholder[];
+  control?: OwnershipControl | null;
+  coverage?: { shareholders_count?: number } | null;
+  engine_version?: string;
+  [key: string]: unknown;
+}
+
+export interface OwnershipAggregated {
+  available: true;
+  summary: {
+    total_shareholders: number;
+    tier?: string | null;
+    top1_pct?: number | null;
+  };
+  coverage?: { shareholders_count?: number } | null;
+  [key: string]: unknown;
+}
+
+export interface OwnershipUnavailable {
+  available: false;
+  engine_version?: string;
+  [key: string]: unknown;
+}
+
+export type OwnershipBlock = OwnershipNominal | OwnershipAggregated | OwnershipUnavailable;
+
 export interface CompanyFicha {
   cif_normalized: string | null;
   master_id: string | null;
   finances: FinancialAnalysis | null;
   identity: Record<string, unknown> | null;
-  ownership: Record<string, unknown> | null;
+  ownership: OwnershipBlock | null;
   governance: GovernanceBlock | null;
   events: Record<string, unknown> | null;
   ranking: Record<string, unknown> | null;
