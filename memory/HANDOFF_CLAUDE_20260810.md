@@ -1,601 +1,404 @@
 # HANDOFF · Contexto consolidado para agente sucesor (Claude)
 
-## 0. Metadata
+## §0. Metadata
 
-- **Fecha de generación**: 2026-08-10 (Europe/Madrid).
-- **Autor (agente)**: E1 · Emergent Labs (sesión post-Turno D).
-- **Versión del documento**: 1.0.
-- **Documentos consolidados y supersedidos**:
-  - Supersede `PLAN_BETA_ficha_HANDOFF.md` (handoff previo, sesión anterior).
-  - Consolida `PLAN_BETA_status_20260810.md`, `INTEL_PAYLOAD_INCOHERENCIAS.md`, `PARA_BETA_B24_FICHA_SHAPE.md`, `PARA_BETA_TURNO_D_MULTICIF.md`, `PARA_BETA_B2_FASE0_AUDIT.md`, `PARA_INTEL_CIFs_muestra.md`. Estos siguen vigentes como fuente de detalle.
-- **Rama Git activa**: `170426` (branch id emitido por el runtime del pod; ramas humanas no expuestas en el entorno preview · pendiente de confirmación sobre nombre convencional en repositorio origen).
-- **Entorno**:
-  - Preview URL: `https://musing-hellman-9.preview.emergentagent.com` (fresh, sincronizado con esta sesión).
-  - Producción: `beta.arroba.com` (desactualizada respecto al preview desde la sesión anterior + esta).
+- **Versión**: 2026-08-11 · **supersede** todas las anteriores incluida `PLAN_BETA_ficha_HANDOFF.md`.
+- **Autor**: main agent E1 (Emergent) · sesión con user real product owner de arroba.com.
+- **Contexto**: arroba.com actúa como proxy + intelligence layer sobre el motor externo Intel Agency Tool. FastAPI backend + Next.js frontend (App Router) + Mongo caché. Deploy real activo en `beta.arroba.com`.
+- **Idioma canónico**: español Corporate Finance (todos los copy UI y toda la comunicación del agente).
+- **Alcance del handoff**: continuidad completa para un agente sucesor.
 
 ---
 
-## 1. Resumen ejecutivo
+## §1. Resumen ejecutivo
 
-- **Fase B-0** completa: nomenclatura Corporate Finance, estados homogéneos (`Empty`, `Pending`, `SectionError`, `Skeleton`), glosas financieras (`<abbr>` tooltips).
-- **Fase B-1** al 83 % (5/6): Hero + Veredicto placeholder, Header handlers, Valoración v2, 9 Ratios ▲▼, KPIs 2.ª fila. Pendiente Item 6 (Identificación ampliada) por falta de datos Intel.
-- **B-2.1 · Rankings + 2.ª fila KPIs** DONE con `HARDENING-003` (passthrough `ranking` en `FinancialAnalysis`).
-- **B-2.5 · Estado de flujos de efectivo** DONE con `HARDENING-005` (passthrough `cash_flow`) + bridging Cash Conversion.
-- **B-2.4 · Refactor agregador `/company/{cif}/ficha`** DONE con `HARDENING-006` (contrato `arroba-ficha-v1` en backend + adapter en frontend). Waterfall SWR frontend **8 → 7**.
-- **Turno D · Batería diagnóstica multi-CIF** (6 CIFs) DONE. Hallazgos operativos, ninguna regresión.
-- **Bundle post-D** DONE con `HARDENING-007` (passthrough enriquecido de `SignalItem`): (1) retirada del fallback `valuation.benchmark/methodology` (waterfall **7 → 6**); (2) sección Señales enriquecida (`explanation`, `evidence`, `dimensions`, `rule`); (3) fix R15 en Ratios (bridging × 100 a rentabilidad, mismo patrón que Cash Conversion).
-- **Verificación testing_agent** del bundle post-D: 100 % PASS (13/13 subchecks; iteration_35.json).
-- **Estado global del proyecto**: capa B-2 (Fase 0 auditoría + Rankings + Cash Flow + Refactor agregador + Turno D + Bundle post-D) cerrada; Ownership / Governance / Events / Item 6 esperan cableado UI o datos Intel.
-- **Riesgo principal vivo**: dependencia de Intel para poblar `cash_flow`, `current_ratio`, `is_listed`, `identity.description` y desglose de deuda en 5/6 CIFs no-Servier; sin más datos, la UI degrada correctamente a `<Empty/>` pero el valor percibido para catálogo general es limitado.
+- **Lote B-2 CERRADO 12/12** (Rankings, Ownership DPD, Governance DPD, Refactor agregador, Cash Flow bridging, Events shell, Identificación ampliada, Estructura de deuda, Signals enriquecidos, Fix R15 ratios, HARDENING-008 fallback, REQ-INTEL shareholder.type).
+- **Hero Verdict cableado** post-B-2 · ruta `finances.assessment.verdict` (Intel resolvió el REQ vía bloque paralelo).
+- **REQ-INTEL Market** emitido P2 · bloquea implementación sección Mercado hasta que Intel entregue `finances.market` pre-cruzado.
+- **Prod desplegado** en `beta.arroba.com` (usuario ejecutó vía panel Emergent entre turnos). Estado **PARTIAL**: path crítico sano, 3 anomalías residuales aparcadas (ver `DEPLOY_PROD_20260810.md`).
+- **Testing**: pytest backend 9/9 PASS · vitest frontend 200/200 PASS · testing_agent iter_36/37/38 100%.
 
 ---
 
-## 2. Reglas vigentes que Claude debe respetar
+## §2. Reglas vigentes que Claude debe respetar
 
-- **R4 / R10 · Null → `<Empty/>`, nunca inventar**. Si un subcampo no llega, se degrada; nunca se rellena con placeholder textual ni con "N/A".
-- **R11 · Frontend UI freeze salvo cambios acotados y verificados**. Toda intervención UI requiere aprobación explícita del usuario y testing agent tras implementar.
-- **R13 · Source of truth única**: `CompanyFichaLayoutV2.tsx` es el layout activo de la Ficha F01. Ficheros `.bak_*` son legacy no consumido; no reutilizar.
-- **R15 · Datos reales o `<Empty/>`**. Cero prosa sintética. Cero cálculo derivado en frontend. Cualquier transformación de escala (bridging) debe ser acotada, documentada en `INTEL_PAYLOAD_INCOHERENCIAS.md` y retirable cuando Intel armonice el contrato.
-- **Zero Coupling**: el backend Arroba absorbe cualquier diferencia del proveedor Intel. Los contratos internos son `arroba-*-v1` (financial, valuation, identity, semantic, signal, recommendation, ficha). El frontend nunca consume payloads raw de Intel.
-- **Mixed-access** implementado en `/api/companies/{cif}/ficha`: anónimo recibe `finances=None` y sigue viendo `identity`, `ownership`, `governance`, `events`, `ranking`. Autenticado recibe payload completo. Igual criterio para los endpoints por sección.
-- **Política DPD** (Datos Personales Directos): pendiente aplicar al cablear B-2.2 Ownership y B-2.3 Governance. Regla acordada: anónimo = agregado por rol/entidad sin nombres físicos; autenticado = detalle completo. **La anonimización se hace en el backend (mapper), nunca en el frontend**.
-- **STOP disciplinado por ítem**. No encadenar sin revisión del usuario. Cada finalización requiere reporte + evidencia.
-- **Sin deploy a producción sin autorización explícita del usuario**. Preview siempre; producción solo cuando el usuario lo ordena.
-
----
-
-## 3. Items completados en esta sesión (cronológico)
-
-### 3.1 · Fase 0 · Auditoría B-2 de endpoints Intel
-- **Objetivo**: mapear la disponibilidad de datos del proveedor Intel para las secciones aún no cableadas (rankings, cash_flow, ownership, governance, events, agregador `/ficha`, control-synergy, coverage).
-- **Cambios**: solo documentación. Doc creado: `PARA_BETA_B2_FASE0_AUDIT.md`.
-- **Verificación**: curl S2S contra Intel; muestra Servier `B28184687`.
-- **CIF**: `B28184687`.
-- **HARDENING**: N/A.
-
-### 3.2 · B-2.1 · Rankings + 2.ª fila KPIs
-- **Objetivo**: pintar 3 KPI cards (Posición sectorial, Posición local, Percentil de facturación) y card "Lectura de posicionamiento" con los bullets literales de `ranking.explain`.
-- **Cambios**:
-  - Backend: `interfaces/financial.py` (+1 línea `ranking: dict | None`), `providers/agency_tool/financial.py::_map_analyze` (+1 línea passthrough).
-  - Frontend: tipos `FinancialAnalysisRanking` en `intelligence-types.ts`; render en `CompanyFichaLayoutV2.tsx` con `data-testid=kpi-market-position`, `kpi-locality-position`, `kpi-sector-percentile`, `rankings-explain-card`.
-- **Verificación**: curl backend + Playwright autenticado + regresión anónimo (gate). Payload conforme al audit §3.1 (sector_pct 100, mkt #2 de 9, loc #1 de 34, 3 bullets explain).
-- **CIF**: `B28184687`.
-- **HARDENING**: `HARDENING-003`.
-
-### 3.3 · B-2.5 · Estado de flujos de efectivo con bridging cash_conversion
-- **Objetivo**: pestaña "Flujos de efectivo" con 6 filas × 2 años agrupadas por categoría PGC (Actividades de explotación / inversión / financiación / Variación de tesorería / Indicadores).
-- **Cambios**:
-  - Backend: `interfaces/financial.py` (+1 línea `cash_flow: dict | None`), `providers/agency_tool/financial.py::_map_analyze` (+1 línea passthrough desde `statements.cash_flow`).
-  - Frontend: tipos `CashFlowStatement`, `CashFlowRow`, `CashFlowValue`, `CashFlowRowCategory`; componente `CashFlowTable` en `CompanyFichaLayoutV2.tsx` con `data-testid=cashflow-table` y `data-testid=cashflow-row-<key>`; tab renombrado a "Flujos de efectivo" (`data-testid=finanzas-tab-cashflow`).
-  - Bridging local Cash Conversion: si `row.key === 'cash_conversion' && format === 'percent' && Math.abs(value) <= 1` → `value * 100`.
-- **Verificación**: curl backend + Playwright (6 rows visibles, `65,7% / 66,1%` pintado, no `0,7%`) + regresión anónimo.
-- **CIF**: `B28184687` (único CIF de la muestra con `cash_flow` poblado).
-- **HARDENING**: `HARDENING-005`.
-
-### 3.4 · B-2.4 · Refactor al agregador `/company/{cif}/ficha`
-- **Objetivo**: 1 sola llamada frontend → 1 sola llamada Arroba → Intel `/company/{cif}/ficha`, en vez de N llamadas por sección.
-- **Cambios**:
-  - Backend: nuevo `interfaces/ficha.py` con `CompanyFicha` Pydantic (contrato `arroba-ficha-v1`), reutiliza `FinancialAnalysis` para `finances`. Nuevo método `providers/agency_tool/financial.py::fetch_ficha`. Extensión `router.py::get_company_ficha` con caché + breaker. Nuevo endpoint `GET /api/companies/{cif}/ficha` en `endpoints.py` con `get_optional_current_user` (anónimo → `finances=None`).
-  - Frontend: nuevo tipo `CompanyFicha` en `intelligence-types.ts`. Método `intelligenceClient.ficha(cif)` en `intelligence-client.ts`. Refactor `CompanyFichaF01Client.tsx`: hook único `useSWR('ficha')` reemplaza `identity` + `financial-analysis`; adapter `adaptIdentityFromFicha` para el shape rico Intel.
-  - Endpoints legacy por sección permanecen operativos (no deprecados).
-- **Verificación**: curl autenticado + anónimo (`finances=None` confirmado); Playwright con network trace confirmó **8 → 7 llamadas SWR**; regresión B-2.1 + B-2.5 intacta.
-- **CIF**: `B28184687`.
-- **HARDENING**: `HARDENING-006`.
-
-### 3.5 · Turno D · Batería multi-CIF diagnóstica (6 CIFs)
-- **Objetivo**: verificar cobertura Intel en `B28031458, B50949346, A81921611, B82229907, V83153700, A28354132`. Fase 0 previa: descubrimiento de `/coverage/check` (que NO existe como API real; el patrón `GET /coverage/check` sirve el SPA HTML del Agency Tools Hub).
-- **Cambios**: cero código. Solo `scripts/turno_d_multicif.py` (ephemeral) y doc `PARA_BETA_TURNO_D_MULTICIF.md`.
-- **Verificación**: matriz por CIF; carga UI logueada con Playwright de los 6.
-- **Hallazgos clave**: `cash_flow` null en 5/6 (solo Servier lo tiene); `ratios.current_ratio.available=false` en 6/6; `is_listed=None` en la supuesta cotizada `A28354132`; `buyers.count=0` en IUSTIME (contradice expectativa PM count=2); latencia `/buyers` ≈10 s; 6/6 tienen `valuation.benchmark` y `valuation.methodology` poblados en `finances.valuation`; 6/6 tienen ranking; deuda desglosada (`st_debt`, `lt_debt`, `financial_debt`) presente en shape `balance_sheet` pero valor `None` en la muestra.
-- **HARDENING**: N/A.
-
-### 3.6 · Bundle post-D · 3 ítems encadenados
-Sub-ítem 1 · **Retirada del fallback `valuation.benchmark/methodology`**
-- **Objetivo**: consumir `benchmark`/`methodology` desde el agregador (`ficha.finances.valuation`); eliminar el hook SWR legacy `/valuation`.
-- **Cambios**: `CompanyFichaF01Client.tsx` (+adapter `adaptValuationFromFinances` L108-140; retirada del `useSWR<ValuationAnalysis>`); `CompanyFichaLayoutV2.tsx::Valoracion` L740-745 (fallback retirado).
-- **Verificación**: network trace confirmó **7 → 6 llamadas SWR**; testing_agent 100 % PASS.
-- **CIF**: `B28184687` + los 6 CIFs Turno D.
-- **HARDENING**: N/A (retirada, no ampliación).
-
-Sub-ítem 2 · **Cableado enriquecido de la sección Señales**
-- **Objetivo**: pintar timeline de señales con `explanation`, `evidence`, `dimensions` como chips, `recommended_actions` como pills, `rule.id` como pie mono-font; empty state con copy exacto "Sin señales relevantes".
-- **Cambios**:
-  - Backend: `interfaces/signal.py::SignalItem` +4 campos aditivos (`explanation`, `evidence`, `dimensions`, `rule`); `providers/agency_tool/signal.py::_map` passthrough puro.
-  - Frontend: `intelligence-types.ts::SignalItem` +4 campos opcionales; `CompanyFichaLayoutV2.tsx::Senales` reescrito (L903-995) con `data-testid=senales-section` y `senales-empty`.
-- **Verificación**: OPEL `B50949346` 6 señales renderizadas correctamente; Servier `B28184687` empty state visible.
-- **CIF**: `B28184687` (empty) + `B50949346` (poblado).
-- **HARDENING**: `HARDENING-007`.
-
-Sub-ítem 3 · **Fix R15 en Ratios rentabilidad (bridging × 100)**
-- **Objetivo**: eliminar `-0%` / `0%` en la card "Ratios financieros" cuando el valor viene como ratio decimal `[−1, 1]` con `format="percent"`.
-- **Cambios**: `CompanyFichaLayoutV2.tsx::Finanzas` L648-655 · bridging local acotado `if (format === 'percent' && Math.abs(value) <= 1) value = value * 100`. Sin tocar `fmtCell` global.
-- **Verificación**: Servier ahora pinta Margen EBITDA 11,3 % / ROE 14,2 %; NCR Margen EBITDA -0,5 %; ratios `format='ratio'` como Productividad `261.735,27×` intactos.
-- **CIF**: `B28184687` + `B28031458`.
-- **HARDENING**: N/A (bridging visible, documentado en `INTEL_PAYLOAD_INCOHERENCIAS.md`).
+- **R3 · Corporate Finance ES** · vocabulario sobrio, sin anglicismos evitables. Copy UI en español.
+- **R4 / R10 · Null-safety total** · nunca renderizar `undefined`, `null`, `NaN`. Cada campo tiene `<Empty/>` local.
+- **R11 · Frontend UI Freeze** · usar los primitivos del mockup (`fichaMockupCss.ts`, clases `.card`, `.rec`, `.tl`, `.idrow`). No crear CSS nuevo salvo excepción justificada.
+- **R12 · Master admin bloqueado** · guard estructural en `client.py::request` rechaza `/api/v1/master/*` en origen.
+- **R15 · Real data o `<Empty/>`** · cero derivadas cuando el dato no viene poblado. Cero prosa sintética. Ningún cálculo aritmético frontend (`financial_debt = st + lt` prohibido; usar bridging documentado backend cuando sea absolutamente necesario).
+- **P1 · Explainability First** · toda cifra en la UI debe poder trazarse a Intel + fuente.
+- **P2 · Intelligence over Data** · exponer scores/percentiles antes que raw values cuando aporte.
+- **P3 · Zero Coupling** · frontend nunca consume raw payloads Intel; siempre passthrough validado por Pydantic o consumido como `dict|None` con union type discriminado en TS.
+- **DPD · Data Protection Directive**:
+  - Governance anon: `officers[]` nominal se agrega a `summary{total, roles[]}` con mapa i18n ES (`_anonymize_governance()`).
+  - Ownership anon: **todos los nombres ocultos** (jurídicos y físicos) → `summary{total_shareholders, tier?, top1_pct?}` (`_anonymize_ownership()`).
+  - `available:false` → passthrough para ambos modos (no hay PII que proteger).
+- **Deploy discipline** · deploy solo lo dispara el usuario vía panel Emergent. Agente NUNCA ejecuta deploy.
+- **`_KEY_ONETIME.txt`** · **BORRADO 2026-08-11 tras deploy exitoso**.
 
 ---
 
-## 4. Arquitectura del backend
+## §3. Items completados (cronológico desde §3.6 del handoff previo)
 
-### 4.1 · Flujo de datos
+### §3.7 · HARDENING-008 · Resiliencia agregador
+Backend fallback en `endpoints.py::get_company_ficha`: si Intel devuelve 404/5xx/breaker en `/company/{cif}/ficha`, compone `CompanyFicha` desde legacy `router.get_master_by_cif` + `router.get_financial_analysis`. Header `X-Ficha-Source: aggregator | fallback_per_section`; `engine_version: arroba-ficha-v1-fallback` en fallback. Preserva 404 `ficha_not_found` sólo si `get_master_by_cif` también falla.
+
+### §3.8 · B-2.3 · Governance con DPD backend
+`_anonymize_governance()` transforma `officers[]` nominal a `summary{total, roles[{role, role_label, count}]}` para anónimo (mapa i18n `_GOVERNANCE_ROLE_ES` consolida `Joint And Several Director → Administrador Solidario`, `Representative → Representante`, etc. · ordenación determinista `count↓ · role_label↑`). Frontend union type `GovernanceBlock = GovernanceNominal | GovernanceAggregated | GovernanceUnavailable` con testids `gobierno-{empty|aggregated|nominal|roles-table|officers-table|role-*|officer-*}`. **HARDENING-009** documentado.
+
+### §3.9 · B-2.2 · Ownership con DPD backend
+Política DPD **simplificada** (aprobada tras Fase 0): sin discriminación jurídica/física — todos los nombres ocultos en anon. `_anonymize_ownership()`: anon → `summary{total_shareholders, tier?, top1_pct?}`. Auth → passthrough nominal (`shareholders[]` + `control{}`). `available:false` → passthrough. Componente `Propiedad` con título CF **"Estructura accionarial y control"** y testids `ownership-{empty|aggregated|nominal|shareholders-table|control-block|summary-*|shareholder-*}`. Campo real Intel es `pct` (no `percentage`) — Fase 0 confirmada. **HARDENING-010** documentado.
+
+### §3.10 · Bundle post-Ownership · 4 ítems encadenados
+- **Events shell** (frontend-only) · componente `Eventos` + NAV ítem `eventos` grupo `Fuentes` label "Eventos y BORME" · consumo `ficha.events` con timeline o `<Empty/>`. Público.
+- **Item 6.a · Identificación ampliada** (frontend-only) · componente `IdentidadAmpliada` con 4 subgrupos (Registro/Domicilio/Capital y plantilla/Cotización) · 22 testids · null → `<Empty/>` local con label preservado. Público. R15: `employees_range` NO derivado desde `employees_total`; `ticker` NO fabricado.
+- **Item 6.b · Estructura de deuda** (frontend-only) · componente `DebtBreakdownCard` en tab Balance de Finanzas · consume `finances.balance_sheet.{st_debt, lt_debt, financial_debt}` (shape plano un-año) · 3 filas · null local → "En preparación" · todos null → mensaje global · gated. R15: NO cálculo `financial_debt = st + lt` en frontend.
+- **REQ-INTEL** `PARA_INTEL_shareholder_type.md` P3 no bloqueante.
+
+### §3.11 · Hero Verdict wire
+`finances.assessment.verdict` cableado en `HeroBlock` (aditivo `FinancialAnalysisAssessment` con `{score, label, assessment, verdict}`). Passthrough puro. Testid `hero-verdict-value`. **`PARA_INTEL_financial_quality_verdict.md` P2 CERRADO** — Intel entregó `verdict` en bloque paralelo `finances.assessment` (no en `financial_quality` como se pidió originalmente). La "Lectura financiera de ARROBA" (pestaña Finanzas) sigue leyendo `financial_quality.{assessment, strengths}` sin cambios · ambas coexisten.
+
+### §3.12 · Fase 0 diagnóstica Rankings + Mercado
+Diagnóstico sin código. Confirmado: `finances.ranking` idéntico al consumido por B-2.1 (sin campos adicionales); bloques `market/sector/geo/economic` NO presentes en `/ficha`. Endpoints públicos globales devuelven catálogos sin filtro server-side (`?cnae_code=` / `?geo_id=` **ignorados**); techo geográfico = `province` (no municipio). Endpoints de detalle por CIF/sector no existen (404).
+
+### §3.13 · REQ-INTEL Market emitido
+`PARA_INTEL_market.md` P2 · pide `finances.market` pre-cruzado en el agregador con sector + geo + HHI + position + benchmark_ratios sectoriales P25/P50/P75. Opción A (3 SWR + cross client-side) descartada por decisión de usuario. Sección Mercado permanece `ready:false` en NAV hasta armonización Intel. Cableado post-armonización estimado ~2 h.
+
+### §3.14 · Deploy prod post-factum
+Usuario ejecutó deploy `beta.arroba.com` vía panel Emergent entre turnos. Estado **PARTIAL**. Verificación curl anon confirmó path crítico sano · governance/ownership DPD sin PII · 3 anomalías residuales aparcadas (ver `DEPLOY_PROD_20260810.md`). `_KEY_ONETIME.txt` borrado tras confirmación.
+
+---
+
+## §4. Arquitectura del backend
+
+### §4.1 · Flujo de datos
+Cliente → FastAPI `/api/companies/{cif}/ficha` → `IntelligenceRouter.get_company_ficha(cif, user)` → `AgencyToolClient.request()` (X-API-Key primary/secondary rotación) → Intel `/api/v1/company/{cif}/ficha` → mapper `financial.py::_map_analyze` + `interfaces/ficha.py::CompanyFicha` → **si `user is None`** aplicar `_anonymize_governance()` + `_anonymize_ownership()` + `finances=None` → JSON response con headers `X-Ficha-Source`, `X-Intelligence-Mode`, `X-Provider`.
+
+### §4.2 · Endpoints backend expuestos
+- `GET /api/companies/{cif}/ficha` · agregador canónico (fuente única SWR frontend).
+- `GET /api/companies/{cif}/section/*` · endpoints legacy por sección · **VIVOS** para servir fallback HARDENING-008 · NO deprecar hasta próximo ciclo.
+- `GET /api/companies/{cif}/valuation` · proxy a `POST /api/v1/financial-intelligence/valuation`.
+- `POST /api/auth/login` · Emergent Auth JWT.
+- `GET /api/health` · sanity check.
+
+### §4.3 · Agregador `/ficha` · shape completo
 
 ```
-Cliente (browser)
-   │
-   ▼ HTTP + cookie arroba_session
-Backend Arroba (FastAPI · uvicorn puerto 8001)
-   │  · endpoints en src/modules/intelligence_layer/endpoints.py
-   │  · routes prefijadas /api/companies/{cif}/*
-   │  · get_optional_current_user (mixed-access)
-   ▼
-IntelligenceRouter (src/modules/intelligence_layer/router.py)
-   │  · caché 2 capas (LRU memoria + Mongo TTL)
-   │  · semáforo global asyncio.Semaphore(max_concurrent=3)
-   │  · CircuitBreaker por proveedor
-   ▼
-Providers (src/modules/intelligence_layer/providers/agency_tool/)
-   │  · financial.py    → /financial-intelligence/analyze,  /financial-intelligence/valuation,  /company/{cif}/ficha
-   │  · signal.py       → /signal-intelligence/analyze
-   │  · identity.py     → /company/{cif}/identity
-   │  · semantic.py     → /company/{cif}/semantic
-   │  · recommendation.py → /recommendation-intelligence/buyers, .../opportunities
-   ▼
-Intel API (intel.arroba.com)
-   · X-API-Key S2S (ARROBA_SERVICE_API_KEY del .env)
+CompanyFicha {
+  cif_normalized, master_id, engine_version,
+  identity: dict|None,           // 34 campos passthrough (registry_status, location, size, contact, classification, ...)
+  finances: FinancialAnalysis|None,  // gated · nullificado en anon
+    ├─ balance_sheet: { st_debt, lt_debt, financial_debt, equity, ...} (plano un-año)
+    ├─ ratios: { *.{value, percentile, percentile_sample} }             (15+ ratios)
+    ├─ ranking: { sector_revenue_percentile, market_position, locality_position, explain }
+    ├─ cash_flow: { rows[], bridging }
+    ├─ evolution: { points[] }
+    ├─ signals[], valuation.{ebitda_margin_percentile, ...}
+    ├─ financial_quality: { score, assessment, strengths[], weaknesses[], risks[] }   (5 campos · pestaña Finanzas "Lectura financiera")
+    └─ assessment: { score, label, assessment, verdict, strengths[], weaknesses[], risks[] }   (7 campos · Hero "Veredicto de ARROBA")
+  ownership: dict|None,           // union type · nominal / summary / unavailable
+  governance: dict|None,          // union type · nominal / summary / unavailable
+  events: dict|None,              // { available:bool, items[]? }
+  ranking: dict|None,             // referencia al mismo objeto de finances.ranking
+}
 ```
 
-### 4.2 · Endpoints backend expuestos hoy (`endpoints.py`)
+### §4.4 · Anonimización DPD (funciones nuevas en `endpoints.py`)
+- `_anonymize_governance(governance)` líneas ~365-450 · aplica cuando `user is None`.
+- `_anonymize_ownership(ownership)` líneas ~450-520 · aplica cuando `user is None`.
+- `_slugify_role(label)` + `_GOVERNANCE_ROLE_ES` mapa i18n (Intel EN → ES CF).
 
-| Método | Ruta | Auth | Contrato interno |
-|---|---|---|---|
-| `GET` | `/api/companies/{cif}/section/identity` | mixed-access | `arroba-identity-v1` |
-| `GET` | `/api/companies/{cif}/section/semantic` | mixed-access | `arroba-semantic-v1` |
-| `GET` | `/api/companies/{cif}/section/financial` | auth requerida | `arroba-financial-v1` (shape UI-consumable {years, rows}) |
-| `GET` | `/api/companies/{cif}/section/valuation` | auth requerida | `arroba-valuation-v1` (proyección UI) |
-| `POST` | `/api/companies/{cif}/financial-analysis` | auth requerida | `arroba-financial-v1` (extendido con `ranking`, `cash_flow`) |
-| `GET` | `/api/companies/{cif}/valuation` | auth requerida | `arroba-valuation-v1` (legacy · sin consumidores frontend hoy) |
-| `GET` | `/api/companies/{cif}/signals` | auth requerida | `arroba-signal-v1` (extendido con `explanation`, `evidence`, `dimensions`, `rule`) |
-| `GET` | `/api/companies/{cif}/buyers` | auth requerida | `arroba-recommendation-v1` |
-| `GET` | `/api/companies/{cif}/opportunities` | auth requerida | `arroba-recommendation-v1` |
-| `GET` | `/api/companies/{cif}/ficha` | mixed-access | `arroba-ficha-v1` (B-2.4) |
-| `GET` | `/api/financial-ratios/catalog` | auth requerida | catálogo de ratios |
+### §4.5 · Mappers
+- `providers/agency_tool/financial.py::_map_analyze` línea 235-294 · passthrough con extracción explícita de sub-bloques `assessment`, `financial_quality`, `ranking`, `cash_flow`, `balance_sheet`, `ratios`, `evolution`, `signals`, `valuation`. Cero transformación de contenido.
 
-### 4.3 · Agregador `/api/companies/{cif}/ficha`
+### §4.6 · Caché de 2 capas
+- Mongo `intelligence_cache` (TTL manual · invalidación por `_id` regex).
+- LRU in-memory por proceso (config.py).
 
-- **Shape del payload (`CompanyFicha`)**:
-  ```
-  {
-    cif_normalized: str,
-    master_id: str,
-    finances: FinancialAnalysis | null,   // null si anónimo
-    identity: dict | null,                 // 33 claves ricas Intel
-    ownership: dict | null,                // {available, shareholders, control, coverage, ...}
-    governance: dict | null,               // {available, officers, coverage, ...}
-    events: dict | null,                   // stub {available, ...}
-    ranking: dict | null,                  // top-level (duplica finances.ranking)
-    engine_version: "arroba-ficha-v1"
-  }
-  ```
-- **Mixed-access**: usa `get_optional_current_user`. Si el usuario es anónimo → `ficha.model_copy(update={"finances": None})`. Resto de bloques quedan visibles.
-- **Reutilización**: `finances` se construye vía `_map_analyze(cif_norm, doc["finances"])`, preservando `ranking` (HARDENING-003) y `cash_flow` (HARDENING-005) intactos.
-
-### 4.4 · Endpoints legacy que se mantienen operativos
-
-- `/api/companies/{cif}/section/identity` — sin consumidores frontend en `CompanyFichaF01Client.tsx` tras B-2.4, pero sigue soportado por si otro producto lo usa. Motivo de no deprecación: no se ha auditado el resto de la app; deprecación tras confirmación explícita del usuario.
-- `/api/companies/{cif}/section/financial` — **sigue consumido por el frontend** (`FinancialSection` con shape `{years, rows[]}` UI-consumable no expuesto por el agregador Intel). No es sustituible por `ficha.finances`.
-- `/api/companies/{cif}/section/semantic` — consumido por `SemanticSection`. Fuera del agregador Intel.
-- `/api/companies/{cif}/financial-analysis` — sigue operativo por retrocompatibilidad; el agregador `/ficha` es superconjunto (mismo shape en `finances`). Pendiente deprecación.
-- `/api/companies/{cif}/valuation` — sin consumidores frontend tras Bundle post-D. Se mantiene por si algún flujo test/backoffice lo necesita. Deprecable en próxima revisión.
-- `/api/companies/{cif}/section/valuation` — sin consumidores frontend recientes. Estado similar a `/valuation`.
-
-### 4.5 · Mappers en `providers/agency_tool/`
-
-- `financial.py::_map_analyze(cif_norm, doc)` — mapea `POST /financial-intelligence/analyze` a `FinancialAnalysis`. **Passthrough**: `ranking`, `cash_flow`, `valuation`, `assessment`, `explainability`, `ratios` (dict), `evolution`, `kpis`, `financial_quality`, `identity` embebido. **Transforma**: `statements.{income_statement, balance_sheet, cashflow}` a subcampos planos; deriva `has_financials` de la presencia de `year`; establece `engine_version = arroba-financial-v1`.
-- `financial.py::_map_valuation(cif_norm, doc)` — mapea `/financial-intelligence/valuation` a `Valuation`. Legacy (endpoint sin consumidores frontend en la app actual).
-- `financial.py::fetch_ficha(cif) → CompanyFicha` — B-2.4. Llama `GET /company/{cif}/ficha`. Reutiliza `_map_analyze(cif_norm, data["finances"])`. Passthrough puro para `identity`, `ownership`, `governance`, `events`, `ranking`. Sin transformación.
-- `signal.py::_map(cif_norm, doc)` — mapea `/signal-intelligence/analyze` a `SignalAnalysis`. **Passthrough enriquecido tras HARDENING-007**: `explanation`, `evidence`, `dimensions`, `rule` además de los campos ya existentes.
-- `identity.py`, `semantic.py`, `recommendation.py` — sin cambios en esta sesión.
-
-### 4.6 · Caché de 2 capas
-
-- **Capa 1 · LRU en memoria** (`cache.py::IntelligenceCache`): rápida, se limpia con `supervisorctl restart backend`.
-- **Capa 2 · MongoDB persistente**: colección `intelligence_cache`, `_id` con patrón `agency_tool:<method>:<identifier>:<version>` (p.ej. `agency_tool:financial:analyze:B28184687:-`). TTL configurable en settings.
-- **Invalidación manual** (obligatoria tras ampliar contratos passthrough):
-  ```
-  python3 -c "
-  import sys, asyncio; sys.path.insert(0, '/app/backend')
-  from src.core.database import get_db
-  async def m():
-      db = get_db()
-      res = await db['intelligence_cache'].delete_many({'_id': {'\$regex': 'financial:analyze|financial:ficha'}})
-      print('borradas:', res.deleted_count)
-  asyncio.run(m())
-  "
-  ```
-- **HARDENING-004 · política**: cada ampliación aditiva (nuevo campo passthrough en `FinancialAnalysis`, `SignalItem`, etc.) requiere invalidación manual de las keys afectadas. Automatización pendiente.
-
-### 4.7 · Semáforo global
-
-- `max_concurrent=3` en el pool HTTPX del proveedor Intel. Limita fanout de llamadas concurrentes. Motivo del refactor B-2.4: agregador `/ficha` libera 3 slots por ficha (antes 4-5 llamadas paralelas por ficha).
+### §4.7 · Semáforo global
+`agency_tool_global_max_concurrent=3` para evitar 520 upstream por fan-out.
 
 ---
 
-## 5. Arquitectura del frontend
+## §5. Arquitectura del frontend
 
-### 5.1 · Source of truth
+### §5.1 · Source of truth
+- `useCompanyFicha(cif)` SWR → `GET /api/companies/{cif}/ficha` · **6 llamadas SWR totales** (post-refactor B-2.4, antes 8).
+- Adapters `adaptIdentityFromFicha`, `adaptFinancialAnalysisFromFicha`, etc. viven en `/app/frontend/src/lib/companies/`.
 
-- **`/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx`** — layout activo. Ficheros `.bak_*` en el mismo directorio son legacy y **no deben modificarse ni consumirse**.
-- **`/app/frontend/src/components/company/CompanyFichaF01Client.tsx`** — orquestador SWR. Consume `intelligenceClient` y pasa datos al layout.
+### §5.2 · Componente canónico
+`/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` (1670 líneas · monolito por diseño para preservar R11 · sin refactor hasta que Intel armonice Mercado y Comparativa).
 
-### 5.2 · Hooks SWR activos (post-Bundle post-D)
+Sub-componentes:
+- `HeroBlock` (Hero + Veredicto card).
+- `Resumen` (auth vs anon).
+- `IdentidadAmpliada` (card 4 subgrupos).
+- `Finanzas` (tabs Cuenta/Balance/Flujos/Ratios · `FinTable`, `DebtBreakdownCard`, `CashFlowStatementCard`, `RatiosCards`).
+- `Valoracion`, `Semantica`, `Senales`, `Oportunidades`, `Comparativa`.
+- `Propiedad`, `Gobierno`, `Eventos` (todos union-discriminated · testids `{section}-{empty|aggregated|nominal|...}`).
+- Placeholders `Pending` para NAV items con `ready:false` (Mercado, Rankings, Comité, Sucesión, Sector, Registros, Documentos).
 
-| Hook (key) | Endpoint | Auth key trigger | Consumidor |
-|---|---|---|---|
-| `['ficha-b24-aggregate', cif]` | `/api/companies/{cif}/ficha` | siempre (mixed) | `ficha.identity` → `adaptIdentityFromFicha`; `ficha.finances` → prop `financialAnalysis`; `ficha.finances.valuation` → adapter `adaptValuationFromFinances` → prop `valuation` |
-| `['ficha-f01-semantic', cif]` | `/api/companies/{cif}/section/semantic` | siempre (mixed) | prop `semantic` |
-| `['ficha-f01-financial', cif]` | `/api/companies/{cif}/section/financial` | `isAuthenticated` | prop `financial` (P&L, Balance rows, catálogo Ratios rentabilidad) |
-| `['ficha-f01-signal', cif]` | `/api/companies/{cif}/signals` | `isAuthenticated` | prop `signal` (sección Señales enriquecida) |
-| `['ficha-f01-buyers', cif]` | `/api/companies/{cif}/buyers` | `isAuthenticated` | prop `buyers` |
-| `['ficha-f01-opportunities', cif]` | `/api/companies/{cif}/opportunities` | `isAuthenticated` | prop `opportunities` |
+### §5.3 · Union types discriminados (frontend DPD)
+- `GovernanceBlock = GovernanceNominal | GovernanceAggregated | GovernanceUnavailable`.
+- `OwnershipBlock = OwnershipNominal | OwnershipAggregated | OwnershipUnavailable`.
+- `FinancialAnalysisAssessment` ampliado con `{score, label, assessment, verdict}` (aditivo).
 
-**Total: 6 hooks SWR** (post-Bundle). No hay ningún `useSWR` a `/valuation` legacy.
-
-### 5.3 · Waterfall antes / después
-
-| Sesión | Frontend SWR | Arroba → Intel | Reducción |
-|---|---|---|---|
-| Pre-sesión | 8 (identity, semantic, financial, financial-analysis, valuation, signal, buyers, opportunities) | 6-7 llamadas paralelas | — |
-| Post B-2.4 | 7 (ficha, semantic, financial, valuation, signal, buyers, opportunities) | 5 (`ficha` consolida 4-5 subllamadas Intel) | −12,5 % / −16,6 % |
-| **Post-Bundle post-D** | **6** (ficha, semantic, financial, signal, buyers, opportunities) | **4** | **−25 % / −33 %** |
-
-### 5.4 · Adapters activos
-
-- `adaptIdentityFromFicha(raw, cif)` (`CompanyFichaF01Client.tsx` L46-107) — mapea `ficha.identity` (33 claves rich Intel) al `IdentitySection` UI-consumable (shape planar). **Riesgos**: 4 casts `as unknown` para reconciliar `cnae_primary` como objeto anidado; adapter no trivial. Recomendación futura: mover la lógica al backend (mapper `interfaces/identity.py`) para eliminar el adapter del frontend.
-- `adaptValuationFromFinances(raw, cif)` (`CompanyFichaF01Client.tsx` L108-140) — mapea `ficha.finances.valuation` (14 claves) al `ValuationAnalysis`. **Deriva `has_valuation` de la presencia de `range` o `equity_value`**. Passthrough puro. **Riesgos**: si Intel introduce un nuevo campo en `valuation`, hay que actualizar el adapter; sin `has_valuation` explícito, el layout depende de la derivación.
-
-### 5.5 · Componentes tocados en la sesión
-
-- `CompanyFichaLayoutV2.tsx` — `HeroBlock` (B-1.1), `Valoracion` (B-1.3 + Bundle Item 1), `Finanzas` incluye `FinTable`, `CashFlowTable` (B-2.5), `RatiosTrendCard` (B-1.4), pestaña Ratios (Bundle Item 3), `Senales` (Bundle Item 2), y layout de Rankings 2.ª fila kgrid (B-2.1).
-- `CompanyFichaF01Client.tsx` — refactor B-2.4 + adapters + Bundle Item 1.
-- `intelligence-types.ts` — tipos `FinancialAnalysisRanking`, `CashFlowStatement`, `CompanyFicha`, `SignalItem` ampliada.
-- `intelligence-client.ts` — método `intelligenceClient.ficha(cif)`.
-
----
-
-## 6. HARDENING backlog activo
-
-| ID | Descripción | Motivo | Estado | Retirable cuando… |
-|---|---|---|---|---|
-| HARDENING-002 | 31 pytest backend fallando por acoplamiento fixtures ↔ `.env` (`ENRICH_COMPANY_SOURCE=mock` vs `real`) | Restaurar integridad CI | NO atacado (P2 · pendiente autorización) | Se aíslen fixtures del `.env` productivo (fixture-scoped monkeypatch) |
-| HARDENING-003 | Passthrough `ranking: dict | None` en `FinancialAnalysis` desde `analyze.ranking` | Audit B-2 §3.1 detectó `ranking` poblado en Intel pero omitido en mapper | DONE 2026-08-10 | Nunca (contrato aditivo estable) |
-| HARDENING-004 | Política operativa · invalidar `intelligence_cache` Mongo al ampliar contratos passthrough | LRU memoria se limpia con restart; Mongo persiste, devuelve payload viejo sin nuevos campos hasta TTL | Manual documentado, sin automatización | Se implemente script `invalidate_intelligence_cache.py` o hook en `router.py` |
-| HARDENING-005 | Passthrough `cash_flow: dict | None` en `FinancialAnalysis` desde `analyze.statements.cash_flow` | Coexiste con `statements.cashflow` legacy null; mapper solo capturaba legacy | DONE 2026-08-10 | Nunca (contrato aditivo estable) |
-| HARDENING-006 | Nuevo contrato `arroba-ficha-v1` (`CompanyFicha`) + endpoint agregador `GET /api/companies/{cif}/ficha` con mixed-access | Reducir waterfall 8→7 y 6→5, liberar semáforo | DONE 2026-08-10 | Nunca (nuevo contrato estable) |
-| HARDENING-007 | Passthrough enriquecido en `SignalItem`: `explanation, evidence, dimensions, rule` | Cablear sección Señales UI con prosa CF + evidencia + magnitudes | DONE 2026-08-10 | Nunca (contrato aditivo estable) |
+### §5.4 · NAV actual
+| Grupo | Item | Ready | Label |
+| :---- | :--- | :---- | :---- |
+| Perfil | resumen | ✅ | Resumen |
+| Perfil | finanzas | ✅ | Finanzas |
+| Perfil | valoracion | ✅ | Valoración |
+| Perfil | propiedad | ✅ | Propiedad |
+| Perfil | gobierno | ✅ | Gobierno |
+| Perfil | mercado | ❌ | Mercado |
+| Perfil | rankings | ❌ | Rankings *(cableado en Resumen y Finanzas ya · sección aparte no cableada)* |
+| Perfil | comparativa | ✅ | Comparativa |
+| Inteligencia | senales | ✅ | Cambios relevantes |
+| Inteligencia | oportunidades | ✅ | Oportunidades |
+| Inteligencia | comite | ❌ | Comité de inversión |
+| Inteligencia | sucesion | ❌ | Sucesión |
+| Inteligencia | sector | ❌ | Sector & Roll-up |
+| Fuentes | eventos | ✅ | Eventos y BORME |
+| Fuentes | registros | ❌ | Registros públicos |
+| Fuentes | documentos | ❌ | Documentos |
 
 ---
 
-## 7. Bridging fallbacks activos (deuda técnica visible al usuario)
+## §6. HARDENING backlog
 
-| Componente | Regla exacta | Motivo | ¿Contradice R15? | Condición de retirada |
-|---|---|---|---|---|
-| `CashFlowTable` (row `cash_conversion`) | `if (row.key === 'cash_conversion' && format === 'percent' && Math.abs(value) <= 1) value *= 100` | Intel entrega `cash_conversion` como ratio decimal con `format=percent`; helper `fmtCell` no × 100 | Bridging visible; documentado en `INTEL_PAYLOAD_INCOHERENCIAS.md` caso 3 | Intel armoniza contrato: (a) `value=65.68` con `format=percent`, o (b) `value=0.6568` con `format=ratio` |
-| `Ratios financieros` card (rentabilidad) | `if (r.format === 'percent' && Math.abs(value) <= 1) displayValue = value * 100` | Mismo patrón que el anterior: rentabilidad viene en base 1 con `format=percent` en 6/6 CIFs | Bridging visible; documentado en `INTEL_PAYLOAD_INCOHERENCIAS.md` caso 3 "BRIDGING EXTENDIDO" | Igual que el anterior |
-| Fallback `identity.description` desde `financial-analysis.identity.description` | Cascada `identity.description ?? financialAnalysis.identity.description ?? null` en `HeroBlock` | Endpoint `/section/identity` devuelve `description=""` en 5/6 CIFs; solo IUSTIME 1/6 poblado (Turno D) | No contradice R15 (es fallback entre dos fuentes reales, no cálculo) | Cobertura ≥5/6 CIFs en `/section/identity.description` |
-
----
-
-## 8. Fallbacks retirados en esta sesión
-
-- **`valuation.benchmark`** y **`valuation.methodology`**: se consumían del agregador (`ficha.finances.valuation`) con fallback a `financialAnalysis.valuation.*`. Turno D confirmó cobertura 6/6 vía agregador; `/valuation` legacy devuelve `benchmark=null` y `methodology=""` en 7/7 CIFs. **Retirados el 2026-08-10**. El endpoint backend `/api/companies/{cif}/valuation` permanece operativo pero sin consumidores frontend.
-
----
-
-## 9. Escalaciones abiertas a PM / Intel (P0)
-
-Las 7 sub-preguntas del Turno D + 1 nueva:
-
-1. **Cobertura `cash_flow` fuera de Servier**: 5/6 CIFs muestran `statements.cash_flow=None`. Servier es el único CIF con las 6 filas pobladas. ¿Es outlier o hay ingesta progresiva? Timeline.
-2. **`ratios.current_ratio.available=false` sistemático en 6/6**: valores extremos esperados (OPEL 435, FARNELL 3,85) no se materializan. ¿Trigger de cálculo bajo demanda o falta de datos en balance para calcular liquidez?
-3. **`identity.is_listed=None` en la supuesta cotizada** `A28354132`: campo existe en el shape, pero Intel no lo popula. ¿Falta ingesta de listing status?
-4. **`buyers.count=0` en IUSTIME** (`V83153700`): contradice expectativa PM de count=2. ¿Motor `recommendation-intelligence` re-indexado y se perdieron matches?
-5. **`/coverage/check` API real**: no existe; el patrón `GET /coverage/check` devuelve el SPA HTML del Agency Tools Hub. ¿Roadmap para exponerlo como API JSON con shape `{available, sections: {...}, warnings[]}`?
-6. **Deuda desglosada** (`balance_sheet.{st_debt, lt_debt, financial_debt}`): shape presente en 6/6 CIFs, valores `None` para PROCOLUIDE (único caso probado). ¿Qué CIF de muestra tiene estos valores poblados para validar cableado UI de Item 6?
-7. **Latencia `/buyers` ≈ 10 s** por CIF: incompatible con SWR síncrono en hero de ficha (bloquea semáforo `max_concurrent=3` durante 10 s). ¿Optimización upstream o pattern async necesario?
-8. **(Nueva)** Armonización del contrato `format=percent`: unificar toda la salida Intel a base 100 (o marcar explícitamente `format=ratio` cuando venga en base 1). Retirada de dos bridging (`CashFlowTable::cash_conversion` y `Ratios financieros::rentabilidad`) queda condicionada a esta armonización.
-
-### CIFs de muestra y cobertura observada
-
-| CIF | Empresa | Tipología | Ficha 200 | Ranking | CF | Ratios rentabilidad | Ownership | Governance | is_listed | Buyers | Signals |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| B28184687 | LABORATORIOS SERVIER | Grande MAD (baseline) | Y | Y (sec_pct 100, mkt #2/9, loc #1/34) | **Y (6 rows)** | Y (11,3 % / 6,2 %…) | avail=Y | avail=Y | None | 0 (mock) | 0 en test, 6 con motor activo |
-| B28031458 | NCR ESPAÑA | Grande MAD | Y | Y (sec_pct 100, mkt #1/5, loc #1/147) | N | Y (rentabilidad ≈ 0, tras fix -0,5 %) | avail=N, 0 socios | avail=Y, 64 officers | None | 0 | 200 (n>0) |
-| B50949346 | OPEL EUROPE HOLDINGS | Mid-cap ZAR | Y | Y (sec_pct 98, mkt #3/13, loc None) | N | Y (rentabilidad neg.) | avail=Y, 1 socio | avail=Y, 43 officers | None | 0 | 6 (net_loss) |
-| A81921611 | PROCOLUIDE INDUSTRIAL | PYME MAD | Y | Y (sec_pct 98, mkt #2/6, loc #3/34) | N | Y (rentabilidad ≈ 4 %) | avail=N, 0 socios | avail=Y, 9 officers | None | 0 | 200 |
-| B82229907 | FARNELL COMPONENTS | PYME TIC BCN | Y | Y (sec_pct 99, mkt #1/5, loc #1/37) | N | Y | avail=Y, 1 socio | avail=Y, 14 officers | None | 1 | 200 |
-| V83153700 | AGRUPACIÓN IUSTIME | Micro MAD | Y | Y (sec_pct 79, mkt #60/201, loc #3/21) | N | Y | avail=N, 0 socios | avail=Y, 91 officers | None | 0 | 200 |
-| A28354132 | INNOVATIVE SOLUTIONS ECOSYSTEM (tipológica "cotizada") | Holding MAD | Y | Y (sec_pct 32, mkt #75/124, loc #49/66) | N | Y | avail=Y, 2 socios | avail=Y, 11 officers | **None (rojo)** | 5 | 200 |
+| ID | Descripción | Estado |
+| :- | :---------- | :----- |
+| HARDENING-001 | Bridging cash_conversion cuando Intel entrega null | ✅ RESUELTO |
+| HARDENING-002 | 31 pytests backend con env coupling (mock vs real) | ⏸️ DESPRIORIZADO |
+| HARDENING-003 | Rankings passthrough en `_map_analyze` | ✅ RESUELTO |
+| HARDENING-004 | TTL automático caché Mongo | 🟡 backlog P2 |
+| HARDENING-005 | Cash Flow UI + bridging | ✅ RESUELTO |
+| HARDENING-006 | Retirada fallback benchmark/methodology | ✅ RESUELTO |
+| HARDENING-007 | Signals shape enriquecido (explanation, evidence, dimensions, rule) | ✅ RESUELTO |
+| HARDENING-008 | Resiliencia agregador con fallback per-section | ✅ RESUELTO |
+| HARDENING-009 | `governance` shape ampliado con `summary{total, roles[]}` anon | ✅ RESUELTO (B-2.3) |
+| HARDENING-010 | `ownership` shape ampliado con `summary{total_shareholders, tier?, top1_pct?}` anon | ✅ RESUELTO (B-2.2) |
+| HARDENING-011 | Ampliación mapper para `assessment.verdict` | ❌ NO APLICÓ (mapper ya expone `assessment` completo) |
 
 ---
 
-## 10. Items aparcados con prioridad sugerida
+## §7. Bridging fallbacks activos (backend)
 
-1. **B-2.2 · Ownership** (P0 · datos disponibles): consumir `ficha.ownership.{available, shareholders[], control, coverage}`. **Bloqueador previo**: definir con PM la anonimización DPD backend (personas físicas). Cablear UI en `CompanyFichaLayoutV2.tsx`.
-2. **B-2.3 · Governance** (P0 · datos disponibles): consumir `ficha.governance.{available, officers[], coverage}`. Mismo bloqueador DPD.
-3. **Events shell** (P1 · stub): `ficha.events.available=false` en 6/6. Cablear con `<Empty label="Cambios corporativos" />` como placeholder; sin datos aún.
-4. **Item 6 · Identificación ampliada** (P1): 34 campos disponibles en `ficha.identity`, muchos `None` hoy. Cablear UI progresiva con `<Empty/>` predominante.
-5. **Item 6 · Deuda desglosada** (P2): shape 6/6 en `balance_sheet.{st_debt, lt_debt, financial_debt}`, valores 1/6 poblados (pendiente verificación con más CIFs). Cablear card "Estructura de deuda" con `<Empty/>` predominante.
-6. **control-synergy** (P2 · bloqueado): buyers.count=0 en el caso testeado (IUSTIME). Re-probar con `A28354132` (5 buyers) o `B82229907` (1 buyer).
-7. **`/coverage/check` integración** (P3 · bloqueado): endpoint API no existe hoy en Intel. Reactivar tras roadmap Intel.
-8. **Retirada fallback `identity.description`** (P2 · bloqueado): cobertura 1/6 en Turno D. Re-medir cuando Intel populen `description` en ≥5/6 CIFs.
-9. **HARDENING-002 · 31 pytest fallando** (P2 · no atacado): aislar fixtures del `.env` productivo con monkeypatch scoped.
-10. **HARDENING-004 · Automatización invalidación de caché** (P3): script one-shot o hook automático en `router.py` para invalidar Mongo cache al detectar ampliación de contrato.
-11. **Micro-hallazgo · Ratios rentabilidad con `available: false`**: si Intel armoniza contrato en base 100, retirar bridging de `Ratios financieros` y de `CashFlowTable::cash_conversion`.
+| Bloque | Bridging | Motivo | Fuente |
+| :----- | :------- | :----- | :----- |
+| `finances.cash_flow.bridging.cash_conversion` | Cálculo backend cuando Intel `null` | Cash conversion ratio · fórmula CF operativo / EBIT | HARDENING-001 |
+| `finances.ratios.{ebitda_margin, ebit_margin, net_margin, gross_margin}` | Extensión a `0.0` cuando ratio negativo cae a `-0%` | Evita R15 violation en UI | Bundle post-D |
+
+Sin más bridging. Todo lo demás es passthrough puro.
 
 ---
 
-## 11. Estado de deploy
+## §8. Fallbacks retirados
 
-- **Preview URL activa**: `https://musing-hellman-9.preview.emergentagent.com`. Sincronizada con esta sesión.
-- **Producción**: `beta.arroba.com`. Desactualizada desde la sesión anterior (17 fixes apilados) + toda esta sesión (B-2.1, B-2.5, B-2.4, Turno D, Bundle post-D).
-- **Cambios pendientes de deploy a producción**:
-  - `HARDENING-003` (ranking passthrough).
-  - `HARDENING-005` (cash_flow passthrough) + bridging `cash_conversion`.
-  - `HARDENING-006` (nuevo endpoint `/api/companies/{cif}/ficha` + refactor frontend).
-  - `HARDENING-007` (SignalItem enriquecido).
-  - Bundle post-D · retirada fallback valuation + Senales enriquecida + fix R15 Ratios rentabilidad.
-  - Extensión de `INTEL_PAYLOAD_INCOHERENCIAS.md` con caso 3 (bridging cash_conversion + bridging ratios).
-  - 5 documentos de handoff publicados en `/handoff/`.
-- **Autorización requerida**: el usuario debe pedir explícitamente el push a producción. Ninguna deploy automática desde esta sesión.
+- `valuation.benchmark` · Intel no lo entrega → sección ya lee `null` → `<Empty/>`.
+- `valuation.methodology` · idem.
 
 ---
 
-## 12. Cómo verificar el estado actualmente
+## §9. Escalaciones abiertas hacia Intel
 
-### 12.1 · Autenticación (obtener cookie de test)
+| REQ | Fichero | Prioridad | Estado |
+| :-- | :------ | :-------- | :----- |
+| `shareholder.type` en `ownership.shareholders[]` | `PARA_INTEL_shareholder_type.md` | P3 | 🟡 pendiente entrega Intel |
+| `verdict` en `financial_quality` | `PARA_INTEL_financial_quality_verdict.md` | P2 | ✅ **CERRADO** (Intel entregó vía ruta paralela `finances.assessment.verdict`) |
+| `finances.market` pre-cruzado con sector + geo + HHI + position + benchmark_ratios | `PARA_INTEL_market.md` | P2 | 🟡 pendiente entrega Intel · **bloquea sección Mercado** |
 
+---
+
+## §10. Items aparcados (backlog priorizado)
+
+- **P0 pendiente**: alineación env vars prod residuales (anomalías 1+2 del deploy PARTIAL · ver `DEPLOY_PROD_20260810.md`).
+- **P1**: Sección Mercado (bloqueada por REQ-INTEL market).
+- **P1**: Sección Comparativa multi-empresa (T5-10 nominales por CNAE-division + banda de tamaño · requiere futuro REQ-INTEL comparables).
+- **P1**: Registros públicos (NAV item `registros` · fuente Intel pendiente de identificar).
+- **P1**: Documentos (NAV item `documentos`).
+- **P1**: Sector & Roll-up (NAV item `sector`).
+- **P2**: control-synergy (`buyers.count=0` en target).
+- **P2**: HARDENING-004 (TTL automático caché Mongo).
+- **P2**: HARDENING-002 (31 pytests backend con env coupling · despriorizado).
+- **P2**: Retirada fallback `identity.description` (cobertura Intel 1/6).
+- **P2 cosmético**: NCR Balance cae al `<Pending>` genérico cuando no hay `analysis.balance_sheet` · unificar con `DebtBreakdownCard` empty state.
+- **P3**: REQ-INTEL `shareholder.type` (esperando entrega Intel para reabrir política DPD granular).
+
+---
+
+## §11. Estado de deploy
+
+- **Producción**: `https://beta.arroba.com` · **DESPLEGADO PARTIAL** (2026-08-11 verificado post-factum). Deploy ejecutado por el usuario vía panel Emergent entre turnos.
+- **Preview**: `https://musing-hellman-9.preview.emergentagent.com` · **alineado con prod en el path crítico** (mismo tenant Intel `mc_36c100bcee4a` para Servier).
+- **Anomalías residuales prod** (aparcadas al próximo ciclo por decisión de usuario):
+  1. Legacy tenant divergente en `/section/identity` (`mc_908b00949ee2` vs canónico `mc_36c100bcee4a`) — impacto cero mientras HARDENING-008 fallback no se dispare.
+  2. `ENVIRONMENT=development` en `/api/health` — cosmético, sin dependencias funcionales detectadas.
+  3. Login test `test.arroba+neo@arroba.com` no sembrado en Mongo prod — E2E auth prod fuera de scope.
+- **Verificación completa**: ver `DEPLOY_PROD_20260810.md`.
+
+---
+
+## §12. Cómo verificar (comandos rápidos)
+
+**Preview**:
+```bash
+curl -s https://musing-hellman-9.preview.emergentagent.com/api/companies/B28184687/ficha | jq .
 ```
-curl -s -c /tmp/cookies.jar -X POST \
-  https://musing-hellman-9.preview.emergentagent.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test.arroba+neo@arroba.com","password":"YofQgBFAo1wuC0d#"}'
+
+**Prod anon**:
+```bash
+curl -s -D - https://beta.arroba.com/api/companies/B28184687/ficha | grep -iE "x-ficha-source|x-intelligence-mode|x-provider"
+# esperado: X-Ficha-Source: aggregator · X-Intelligence-Mode: real · X-Provider: agency_tool
 ```
 
-### 12.2 · Curl autenticado al agregador `/ficha`
-
-```
-curl -s -b /tmp/cookies.jar \
-  https://musing-hellman-9.preview.emergentagent.com/api/companies/B28184687/ficha \
-  | python3 -m json.tool
+**Prod health**:
+```bash
+curl -s https://beta.arroba.com/api/health
+# esperado: {"status":"ok","mongo":"connected", ...}
 ```
 
-### 12.3 · Curl anónimo al mismo endpoint (mixed-access)
-
-```
-curl -s \
-  https://musing-hellman-9.preview.emergentagent.com/api/companies/B28184687/ficha \
-  | python3 -m json.tool
-# Debe devolver 200 con `finances: null`; resto de bloques presentes.
+**Pytest backend**:
+```bash
+cd /app/backend && python -m pytest tests/intelligence_layer/test_ficha_endpoint.py -v
+# esperado: 9 passed
 ```
 
-### 12.4 · Pytest acotado
-
-```
-cd /app/backend && python3 -m pytest tests/ \
-  -k "financial or intelligence_layer or ficha or signal" \
-  --no-header -q
-# Esperable: 130/130 pass. 31 fallos legacy (HARDENING-002) quedan deselected.
+**Vitest frontend**:
+```bash
+cd /app/frontend && yarn test --run
+# esperado: 200 passed
 ```
 
-### 12.5 · Invalidar caché Mongo de un CIF
-
-```
+**Invalidación caché Mongo (dev)**:
+```bash
 python3 -c "
-import sys, asyncio; sys.path.insert(0, '/app/backend')
-from src.core.database import get_db
-async def m():
-    db = get_db()
-    res = await db['intelligence_cache'].delete_many({'_id': {'\$regex': 'B28184687'}})
-    print('borradas:', res.deleted_count)
-asyncio.run(m())
+import asyncio
+from motor.motor_asyncio import AsyncIOMotorClient
+async def go():
+    db = AsyncIOMotorClient('mongodb://localhost:27017').arroba_com
+    r = await db.intelligence_cache.delete_many({'_id': {'\$regex': 'B28184687'}})
+    print(f'invalidated {r.deleted_count}')
+asyncio.run(go())
 "
 ```
 
-### 12.6 · Ruta UI
+---
 
-- **Logueado**: `https://musing-hellman-9.preview.emergentagent.com/es/empresa-f01/{cif}`
-- **Anónimo**: mismo URL, sin cookie. Bloque `<Gate>` cubre finanzas, valoración, señales, buyers, opportunities.
-- **CIFs disponibles**: `B28184687` (Servier), `B28031458`, `B50949346`, `A81921611`, `B82229907`, `V83153700`, `A28354132`.
+## §13. Documentos descargables (todos en `/handoff/`, HTTP 200 en preview)
 
-### 12.7 · Credenciales de test
-
-- Fichero: `/app/memory/test_credentials.md`.
-- Usuario preview: `test.arroba+neo@arroba.com` / `YofQgBFAo1wuC0d#`.
-- Cookie: `arroba_session` (path `/`, HttpOnly).
-
-### 12.8 · Nota sobre testing_agent
-
-- **En el último turno funcionó** (iteration_35.json, 100 % PASS, 13/13 subchecks). Considerar recuperar su uso para cambios de UI amplios o bug fixes. Las restricciones que hubo en sesiones anteriores (Playwright sandbox no llegaba a hidratar CSR) parecen mitigadas cuando el test agent orquesta login vía API + espera selectores.
+| Fichero | Propósito | Estado |
+| :------ | :-------- | :----- |
+| `HANDOFF_CLAUDE_20260810.md` | Este documento · state canónico | ✅ vivo |
+| `PLAN_BETA_status_20260810.md` | Status detallado de sprints · matriz consolidada B-2 12/12 | ✅ vivo |
+| `DEPLOY_PROD_20260810.md` | Cierre post-factum del deploy · estado PARTIAL · 3 anomalías | ✅ vivo (NUEVO) |
+| `PARA_INTEL_shareholder_type.md` | REQ P3 · discriminación tipo accionista | ✅ vivo |
+| `PARA_INTEL_financial_quality_verdict.md` | REQ P2 · verdict en financial_quality | ✅ vivo con banner "RESUELTO" (Intel entregó vía `finances.assessment.verdict`) |
+| `PARA_INTEL_market.md` | REQ P2 · bloque `finances.market` pre-cruzado | ✅ vivo (NUEVO) |
+| `PARA_BETA_TURNO_D_MULTICIF.md` | Matriz coverage multi-CIF diagnóstica | ✅ vivo |
+| `PARA_BETA_B24_FICHA_SHAPE.md` | Contrato del agregador `/ficha` | ✅ vivo |
+| `PARA_BETA_B2_FASE0_AUDIT.md` | Auditoría Fase 0 endpoints Intel | ✅ vivo |
+| `_KEY_ONETIME.txt` | Secreto one-shot para deploy manual | ❌ **BORRADO 2026-08-11 tras deploy exitoso** (HTTP 404 confirmado) |
 
 ---
 
-## 13. Documentos y descargables publicados
+## §14. Próximo paso recomendado para Claude sucesor
 
-Todos accesibles bajo `https://musing-hellman-9.preview.emergentagent.com/handoff/<archivo>`.
+**Priorización sugerida** (respetar el orden salvo instrucción explícita del usuario):
 
-| Archivo | Última mod. | Propósito | Vigencia |
-|---|---|---|---|
-| `PLAN_BETA_ficha_HANDOFF.md` | 2026-08-10 14:16 | Handoff previo de la sesión anterior | **Supersedido por este handoff** |
-| `PLAN_BETA_status_20260810.md` | 2026-08-10 17:29 | Status ejecutivo con HARDENING-003..007 y bundles cerrados | Vigente |
-| `INTEL_PAYLOAD_INCOHERENCIAS.md` | 2026-08-10 17:37 | Casos 1, 2 (resuelto), 3 (bridging extendido). Escalación Intel | Vigente |
-| `PARA_BETA_B2_FASE0_AUDIT.md` | 2026-08-10 14:56 | Audit inicial de endpoints Intel B-2 | Vigente |
-| `PARA_INTEL_CIFs_muestra.md` | 2026-08-10 14:56 | Muestra de CIFs de test y cobertura | Vigente |
-| `PARA_BETA_B24_FICHA_SHAPE.md` | 2026-08-10 16:24 | Fase 0 diagnóstica del agregador `/ficha` | Vigente |
-| `PARA_BETA_TURNO_D_MULTICIF.md` | 2026-08-10 17:02 | Batería multi-CIF (6 CIFs) · matriz + hallazgos | Vigente |
-| `HANDOFF_CLAUDE_20260810.md` | 2026-08-10 (este documento) | Consolidación canónica para agente sucesor | Vigente |
+1. **P0 · Alineación env vars prod residuales** — actuar sobre las 3 anomalías del deploy PARTIAL (ver `DEPLOY_PROD_20260810.md` § 7). Coordinar con el usuario para tocar el panel Emergent (sustituir key secundaria por canónica `sha256[:8]=2ba91e0d`; setear `ENVIRONMENT=production`; decidir política user test).
+2. **P1 · Cablear sección Mercado** cuando Intel armonice el REQ `PARA_INTEL_market.md` (patrón HARDENING-003 ranking + assessment verdict · ~2 h · union type discriminado análogo a `Propiedad`/`Gobierno`).
+3. **P1 · Arrancar sección Comparativa multi-empresa**: requiere REQ-INTEL separado para T5-10 comparables nominales por CNAE-division + banda de tamaño.
+4. **P1 · Cablear Registros públicos + Documentos + Sector & Roll-up** — 3 items NAV con `ready:false` hoy · pendientes de fuente Intel + copy CF.
+5. **P2 · NCR Balance cosmetic** — unificar el fallback semántico cuando no hay `analysis.balance_sheet` con el empty state de `DebtBreakdownCard` (`<Empty/>` "Desglose de deuda en preparación" en lugar del `<Pending>` genérico del tab Balance).
+6. **P2 · Backlog HARDENING-004 / retirada fallback identity.description**.
 
 ---
 
-## 14. Próximo paso recomendado
+## §15. Anexos · snippets de payload real (redactados)
 
-Claude debería, en su primer turno, no acometer nada de código todavía. En su lugar, **leer este handoff completo** y **presentar al usuario un plan priorizado corto** con dos vertientes: (a) desbloqueo de UI Ownership + Governance (B-2.2 y B-2.3), que son los dos ítems con mayor volumen de datos ya disponibles vía agregador `/ficha` y que solo requieren cableado + política DPD backend; (b) tarea táctica pequeña para consolidar la producción (deploy) si el usuario está listo para promover los cambios del preview.
+### §15.1 · `finances.assessment` (5 CIFs autenticados · verdicts variados)
 
-El **primer bloqueador crítico a resolver antes de tocar UI** en Ownership o Governance es la **política DPD**: acordar con PM cómo agregar/anonimizar personas físicas en `ficha.ownership.shareholders` y `ficha.governance.officers` cuando el usuario es anónimo, y cómo entregar detalle completo cuando está autenticado. **La anonimización se hace en el mapper backend, nunca en el frontend.** Si el usuario no tiene aún esa política definida, Claude debe pedirla antes de escribir nada.
-
-En paralelo, si el usuario prioriza cerrar el ciclo de handoff en producción, la ruta lógica es: (1) autorización explícita para deploy → (2) push desde preview a `beta.arroba.com` → (3) smoke visual con Playwright + testing_agent contra el dominio productivo → (4) monitorización latencias `/ficha` (agregador nuevo) durante 24 h + fallback rollback disponible.
-
----
-
-## 15. Anexos
-
-### 15.1 · Muestra de payload `ranking` (Servier `B28184687`)
-
+```json
+Servier (B28184687)   · score=100 · label="Sólida"    · verdict="Perfil financiero sólido y consistente; candidato atractivo para operaciones corporativas."
+NCR (B28031458)       · score=70  · label="Aceptable" · verdict="Perfil aceptable apoyado en liquidez holgada (ratio corriente ≥1,5)."
+OPEL (B50949346)      · score=60  · label="Aceptable" · verdict="Perfil aceptable apoyado en liquidez holgada (ratio corriente ≥1,5). Vigilar: resultado neto negativo."
+PROCOLUIDE (A81921611)· score=85  · label="Sólida"    · verdict="Perfil financiero sólido y consistente; candidato atractivo para operaciones corporativas."
+IUSTIME (V83153700)   · score=50  · label="Frágil"    · verdict="Perfil frágil: resultado neto negativo. Requiere análisis y due diligence adicionales."
 ```
+
+### §15.2 · `finances.ranking` (Servier)
+
+```json
 {
   "sector_revenue_percentile": 100,
-  "market_position": {
-    "rank": 2,
-    "total": 9,
-    "scope": "sector CNAE + banda de tamaño (0,3x–3x ingresos)"
-  },
-  "locality_position": {
-    "rank": 1,
-    "total": 34,
-    "scope": "municipio"
-  },
+  "market_position": { "rank": 2, "total": 9, "scope": "sector CNAE + banda de tamaño (0,3x–3x ingresos)" },
+  "locality_position": { "rank": 1, "total": 34, "scope": "municipio" },
   "explain": [
-    "Percentil 100 en su sector",
-    "#2 de 9 en su sector CNAE + banda de tamaño (0,3x–3x ingresos)",
+    "En el percentil 100 por ingresos de su sector",
+    "2ª de 9 en su universo de comparables (sector y tamaño)",
     "1ª de 34 en Madrid por ingresos de su sector"
   ]
 }
 ```
 
-### 15.2 · Muestra de payload `cash_flow` (Servier `B28184687`)
+### §15.3 · `governance.summary` (Servier · anon prod)
 
-```
+```json
 {
-  "years": [2023, 2022],
-  "rows": [
-    { "key": "cf_operating",    "label": "Flujo de caja de explotación (OCF)",  "category": "operating",  "values": [{"value":  9774860.0, "format": "currency"}, {"value": 10441960.0, "format": "currency"}] },
-    { "key": "cf_capex",        "label": "Inversiones (Capex)",                 "category": "investing",  "values": [{"value": -5913040.0, "format": "currency"}, {"value": -5683020.0, "format": "currency"}] },
-    { "key": "cf_financing",    "label": "Flujo de caja de financiación",       "category": "financing",  "values": [{"value": -9517670.0, "format": "currency"}, {"value":-10894250.0, "format": "currency"}] },
-    { "key": "cf_net_change",   "label": "Variación neta de tesorería",         "category": "net_change", "values": [{"value": -5655850.0, "format": "currency"}, {"value":  3862550.0, "format": "currency"}] },
-    { "key": "free_cash_flow",  "label": "Flujo de caja libre (FCF)",           "category": "summary",    "values": [{"value":  3861820.0, "format": "currency"}, {"value": 14756800.0, "format": "currency"}] },
-    { "key": "cash_conversion", "label": "Conversión de caja (OCF/EBITDA)",     "category": "summary",    "values": [{"value":     0.6568, "format": "percent"},  {"value":     0.6608, "format": "percent"}] }
-  ]
+  "available": true,
+  "coverage": { "officers_count": 55 },
+  "summary": {
+    "total": 55,
+    "roles": [
+      { "role": "apoderado",                "role_label": "Apoderado",                "count": 24 },
+      { "role": "representante",            "role_label": "Representante",            "count": 24 },
+      { "role": "administrador_solidario",  "role_label": "Administrador Solidario",  "count": 4  },
+      { "role": "auditor_de_cuentas_conjunto", "role_label": "Auditor de Cuentas Conjunto", "count": 2 },
+      { "role": "auditor",                  "role_label": "Auditor",                  "count": 1  }
+    ]
+  }
 }
 ```
 
-Nota: `cash_conversion.value` viene en base 1 con `format=percent` (contrato incoherente Intel · bridging local × 100 aplicado en `CashFlowTable`).
+Nombres nominales de las 55 personas físicas: **omitidos** (DPD).
 
-### 15.3 · Muestra de payload `signals` (OPEL `B50949346`, primer signal, sin PII)
+### §15.4 · `ownership.summary` (Servier · anon prod)
 
-```
+```json
 {
-  "signal_id": "sig_a0a2a758c9ed",
-  "master_id": "mc_d1281cec10b8",
-  "signal_type": "financial.net_loss",
-  "category": "financial",
-  "severity": "risk",
-  "polarity": "negative",
-  "dimensions": {
-    "impact": 0.78,
-    "confidence": 0.76,
-    "urgency": 0.6,
-    "persistence": 0.5
-  },
-  "confidence": 0.76,
-  "is_composite": false,
-  "source": {
-    "engine": "financial-intelligence-v1",
-    "fields": ["net_income"],
-    "source_version": "iberinform_tab_<hash>"
-  },
-  "evidence": {
-    "metric": "net_income",
-    "value": -31324000.0,
-    "window": "latest"
-  },
-  "rule": {
-    "id": "financial.net_loss",
-    "expression": "net_loss < threshold",
-    "threshold": 0.0,
-    "threshold_source": "default",
-    "baseline": null,
-    "thresholds_version": "thr-v1",
-    "passed": true
-  },
-  "recommended_actions": ["analyze", "investigate"],
-  "explanation": "Resultado neto negativo en el último ejercicio.",
-  "engine_version": "signal-intelligence-v1",
-  "taxonomy_version": "tax-v1"
+  "available": true,
+  "coverage": { "shareholders_count": 2 },
+  "summary": {
+    "total_shareholders": 2,
+    "tier": "Control mayoritario",
+    "top1_pct": 73.35
+  }
 }
 ```
 
-### 15.4 · Shape del agregador `/ficha` (top-level)
+Nombres de accionistas (jurídicos y físicos): **omitidos en anon** (DPD política simplificada).
+
+### §15.5 · `finances.cash_flow` (Servier · autenticado)
+
+Shape multi-año con 6 filas (`operating_activities`, `investing_activities`, `financing_activities`, `free_cash_flow`, `net_change_in_cash`, `cash_conversion`) y 3 columnas (2024/2023/2022). Bridging `cash_conversion` calculado backend (HARDENING-001) cuando Intel entrega `null` en la fila.
+
+### §15.6 · Deploy prod headers (Servier anon)
 
 ```
-{
-  "cif": "B28184687",
-  "engine_version": "arroba-ficha-v1",
-  "identifier": "B28184687",
-  "master_id": "<hash>",
-  "identity": { /* 33 claves: legal_name, cnae_primary{code,description,section,division},
-                   employees_total, website, corporate_purpose, mercantile_status,
-                   is_listed, listed_market, activity, activity_status, address,
-                   autonomous_community, capital_social, aliases, commercial_name,
-                   country, description, domain, incorporation_date, legal_form,
-                   locality, objeto_social, postal_code, provenance_fields, province,
-                   record_status, sectors, sources, updated_at, capability_version,
-                   cnae_secondary, data_coverage */ },
-  "finances": {
-    /* Bloque idéntico al de POST /financial-intelligence/analyze:
-       statements.{income_statement, balance_sheet, cash_flow, cashflow, employees, year, basis},
-       evolution, kpis, ratios (dict de 18 ratios con {value, name, category, formula,
-       explanation, source, available, percentile, percentile_sample}),
-       valuation.{benchmark{peers_count, ebitda_margin_percentile, subject_ebitda_margin,
-       median_ebitda_margin, subject_revenue, median_revenue}, methodology, scenarios[],
-       range{low,central,high}, multiple, multiple_basis, enterprise_value, equity_value,
-       confidence, hypotheses[], lineage, method, ebitda_margin_percentile, benchmark_scope},
-       assessment{strengths[], weaknesses[], risks[]},
-       financial_quality.{score, assessment}, ranking, identity, has_financials,
-       data_source, basis, year, years, cif_normalized, master_id, engine_version,
-       generated_at, comparables, confidence, explainability */
-  },
-  "ownership": { "available": true, "shareholders": [ /* PII · anonimizar en backend */ ],
-                 "control": { /* holding hierarchy */ }, "coverage": { /* rate + sources */ } },
-  "governance": { "available": true, "officers": [ /* PII · anonimizar en backend */ ],
-                  "coverage": { /* rate + sources */ } },
-  "events": { "available": false, "engine_version": "..." },
-  "ranking": { /* duplicado top-level de finances.ranking · usar finances.ranking */ }
-}
+X-Ficha-Source: aggregator
+X-Intelligence-Mode: real
+X-Provider: agency_tool
+X-Content-Type-Options: nosniff
 ```
-
-### 15.5 · Matriz 6-CIF Turno D condensada
-
-Ver sección 9 (mismo contenido, no repetido para brevedad).
-
-### 15.6 · Decisiones de producto tomadas por el usuario en esta sesión
-
-- **B-2.5 · Cash Flow**: pintar tabla con 3 categorías PGC (explotación / inversión / financiación) + Variación de tesorería + Indicadores. Copy exacto en español CF. Cero cálculo de subtotales en frontend.
-- **B-2.5 · Bridging cash_conversion**: aprobado bridging local × 100 (acotado a `row.key === 'cash_conversion'`) con comentario prescriptivo y documentación en `INTEL_PAYLOAD_INCOHERENCIAS.md`. Retirable cuando Intel armonice contrato.
-- **B-2.4 · Alcance ajustado**: consolidar `identity + finances (con ranking + cash_flow)` en el agregador. `semantic`, `section/financial`, `signals`, `buyers`, `opportunities` siguen como llamadas independientes hasta que Intel exponga esos shapes en `/ficha`.
-- **B-2.4 · Mixed-access**: anónimo recibe `finances=None`, resto de bloques visibles. Endpoints legacy operativos.
-- **Turno D · Diagnóstico**: solo diagnóstico, sin cablear nada. Reporte generado con matriz + hallazgos + recomendaciones.
-- **Bundle post-D · Fallback benchmark/methodology**: retirar (cobertura 6/6 vía agregador). Endpoint `/api/companies/{cif}/valuation` legacy sigue operativo pero sin consumidores.
-- **Bundle post-D · Fallback identity.description**: mantener (cobertura 1/6 insuficiente).
-- **Bundle post-D · Señales**: cablear con copy exacto "Sin señales relevantes" (sin prefijo "Información en preparación · "). Enriquecer con `explanation`, `evidence`, `dimensions`, `rule`.
-- **Bundle post-D · Ratios rentabilidad**: aplicar bridging × 100 (mismo patrón que cash_conversion) para eliminar `-0%` / `0%`. Retirable cuando Intel armonice contrato.
-- **Reglas generales confirmadas**: R11 (UI freeze), R13 (source of truth única), R15 (datos reales o Empty), Zero Coupling, STOP disciplinado por ítem, sin deploy sin autorización.
 
 ---
 
-## Notas de "pendiente de confirmación"
+## Pendientes de confirmación (transparencia)
 
-Este handoff marca como "pendiente de confirmación" únicamente los siguientes puntos, donde no consta información explícita en la documentación memory ni en el código:
-
-1. **Nombre canónico de la rama Git** en el repositorio origen (el pod expone un branch id `170426`).
-2. **Ratio exacto de cobertura de `identity.description`** más allá de los 6 CIFs de Turno D + Servier (7 en total, 1 poblado).
-3. **Política DPD detallada** para B-2.2 Ownership y B-2.3 Governance: reglas de agregación (por rol, por tipo de entidad, por umbral de participación) para el modo anónimo.
-4. **Timeline oficial de Intel I-2 / I-3 / I-4** para poblar cash_flow, current_ratio, is_listed, description y deuda desglosada en más CIFs.
+- **Timestamp exacto del deploy prod**: no disponible desde el agente (Emergent no expone hooks al filesystem). Marcado como "entre 2026-08-10 y 2026-08-11 UTC".
+- **sha256 de la key secundaria divergente**: no expuesto (agente no ha leído `.env` prod ni panel).
+- **Cobertura Mercado post-armonización Intel**: sub-preguntas P0-5/P0-6 abiertas en `PARA_INTEL_market.md`.
+- **Login test prod**: pendiente decisión del usuario sobre siembra en Mongo prod (ver `DEPLOY_PROD_20260810.md § 7.3`).
