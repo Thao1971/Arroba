@@ -524,7 +524,7 @@ async def test_ficha_market_top_level_passthrough_anonymous(client: AsyncClient)
     r = await client.get("/api/companies/B28184687/ficha")
     assert r.status_code == 200, r.text
     body = r.json()
-    # Bloque market debe viajar passthrough completo en anon (contexto público).
+    # Bloque market debe viajar en anon con sus sub-bloques públicos.
     assert body.get("market") is not None
     m = body["market"]
     assert m["available"] is True
@@ -533,7 +533,140 @@ async def test_ficha_market_top_level_passthrough_anonymous(client: AsyncClient)
     assert m["geo"]["geo_id"] == "28"
     assert m["concentration"]["hhi"] == 10000.0
     assert m["concentration"]["degraded"] is False
-    assert m["position"]["sector_revenue_percentile"] == 100
+    # HARDENING-013 (2026-08-12) · `market.position` NO viaja en anon
+    # (dato analítico derivado de ingresos · nulificado por gating extendido).
+    assert "position" not in m, f"HARDENING-013 · market.position leak in anon: {m.get('position')}"
     # `finances` gated en anon (baseline mixed-access).
     assert body["finances"] is None
+
+
+# ================================================================
+# HARDENING-013 · Anon gating extendido (2026-08-12)
+# ranking top-level + market.position nulificados en anon (antes solo finances=None).
+# ================================================================
+
+
+@pytest.mark.asyncio
+async def test_ficha_hardening_013_anon_gating_ranking_and_market_position(client: AsyncClient):
+    """HARDENING-013 · en anon: `ranking` y `market.position` NO deben viajar.
+
+    Contexto: ambos son derivados de los ingresos de la empresa (mismo valor
+    analítico que `finances.ranking`). La UI ya cubría con `<Gate>` pero la
+    respuesta JSON los servía. Fix: nulificar `ranking` (top-level) + eliminar
+    `market.position` en el flujo de anonimización de `get_company_ficha`.
+    Sub-bloques `market.{sector, geo, concentration}` permanecen públicos.
+    """
+    from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
+    from src.modules.intelligence_layer.interfaces.financial import FinancialAnalysis
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    ranking_block = {
+        "sector_revenue_percentile": 100,
+        "market_position": {"rank": 2, "total": 9, "scope": "sector CNAE + banda"},
+        "locality_position": {"rank": 1, "total": 34, "scope": "municipio"},
+        "explain": ["En el percentil 100 por ingresos de su sector"],
+    }
+    market_block = {
+        "available": True,
+        "sector": {"cnae_code": "2120", "dynamism_score": 19, "signal": "sector_contraction"},
+        "geo": {"geo_id": "28", "geo_name": "Madrid", "geo_level": "province"},
+        "concentration": {"level": "group", "degraded": False, "hhi": 10000.0},
+        "position": ranking_block,  # DUPLICA `ranking` top-level (paridad Intel).
+        "coverage": {"sector": True, "geo": True, "concentration": True, "position": True},
+    }
+    ficha = CompanyFicha(
+        cif_normalized="B28184687",
+        master_id="mc_gating_test",
+        finances=FinancialAnalysis(cif_normalized="B28184687", has_financials=True),
+        identity={"cif": "B28184687"},
+        ownership={"available": False},
+        governance={"available": False},
+        events={"available": False},
+        ranking=ranking_block,  # top-level poblado (fuga previa al fix).
+        market=market_block,
+        engine_version="arroba-ficha-v1",
+    )
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(return_value=ficha)
+
+    r = await client.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    # (1) `finances` nullificado (baseline mixed-access · pre-existente).
+    assert body["finances"] is None
+
+    # (2) `ranking` top-level nullificado (NUEVO · HARDENING-013).
+    assert body.get("ranking") is None, f"PII leak · ranking present in anon: {body.get('ranking')}"
+
+    # (3) `market.position` NO EXISTE como clave (NUEVO · HARDENING-013).
+    m = body["market"]
+    assert isinstance(m, dict), f"market debe seguir siendo dict en anon: {m}"
+    assert "position" not in m, f"PII leak · market.position present in anon: {m.get('position')}"
+
+    # (4) Sub-bloques públicos preservados.
+    assert m.get("sector") is not None
+    assert m["sector"]["cnae_code"] == "2120"
+    assert m.get("geo") is not None
+    assert m["geo"]["geo_id"] == "28"
+    assert m.get("concentration") is not None
+    assert m["concentration"]["hhi"] == 10000.0
+
+    # (5) Grep bruto de la respuesta serializada: cero fugas de campos
+    # analíticos derivados de ingresos.
+    raw = r.text
+    assert "sector_revenue_percentile" not in raw, "PII leak · sector_revenue_percentile in body"
+    assert "locality_position" not in raw, "PII leak · locality_position in body"
+    # `market_position` es una key anidada (dentro de ranking.market_position);
+    # tras eliminar ranking + market.position del payload no debe aparecer.
+    assert '"market_position"' not in raw, "PII leak · market_position in body"
+
+
+@pytest.mark.asyncio
+async def test_ficha_hardening_013_auth_keeps_ranking_and_position(alice: AsyncClient):
+    """HARDENING-013 · regresión · autenticado sigue recibiendo ambos bloques."""
+    from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
+    from src.modules.intelligence_layer.interfaces.financial import FinancialAnalysis
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    ranking_block = {
+        "sector_revenue_percentile": 100,
+        "market_position": {"rank": 2, "total": 9, "scope": "sector CNAE + banda"},
+        "locality_position": {"rank": 1, "total": 34, "scope": "municipio"},
+        "explain": ["ok"],
+    }
+    market_block = {
+        "available": True,
+        "sector": {"cnae_code": "2120"},
+        "geo": {"geo_id": "28"},
+        "concentration": {"level": "group"},
+        "position": ranking_block,
+    }
+    ficha = CompanyFicha(
+        cif_normalized="B28184687",
+        master_id="mc_gating_test_auth",
+        finances=FinancialAnalysis(cif_normalized="B28184687", has_financials=True),
+        identity={"cif": "B28184687"},
+        ownership={"available": False},
+        governance={"available": False},
+        events={"available": False},
+        ranking=ranking_block,
+        market=market_block,
+        engine_version="arroba-ficha-v1",
+    )
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(return_value=ficha)
+
+    r = await alice.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    # `finances` presente en auth.
+    assert body["finances"] is not None
+    # `ranking` top-level intacto en auth.
+    assert body["ranking"] is not None
+    assert body["ranking"]["sector_revenue_percentile"] == 100
+    # `market.position` intacto en auth.
+    assert body["market"]["position"] is not None
+    assert body["market"]["position"]["sector_revenue_percentile"] == 100
 

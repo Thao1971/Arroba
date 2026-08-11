@@ -398,7 +398,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
         <div style={{ marginTop: 16 }}><Gate what="el análisis financiero, la valoración y los compradores" /></div>
         <div className="card" style={{ marginTop: 16 }}>
           <h3><span className="k" />Identificación</h3>
-          <div className="cs">Datos registrales · fuentes verificadas + BORME</div>
+          <div className="cs">Datos registrales y de registros públicos</div>
           <div className="idrow"><span className="k">Razón social</span><span className="v">{identity.legal_name ?? '—'}</span></div>
           <div className="idrow"><span className="k">CIF</span><span className="v">{identity.cif_normalized ?? '—'}</span></div>
           <div className="idrow"><span className="k">CNAE</span><span className="v">{cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_description ?? ''}` : '—'}</span></div>
@@ -488,7 +488,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
                 ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
               </div>
               <div className="kpi" data-testid="kpi-sector-percentile">
-                <div className="l">Percentil de facturación</div>
+                <div className="l">Percentil por ingresos</div>
                 {sp != null ? (
                   <>
                     <div className="v">{sp}<span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>º</span></div>
@@ -496,11 +496,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
                   </>
                 ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
               </div>
-              <div className="kpi" data-testid="kpi-innovation-pending">
-                <div className="l">Innovación</div>
-                <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>
-                <div className="d inf">En preparación</div>
-              </div>
+              {/* CANON CF · KPI "Innovación · inferido" eliminado (Anexo A) mientras no exista dato real. */}
             </>
           );
         })()}
@@ -521,16 +517,16 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       <div className="row r2" style={{ marginTop: 16 }}>
         {rings.length > 0 ? (
           <div className="card">
-            <h3><span className="k" />Scores de inteligencia</h3>
+            <h3><span className="k" />Diagnóstico de ARROBA</h3>
             <div className="cs">Valoración cualitativa de ARROBA</div>
             <div className="scores" style={{ gridTemplateColumns: `repeat(${rings.length},1fr)` }}>
               {rings.map((r) => <Ring key={r.label} val={r.v} label={r.label} color={r.color} />)}
             </div>
           </div>
-        ) : <Pending label="Scores de inteligencia" />}
+        ) : <Pending label="Diagnóstico de ARROBA" />}
         <div className="card">
           <h3><span className="k" />Identificación</h3>
-          <div className="cs">Datos registrales · fuentes verificadas + BORME</div>
+          <div className="cs">Datos registrales y de registros públicos</div>
           <div className="idrow"><span className="k">Razón social</span><span className="v">{identity.legal_name ?? '—'}</span></div>
           <div className="idrow"><span className="k">CIF</span><span className="v">{identity.cif_normalized ?? '—'}</span></div>
           {identity.registry_status?.legal_form && <div className="idrow"><span className="k">Forma jurídica</span><span className="v">{identity.registry_status.legal_form}</span></div>}
@@ -794,9 +790,9 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
             ))}
           </div>
           <div className="rleg">
-            <span><span className="srcdot r" /> Dato recibido (verificado)</span>
-            <span><span className="srcdot c" /> Valoración cualitativa de ARROBA</span>
-            <span>Barra = percentil sectorial</span>
+            <span><span className="srcdot r" /> Verificado en fuente</span>
+            <span><span className="srcdot c" /> Estimación de ARROBA</span>
+            <span>La barra indica el percentil frente al sector</span>
           </div>
         </div>
       ) : <Pending label="Ratios" />)}
@@ -898,8 +894,7 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
         {q != null && (
           <div className="card">
             <h3><span className="k" />Posicionamiento</h3>
-            <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Ring val={q} label="Quality Score" color={OK} /></div>
-            <div className="cs" style={{ textAlign: 'center', marginTop: 8 }}>de 100 · calidad financiera</div>
+            <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Ring val={q} label="Calidad financiera" color={OK} /></div>
           </div>
         )}
         {r && (
@@ -976,7 +971,7 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
       {chips.length > 0 && (
         <div className="card">
           <h3><span className="k" />Perfil de negocio</h3>
-          <div className="cs">Los rasgos con los que Arroba busca sus comparables</div>
+          <div className="cs">Rasgos de negocio que definen a la compañía frente a sus comparables</div>
           <div className="chips">{chips.map((c, i) => <span key={i} className={`schip${i > 2 ? ' n' : ''}`}>{c}</span>)}</div>
         </div>
       )}
@@ -984,7 +979,7 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
       {list.length > 0 && (
         <div className="card">
           <h3><span className="k" />Compradores que mejor encajarían con esta compañía</h3>
-          <div className="cs">Ordenados por encaje (0–100). Haz clic en un comprador para ver por qué encaja.</div>
+          <div className="cs">Ordenados por grado de encaje. Selecciona un comprador para ver por qué encaja.</div>
           <table className="rec buyers">
             <tbody>
               <tr><th>Comprador</th><th>Tipo</th><th>Encaje</th><th>Por qué, en una línea</th></tr>
@@ -1009,7 +1004,7 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
         {cur && (
           <div className="card">
             <h3><span className="k" />Por qué encaja <span className="whytag">{cur.name ?? ''}</span></h3>
-            <div className="cs">Descomposición del encaje {Math.round(clamp100(cur.score) ?? 0)}/100. Cada factor compara al comprador con las necesidades de la compañía.</div>
+            <div className="cs">Cómo se descompone el encaje de {cur.name ?? 'este comprador'}, factor a factor.</div>
             <div>
               {fitEntries.map(([kk, v]) => {
                 const val = clamp100(v) ?? 0;
@@ -1024,7 +1019,7 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
         {similar.length > 0 && (
           <div className="card">
             <h3><span className="k" />Empresas parecidas</h3>
-            <div className="cs">La similitud la calcula el <b>Fingerprint</b>: modelo de negocio, sector, tamaño, márgenes y territorio.</div>
+            <div className="cs">Compañías con un perfil de negocio análogo por sector, tamaño, márgenes y territorio.</div>
             {similar.map((s, i) => (
               <div key={s.master_id ?? i} className="simrow">
                 <div className="lg">{(s.name || '?').slice(0, 2).toUpperCase()}</div>
@@ -1107,7 +1102,8 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
                 <div className="th">
                   <div>
                     <div className="t">{s.title ?? s.signal_type ?? 'Señal'}</div>
-                    {severityLabel && <div className="m">{severityLabel}{s.confidence != null ? ` · confianza ${Math.round(s.confidence * 100)}%` : ''}</div>}
+                    {/* CANON CF · Anexo A: `severityLabel` como "Relevancia {alta|media|baja}" en prosa · sin `%` crudo. */}
+                    {severityLabel && <div className="m">Relevancia {severityLabel.toLowerCase()}</div>}
                   </div>
                   {s.category && <span className="tag">{s.category}</span>}
                 </div>
@@ -1263,6 +1259,7 @@ function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intel
 }
 function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-types').MarketGeo | null }) {
   if (!geo || geo.available === false) return <Empty label="Contexto territorial" />;
+  // CANON CF · Fase B (§5.bis) · TODO: consumir `geo.narrative` de Intel cuando esté emitido.
   return (
     <div className="card" style={{ marginTop: 16 }} data-testid="mercado-geo-panel">
       <h3><span className="k" />Contexto territorial · {geo.geo_name ?? '—'} <span className="cs" style={{ marginLeft: 8 }}>({geo.geo_level ?? '—'})</span></h3>
@@ -1282,6 +1279,7 @@ function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-t
 }
 function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/intelligence-types').MarketConcentration | null }) {
   if (!conc || conc.available === false) return <Empty label="Concentración de mercado" />;
+  // CANON CF · Fase B (§5.bis) · TODO: consumir `concentration.narrative` de Intel cuando esté emitido.
   const degradationCaveat = conc.degraded_reason ?? conc.caveat ?? null;
   return (
     <div className="card" style={{ marginTop: 16 }} data-testid="mercado-concentration-panel">
@@ -1322,6 +1320,8 @@ function MercadoPositionPanel({ pos, anon }: { pos?: import('@/lib/companies/int
     );
   }
   if (!pos || pos.available === false) return <Empty label="Posición sectorial" />;
+  // CANON CF · Fase B (§5.bis) · TODO: consumir `position.narrative` de Intel (foldea rank/percentil/scope/explain
+  // en una única frase CF) cuando esté emitido y retirar los rows enum/scope crudos.
   const mp = pos.market_position ?? null;
   const lp = pos.locality_position ?? null;
   return (
@@ -1794,7 +1794,7 @@ function Copilot({ name }: { name: string }) {
       <div className={`cop${open ? ' open' : ''}`}>
         <div className="cop-panel">
           <div className="cop-phead"><span className="lbl">arroba copilot · {name}</span><button className="ci-min" onClick={() => setOpen(false)}>—</button></div>
-          <div className="pad"><div className="note">Pregunta sobre esta compañía y el Copilot responde con sus motores.</div></div>
+          <div className="pad"><div className="note">Pregunta sobre esta compañía y el copiloto te responde con su análisis.</div></div>
         </div>
         <div className="cop-chips">
           {['Prepárame un teaser', 'Riesgos para el comprador', '¿Quién me la compraría?'].map((c) => (
@@ -1931,7 +1931,7 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             <div className="escc">Próxima acción</div>
             <div className="dcard">
               <div className="dh"><div className="k">◉ Estado de la compañía</div><div className="v">Pendiente</div></div>
-              <div className="db"><p>La recomendación por perfil y estado (en venta, buscando capital, comprando…) se activará al cablear el estado de la compañía a su motor.</p></div>
+              <div className="db"><p>Aún no consta el estado de la compañía (en venta, buscando capital, comprando). En cuanto se determine, aquí verás la recomendación de actuación.</p></div>
             </div>
           </aside>
         </div>

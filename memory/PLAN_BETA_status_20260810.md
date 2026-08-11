@@ -225,3 +225,139 @@ Cuando llegue el siguiente ZIP/spec o Intel populate campos nuevos, la vía natu
 ---
 
 *Documento actualizado 2026-08-10 al cierre de B-1.5. Próximo trigger: Intel populate cashflow / assessment / section/semantic, o recepción de ZIP/spec Intel I-2.*
+
+---
+
+## Cierre 2026-08-13 · BUNDLE 4 ítems (Anomalía #1 diag + Canon Fase A + REQ T5-10 + Fase 0 Sector/Registros)
+
+### Ítem 1 · Diagnóstico Anomalía Prod #1 (SECRETS vs CÓDIGO)
+
+**Veredicto**: **(a) VALOR / caché estado en Prod** — **NO tocar código**.
+
+**Evidencia** (grep + view de rutas de código relevantes):
+
+- `/section/identity` (endpoints.py:959) → `router.get_master_by_cif(cif)` → `_call_master(method="get_by_cif")` (router.py:238) → `AgencyToolIdentityResolver.get_by_cif` (identity.py:85) → llama `POST /api/v1/financial-intelligence/analyze` (identity.py:91) usando `self._client.request(...)`.
+- Agregador `/ficha` → `router.get_company_ficha(cif)` → `_call_financial(method="ficha")` (router.py:513) → `provider.fetch_ficha(cif)` (financial.py:128) → llama `GET /api/v1/company/{cif}/ficha` (financial.py:139) usando **el mismo** `self._client.request(...)`.
+- Ambos flujos comparten el singleton `AgencyToolClient` (client.py). El método `client.request(...)` sólo consulta **una** variable de entorno para el header `X-API-Key`: `arroba_service_api_key_primary` (client.py:135), con fallback opcional a `_secondary` **únicamente en caso de 401** (línea 154).
+- El código NO tiene ninguna divergencia de NOMBRE de variable: `/section/identity` y `/ficha` leen exactamente la misma env var.
+
+**Conclusión**: la divergencia observada en Prod entre `master_id` de `/section/identity` vs `/ficha` **sólo puede provenir de**:
+1. `ARROBA_SERVICE_API_KEY_PRIMARY` en el panel Prod tiene un **VALOR distinto** al canónico (`sha256[:8]=2ba91e0d` publicado por Intel). Verificar en panel Emergent → Deploys → Environment Vars.
+2. **Caché stale** en `intelligence_cache` (Mongo Prod): un `master_id` divergente resuelto en una sesión previa quedó cacheado con TTL 24h (identidad estable). Purgar `intelligence_cache` con `provider="agency_tool", engine="master"` en Mongo Prod resuelve.
+
+**Acción propuesta al usuario (NO afecta al código · NO hay diff)**:
+1. Comparar el valor del env `ARROBA_SERVICE_API_KEY_PRIMARY` en el panel Prod contra el canónico. Si diverge → actualizar y redeploy.
+2. Adicionalmente purgar `intelligence_cache` Prod con `db.intelligence_cache.delete_many({"engine": "master"})` para invalidar cualquier `master_id` divergente cacheado.
+
+---
+
+### Ítem 2 · CANON_NARRATIVA_CF_FICHA.md · Aplicación
+
+**Descarga**: `/app/memory/CANON_NARRATIVA_CF_FICHA.md` (168 líneas). Aplicabilidad diagnosticada en Fase 0 vs `INVENTARIO_STRINGS_FICHA.md`:
+
+**Fase A (aplicada en este turno · sustituciones directas del Anexo A · 14 componentes tocados)**:
+
+| # | Ubicación | Antes | Después |
+|---|-----------|-------|---------|
+| 1 | `hero`/panel "Próxima acción" | "La recomendación por perfil y estado (…) se activará al cablear el estado de la compañía a su motor." | "Aún no consta el estado de la compañía (en venta, buscando capital, comprando). En cuanto se determine, aquí verás la recomendación de actuación." |
+| 2 | Resumen · card scores h3 | "Scores de inteligencia" | "Diagnóstico de ARROBA" |
+| 3 | Resumen · card scores fallback | `Pending label="Scores de inteligencia"` | `Pending label="Diagnóstico de ARROBA"` |
+| 4 | Resumen · KPI label | "Percentil de facturación" | "Percentil por ingresos" |
+| 5 | Resumen · KPI Innovación | Card "Innovación · En preparación" | **Eliminada** (canon: quitar si no hay dato) |
+| 6 | Resumen · Identificación cs (×2 ocurrencias) | "Datos registrales · fuentes verificadas + BORME" | "Datos registrales y de registros públicos" |
+| 7 | Finanzas · Ratios leyenda | "Dato recibido (verificado)" / "Valoración cualitativa de ARROBA" / "Barra = percentil sectorial" | "Verificado en fuente" / "Estimación de ARROBA" / "La barra indica el percentil frente al sector" |
+| 8 | Valoración · Ring | "Quality Score" + "de 100 · calidad financiera" | "Calidad financiera" (número queda en el anillo, sin repetir "de 100") |
+| 9 | Comparativa · Perfil cs | "Los rasgos con los que Arroba busca sus comparables" | "Rasgos de negocio que definen a la compañía frente a sus comparables" |
+| 10 | Comparativa · Compradores cs | "Ordenados por encaje (0–100). Haz clic…" | "Ordenados por grado de encaje. Selecciona un comprador para ver por qué encaja." |
+| 11 | Comparativa · Descomposición cs | "Descomposición del encaje {N}/100…" | "Cómo se descompone el encaje de {comprador}, factor a factor." |
+| 12 | Comparativa · Parecidas cs | "La similitud la calcula el Fingerprint…" | "Compañías con un perfil de negocio análogo por sector, tamaño, márgenes y territorio." |
+| 13 | Señales · meta | "{severity} · confianza {N}%" | "Relevancia {severity.toLowerCase()}" (sin `%` crudo) |
+| 14 | Copilot · pad note | "…el Copilot responde con sus motores." | "Pregunta sobre esta compañía y el copiloto te responde con su análisis." |
+
+**Fase B (no aplicada · pendiente REQ Intel `narrative`)**:
+- Rankings/Mercado/Concentración/Position: consumir `sector.narrative` / `geo.narrative` / `concentration.narrative` / `position.narrative` (§5.bis del canon). Intel aún no emite `narrative` en el payload real (verificado hoy: `market.sector`, `market.geo`, `market.concentration`, `market.position` NO tienen campo `narrative`). Se han añadido comments `TODO CANON CF Fase B` en `MercadoSectorPanel`, `MercadoGeoPanel`, `MercadoConcentrationPanel`, `MercadoPositionPanel` como marca para retirar los rows enum/YoY/signal cuando Intel entregue.
+- Cash flow labels (`operating_activities` → "Actividades de explotación"), governance role ES map, `is_listed` booleano→label ES: pendientes de REQ agregado a Intel (§ Fase 2 del inventario de strings).
+
+**Build/typecheck**: `yarn typecheck` OK · `yarn build` OK (`Done in 18.09s`, First Load JS shared 87.3 kB estable).
+
+**Smoke UI (Servier B28184687, anon)**: renderiza; canon strings visibles ("Aún no consta el estado de la compañía", "Datos registrales y de registros públicos"); no se detectan strings deprecados. Verificación autenticada (Rankings, Ratios, Valoración Ring) queda para el próximo hueco.
+
+---
+
+### Ítem 3 · REQ-INTEL emitido · `PARA_INTEL_comparables_T5_T10.md`
+
+Documento oficial creado en `/app/memory/PARA_INTEL_comparables_T5_T10.md` y publicado en `/app/frontend/public/handoff/PARA_INTEL_comparables_T5_T10.md` (verificado HTTP 200 local).
+
+Contenido:
+- Contexto: sección Comparativa (`id=comparativa` en NAV) bloqueada por ausencia de peers nominales; hoy renderiza `<Pending/>`.
+- Petición: bloque `peers` en `/company/{cif}/ficha` (Opción A · aditivo `dict | None` pattern HARDENING-012) con 5-10 compañías comparables por CNAE-group + banda tamaño 0,3x–3,0x revenue. Campos: `master_id`, `cif`, `name`, `province`, `cnae_code`, `cnae_label`, `revenue`, `ebitda`, `ebitda_margin`, `net_debt`, `employees`, `fiscal_year`, `distance_score`, `ranking_within_peer_group`, `narrative` (fase 2 canon CF).
+- Ejemplo payload: Servier B28184687 con 3 peers ilustrativos (Rovi, Faes Farma, Almirall) y sus métricas fake.
+- Sub-preguntas abiertas (5): banda de tamaño ajustable, peers extranjeros, criterio de similitud, TTL 24h, idempotencia cross-CIF.
+- Prioridad: **P2 · bloquea Comparativa**. No bloqueante para deploy actual.
+
+**URL descargable**: `/handoff/PARA_INTEL_comparables_T5_T10.md` (local HTTP 200 confirmado en preview).
+
+---
+
+### Ítem 4 · Fase 0 · Sector & Roll-up + Registros/Documentos (diagnóstico puro, NO se cablea)
+
+**Metodología**: curl directo al agregador Intel autenticado con la clave canónica en preview:
+```
+curl -H "X-API-Key: $ARROBA_SERVICE_API_KEY_PRIMARY" https://intel.arroba.com/api/v1/company/B28184687/ficha
+```
+Payload: 29.8 KB, HTTP 200. Top-level keys: `['cif', 'engine_version', 'events', 'finances', 'governance', 'identifier', 'identity', 'market', 'master_id', 'ownership', 'ranking', 'signals']`.
+
+#### Sector & Roll-up (E6/E7)
+
+Scan recursivo buscando keys que contengan: `rollup`, `roll_up`, `fragment`, `consolidation`, `tesis`, `thesis`, `e6`, `e7`, `multiples`, `acquirer_universe`.
+
+**Resultado**: **CERO matches en el payload real**. Única aparición: `identity.record_status` (mercantil status registral, NO relacionado con roll-up).
+
+**Conclusión**: la sección Sector & Roll-up **no puede cablearse aún**. Requiere REQ-INTEL futuro (no emitido en este turno; documentado como pendiente).
+
+**Shape sugerido para un futuro REQ** (para preparar sprint Intel):
+```json
+{
+  "rollup": {
+    "available": true,
+    "fragmentation_index": 0.72,   // 0=monopolio, 1=fragmentado
+    "acquirer_universe_size": 34,
+    "multiples_recent": { "ev_ebitda_median": 7.8, "ev_ebitda_p25": 6.1, "ev_ebitda_p75": 9.4, "sample_size": 12 },
+    "consolidation_thesis": "El sector se encuentra en fase temprana de consolidación...",
+    "engine_version": "arroba-rollup-v1"
+  }
+}
+```
+Se emitirá REQ formal cuando Arroba priorice Sector & Roll-up (bloqueado hoy por Comparativa T5-10).
+
+#### Registros/Documentos
+
+Scan recursivo buscando: `documents`, `docs`, `cuentas`, `annual_accounts`, `registro`, `gacetas`, `boe`, `record`, `filings`, `reports`.
+
+**Resultado**:
+- `identity.record_status: "active"` — flag de estado del registro mercantil (NO documentos).
+- Top-level `events` con `{available: false, identifier: "B28184687", engine_version: "arroba-company-ficha-v1"}` — sigue sin BORME (verificado ayer, sigue igual hoy).
+- `finances.events` — NO existe (verificado explícitamente).
+- **CERO** keys de documentos/cuentas/BORME/gacetas más allá del flag registral.
+
+**Conclusión**: Registros públicos y Documentos siguen `<Pending/>` en Beta; sin dato en Intel. No REQ emitido aún (esperable en batch con Sector & Roll-up).
+
+---
+
+## Estado del bundle
+
+| Ítem | Estado | Bloqueante para deploy actual? |
+|---|---|---|
+| 1 · Anomalía #1 diag | ✅ (a) VALOR — no toca código | No (info para el usuario) |
+| 2 · Canon Fase A aplicada | ✅ 14 strings sustituidos + TODOs Fase B | No (mejoras UX, no rompe contratos) |
+| 3 · REQ T5-10 emitido | ✅ URL 200 preview | No (bloquea Comparativa, no deploy) |
+| 4 · Fase 0 Sector & Roll-up + Registros/Documentos | ✅ payload confirmado vacío | No (secciones ya en `<Pending/>`) |
+
+**Deploy readiness**: sin cambios de infraestructura ni de contrato backend. Frontend build limpio. Se puede acumular al próximo push del usuario.
+
+**Sub-preguntas al usuario**:
+1. ¿Aplico Fase B del canon (retirar rows enum de Mercado/Rankings/Concentración cuando Intel confirme `narrative`) o esperamos a que Intel responda el REQ agregado de labels ES?
+2. ¿Emitir REQ formal `PARA_INTEL_sector_rollup_E6_E7.md` ahora o esperar al cierre de Comparativa T5-10?
+
+---
+

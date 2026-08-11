@@ -366,13 +366,23 @@ async def get_company_ficha(
         # B-2.3 / B-2.2): governance elimina la lista nominal `officers`;
         # ownership elimina todos los nombres (físicos y jurídicos) y sólo
         # emite un `summary` no identificativo. Ver R15 + DPD.
-        ficha = ficha.model_copy(
-            update={
-                "finances": None,
-                "governance": _anonymize_governance(ficha.governance),
-                "ownership": _anonymize_ownership(ficha.ownership),
-            }
-        )
+        #
+        # HARDENING-013 (2026-08-12) · gating extendido: `ranking` top-level
+        # y `market.position` son datos analíticos derivados de los ingresos
+        # de la empresa; equivalen semánticamente a `finances.ranking` y por
+        # tanto DEBEN nulificarse en anon (antes solo `finances=None` cubría
+        # el bloque anidado, dejando fuga de los duplicados top-level). Los
+        # sub-bloques `market.{sector, geo, concentration}` siguen siendo
+        # públicos (contexto sectorial/territorial no identificativo).
+        update_dict: dict = {
+            "finances": None,
+            "governance": _anonymize_governance(ficha.governance),
+            "ownership": _anonymize_ownership(ficha.ownership),
+            "ranking": None,
+        }
+        if isinstance(ficha.market, dict):
+            update_dict["market"] = {k: v for k, v in ficha.market.items() if k != "position"}
+        ficha = ficha.model_copy(update=update_dict)
 
     settings = get_intelligence_settings()
     response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
