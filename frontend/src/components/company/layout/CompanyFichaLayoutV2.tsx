@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 import type {
-  BuyerItem, CashFlowRow, CashFlowStatement, FinancialAnalysis, FinancialAnalysisRatioDetail,
+  BuyerItem, CashFlowRow, CashFlowStatement, FinancialAnalysis, FinancialAnalysisBalanceSheet, FinancialAnalysisRatioDetail,
   FinancialSection, FinancialTableBlock, GovernanceAggregated, GovernanceBlock, GovernanceNominal,
   IdentitySection, OwnershipAggregated, OwnershipBlock, OwnershipNominal,
   RecommendationSet, SemanticSection, SignalAnalysis, ValuationAnalysis,
@@ -52,6 +52,8 @@ export interface CompanyFichaLayoutV2Props {
    * porcentajes individuales. Cero heurística de clasificación jurídica/física.
    */
   ownership?: OwnershipBlock | null;
+  /** B-2 · Events shell: `ficha.events` passthrough. Público. */
+  events?: Record<string, unknown> | null;
   /** false = visitante anónimo (mixed-access): cifras bajo CTA de registro. */
   authenticated?: boolean;
 }
@@ -59,7 +61,7 @@ export interface CompanyFichaLayoutV2Props {
 type SectionId =
   | 'resumen' | 'finanzas' | 'valoracion' | 'propiedad' | 'gobierno' | 'mercado'
   | 'rankings' | 'comparativa' | 'senales' | 'oportunidades' | 'comite'
-  | 'sucesion' | 'sector' | 'registros' | 'documentos';
+  | 'sucesion' | 'sector' | 'eventos' | 'registros' | 'documentos';
 
 interface NavItem { id: SectionId; label: string; icon: LucideIcon; ready: boolean; grp: string; }
 const NAV: NavItem[] = [
@@ -76,6 +78,7 @@ const NAV: NavItem[] = [
   { id: 'comite', label: 'Comité de inversión', icon: Scale, ready: false, grp: 'Inteligencia' },
   { id: 'sucesion', label: 'Sucesión', icon: Hourglass, ready: false, grp: 'Inteligencia' },
   { id: 'sector', label: 'Sector & Roll-up', icon: PieChart, ready: false, grp: 'Inteligencia' },
+  { id: 'eventos', label: 'Eventos y BORME', icon: Bell, ready: true, grp: 'Fuentes' },
   { id: 'registros', label: 'Registros públicos', icon: FileText, ready: false, grp: 'Fuentes' },
   { id: 'documentos', label: 'Documentos', icon: Files, ready: false, grp: 'Fuentes' },
 ];
@@ -346,6 +349,9 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
           <div className="idrow"><span className="k">CNAE</span><span className="v">{cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_description ?? ''}` : '—'}</span></div>
           <div className="idrow"><span className="k">Domicilio</span><span className="v">{[loc.municipio, loc.provincia].filter(Boolean).join(' · ') || '—'}</span></div>
         </div>
+        <div style={{ marginTop: 16 }}>
+          <IdentidadAmpliada identity={identity} />
+        </div>
       </section>
     );
   }
@@ -479,7 +485,53 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
           {identity.contact.web && <div className="idrow"><span className="k">Web</span><span className="v">{identity.contact.web}</span></div>}
         </div>
       </div>
+      <div style={{ marginTop: 16 }}>
+        <IdentidadAmpliada identity={identity} />
+      </div>
     </section>
+  );
+}
+
+/* ============================ ESTRUCTURA DE DEUDA ============================ */
+/**
+ * Item 6.b · Estructura de deuda (2026-08-11).
+ * Consume `financialAnalysis.balance_sheet.{st_debt, lt_debt, financial_debt}`
+ * (shape plano · un único año · confirmado en Fase 0 sobre Servier).
+ * R15 estricto: NO calculamos `financial_debt = st_debt + lt_debt` en frontend;
+ * si Intel no entrega el agregado, `<Empty/>` local en esa fila.
+ * Gating: incluida dentro del tab Balance (bloque Finanzas, ya gated en anon).
+ */
+function DebtBreakdownCard({ balance, year }: { balance: FinancialAnalysisBalanceSheet | null; year: number | null }) {
+  const st = balance?.st_debt ?? null;
+  const lt = balance?.lt_debt ?? null;
+  const fin = balance?.financial_debt ?? null;
+  const allNull = st == null && lt == null && fin == null;
+  return (
+    <div className="card" style={{ marginTop: 16 }} data-testid="debt-breakdown-card">
+      <h3><span className="k" />Estructura de deuda</h3>
+      <div className="cs">Deuda por horizonte temporal · fuente: cuentas depositadas{year != null ? ` · ejercicio ${year}` : ''}</div>
+      {allNull ? (
+        <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--n500)', fontSize: 13 }}>Desglose de deuda en preparación</div>
+      ) : (
+        <table className="rec" data-testid="debt-breakdown-table">
+          <tbody>
+            <tr><th>Concepto</th><th style={{ textAlign: 'right' }}>{year ?? 'Último ejercicio'}</th></tr>
+            <tr data-testid={`debt-breakdown-st-${year ?? 'na'}`}>
+              <td>Deuda a corto plazo</td>
+              <td style={{ textAlign: 'right' }}>{st != null ? fmtEUR(st) : <span style={{ color: 'var(--n400)', fontStyle: 'italic' }}>En preparación</span>}</td>
+            </tr>
+            <tr data-testid={`debt-breakdown-lt-${year ?? 'na'}`}>
+              <td>Deuda a largo plazo</td>
+              <td style={{ textAlign: 'right' }}>{lt != null ? fmtEUR(lt) : <span style={{ color: 'var(--n400)', fontStyle: 'italic' }}>En preparación</span>}</td>
+            </tr>
+            <tr data-testid={`debt-breakdown-financial-${year ?? 'na'}`}>
+              <td><b>Deuda financiera total</b></td>
+              <td style={{ textAlign: 'right' }}><b>{fin != null ? fmtEUR(fin) : <span style={{ color: 'var(--n400)', fontStyle: 'italic', fontWeight: 400 }}>En preparación</span>}</b></td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
@@ -641,8 +693,10 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
         ? <div className="card"><h3><span className="k" />Cuenta de resultados</h3><div className="cs">Arrastra {'"Nivel de detalle"'} para desplegar más partidas</div><FinTable block={filterRows(financial.profit_loss, lvl)} /></div>
         : <Pending label="Cuenta de resultados" />)}
       {tab === 'balance' && (financial.balance
-        ? <div className="card"><h3><span className="k" />Balance</h3><FinTable block={filterRows(financial.balance, lvl)} /></div>
-        : <Pending label="Balance" />)}
+        ? <><div className="card"><h3><span className="k" />Balance</h3><FinTable block={filterRows(financial.balance, lvl)} /></div><DebtBreakdownCard balance={analysis?.balance_sheet ?? null} year={analysis?.year ?? null} /></>
+        : (analysis?.balance_sheet
+            ? <DebtBreakdownCard balance={analysis.balance_sheet} year={analysis.year ?? null} />
+            : <Pending label="Balance" />))}
       {tab === 'cashflow' && (analysis?.cash_flow && Array.isArray(analysis.cash_flow.rows) && analysis.cash_flow.rows.length > 0
         ? <div className="card"><h3><span className="k" />Estado de flujos de efectivo</h3><div className="cs">Fuente: cuentas depositadas (PGC) · flujos por actividad y resumen (FCF, conversión de caja).</div><CashFlowTable cf={analysis.cash_flow} /></div>
         : <Empty label="Estado de flujos de efectivo" />)}
@@ -1031,6 +1085,160 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
         })}
       </div>
     </section>
+  );
+}
+
+/* ============================ EVENTS · BORME ============================ */
+/**
+ * Eventos societarios y BORME (2026-08-11).
+ * Shape observado en Servier: `{available:false}` puro. Cuando Intel entregue
+ * eventos, esperamos un `items[]` con `{date, type, extract, borme_section?, borme_province?}`.
+ * Passthrough puro R15: cero derivadas. Público (BORME es dato registral).
+ */
+interface EventItem {
+  date?: string | null;
+  type?: string | null;
+  extract?: string | null;
+  borme_section?: string | null;
+  borme_province?: string | null;
+  [k: string]: unknown;
+}
+function Eventos({ events }: { events?: Record<string, unknown> | null }) {
+  const available = events?.available === true;
+  const itemsRaw = (events?.items as EventItem[] | undefined) ?? (events?.events as EventItem[] | undefined) ?? [];
+  const items: EventItem[] = Array.isArray(itemsRaw) ? itemsRaw : [];
+  if (!available || items.length === 0) {
+    return (
+      <section className="panel on" data-testid="events-empty">
+        <div className="sec-h">Eventos societarios y BORME</div>
+        <div className="sec-s">Cronología de hechos registrales publicados en el Boletín Oficial del Registro Mercantil.</div>
+        <div className="card" style={{ textAlign: 'center', padding: '28px 20px' }}>
+          <div style={{ fontSize: 20, opacity: 0.45, marginBottom: 6 }}>◔</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--n700)' }}>Eventos registrales no disponibles</div>
+          <div className="cs" style={{ marginTop: 4, marginBottom: 0 }}>Información en preparación.</div>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="panel on" data-testid="events-timeline">
+      <div className="sec-h">Eventos societarios y BORME</div>
+      <div className="sec-s">Cronología de hechos registrales publicados en el Boletín Oficial del Registro Mercantil.</div>
+      <div className="tl">
+        {items.map((ev, i) => (
+          <div key={`${ev.date ?? i}-${i}`} className="ev i" data-testid={`events-item-${i}`}>
+            <div className="mk" />
+            <div className="c">
+              <div className="th">
+                <div>
+                  <div className="t">{ev.type || 'Evento registral'}</div>
+                  {fmtDate(ev.date ?? null) && <div className="m">{fmtDate(ev.date ?? null)}</div>}
+                </div>
+              </div>
+              {ev.extract && <div style={{ fontSize: 14, color: 'var(--n800)', lineHeight: 1.55, marginTop: 6 }}>{ev.extract}</div>}
+              {(ev.borme_section || ev.borme_province) && (
+                <div style={{ fontSize: 10.5, color: 'var(--n500)', marginTop: 10, fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: 0.2 }}>
+                  BORME · {[ev.borme_section, ev.borme_province].filter(Boolean).join(' · ')}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ============================ IDENTIFICACIÓN AMPLIADA ============================ */
+/**
+ * Item 6.a · Identificación registral y societaria (2026-08-11).
+ * Card estructurada en 4 subgrupos: Registro, Domicilio, Capital y plantilla, Cotización.
+ * Passthrough puro R15: campo null → `<Empty/>` local sin ocultar la fila (para que el
+ * usuario sepa qué falta). Cero derivadas.
+ * Público (dato registral).
+ */
+function fmtYesNo(v: boolean | null | undefined): string | null {
+  if (v === true) return 'Cotizada';
+  if (v === false) return 'No cotizada';
+  return null;
+}
+function IdentityRow({ label, value, testid }: { label: string; value: string | null | undefined; testid: string }) {
+  const has = value !== null && value !== undefined && String(value).trim().length > 0 && String(value) !== '—';
+  return (
+    <div className="idrow" data-testid={testid}>
+      <span className="k">{label}</span>
+      <span className="v" style={has ? undefined : { color: 'var(--n400)', fontStyle: 'italic' }}>
+        {has ? value : 'En preparación'}
+      </span>
+    </div>
+  );
+}
+function IdentidadAmpliada({ identity }: { identity: IdentitySection }) {
+  // Passthrough desde `identity` (proveniente de adaptIdentityFromFicha) + fallback
+  // a `financialAnalysis.identity` cuando corresponda (mismo criterio que Hero).
+  const cif = identity.cif_normalized ?? null;
+  const legal_name = identity.legal_name ?? null;
+  const registry = identity.registry_status ?? { legal_form: null, mercantile_status: null, activity_status: null, incorporation_date: null, record_status: null, is_listed: null, listed_market: null };
+  const legal_form = registry.legal_form ?? null;
+  const mercantile_status = registry.mercantile_status ?? null;
+  const activity_status = registry.activity_status ?? null;
+  const incorporation_date = fmtDate(registry.incorporation_date ?? null);
+  const record_status = registry.record_status ?? null;
+  const loc = identity.location ?? { provincia: null, municipio: null, codigo_postal: null, pais: null };
+  const address = identity.address ?? null;
+  const postal_code = loc.codigo_postal ?? null;
+  const locality = loc.municipio ?? null;
+  const province = loc.provincia ?? null;
+  const autonomous_community = identity.autonomous_community ?? null;
+  const country = identity.country ?? loc.pais ?? null;
+  const sz = identity.size ?? {};
+  const capital_social = sz.capital_social ?? null;
+  const employees_total = sz.employees_total ?? null;
+  const listed = registry.is_listed ?? null;
+  const listed_market = registry.listed_market ?? null;
+
+  return (
+    <div className="card" data-testid="identity-expanded">
+      <h3><span className="k" />Identificación registral y societaria</h3>
+      <div className="cs">Datos registrales, domicilio, capital y estado de cotización</div>
+
+      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
+        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Registro</h5>
+        <IdentityRow label="Razón social"      value={legal_name}                                testid="identity-expanded-registro-legal_name" />
+        <IdentityRow label="CIF/NIF"           value={cif}                                       testid="identity-expanded-registro-cif" />
+        <IdentityRow label="Forma jurídica"    value={legal_form}                                testid="identity-expanded-registro-legal_form" />
+        <IdentityRow label="Estado mercantil"  value={mercantile_status}                         testid="identity-expanded-registro-mercantile_status" />
+        <IdentityRow label="Situación de actividad" value={activity_status}                      testid="identity-expanded-registro-activity_status" />
+        <IdentityRow label="Fecha de constitución"  value={incorporation_date}                   testid="identity-expanded-registro-incorporation_date" />
+        <IdentityRow label="Estado del registro"    value={record_status}                        testid="identity-expanded-registro-record_status" />
+      </div>
+
+      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
+        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Domicilio</h5>
+        <IdentityRow label="Dirección"         value={address}                                   testid="identity-expanded-domicilio-address" />
+        <IdentityRow label="Código postal"     value={postal_code}                               testid="identity-expanded-domicilio-postal_code" />
+        <IdentityRow label="Municipio"         value={locality}                                  testid="identity-expanded-domicilio-locality" />
+        <IdentityRow label="Provincia"         value={province}                                  testid="identity-expanded-domicilio-province" />
+        <IdentityRow label="Comunidad autónoma" value={autonomous_community}                     testid="identity-expanded-domicilio-autonomous_community" />
+        <IdentityRow label="País"              value={country}                                   testid="identity-expanded-domicilio-country" />
+      </div>
+
+      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
+        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Capital y plantilla</h5>
+        <IdentityRow label="Capital social"    value={capital_social != null ? fmtEUR(capital_social) : null} testid="identity-expanded-capital-capital_social" />
+        <IdentityRow label="Empleados totales" value={employees_total != null ? fmtNum(employees_total) : null} testid="identity-expanded-capital-employees_total" />
+        {/* R15: `employees_range` no lo entrega Intel; no lo derivamos desde `employees_total`. */}
+        <IdentityRow label="Rango de plantilla" value={null}                                     testid="identity-expanded-capital-employees_range" />
+      </div>
+
+      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
+        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Cotización</h5>
+        <IdentityRow label="Estado de cotización" value={fmtYesNo(listed)}                       testid="identity-expanded-cotizacion-is_listed" />
+        <IdentityRow label="Mercado"           value={listed_market}                             testid="identity-expanded-cotizacion-listed_market" />
+        {/* R15: `ticker` no lo entrega Intel; siempre `<Empty/>`. */}
+        <IdentityRow label="Ticker"            value={null}                                      testid="identity-expanded-cotizacion-ticker" />
+      </div>
+    </div>
   );
 }
 
@@ -1435,6 +1643,7 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
               : <Oportunidades opportunities={props.opportunities} />)}
             {active === 'gobierno' && <Gobierno governance={props.governance} />}
             {active === 'propiedad' && <Propiedad ownership={props.ownership} />}
+            {active === 'eventos' && <Eventos events={props.events} />}
             {['mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
               <section className="panel on">
                 <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>

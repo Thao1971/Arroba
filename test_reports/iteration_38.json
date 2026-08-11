@@ -1,0 +1,25 @@
+{
+  "summary": "B-2 bundle cierre completo (4 items frontend-only + REQ-INTEL) verificado end-to-end. Pytest backend 9/9 PASS en /app/backend/tests/intelligence_layer/test_ficha_endpoint.py (sin regresión — bundle es frontend-only). Handoff URLs 200: /handoff/PLAN_BETA_status_20260810.md y /handoff/PARA_INTEL_shareholder_type.md. Frontend UI (preview URL):\n\n(A) AUTH Servier /es/empresa-f01/B28184687 → nav 'Eventos y BORME' clicable, renderiza `data-testid=events-empty` con los 4 copies esperados ('Eventos societarios y BORME', 'Cronología de hechos registrales', 'Eventos registrales no disponibles', 'Información en preparación').\n\n(B) AUTH Servier → Resumen scroll bottom renderiza `data-testid=identity-expanded` con título 'Identificación registral y societaria' y los 22/22 testids esperados sin missing (registro×7 · domicilio×6 · capital×3 · cotizacion×3, adicionalmente aparecen otros como aliases/website etc). Populated: CIF/NIF=B28184687, Municipio=MADRID, Provincia=MADRID, CP=28043, País=ESPANA, Empleados=346. 19 ocurrencias de 'En preparación' (matches spec exacto). Nota: subgrupos REGISTRO/DOMICILIO/CAPITAL Y PLANTILLA/COTIZACIÓN aparecen en la card pero no como texto literal en mayúsculas en el DOM (probablemente estilo CSS text-transform); irrelevante para funcionalidad.\n\n(C) AUTH Servier → Finanzas › tab Balance renderiza `data-testid=debt-breakdown-card` con título 'Estructura de deuda', subtítulo 'ejercicio 2024' y `data-testid=debt-breakdown-table` con 3 filas: Deuda a corto plazo 2,4 M€ · Deuda a largo plazo 'En preparación' · Deuda financiera total 2,4 M€. R15 respetado: no hay derivación aritmética visible (financial_debt viene desde Intel, coincide con st_debt=2,4 M€ real).\n\n(D) ANON Servier (cookies limpiadas) → events-empty visible con 'Información en preparación'; identity-expanded público visible (con 'En preparación' en campos null); Finanzas gate visible SIN debt-breakdown-card (0 hits, gated correctamente); ownership-aggregated=1 sin PII; gobierno-aggregated=1 sin PII. DOM completo acumulado tras hidratación navegando por las 5 secciones: 0 hits de 'SERVIER INTERNATIONAL', 0 de 'ARTS ET TECHNIQUES', 0 de 'controlling_shareholder', 0 de 'officers'.\n\n(E) AUTH NCR /es/empresa-f01/B28031458 → events-empty=1 ✓, identity-expanded=1 con 19 'En preparación' ✓, Finanzas Balance tab: debt-breakdown-card=0 y fallback 'Desglose de deuda en preparación' TAMPOCO aparece — en su lugar se renderiza `<Pending label='Balance'/>` porque NCR carece de financial.balance Y analysis.balance_sheet (rama fallback en línea 699 de CompanyFichaLayoutV2.tsx). Comportamiento consistente con el código pero desalineado con el copy 'Desglose de deuda en preparación' mencionado en el review request — observación menor no bloqueante.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "NCR B28031458 › Finanzas › Balance", "issues": ["Cuando ni financial.balance ni analysis.balance_sheet existen, se renderiza <Pending label='Balance'/> (Balance en preparación) en lugar del copy específico 'Desglose de deuda en preparación' mencionado en el review request. Consistente con el código pero no coincide con la especificación textual. Observación menor no bloqueante."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/intelligence_layer/test_ficha_endpoint.py",
+    "/app/test_reports/iteration_38.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (9/9 pytest + 2/2 handoff URLs 200)", "frontend": "100% funcional (4/4 items AUTH Servier + AUTH NCR + ANON con 0 PII leak); 1 observación menor de copy en fallback NCR"},
+  "seed_data_creation": "Ninguno. Auth vía email/password con test.arroba+neo@arroba.com.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "test.arroba+neo@arroba.com / YofQgBFAo1wuC0d# (/app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "Bundle B-2 cerrado 100%. Items A/B/C/D verificados en AUTH Servier · AUTH NCR · ANON Servier. Test IDs clave: events-empty · identity-expanded · identity-expanded-{registro|domicilio|capital|cotizacion}-{field} (22 testids fijos) · debt-breakdown-card · debt-breakdown-table · debt-breakdown-{st|lt|financial}-{year}. Regla R15 respetada: financial_debt no se deriva en frontend, viene tal cual desde analysis.balance_sheet. Cero fugas PII en anon confirmado por grep DOM acumulado. Nota menor: NCR sin balance data renderiza <Pending label='Balance'/> (no el copy 'Desglose de deuda en preparación'); revisar si es necesario alinear.",
+  "rca_of_the_issue": "N/A — todos los criterios de aceptación B-2 cumplidos. Única observación menor: mismatch de copy en fallback NCR Balance (código usa componente <Pending label='Balance'/> genérico en línea 699 CompanyFichaLayoutV2.tsx cuando ni financial.balance ni analysis.balance_sheet existen)."
+}
