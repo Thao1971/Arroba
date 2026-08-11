@@ -300,7 +300,7 @@ function TrendPill({ trend }: { trend: string | null | undefined }) {
 /** Hero + card "Veredicto de ARROBA" — bloque de portada del Resumen (compartido anon/auth).
  *  Cascada de descripción: `identity.description` → `identity.objeto_social` → `financialAnalysis.identity.description` → `financialAnalysis.identity.objeto_social` → <Empty/>.
  *  El fallback a `financialAnalysis.identity` resuelve la descoordinación Intel I-1 en la que `/section/identity` aún devuelve null pero `/financial-analysis` sí puebla el dato. */
-function HeroBlock({ identity, semantic, financialAnalysis }: { identity: IdentitySection; semantic: SemanticSection | null; financialAnalysis: FinancialAnalysis | null }) {
+function HeroBlock({ identity, semantic, financialAnalysis, market }: { identity: IdentitySection; semantic: SemanticSection | null; financialAnalysis: FinancialAnalysis | null; market?: MarketBlock | null }) {
   const fallbackDescription =
     identity.description
     || identity.objeto_social
@@ -308,10 +308,13 @@ function HeroBlock({ identity, semantic, financialAnalysis }: { identity: Identi
     || financialAnalysis?.identity?.objeto_social
     || null;
   // Hero "Veredicto de ARROBA" · fuente Intel `finances.assessment.verdict` (2026-08-11).
-  // R15: passthrough puro. `financial_quality` sigue alimentando la "Lectura financiera"
-  // de la pestaña Finanzas — no lo tocamos.
   const verdictRaw = financialAnalysis?.assessment?.verdict ?? null;
   const verdict = typeof verdictRaw === 'string' && verdictRaw.trim().length > 0 ? verdictRaw.trim() : null;
+  // Hero "Contexto sectorial" mini-widget (2026-08-12) · allowlist estricta de
+  // signals fuertes. Cero cálculo derivado, cero traducción, cero fabricación.
+  const sector = market?.sector ?? null;
+  const strongSignals = new Set(['sector_contraction', 'growth_momentum']);
+  const showSectorWidget = !!sector && !!sector.signal && strongSignals.has(sector.signal);
   return (
     <>
       <div className="hero">
@@ -325,6 +328,46 @@ function HeroBlock({ identity, semantic, financialAnalysis }: { identity: Identi
           ? <p data-testid="hero-verdict-value" style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'var(--n800)' }}>{verdict}</p>
           : <Empty />}
       </div>
+      {showSectorWidget && sector && (
+        <div
+          className="card"
+          data-testid="hero-sector-signal-widget"
+          style={{ marginTop: 12, padding: '10px 14px', background: 'var(--n50)', borderLeft: '3px solid var(--n300)' }}
+        >
+          <div style={{ fontSize: 11, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700, marginBottom: 6 }}>
+            Contexto sectorial
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span data-testid="hero-sector-signal-trend">
+              <TrendBadge direction={sector.trend_direction} />
+            </span>
+            {sector.national_yoy_pct != null && (
+              <span
+                data-testid="hero-sector-signal-yoy"
+                style={{ fontSize: 13, color: 'var(--n700)' }}
+              >
+                YoY <b>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</b>
+              </span>
+            )}
+          </div>
+          {sector.primary_driver && (
+            <div
+              data-testid="hero-sector-signal-driver"
+              style={{ marginTop: 6, fontSize: 13, color: 'var(--n800)', lineHeight: 1.5 }}
+            >
+              Impulsor principal · <b>{sector.primary_driver}</b>
+            </div>
+          )}
+          {sector.cnae_label && (
+            <div
+              data-testid="hero-sector-signal-cnae"
+              style={{ marginTop: 6, fontSize: 10.5, color: 'var(--n500)', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: 0.2 }}
+            >
+              {sector.cnae_label}{sector.cnae_code ? ` · CNAE ${sector.cnae_code}` : ''}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -351,7 +394,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   if (p.anon) {
     return (
       <section className="panel on">
-        <HeroBlock identity={identity} semantic={semantic} financialAnalysis={financialAnalysis} />
+        <HeroBlock identity={identity} semantic={semantic} financialAnalysis={financialAnalysis} market={p.market} />
         <div style={{ marginTop: 16 }}><Gate what="el análisis financiero, la valoración y los compradores" /></div>
         <div className="card" style={{ marginTop: 16 }}>
           <h3><span className="k" />Identificación</h3>
@@ -378,7 +421,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
 
   return (
     <section className="panel on">
-      <HeroBlock identity={identity} semantic={semantic} financialAnalysis={financialAnalysis} />
+      <HeroBlock identity={identity} semantic={semantic} financialAnalysis={financialAnalysis} market={p.market} />
 
       {hasChart ? (
         <div className="card" style={{ marginTop: 16 }}>
