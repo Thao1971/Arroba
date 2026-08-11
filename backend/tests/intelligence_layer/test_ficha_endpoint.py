@@ -461,3 +461,79 @@ async def test_ficha_ownership_dpd_available_false_passthrough_both_modes(
     assert r_auth.status_code == 200, r_auth.text
     assert r_auth.json()["ownership"] == unavailable_own
 
+
+# ================================================================
+# HARDENING-012 · Market top-level passthrough (2026-08-12)
+# Intel entrega `market` en el agregador `/company/{cif}/ficha`.
+# ================================================================
+
+
+@pytest.mark.asyncio
+async def test_ficha_market_top_level_passthrough_anonymous(client: AsyncClient):
+    """HARDENING-012 · el bloque `market` viaja passthrough top-level en anon.
+
+    Regla: `market` es dato público (sector + geo + concentration + position);
+    el backend NO lo anonimiza en la ruta anónima (a diferencia de governance
+    y ownership). El frontend gate sub-bloques según análisis-dependencia.
+    """
+    from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
+    from src.modules.intelligence_layer.interfaces.financial import FinancialAnalysis
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    market_block = {
+        "available": True,
+        "sector": {
+            "cnae_code": "2120", "cnae_label": "Fabricación de especialidades farmacéuticas",
+            "cnae_level": "group", "size_score": 0, "dynamism_score": 19,
+            "growth_score": 10, "activity_score": 43, "trend_direction": "down",
+            "signal": "sector_contraction", "primary_driver": "activity",
+        },
+        "geo": {
+            "geo_id": "28", "geo_name": "Madrid", "geo_level": "province",
+            "size_score": 95, "dynamism_score": 61, "growth_score": 15,
+            "trend_direction": "down", "signal": "corporate_hub",
+        },
+        "concentration": {
+            "level": "group", "degraded": False, "hhi": 10000.0,
+            "concentration_label": "highly_concentrated",
+            "caveat": "Universo reducido (por debajo del umbral de estabilidad); HHI orientativo.",
+        },
+        "position": {
+            "sector_revenue_percentile": 100,
+            "market_position": {"rank": 2, "total": 9, "scope": "sector CNAE + banda de tamaño"},
+            "locality_position": {"rank": 1, "total": 34, "scope": "municipio"},
+            "explain": ["En el percentil 100 por ingresos de su sector"],
+        },
+        "coverage": {"sector": True, "geo": True, "concentration": True, "position": True},
+    }
+    ficha = CompanyFicha(
+        cif_normalized="B28184687",
+        master_id="mc_market_test",
+        finances=FinancialAnalysis(cif_normalized="B28184687", has_financials=True),
+        identity={"cif": "B28184687"},
+        ownership={"available": False},
+        governance={"available": False},
+        events={"available": False},
+        ranking=None,
+        market=market_block,
+        engine_version="arroba-ficha-v1",
+    )
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(return_value=ficha)
+
+    r = await client.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # Bloque market debe viajar passthrough completo en anon (contexto público).
+    assert body.get("market") is not None
+    m = body["market"]
+    assert m["available"] is True
+    assert m["sector"]["cnae_code"] == "2120"
+    assert m["sector"]["dynamism_score"] == 19
+    assert m["geo"]["geo_id"] == "28"
+    assert m["concentration"]["hhi"] == 10000.0
+    assert m["concentration"]["degraded"] is False
+    assert m["position"]["sector_revenue_percentile"] == 100
+    # `finances` gated en anon (baseline mixed-access).
+    assert body["finances"] is None
+

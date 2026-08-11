@@ -1,5 +1,24 @@
 # PARA INTEL · Solicitud REQ · Ampliación del agregador `/company/{cif}/ficha` con bloque `finances.market` per-CIF pre-cruzado
 
+> ## ✅ RESUELTO · 2026-08-12
+>
+> Intel entregó el bloque `market` en el agregador `/company/{cif}/ficha` con **shape parcialmente distinto** al propuesto. Discrepancias registradas para trazabilidad (Arroba respeta el shape REAL de Intel · no bloquean cableado):
+>
+> - **Ubicación**: `market` va **top-level** (no dentro de `finances`).
+> - **HHI**: Intel usó el nombre canónico **`concentration`** (no `hhi` como top-level). El valor numérico HHI está en `concentration.hhi`; degradación en `concentration.degraded` + `concentration.degraded_reason` / `concentration.caveat` (según caso).
+> - **Position**: incluido dentro de `market.position` con **paridad de campos** frente a `finances.ranking` (`sector_revenue_percentile`, `market_position`, `locality_position`, `explain[]`). Duplicidad intencional por parte de Intel; Arroba conserva ambas rutas (Rankings sección lee `finances.ranking`; Mercado panel Position lee `market.position`).
+> - **Percentiles ratios sectoriales P25/P50/P75**: **NO entregados** en `market`. Los percentiles siguen en `finances.ratios.*.percentile` (escalar único · escalable en próxima iteración si se pide).
+> - **Nivel canónico Intel**: `cnae_level ∈ {group (4-dig), division (2-dig), section}` según cobertura; Intel degrada automáticamente cuando el universo del nivel más granular es insuficiente (verificado en PROCOLUIDE `A81921611` con caída a `division`).
+> - **Campos adicionales entregados no incluidos en el REQ**: `sector.national_yoy_pct` · `sector.market_share` · `sector.iberinform_companies` · `geo.parent_ccaa` · `geo.net_company_creation` · `concentration.hhi_methodology` (metodología DOJ/FTC) · `concentration.market_actors_count` · `concentration.distinct_ownership_groups` · `concentration.standalone_targets_count` · `concentration.total_companies_in_universe` · `concentration.companies_with_revenue_data`. Todos consumidos por Arroba en la sección Mercado.
+>
+> Arroba consume `market` como `dict | None` passthrough (HARDENING-012 · Pydantic `CompanyFicha.market: dict | None` aditivo). Sección UI "Contexto sectorial y territorial" desplegada en preview con 4 sub-paneles independientes null-safe: sector · geo · concentration · position (position gated en anon). Testing_agent iteration_39 100% PASS con Servier (`B28184687`) + PROCOLUIDE (`A81921611`). **REQ cerrado.**
+>
+> Documento histórico preservado tal cual a continuación para trazabilidad.
+
+---
+
+# PARA INTEL · Solicitud REQ · Ampliación del agregador `/company/{cif}/ficha` con bloque `finances.market` per-CIF pre-cruzado
+
 > **Emisor**: Arroba.com (equipo de producto).
 > **Destinatario**: Equipo Intelligence Engine.
 > **Fecha**: 2026-08-11.

@@ -40,6 +40,28 @@ class CompanyFicha(BaseModel):
     # Ranking top-level (duplicado de `finances.ranking`; se mantiene para paridad
     # con el shape del agregador Intel).
     ranking: dict | None = None
+    # HARDENING-012 · 2026-08-12 · Bloque `market` top-level entregado por Intel
+    # (agregador `arroba-company-ficha-v1`). Shape observado:
+    #   {
+    #     available: bool,
+    #     sector: { cnae_code, cnae_label, cnae_level, size_score, dynamism_score,
+    #               growth_score, activity_score, active_companies, iberinform_companies,
+    #               market_share, national_yoy_pct, trend_direction, primary_driver, signal },
+    #     geo: { geo_id, geo_name, geo_level, parent_ccaa, size_score, dynamism_score,
+    #            growth_score, revenue_growth, employment_growth, net_company_creation,
+    #            active_companies, trend_direction, primary_driver, signal },
+    #     concentration: { level, degraded, cnae_field, cnae_value, hhi,
+    #                      concentration_label, market_actors_count,
+    #                      distinct_ownership_groups, standalone_targets_count,
+    #                      total_companies_in_universe, companies_with_revenue_data,
+    #                      hhi_methodology, caveat|degraded_reason },
+    #     position: { sector_revenue_percentile, market_position, locality_position, explain[] },
+    #     coverage: { sector, geo, concentration, position },
+    #   }
+    # `position` duplica semánticamente `finances.ranking`. Se conserva la duplicidad
+    # y se consumirá en la sección Mercado (panel Posición) mientras que
+    # `finances.ranking` alimenta la sección Rankings independiente.
+    market: dict | None = None
 
     engine_version: str = INTERNAL_FICHA_ENGINE_VERSION
 

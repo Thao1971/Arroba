@@ -17,7 +17,7 @@ import {
 import type {
   BuyerItem, CashFlowRow, CashFlowStatement, FinancialAnalysis, FinancialAnalysisBalanceSheet, FinancialAnalysisRatioDetail,
   FinancialSection, FinancialTableBlock, GovernanceAggregated, GovernanceBlock, GovernanceNominal,
-  IdentitySection, OwnershipAggregated, OwnershipBlock, OwnershipNominal,
+  IdentitySection, MarketBlock, OwnershipAggregated, OwnershipBlock, OwnershipNominal,
   RecommendationSet, SemanticSection, SignalAnalysis, ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
@@ -54,6 +54,11 @@ export interface CompanyFichaLayoutV2Props {
   ownership?: OwnershipBlock | null;
   /** B-2 · Events shell: `ficha.events` passthrough. Público. */
   events?: Record<string, unknown> | null;
+  /**
+   * HARDENING-012 · Bloque `market` top-level Intel. Passthrough puro.
+   * Sub-paneles independientes: sector/geo/concentration públicos · position gated.
+   */
+  market?: MarketBlock | null;
   /** false = visitante anónimo (mixed-access): cifras bajo CTA de registro. */
   authenticated?: boolean;
 }
@@ -70,8 +75,8 @@ const NAV: NavItem[] = [
   { id: 'valoracion', label: 'Valoración', icon: Coins, ready: true, grp: 'Perfil' },
   { id: 'propiedad', label: 'Propiedad', icon: Network, ready: true, grp: 'Perfil' },
   { id: 'gobierno', label: 'Gobierno', icon: Users, ready: true, grp: 'Perfil' },
-  { id: 'mercado', label: 'Mercado', icon: BarChart3, ready: false, grp: 'Perfil' },
-  { id: 'rankings', label: 'Rankings', icon: Target, ready: false, grp: 'Perfil' },
+  { id: 'mercado', label: 'Mercado', icon: BarChart3, ready: true, grp: 'Perfil' },
+  { id: 'rankings', label: 'Rankings', icon: Target, ready: true, grp: 'Perfil' },
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, ready: true, grp: 'Perfil' },
   { id: 'senales', label: 'Cambios relevantes', icon: Activity, ready: true, grp: 'Inteligencia' },
   { id: 'oportunidades', label: 'Oportunidades', icon: Zap, ready: true, grp: 'Inteligencia' },
@@ -1095,6 +1100,222 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   );
 }
 
+/* ============================ RANKINGS · sección independiente ============================ */
+/**
+ * B-2 · Rankings sección independiente (2026-08-12).
+ * Consume `financialAnalysis.ranking` — mismo objeto que ya alimenta la 2ª fila
+ * kgrid del Resumen (B-2.1) y ahora una card dedicada CF con contexto extendido.
+ * Gated · el ranking se deriva de los ingresos de la empresa.
+ */
+function Rankings({ analysis }: { analysis: FinancialAnalysis | null }) {
+  const r = analysis?.ranking ?? null;
+  if (!r) {
+    return (
+      <section className="panel on" data-testid="rankings-empty">
+        <div className="sec-h">Posicionamiento sectorial y competitivo</div>
+        <div className="sec-s">Ranking por ingresos frente al universo Intel de comparables.</div>
+        <Empty label="Posicionamiento en preparación" />
+      </section>
+    );
+  }
+  const pct = r.sector_revenue_percentile ?? null;
+  const mp = r.market_position ?? null;
+  const lp = r.locality_position ?? null;
+  const explain = Array.isArray(r.explain) ? r.explain : [];
+  return (
+    <section className="panel on" data-testid="rankings-section">
+      <div className="sec-h">Posicionamiento sectorial y competitivo</div>
+      <div className="sec-s">Ranking por ingresos frente al universo Intel de comparables.</div>
+      <div className="card">
+        <h3><span className="k" />Percentil sectorial</h3>
+        <div className="cs">Posición relativa por ingresos dentro del sector CNAE</div>
+        <div className="idrow" data-testid="rankings-percentile">
+          <span className="k">Percentil</span>
+          <span className="v"><b style={{ fontSize: 22 }}>{pct != null ? `${pct}º` : '—'}</b></span>
+        </div>
+      </div>
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3><span className="k" />Universo comparable · mismo sector y banda de tamaño</h3>
+        <div className="cs" data-testid="rankings-market-position-scope">{mp?.scope ?? '—'}</div>
+        <div className="idrow" data-testid="rankings-market-position">
+          <span className="k">Posición</span>
+          <span className="v">
+            {mp?.rank != null && mp?.total != null
+              ? <><b>#{mp.rank}</b> de {fmtNum(mp.total)}</>
+              : <Empty label="Sin datos" />}
+          </span>
+        </div>
+      </div>
+      <div className="card" style={{ marginTop: 16 }}>
+        <h3><span className="k" />Posición local · municipio</h3>
+        <div className="cs" data-testid="rankings-locality-position-scope">{lp?.scope ?? '—'}</div>
+        <div className="idrow" data-testid="rankings-locality-position">
+          <span className="k">Posición</span>
+          <span className="v">
+            {lp?.rank != null && lp?.total != null
+              ? <><b>#{lp.rank}</b> de {fmtNum(lp.total)}</>
+              : <Empty label="Sin datos" />}
+          </span>
+        </div>
+      </div>
+      {explain.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }} data-testid="rankings-explain-bullets">
+          <h3><span className="k" />Lectura CF</h3>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.7, color: 'var(--n800)' }}>
+            {explain.map((line, i) => (
+              <li key={i} data-testid={`rankings-explain-item-${i}`}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ============================ MERCADO · Contexto sectorial y territorial ============================ */
+/**
+ * B-2 · Sección Mercado (HARDENING-012 · 2026-08-12).
+ * Consume `ficha.market` top-level Intel. 4 sub-paneles independientes:
+ *   - sector (contexto CNAE): PÚBLICO
+ *   - geo (contexto provincia): PÚBLICO
+ *   - concentration (HHI + degraded flag): PÚBLICO
+ *   - position (posición de la empresa): GATED (derivado de ingresos)
+ * R15: passthrough puro · sin cálculo derivado en frontend.
+ */
+function fmtScore(v: number | null | undefined): React.ReactNode {
+  if (v == null) return <span style={{ color: 'var(--n400)', fontStyle: 'italic' }}>En preparación</span>;
+  return <b>{v}</b>;
+}
+function TrendBadge({ direction }: { direction?: string | null }) {
+  if (!direction) return null;
+  const color = direction === 'up' ? '#0a7f3f' : direction === 'down' ? 'var(--red)' : 'var(--n600)';
+  const arrow = direction === 'up' ? '↑' : direction === 'down' ? '↓' : '→';
+  const label = direction === 'up' ? 'Al alza' : direction === 'down' ? 'A la baja' : 'Estable';
+  return <span style={{ color, fontWeight: 700, fontSize: 12 }}>{arrow} {label}</span>;
+}
+function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intelligence-types').MarketSector | null }) {
+  if (!sector || sector.available === false) return <Empty label="Contexto sectorial" />;
+  const isDegraded = sector.cnae_level === 'section' || sector.cnae_level === 'division';
+  return (
+    <div className="card" data-testid="mercado-sector-panel">
+      <h3><span className="k" />Contexto sectorial · {sector.cnae_label ?? '—'} <span className="cs" style={{ marginLeft: 8 }}>({sector.cnae_code ?? '—'} · {sector.cnae_level ?? '—'})</span></h3>
+      {isDegraded && sector.cnae_level && (
+        <div className="cs" data-testid="mercado-sector-caveat" style={{ background: '#fff9e6', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
+          <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
+          Cobertura Intel a nivel <b>{sector.cnae_level === 'division' ? 'división CNAE (2 dígitos)' : 'sección CNAE'}</b> — nivel más granular no disponible para este sector.
+        </div>
+      )}
+      <div className="idrow"><span className="k">Tamaño (size)</span><span className="v">{fmtScore(sector.size_score)}</span></div>
+      <div className="idrow"><span className="k">Dinamismo</span><span className="v">{fmtScore(sector.dynamism_score)}</span></div>
+      <div className="idrow"><span className="k">Crecimiento</span><span className="v">{fmtScore(sector.growth_score)}</span></div>
+      <div className="idrow"><span className="k">Actividad</span><span className="v">{fmtScore(sector.activity_score)}</span></div>
+      <div className="idrow"><span className="k">Tendencia nacional</span><span className="v"><TrendBadge direction={sector.trend_direction} /> {sector.national_yoy_pct != null && <span style={{ marginLeft: 8 }}>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct}% YoY</span>}</span></div>
+      {sector.signal && <div className="idrow"><span className="k">Señal</span><span className="v">{sector.signal.replace(/_/g, ' ')}</span></div>}
+      {sector.primary_driver && <div className="idrow"><span className="k">Impulsor principal</span><span className="v">{sector.primary_driver}</span></div>}
+      {sector.active_companies != null && sector.active_companies > 0 && (
+        <div className="idrow"><span className="k">Empresas activas</span><span className="v">{fmtNum(sector.active_companies)}</span></div>
+      )}
+    </div>
+  );
+}
+function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-types').MarketGeo | null }) {
+  if (!geo || geo.available === false) return <Empty label="Contexto territorial" />;
+  return (
+    <div className="card" style={{ marginTop: 16 }} data-testid="mercado-geo-panel">
+      <h3><span className="k" />Contexto territorial · {geo.geo_name ?? '—'} <span className="cs" style={{ marginLeft: 8 }}>({geo.geo_level ?? '—'})</span></h3>
+      <div className="idrow"><span className="k">Tamaño (size)</span><span className="v">{fmtScore(geo.size_score)}</span></div>
+      <div className="idrow"><span className="k">Dinamismo</span><span className="v">{fmtScore(geo.dynamism_score)}</span></div>
+      <div className="idrow"><span className="k">Crecimiento</span><span className="v">{fmtScore(geo.growth_score)}</span></div>
+      <div className="idrow"><span className="k">Tendencia</span><span className="v"><TrendBadge direction={geo.trend_direction} /></span></div>
+      {geo.signal && <div className="idrow"><span className="k">Señal</span><span className="v">{geo.signal.replace(/_/g, ' ')}</span></div>}
+      {geo.active_companies != null && (
+        <div className="idrow"><span className="k">Empresas activas</span><span className="v">{fmtNum(geo.active_companies)}</span></div>
+      )}
+      {geo.net_company_creation != null && (
+        <div className="idrow"><span className="k">Creación neta de empresas</span><span className="v"><b>{geo.net_company_creation > 0 ? '+' : ''}{fmtNum(geo.net_company_creation)}</b></span></div>
+      )}
+    </div>
+  );
+}
+function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/intelligence-types').MarketConcentration | null }) {
+  if (!conc || conc.available === false) return <Empty label="Concentración de mercado" />;
+  const degradationCaveat = conc.degraded_reason ?? conc.caveat ?? null;
+  return (
+    <div className="card" style={{ marginTop: 16 }} data-testid="mercado-concentration-panel">
+      <h3><span className="k" />Concentración de mercado (HHI){conc.level ? <span className="cs" style={{ marginLeft: 8 }}>Nivel: {conc.level}</span> : null}</h3>
+      {conc.degraded && (
+        <div className="cs" data-testid="mercado-concentration-degraded" style={{ background: '#fff9e6', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
+          <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
+          Concentración calculada con muestra parcial (universo insuficiente para nivel más granular).
+        </div>
+      )}
+      <div className="idrow"><span className="k">HHI</span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
+      {conc.concentration_label && (
+        <div className="idrow"><span className="k">Clasificación</span><span className="v">{conc.concentration_label.replace(/_/g, ' ')}</span></div>
+      )}
+      {conc.market_actors_count != null && conc.market_actors_count > 0 && (
+        <div className="idrow"><span className="k">Actores en el mercado</span><span className="v">{fmtNum(conc.market_actors_count)}</span></div>
+      )}
+      {conc.total_companies_in_universe != null && conc.total_companies_in_universe > 0 && (
+        <div className="idrow"><span className="k">Empresas en el universo</span><span className="v">{fmtNum(conc.total_companies_in_universe)}</span></div>
+      )}
+      {degradationCaveat && (
+        <div className="cs" data-testid="mercado-concentration-caveat" style={{ marginTop: 10, fontStyle: 'italic' }}>{degradationCaveat}</div>
+      )}
+      {conc.hhi_methodology && (
+        <div className="cs" style={{ marginTop: 6, fontSize: 10.5, color: 'var(--n500)' }}>{conc.hhi_methodology}</div>
+      )}
+    </div>
+  );
+}
+function MercadoPositionPanel({ pos, anon }: { pos?: import('@/lib/companies/intelligence-types').MarketPosition | null; anon: boolean }) {
+  // Gated: la posición depende de ingresos → CTA de registro en anon.
+  if (anon) {
+    return (
+      <div className="card" style={{ marginTop: 16 }} data-testid="mercado-position-gated">
+        <h3><span className="k" />Posición de la empresa en el sector</h3>
+        <Gate what="tu posición en el sector, la posición local y la lectura CF" />
+      </div>
+    );
+  }
+  if (!pos || pos.available === false) return <Empty label="Posición sectorial" />;
+  const mp = pos.market_position ?? null;
+  const lp = pos.locality_position ?? null;
+  return (
+    <div className="card" style={{ marginTop: 16 }} data-testid="mercado-position-panel">
+      <h3><span className="k" />Posición de la empresa en el sector</h3>
+      <div className="idrow"><span className="k">Percentil sectorial (ingresos)</span><span className="v"><b style={{ fontSize: 18 }}>{pos.sector_revenue_percentile != null ? `${pos.sector_revenue_percentile}º` : '—'}</b></span></div>
+      {mp?.rank != null && mp?.total != null && (
+        <div className="idrow"><span className="k">{mp.scope ?? 'Universo comparable'}</span><span className="v"><b>#{mp.rank}</b> de {fmtNum(mp.total)}</span></div>
+      )}
+      {lp?.rank != null && lp?.total != null && (
+        <div className="idrow"><span className="k">{lp.scope ?? 'Posición local'}</span><span className="v"><b>#{lp.rank}</b> de {fmtNum(lp.total)}</span></div>
+      )}
+    </div>
+  );
+}
+function Mercado({ market, anon }: { market?: MarketBlock | null; anon: boolean }) {
+  if (!market || market.available === false) {
+    return (
+      <section className="panel on" data-testid="mercado-empty">
+        <div className="sec-h">Contexto sectorial y territorial</div>
+        <div className="sec-s">Sector CNAE, territorio, concentración y posición competitiva.</div>
+        <Empty label="Contexto sectorial en preparación" />
+      </section>
+    );
+  }
+  return (
+    <section className="panel on" data-testid="mercado-section">
+      <div className="sec-h">Contexto sectorial y territorial</div>
+      <div className="sec-s">Sector CNAE, territorio, concentración de mercado y posición competitiva.</div>
+      <MercadoSectorPanel sector={market.sector} />
+      <MercadoGeoPanel geo={market.geo} />
+      <MercadoConcentrationPanel conc={market.concentration} />
+      <MercadoPositionPanel pos={market.position} anon={anon} />
+    </section>
+  );
+}
+
 /* ============================ EVENTS · BORME ============================ */
 /**
  * Eventos societarios y BORME (2026-08-11).
@@ -1651,7 +1872,11 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             {active === 'gobierno' && <Gobierno governance={props.governance} />}
             {active === 'propiedad' && <Propiedad ownership={props.ownership} />}
             {active === 'eventos' && <Eventos events={props.events} />}
-            {['mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
+            {active === 'rankings' && (anon
+              ? <section className="panel on" data-testid="rankings-gated"><div className="sec-h">Posicionamiento sectorial y competitivo</div><Gate what="tu posición en el sector, la posición local y la lectura CF" /></section>
+              : <Rankings analysis={props.financialAnalysis} />)}
+            {active === 'mercado' && <Mercado market={props.market} anon={anon} />}
+            {['comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
               <section className="panel on">
                 <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>
                 <Pending label={NAV.find((n) => n.id === active)?.label ?? active} />

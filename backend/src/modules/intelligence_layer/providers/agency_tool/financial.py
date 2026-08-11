@@ -179,6 +179,9 @@ class AgencyToolFinancialProvider(FinancialProvider):
             governance=data.get("governance") if isinstance(data.get("governance"), dict) else None,
             events=data.get("events") if isinstance(data.get("events"), dict) else None,
             ranking=data.get("ranking") if isinstance(data.get("ranking"), dict) else None,
+            # HARDENING-012 (2026-08-12) · passthrough puro del bloque `market`
+            # top-level entregado por Intel (`arroba-company-ficha-v1`).
+            market=data.get("market") if isinstance(data.get("market"), dict) else None,
             engine_version=INTERNAL_FICHA_ENGINE_VERSION,
         )
 

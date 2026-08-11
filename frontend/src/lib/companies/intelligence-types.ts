@@ -781,6 +781,83 @@ export interface OwnershipUnavailable {
 
 export type OwnershipBlock = OwnershipNominal | OwnershipAggregated | OwnershipUnavailable;
 
+/* ============================================================
+ * MarketBlock (HARDENING-012 · 2026-08-12)
+ * ============================================================
+ * Shape del bloque `market` top-level entregado por Intel · passthrough puro.
+ * 4 sub-paneles independientes: sector, geo, concentration, position.
+ * `position` duplica semánticamente `finances.ranking` (paridad Intel).
+ * Sección UI "Contexto sectorial y territorial" · sector+geo+concentration públicos,
+ * position gated.
+ */
+export interface MarketSector {
+  available?: boolean;
+  cnae_code?: string | null;
+  cnae_label?: string | null;
+  cnae_level?: string | null;
+  size_score?: number | null;
+  dynamism_score?: number | null;
+  growth_score?: number | null;
+  activity_score?: number | null;
+  active_companies?: number | null;
+  iberinform_companies?: number | null;
+  market_share?: number | null;
+  national_yoy_pct?: number | null;
+  trend_direction?: 'up' | 'stable' | 'down' | string | null;
+  primary_driver?: string | null;
+  signal?: string | null;
+}
+export interface MarketGeo {
+  available?: boolean;
+  geo_id?: string | null;
+  geo_name?: string | null;
+  geo_level?: string | null;
+  parent_ccaa?: string | null;
+  size_score?: number | null;
+  dynamism_score?: number | null;
+  growth_score?: number | null;
+  revenue_growth?: number | null;
+  employment_growth?: number | null;
+  net_company_creation?: number | null;
+  active_companies?: number | null;
+  trend_direction?: 'up' | 'stable' | 'down' | string | null;
+  primary_driver?: string | null;
+  signal?: string | null;
+}
+export interface MarketConcentration {
+  available?: boolean;
+  level?: string | null;
+  degraded?: boolean;
+  cnae_field?: string | null;
+  cnae_value?: string | null;
+  hhi?: number | null;
+  concentration_label?: string | null;
+  market_actors_count?: number | null;
+  distinct_ownership_groups?: number | null;
+  standalone_targets_count?: number | null;
+  total_companies_in_universe?: number | null;
+  companies_with_revenue_data?: number | null;
+  hhi_methodology?: string | null;
+  caveat?: string | null;
+  degraded_reason?: string | null;
+}
+export interface MarketPosition {
+  available?: boolean;
+  sector_revenue_percentile?: number | null;
+  market_position?: { rank?: number | null; total?: number | null; scope?: string | null } | null;
+  locality_position?: { rank?: number | null; total?: number | null; scope?: string | null } | null;
+  explain?: string[];
+}
+export interface MarketBlock {
+  available?: boolean;
+  sector?: MarketSector | null;
+  geo?: MarketGeo | null;
+  concentration?: MarketConcentration | null;
+  position?: MarketPosition | null;
+  coverage?: { sector?: boolean; geo?: boolean; concentration?: boolean; position?: boolean } | null;
+  [key: string]: unknown;
+}
+
 export interface CompanyFicha {
   cif_normalized: string | null;
   master_id: string | null;
@@ -790,5 +867,7 @@ export interface CompanyFicha {
   governance: GovernanceBlock | null;
   events: Record<string, unknown> | null;
   ranking: Record<string, unknown> | null;
+  /** HARDENING-012 · bloque `market` top-level Intel. Passthrough puro. */
+  market: MarketBlock | null;
   engine_version: string;
 }
