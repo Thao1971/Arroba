@@ -646,15 +646,73 @@ export interface RecommendationSet {
  * el usuario anónimo recibe `finances=null` (secciones con cifras siguen gated).
  * Passthrough puro: `identity`, `ownership`, `governance`, `events`, `ranking`
  * (top-level) llegan como `Record<string, unknown>` para consumo específico
- * en fases futuras (B-2.2 Ownership, B-2.3 Governance, Events shell).
+ * en fases futuras (B-2.2 Ownership, Events shell).
+ *
+ * B-2.3 · DPD backend (2026-08-11): `governance` viaja en 2 shapes disjuntos
+ * según auth-state (el discriminador es la presencia de `officers` vs `summary`):
+ *
+ *   1) Autenticado → shape nominal (passthrough Intel):
+ *      { available: true, officers: [{name, role, since, year}, ...], coverage, ... }
+ *
+ *   2) Anónimo → shape agregado DPD (SIN `officers`):
+ *      { available: true, coverage, summary: { total, roles: [{role, role_label, count}, ...] } }
+ *
+ *   3) available:false → passthrough para ambos:
+ *      { available: false, ... }
+ *
+ * El backend garantiza que el usuario anónimo NUNCA recibe nombres de personas
+ * físicas (regla DPD estricta). El frontend consume `GovernanceBlock` (union type
+ * `GovernanceNominal | GovernanceAggregated | GovernanceUnavailable`).
  */
+
+export interface GovernanceOfficer {
+  name: string;
+  role: string;
+  since: string | null;
+  year: number | null;
+}
+
+export interface GovernanceRoleSummaryEntry {
+  /** Slug determinista (lower + `_`), útil para keys estables y i18n futura. */
+  role: string;
+  /** Label CF español passthrough desde Intel (sin traducir · R15). */
+  role_label: string;
+  count: number;
+}
+
+export interface GovernanceNominal {
+  available: true;
+  officers: GovernanceOfficer[];
+  coverage?: { officers_count?: number } | null;
+  engine_version?: string;
+  [key: string]: unknown;
+}
+
+export interface GovernanceAggregated {
+  available: true;
+  summary: {
+    total: number;
+    roles: GovernanceRoleSummaryEntry[];
+  };
+  coverage?: { officers_count?: number } | null;
+  [key: string]: unknown;
+}
+
+export interface GovernanceUnavailable {
+  available: false;
+  engine_version?: string;
+  [key: string]: unknown;
+}
+
+export type GovernanceBlock = GovernanceNominal | GovernanceAggregated | GovernanceUnavailable;
+
 export interface CompanyFicha {
   cif_normalized: string | null;
   master_id: string | null;
   finances: FinancialAnalysis | null;
   identity: Record<string, unknown> | null;
   ownership: Record<string, unknown> | null;
-  governance: Record<string, unknown> | null;
+  governance: GovernanceBlock | null;
   events: Record<string, unknown> | null;
   ranking: Record<string, unknown> | null;
   engine_version: string;

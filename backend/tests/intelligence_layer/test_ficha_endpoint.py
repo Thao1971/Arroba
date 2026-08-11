@@ -153,3 +153,159 @@ async def test_ficha_fallback_404_when_identity_also_missing(alice: AsyncClient,
     assert body["code"] == "ficha_not_found"
     # Sin header aggregator ni fallback: la excepción final es antes de setear headers.
     assert r.headers.get("X-Ficha-Source") in (None, "fallback_per_section")  # tolerancia al framework
+
+
+# ================================================================
+# B-2.3 · DPD backend Governance (2026-08-11)
+# Anonymous aggregation · Auth passthrough · available:false passthrough.
+# ================================================================
+
+
+def _fake_governance_nominal() -> dict:
+    """Payload nominal (con `officers[]`) como emite Intel para authenticated."""
+    return {
+        "identifier": "B28184687",
+        "cif": "B28184687",
+        "available": True,
+        "officers": [
+            {"name": "Persona Uno", "role": "Administrador Solidario", "since": "2020-01-01", "year": 2020},
+            {"name": "Persona Dos", "role": "Administrador Solidario", "since": "2021-01-01", "year": 2021},
+            {"name": "Persona Tres", "role": "Administrador Solidario", "since": "2022-01-01", "year": 2022},
+            {"name": "Persona Cuatro", "role": "Apoderado", "since": "2020-01-01", "year": 2020},
+            {"name": "Persona Cinco", "role": "Apoderado", "since": "2021-01-01", "year": 2021},
+            {"name": "Persona Seis", "role": "Auditor", "since": "2023-01-01", "year": 2023},
+        ],
+        "coverage": {"officers_count": 6},
+        "engine_version": "arroba-company-ficha-v1",
+    }
+
+
+def _fake_ficha_with_governance(governance: dict | None):
+    """CompanyFicha stub con governance parametrizado (resto de bloques mínimos)."""
+    from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
+    from src.modules.intelligence_layer.interfaces.financial import FinancialAnalysis
+    return CompanyFicha(
+        cif_normalized="B28184687",
+        master_id="mc_governance_test",
+        finances=FinancialAnalysis(cif_normalized="B28184687", has_financials=True),
+        identity={"cif": "B28184687", "legal_name": "SERVIER TEST SA"},
+        ownership={"available": True},
+        governance=governance,
+        events={"available": False},
+        ranking=None,
+        engine_version="arroba-ficha-v1",
+    )
+
+
+@pytest.mark.asyncio
+async def test_ficha_governance_dpd_anonymous_aggregates_no_pii(client: AsyncClient):
+    """B-2.3 · Anónimo NO recibe `officers` nominales · sí recibe `summary` agregado.
+
+    Regla DPD: si `governance.available:true`, el backend transforma la lista
+    nominal a un `summary` con `total` + `roles[]` (role/role_label/count),
+    y ELIMINA la clave `officers`. Cero PII en la respuesta.
+    """
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_governance(_fake_governance_nominal())
+    )
+
+    # Cliente anónimo (sin cookie).
+    r = await client.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    gov = body["governance"]
+    assert gov is not None
+    assert gov["available"] is True
+    # PII: la clave `officers` NO existe en modo anónimo.
+    assert "officers" not in gov, f"PII leak · officers present in anon payload: {gov}"
+    # `summary` agregado presente.
+    assert "summary" in gov
+    assert gov["summary"]["total"] == 6
+    roles = gov["summary"]["roles"]
+    assert isinstance(roles, list) and len(roles) == 3
+    # Ordenación determinista: count desc, luego role_label alfabético asc.
+    assert roles[0]["role_label"] == "Administrador Solidario"
+    assert roles[0]["count"] == 3
+    assert roles[0]["role"] == "administrador_solidario"
+    assert roles[1]["role_label"] == "Apoderado"
+    assert roles[1]["count"] == 2
+    assert roles[2]["role_label"] == "Auditor"
+    assert roles[2]["count"] == 1
+    # `coverage` original preservado.
+    assert gov["coverage"] == {"officers_count": 6}
+    # `finances` gated para anónimo (mixed-access baseline).
+    assert body["finances"] is None
+    # Adicional grep de fuga · ningún nombre de persona en el body serializado.
+    raw = r.text
+    for name in ("Persona Uno", "Persona Dos", "Persona Tres", "Persona Cuatro", "Persona Cinco", "Persona Seis"):
+        assert name not in raw, f"PII leak in serialized body: {name}"
+
+
+@pytest.mark.asyncio
+async def test_ficha_governance_dpd_auth_passthrough_with_officers(alice: AsyncClient):
+    """B-2.3 · Autenticado recibe passthrough completo · `officers[]` nominales intactos."""
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_governance(_fake_governance_nominal())
+    )
+
+    r = await alice.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    gov = body["governance"]
+    assert gov is not None
+    assert gov["available"] is True
+    # PII intacta para autenticado.
+    assert "officers" in gov
+    officers = gov["officers"]
+    assert len(officers) == 6
+    assert officers[0]["name"] == "Persona Uno"
+    assert officers[0]["role"] == "Administrador Solidario"
+    # NO se emite `summary` cuando pasa nominal (no aporta valor y no está en el contrato Intel).
+    assert "summary" not in gov
+    # `finances` NO nullificado para autenticado.
+    assert body["finances"] is not None
+
+
+@pytest.mark.asyncio
+async def test_ficha_governance_dpd_available_false_passthrough_both_modes(
+    client: AsyncClient, alice: AsyncClient
+):
+    """B-2.3 · `governance.available:false` → passthrough idéntico para anon y auth.
+
+    Cuando Intel no tiene datos de gobernanza, no hay PII que proteger; el
+    bloque baja tal cual (`available:false`) para que el frontend renderice
+    `<Empty/>`.
+    """
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    unavailable_gov = {
+        "identifier": "B00000001",
+        "cif": "B00000001",
+        "available": False,
+        "engine_version": "arroba-company-ficha-v1",
+    }
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_governance(unavailable_gov)
+    )
+
+    r_anon = await client.get("/api/companies/B00000001/ficha")
+    assert r_anon.status_code == 200, r_anon.text
+    gov_anon = r_anon.json()["governance"]
+    assert gov_anon == unavailable_gov, f"passthrough anon rompe shape: {gov_anon}"
+
+    # Reset del mock para el auth (mismo lock del router es global).
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_governance(unavailable_gov)
+    )
+    r_auth = await alice.get("/api/companies/B00000001/ficha")
+    assert r_auth.status_code == 200, r_auth.text
+    gov_auth = r_auth.json()["governance"]
+    assert gov_auth == unavailable_gov, f"passthrough auth rompe shape: {gov_auth}"

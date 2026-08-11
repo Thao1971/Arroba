@@ -287,9 +287,15 @@ async def get_company_ficha(
     """Agrega en una sola llamada `identity + finances + ownership + governance + events + ranking`.
 
     Mixed-access:
-      * Anónimo: devuelve `identity`, `ownership`, `governance`, `events`, `ranking`;
-        `finances` se nullifica (secciones con cifras siguen gated bajo `<Gate>`).
-      * Autenticado: payload completo.
+      * Anónimo: devuelve `identity`, `ownership`, `governance` (**agregado sin
+        PII**), `events`, `ranking`; `finances` se nullifica (secciones con
+        cifras siguen gated bajo `<Gate>`).
+      * Autenticado: payload completo, `governance.officers` con nombres nominales.
+
+    B-2.3 · DPD backend (2026-08-11): la anonimización de `governance` se hace
+    en `_anonymize_governance()` **antes** de responder. El frontend anónimo
+    NUNCA recibe la clave `officers`; sólo un `summary` agregado con contadores
+    por `role`. Ver R15 + DPD en `ARROBA_ARCHITECTURAL_PRINCIPLES.md`.
 
     Reduce el waterfall SWR frontend de 5 llamadas Arroba→Intel a 1 (cf.
     `PARA_BETA_B24_FICHA_SHAPE.md`). Endpoints legacy por sección permanecen
@@ -353,14 +359,138 @@ async def get_company_ficha(
             raise ProviderError(error_class or "provider_error", code="provider_error") from exc
 
     if user is None:
-        # Mixed-access: bloque gated se nullifica para visitante anónimo.
-        ficha = ficha.model_copy(update={"finances": None})
+        # Mixed-access: bloque gated (`finances`) se nullifica para visitante
+        # anónimo. Además, `governance` se anonimiza (DPD · B-2.3): se elimina
+        # la lista nominal `officers` y se emite un `summary` agregado por rol.
+        ficha = ficha.model_copy(
+            update={
+                "finances": None,
+                "governance": _anonymize_governance(ficha.governance),
+            }
+        )
 
     settings = get_intelligence_settings()
     response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
     response.headers["X-Provider"] = router._get_financial_provider().provider_name
     response.headers["X-Ficha-Source"] = ficha_source
     return ficha
+
+
+def _anonymize_governance(governance: dict | None) -> dict | None:
+    """B-2.3 · DPD backend · agrega el bloque `governance` para usuario anónimo.
+
+    Regla estricta (R11/R15/DPD):
+      * Si `governance` es `None` → passthrough `None`.
+      * Si `available` no es `True` → passthrough del bloque tal cual (no hay
+        PII que anonimizar; conserva la señal `available:false`).
+      * Si `available:true` → devuelve un shape agregado SIN `officers`:
+          {
+            "available": True,
+            "coverage": <coverage original>,
+            "summary": {
+              "total": <int>,
+              "roles": [
+                {"role": "<slug>", "role_label": "<label CF ES>", "count": <int>},
+                ...
+              ]
+            }
+          }
+        Ordenación determinista: `count` desc, luego `role_label` ASC.
+
+    El backend es la ÚNICA capa que ve nombres nominales; la respuesta que
+    viaja al frontend anónimo no contiene ningún nombre de persona física.
+    `role_label` aplica un mapa i18n determinista `_GOVERNANCE_ROLE_ES` a
+    los roles conocidos que Intel emite en inglés (`Representative`, `Joint
+    And Several Director`, etc.) para preservar la nomenclatura CF española
+    de la UI. Roles no mapeados se emiten en su forma original (passthrough).
+    `role` es el slug determinista (lower + `_`) del label original Intel.
+    """
+    if governance is None:
+        return None
+    if not isinstance(governance, dict):
+        return governance
+    if governance.get("available") is not True:
+        # `available: false` o desconocido → passthrough (no hay PII).
+        return governance
+
+    officers_raw = governance.get("officers")
+    officers: list[dict] = [o for o in officers_raw if isinstance(o, dict)] if isinstance(officers_raw, list) else []
+
+    role_counts: dict[str, dict] = {}
+    for off in officers:
+        label = off.get("role")
+        if not isinstance(label, str) or not label.strip():
+            continue
+        label = label.strip()
+        # 1) slug a partir del label original Intel (para lookup i18n).
+        raw_slug = _slugify_role(label)
+        # 2) label ES = traducción determinista si conocemos el slug; si no,
+        #    passthrough del label original (R15).
+        es_label = _GOVERNANCE_ROLE_ES.get(raw_slug, label)
+        # 3) slug canónico DE SALIDA = slug del label ES (consolida sinónimos
+        #    Intel EN↔ES bajo el mismo bucket · p. ej. `joint_and_several_director`
+        #    y `administrador_solidario` cuentan en una sola fila).
+        slug = _slugify_role(es_label)
+        bucket = role_counts.setdefault(slug, {"role": slug, "role_label": es_label, "count": 0})
+        bucket["count"] += 1
+
+    roles_sorted = sorted(
+        role_counts.values(),
+        key=lambda r: (-r["count"], r["role_label"].lower()),
+    )
+    coverage = governance.get("coverage")
+    coverage_count = None
+    if isinstance(coverage, dict):
+        oc = coverage.get("officers_count")
+        if isinstance(oc, int):
+            coverage_count = oc
+    total = coverage_count if coverage_count is not None else len(officers)
+
+    return {
+        "available": True,
+        "coverage": coverage if isinstance(coverage, dict) else None,
+        "summary": {
+            "total": total,
+            "roles": roles_sorted,
+        },
+    }
+
+
+# B-2.3 · Mapa i18n determinista Intel → CF español.
+# Solo aplica al `role_label` del summary agregado (no toca el `slug`, no toca
+# la respuesta autenticada). Vocabulario controlado, cero invención.
+_GOVERNANCE_ROLE_ES: dict[str, str] = {
+    "administrador_solidario": "Administrador Solidario",
+    "administrador_unico": "Administrador Único",
+    "administrador_mancomunado": "Administrador Mancomunado",
+    "apoderado": "Apoderado",
+    "auditor": "Auditor",
+    "auditor_cuentas_conjunto": "Auditor de Cuentas Conjunto",
+    "consejero": "Consejero",
+    "consejero_delegado": "Consejero Delegado",
+    "director_general": "Director General",
+    "joint_accounts_auditor": "Auditor de Cuentas Conjunto",
+    "joint_and_several_director": "Administrador Solidario",
+    "presidente": "Presidente",
+    "representative": "Representante",
+    "secretario": "Secretario",
+    "vicepresidente": "Vicepresidente",
+}
+
+
+def _slugify_role(label: str) -> str:
+    """Slug determinista para un role Intel. Lower + ascii + `_`.
+
+    No aporta traducción: `label` ya viene en español CF (o en inglés cuando
+    Intel emite roles no traducidos). El slug es SOLO para uso interno
+    (ordenación, testing, i18n futura).
+    """
+    import unicodedata
+    ascii_str = unicodedata.normalize("NFKD", label).encode("ascii", "ignore").decode("ascii")
+    slug = "".join(ch if ch.isalnum() else "_" for ch in ascii_str.lower())
+    while "__" in slug:
+        slug = slug.replace("__", "_")
+    return slug.strip("_")
 
 
 async def _compose_ficha_fallback(router: IntelligenceRouter, cif: str) -> CompanyFicha:

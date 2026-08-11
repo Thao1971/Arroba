@@ -1,20 +1,43 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-07-13 — **🟢 Sprint F0.3 (Valoración) · Entregable mínimo entregado**. Caso canónico `A87803862` (TOTALENERGIES) con valoración real del motor. COMP-4001..4004 READY · COMP-4006 DEGRADED · COMP-4005/4007 BLOCKED BY DATA. Pytest 287/287 · Vitest 200/200.
+> **Última actualización**: 2026-08-11 — **🟢 B-2.3 · Gobierno con DPD backend · CERRADO**. `_anonymize_governance()` agrega la lista `officers` a un `summary{total, roles[]}` con mapa i18n ES para usuarios anónimos; passthrough completo para autenticados. UI sección "Gobierno" cableada en `CompanyFichaLayoutV2.tsx` con 3 estados (aggregated / nominal / empty). Cero PII en DOM anónimo confirmado. Pytest 6/6 (3 nuevos B-2.3) · Vitest 200/200 · testing_agent iteration_36 100%.
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 
 ---
 
-## 🟢 Estado activo · 2026-07-13
+## 🟢 Estado activo · 2026-08-11
 
-**Sprint F0.2 · Finanzas · ✅ APROBADO** · Cash Flow BLOCKED BY DATA · Balance multi-año pendiente de motor.
+**B-2.3 · Gobierno con DPD backend · ✅ CERRADO** (2026-08-11).
+- Backend `_anonymize_governance()` en `/app/backend/src/modules/intelligence_layer/endpoints.py`:
+  - `available:true` + anónimo → `{available:true, coverage, summary:{total, roles:[{role, role_label, count}]}}` con mapa i18n ES (`_GOVERNANCE_ROLE_ES`) que consolida sinónimos EN/ES (`Joint And Several Director` → `Administrador Solidario`, `Representative` → `Representante`, etc.) bajo el mismo bucket.
+  - `available:true` + autenticado → passthrough nominal (`officers[]` con `name/role/since/year`).
+  - `available:false` → passthrough tal cual (branch R15).
+  - Ordenación determinista: `count` desc, luego `role_label` asc.
+- Frontend `CompanyFichaLayoutV2.tsx`:
+  - Prop `governance: GovernanceBlock | null` (union type discriminado `GovernanceNominal | GovernanceAggregated | GovernanceUnavailable`).
+  - Componente `Gobierno` con 3 ramas UI + testids `gobierno-empty | gobierno-aggregated | gobierno-nominal | gobierno-roles-table | gobierno-officers-table | gobierno-role-{slug} | gobierno-officer-{i}`.
+  - NAV item `gobierno` marcado `ready:true`.
+- Verificación E2E (testing_agent iter_36 · 100%): curl anon (55 personas → 5 roles ES) sin fugas · curl auth (55 officers nominales) · Playwright anon + auth UI validados · grep DOM `"officers"`=0 en anon · pytest 6/6 (3 pre-existentes + 3 nuevos DPD).
 
 **Sprint F0.3 · Valoración · ENTREGABLE MÍNIMO COMPLETADO** (2026-07-13).
 - Endpoint canónico: `POST /api/v1/financial-intelligence/valuation` proxied via `GET /api/companies/{cif}/valuation` (contrato `arroba-valuation-v1`).
 - COMP-4001..4007 implementados. COMP-4001..4004 READY · COMP-4006 DEGRADED · COMP-4005/4007 BLOCKED BY DATA.
 - URL preview: `/es/empresa-f01/A87803862` → sidebar Valoración.
 - Entregable: `sources/empresa_v1/F0_3_DELIVERABLE.md`.
+
+**Sprint F0.2 · Finanzas · ✅ APROBADO** · Cash Flow BLOCKED BY DATA · Balance multi-año pendiente de motor.
+
+**Backlog priorizado (2026-08-11)**:
+- **P0** B-2.2 Ownership (misma lógica DPD aggregation en backend, shape análogo con `shareholders[]` → summary).
+- **P1** Events shell (`<Empty/>` state, hoy `available=false`).
+- **P1** Item 6 · Deuda desglosada (esperando datos Intel).
+- **P1** Item 6 · Identificación ampliada (mapear 34 campos nuevos).
+- **P2** control-synergy (bloqueado por `buyers.count=0`).
+- **P2** HARDENING-004 (TTL automático caché Mongo).
+- **P2** HARDENING-002 (31 pytests backend fallando por env coupling — despriorizado).
+- **P2** Retirada fallback `identity.description` (bloqueado, cobertura Intel 1/6).
+- **Verificación pendiente usuario** — Prod deploy env vars sync (`_KEY_ONETIME.txt` sigue vivo).
 
 **Sprint F0.4..F0.12** continúan pendientes por precedencia normal.
 

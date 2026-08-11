@@ -1,0 +1,27 @@
+{
+  "summary": "B-2.3 · DPD Governance validado end-to-end en backend (curl + pytest 6/6) y frontend (UI anon + auth) contra la preview URL. Backend: (a) anon GET /api/companies/B28184687/ficha devuelve governance={available:true, coverage:{officers_count:55}, summary:{total:55, roles:[7 buckets ordenados count desc / role_label asc]}} sin clave 'officers' y con finances=null; grep del body serializado 0 hits de nombres personales (CONRADO/ENRIQUE/etc.). (b) auth (POST /api/auth/login + cookie arroba_session) devuelve governance nominal con officers[55] (name/role/since/year), sin 'summary', finances presente. (c) NCR B28031458 anon devuelve summary con 64 officers agregados (available:true real, no available:false — la nota del enunciado sobre 'available:false' no se cumple con este CIF; comportamiento de anonimización es correcto en cualquier caso). Frontend: tras rebuild de Next.js (bundle 08:17 estaba stale respecto al .tsx 11:01) el UI pinta las 3 ramas correctamente. ANON: gobierno-aggregated + gobierno-roles-table con 7 filas gobierno-role-* (apoderado 24, representative 24, administrador_solidario 2, joint_and_several_director 2, auditor 1, auditor_cuentas_conjunto 1, joint_accounts_auditor 1), disclosure 'Los nombres nominales están disponibles para usuarios registrados.', 0 ocurrencias de 'officers' o 'CONRADO' en DOM hidratado. AUTH: gobierno-nominal + gobierno-officers-table con 55 filas gobierno-officer-0..54 (nombres reales, cargos, fechas 'since'/año). Zero PII leak en modo anon confirmado a nivel de body JSON, SSR HTML y DOM post-hidratación.",
+  "backend_issues": {"critical": [], "minor": [
+    {"endpoint": "/api/companies/B28184687/ficha (anon)", "issue": "role_label es la simple Title-Case del slug ('Joint And Several Director', 'Auditor Cuentas Conjunto') en lugar de una traducción localizada ES; funcional pero cosmético — considerar mapa i18n en _slugify_role/_anonymize_governance."},
+    {"endpoint": "/api/companies/B28031458/ficha", "issue": "El enunciado esperaba governance.available:false para este CIF pero el backend devuelve available:true con 64 officers agregados (NCR sí tiene cobertura). El branch R15 available:false passthrough queda cubierto por pytest (test_ficha_governance_dpd_available_false_passthrough_both_modes PASS) pero no por curl real. Sugerencia: seedear/localizar un CIF con available:false para regresión live."}
+  ]},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/intelligence_layer/test_ficha_endpoint.py",
+    "/app/test_reports/iteration_36.json"
+  ],
+  "action_items": [
+    "(Opcional / minor) Añadir mapa i18n para role_label en _anonymize_governance para evitar 'Representative'/'Joint And Several Director' en la UI en español.",
+    "(Opcional) Documentar/seedear un CIF con governance.available:false para regresión curl live del branch R15."
+  ],
+  "critical_code_review_comments": [
+    "IMPORTANTE para futuras iteraciones: el servicio frontend corre con `next start` (build de producción), no `next dev` — cualquier cambio en .tsx requiere `yarn build && supervisorctl restart frontend`. El main agent debe considerar añadir el rebuild automático al workflow o migrar a `next dev`. En esta iteración el bundle estaba desincronizado del código (BUILD_ID 08:17 vs CompanyFichaLayoutV2.tsx 11:01), lo que hizo que el primer intento de UI test mostrara 'Información en preparación · Gobierno' en lugar de la sección nueva. Se ejecutó `yarn build` y `supervisorctl restart frontend` desde el testing agent para poder validar."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (6/6 pytest + 3/3 curl)", "frontend": "100% (anon aggregated + auth nominal ambos verificados; 0 fugas PII)"},
+  "seed_data_creation": "Ninguno. Se usó test.arroba+neo@arroba.com para auth vía POST /api/auth/login (cookie arroba_session).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "test.arroba+neo@arroba.com / YofQgBFAo1wuC0d# (/app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "DPD governance B-2.3 completamente verificado. Backend contract: anon → {available, coverage:{officers_count}, summary:{total, roles:[{role, role_label, count}]}} · auth → {available, officers:[{name, role, since, year}], coverage, ...}. Test IDs de UI: gobierno-empty | gobierno-aggregated | gobierno-nominal | gobierno-roles-table | gobierno-officers-table | gobierno-role-{slug} | gobierno-officer-{i}. Nota crítica de entorno: Next.js corre en modo production (`next start`); cualquier cambio en frontend requiere yarn build + restart frontend.",
+  "rca_of_the_issue": "N/A — no bugs. La única fricción fue el bundle de Next.js desactualizado (build 08:17 previo a las modificaciones del layout a las 11:01); resuelto con rebuild + restart. Tras eso, los 3 estados renderizan correctamente y no hay fugas de PII."
+}

@@ -16,8 +16,8 @@ import {
 
 import type {
   BuyerItem, CashFlowRow, CashFlowStatement, FinancialAnalysis, FinancialAnalysisRatioDetail,
-  FinancialSection, FinancialTableBlock, IdentitySection, RecommendationSet, SemanticSection,
-  SignalAnalysis, ValuationAnalysis, ValuationBenchmark,
+  FinancialSection, FinancialTableBlock, GovernanceAggregated, GovernanceBlock, GovernanceNominal,
+  IdentitySection, RecommendationSet, SemanticSection, SignalAnalysis, ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 import { notify } from '@/lib/notify';
@@ -33,6 +33,15 @@ export interface CompanyFichaLayoutV2Props {
   signal?: SignalAnalysis | null;
   buyers?: RecommendationSet | null;
   opportunities?: RecommendationSet | null;
+  /**
+   * B-2.3 · Bloque `governance` del agregador `/ficha`. Union type discriminado
+   * por `available` + presencia de `officers`/`summary`:
+   *   - Autenticado con datos → shape nominal (officers[]).
+   *   - Anónimo con datos → shape agregado DPD (summary{total,roles[]}, sin PII).
+   *   - `available:false` → passthrough para ambos.
+   * El frontend NUNCA transforma. Solo renderiza el shape recibido.
+   */
+  governance?: GovernanceBlock | null;
   /** false = visitante anónimo (mixed-access): cifras bajo CTA de registro. */
   authenticated?: boolean;
 }
@@ -48,7 +57,7 @@ const NAV: NavItem[] = [
   { id: 'finanzas', label: 'Finanzas', icon: Euro, ready: true, grp: 'Perfil' },
   { id: 'valoracion', label: 'Valoración', icon: Coins, ready: true, grp: 'Perfil' },
   { id: 'propiedad', label: 'Propiedad', icon: Network, ready: false, grp: 'Perfil' },
-  { id: 'gobierno', label: 'Gobierno', icon: Users, ready: false, grp: 'Perfil' },
+  { id: 'gobierno', label: 'Gobierno', icon: Users, ready: true, grp: 'Perfil' },
   { id: 'mercado', label: 'Mercado', icon: BarChart3, ready: false, grp: 'Perfil' },
   { id: 'rankings', label: 'Rankings', icon: Target, ready: false, grp: 'Perfil' },
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, ready: true, grp: 'Perfil' },
@@ -1015,6 +1024,100 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   );
 }
 
+/* ============================ GOBIERNO ============================ */
+/**
+ * B-2.3 · Órgano de administración.
+ * Union type discriminado desde backend:
+ *   - `available:false` → <Empty/> Corporate Finance.
+ *   - `summary` presente (anónimo DPD) → tabla agregada rol/count.
+ *   - `officers` presente (autenticado) → tabla nominal role/name/since/year.
+ * R11 (Frontend Freeze): usamos los mismos primitivos del mockup (`.card`,
+ * `.rec` table, `.chip`). R15: cero derivación; solo pintamos lo que llega.
+ */
+function isGovernanceNominal(g: GovernanceBlock): g is GovernanceNominal {
+  return g.available === true && Array.isArray((g as GovernanceNominal).officers);
+}
+function isGovernanceAggregated(g: GovernanceBlock): g is GovernanceAggregated {
+  return g.available === true && typeof (g as GovernanceAggregated).summary === 'object'
+    && Array.isArray((g as GovernanceAggregated).summary?.roles);
+}
+function Gobierno({ governance }: { governance?: GovernanceBlock | null }) {
+  if (!governance || governance.available !== true) {
+    return (
+      <section className="panel on" data-testid="gobierno-empty">
+        <div className="sec-h">Gobierno</div>
+        <div className="sec-s">Órgano de administración y apoderamientos vigentes según registros públicos.</div>
+        <Empty label="Órgano de administración" />
+      </section>
+    );
+  }
+  if (isGovernanceAggregated(governance)) {
+    const roles = governance.summary.roles ?? [];
+    const total = governance.summary.total ?? 0;
+    return (
+      <section className="panel on" data-testid="gobierno-aggregated">
+        <div className="sec-h">Gobierno</div>
+        <div className="sec-s">Órgano de administración y apoderamientos vigentes según registros públicos.</div>
+        <div className="card">
+          <h3><span className="k" />Composición del órgano</h3>
+          <div className="cs">Vista agregada por cargo · {total} personas físicas identificadas en fuentes registrales</div>
+          {roles.length > 0 ? (
+            <table className="rec" data-testid="gobierno-roles-table">
+              <tbody>
+                <tr><th>Cargo</th><th style={{ textAlign: 'right' }}>Personas</th></tr>
+                {roles.map((r) => (
+                  <tr key={r.role} data-testid={`gobierno-role-${r.role}`}>
+                    <td>{r.role_label}</td>
+                    <td style={{ textAlign: 'right' }}><b>{fmtNum(r.count)}</b></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <Empty label="Cargos vigentes" />}
+          <div className="cs" style={{ marginTop: 12, fontStyle: 'italic' }}>
+            <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
+            Los nombres nominales están disponibles para usuarios registrados.
+          </div>
+        </div>
+      </section>
+    );
+  }
+  if (isGovernanceNominal(governance)) {
+    const officers = governance.officers ?? [];
+    return (
+      <section className="panel on" data-testid="gobierno-nominal">
+        <div className="sec-h">Gobierno</div>
+        <div className="sec-s">Órgano de administración y apoderamientos vigentes según registros públicos.</div>
+        <div className="card">
+          <h3><span className="k" />Cargos vigentes</h3>
+          <div className="cs">{officers.length} personas físicas · fuentes registrales verificadas</div>
+          {officers.length > 0 ? (
+            <table className="rec" data-testid="gobierno-officers-table">
+              <tbody>
+                <tr><th>Nombre</th><th>Cargo</th><th style={{ textAlign: 'right' }}>Desde</th></tr>
+                {officers.map((o, i) => (
+                  <tr key={`${o.name}-${i}`} data-testid={`gobierno-officer-${i}`}>
+                    <td>{o.name || '—'}</td>
+                    <td>{o.role || '—'}</td>
+                    <td style={{ textAlign: 'right' }}>{fmtDate(o.since) ?? (o.year != null ? String(o.year) : '—')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : <Empty label="Cargos vigentes" />}
+        </div>
+      </section>
+    );
+  }
+  // Shape desconocido (should be unreachable · defensivo).
+  return (
+    <section className="panel on" data-testid="gobierno-unknown">
+      <div className="sec-h">Gobierno</div>
+      <Empty label="Órgano de administración" />
+    </section>
+  );
+}
+
 /* ============================ OPORTUNIDADES ============================ */
 function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | null }) {
   const items = opportunities?.recommendations ?? [];
@@ -1183,7 +1286,8 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             {active === 'oportunidades' && (anon
               ? <section className="panel on"><div className="sec-h">Oportunidades</div><Gate what="las oportunidades" /></section>
               : <Oportunidades opportunities={props.opportunities} />)}
-            {['propiedad', 'gobierno', 'mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
+            {active === 'gobierno' && <Gobierno governance={props.governance} />}
+            {['propiedad', 'mercado', 'rankings', 'comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
               <section className="panel on">
                 <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>
                 <Pending label={NAV.find((n) => n.id === active)?.label ?? active} />
