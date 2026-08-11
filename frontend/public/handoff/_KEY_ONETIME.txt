@@ -1,0 +1,23 @@
+# ARROBA · ENV VARS PARA CONFIGURAR EN PANEL EMERGENT DE PRODUCCIÓN
+# GENERADO: 2026-08-11T10:28:46Z
+# CADUCIDAD: TEMPORAL. Este fichero será borrado en el próximo turno.
+# NO COMPARTIR ESTE ENLACE.
+#
+# INSTRUCCIONES:
+# 1. Copia los 4 valores de abajo.
+# 2. Pégalos en el panel Emergent > Deploy > Environment Variables (production).
+# 3. Redeploy.
+# 4. Avísale al orquestador que has terminado para que borre este fichero.
+# ============================================================
+
+AGENCY_TOOL_MODE=real
+AGENCY_TOOL_BASE_URL=https://intel.arroba.com
+ARROBA_SERVICE_API_KEY_PRIMARY=as_ace1afcc17a0901743f629b3cca64aa4314f433669
+ENRICH_COMPANY_SOURCE=real
+
+# ============================================================
+# NOTAS OPERATIVAS:
+# - No modifiques MONGO_URL ni DB_NAME en el panel prod.
+# - Si AGENCY_TOOL_BASE_URL en prod NO coincide con la línea de arriba, ese es probablemente el problema raíz.
+# - Tras copiar, dispara el deploy en el mismo panel Emergent.
+# - Rollback disponible en el mismo panel si algo falla.
