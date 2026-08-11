@@ -361,3 +361,20 @@ Scan recursivo buscando: `documents`, `docs`, `cuentas`, `annual_accounts`, `reg
 
 ---
 
+## 2026-08-13 · REQ `labels_es_batch` emitido · stream legacy en IDLE
+
+- **Doc emitido**: `/app/memory/PARA_INTEL_labels_es_batch.md` (17.9 KB · 6 familias de labels ES + §Sub-preguntas + §Checklist Fase B).
+- **URL descargable**: `https://musing-hellman-9.preview.emergentagent.com/handoff/PARA_INTEL_labels_es_batch.md` · HTTP **200** ✅ (local `http://localhost:3000/handoff/…` también HTTP 200).
+- **Cola Intel actualizada** (según directiva usuario 2026-08-13):
+  1. `control_graph` (Propiedad) — máxima prioridad · REQ pendiente de emisión formal por Arroba.
+  2. **`labels_es_batch`** — emitido hoy.
+  3. `comparables` T5-T10 — emitido hoy.
+  4. `narrative` Mercado/Rankings/Concentración/Position — Fase B canon · mismo lote de idioma que `labels_es_batch`.
+  5. Sector & Roll-up E6/E7 — aparcado.
+- **No hay más trabajo neto pendiente en el stream legacy**. **IDLE** a la espera de:
+  - Intel emite `control_graph` → cablear Propiedad.
+  - Intel emite `narrative` + `labels_es_batch` (co-entrega) → cerrar Fase B canon.
+  - Intel emite `peers` (Comparables T5-10) → cablear sección Comparativa.
+
+---
+
