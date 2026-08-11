@@ -311,6 +311,8 @@ function HeroBlock({ identity, semantic, financialAnalysis }: { identity: Identi
       </div>
       <div className="card" style={{ marginTop: 16 }}>
         <h3><span className="k" />Veredicto de ARROBA</h3>
+        {/* TODO · cablear a ficha.finances.financial_quality.verdict cuando Intel añada el campo. */}
+        {/* Referencia: /app/memory/PARA_INTEL_financial_quality_verdict.md (P2 · REQ-INTEL). */}
         <Empty />
       </div>
     </>
