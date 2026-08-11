@@ -62,6 +62,7 @@ from src.modules.intelligence_layer.interfaces.semantic import (
 )
 from src.modules.intelligence_layer.observability import render_metrics
 from src.modules.intelligence_layer.router import get_intelligence_router
+from src.modules.intelligence_layer.router import IntelligenceRouter  # HARDENING-008 · type hint fallback helper
 from src.modules.intelligence_layer.canonical_ui_adapter import (
     to_financial_section,
     to_identity_section,
@@ -293,18 +294,63 @@ async def get_company_ficha(
     Reduce el waterfall SWR frontend de 5 llamadas Arroba→Intel a 1 (cf.
     `PARA_BETA_B24_FICHA_SHAPE.md`). Endpoints legacy por sección permanecen
     operativos hasta deprecación futura.
+
+    HARDENING-008 · Resiliencia agregador (2026-08-10): si Intel `/company/{cif}/ficha`
+    devuelve `NotFoundError` (404 upstream) o `FinancialProviderError` (5xx/breaker
+    intermedio propagado), componemos `CompanyFicha` a partir de las llamadas por
+    sección legacy (`master_by_cif` + `financial_analysis`). Sólo se propaga 404 final
+    si TAMBIÉN el legacy `master_by_cif` falla (`MasterNotFoundError`). Observabilidad:
+    header `X-Ficha-Source: aggregator | fallback_per_section` en la respuesta.
     """
     router = get_intelligence_router()
+    ficha_source = "aggregator"
     try:
         ficha = await router.get_company_ficha(cif)
     except FinancialNotFoundError as exc:
-        raise NotFoundError("ficha_not_found", code="ficha_not_found") from exc
+        # Fallback por sección: el agregador reportó 404 upstream, intentamos legacy.
+        log.warning(
+            "ficha_aggregator_not_found",
+            extra={"cif": cif, "reason": "aggregator_404", "error_class": getattr(exc, "error_class", None)},
+        )
+        try:
+            ficha = await _compose_ficha_fallback(router, cif)
+            ficha_source = "fallback_per_section"
+        except MasterNotFoundError as inner:
+            raise NotFoundError("ficha_not_found", code="ficha_not_found") from inner
+        except MasterProviderError as inner:
+            raise ProviderError(getattr(inner, "error_class", "provider_error"), code="provider_error") from inner
     except BreakerOpenError as exc:
-        raise ProviderUnavailableError(
-            "circuit_breaker_open", code="provider_unavailable"
-        ) from exc
+        # Circuit breaker abierto para el agregador → intentar legacy por sección.
+        log.warning(
+            "ficha_aggregator_breaker_open",
+            extra={"cif": cif, "reason": "breaker_open"},
+        )
+        try:
+            ficha = await _compose_ficha_fallback(router, cif)
+            ficha_source = "fallback_per_section"
+        except MasterNotFoundError as inner:
+            raise NotFoundError("ficha_not_found", code="ficha_not_found") from inner
+        except MasterProviderError:
+            raise ProviderUnavailableError(
+                "circuit_breaker_open", code="provider_unavailable"
+            ) from exc
     except FinancialProviderError as exc:
-        raise ProviderError(exc.error_class, code="provider_error") from exc
+        # 5xx / auth upstream / server / breaker interno propagado → probamos legacy.
+        error_class = getattr(exc, "error_class", "")
+        if error_class in ("server_5xx", "unauthorized", "client_4xx", "network"):
+            log.warning(
+                "ficha_aggregator_provider_error",
+                extra={"cif": cif, "reason": "aggregator_provider_error", "error_class": error_class},
+            )
+            try:
+                ficha = await _compose_ficha_fallback(router, cif)
+                ficha_source = "fallback_per_section"
+            except MasterNotFoundError as inner:
+                raise NotFoundError("ficha_not_found", code="ficha_not_found") from inner
+            except (MasterProviderError, BreakerOpenError):
+                raise ProviderError(error_class or "provider_error", code="provider_error") from exc
+        else:
+            raise ProviderError(error_class or "provider_error", code="provider_error") from exc
 
     if user is None:
         # Mixed-access: bloque gated se nullifica para visitante anónimo.
@@ -313,7 +359,99 @@ async def get_company_ficha(
     settings = get_intelligence_settings()
     response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
     response.headers["X-Provider"] = router._get_financial_provider().provider_name
+    response.headers["X-Ficha-Source"] = ficha_source
     return ficha
+
+
+async def _compose_ficha_fallback(router: IntelligenceRouter, cif: str) -> CompanyFicha:
+    """HARDENING-008 · compone `CompanyFicha` desde endpoints legacy por sección.
+
+    Requiere que `identity` legacy resuelva (si no, propagamos `MasterNotFoundError`
+    para que el caller emita el 404 final `ficha_not_found`). Si `financial-analysis`
+    falla, seguimos con `finances=None` (mejor UX que rechazar toda la ficha).
+    `ownership`, `governance`, `events`, `ranking` (top-level) quedan `None` — no hay
+    endpoints legacy que los sirvan.
+    """
+    # 1. identity legacy · obligatoria (si falla, propagamos MasterNotFoundError).
+    record = await router.get_master_by_cif(cif)
+    identity_dict = _master_record_to_ficha_identity(record)
+    master_id = record.master_id
+
+    # 2. finances legacy · opcional (best-effort).
+    finances: FinancialAnalysis | None = None
+    try:
+        finances = await router.get_financial_analysis(cif)
+    except (FinancialNotFoundError, FinancialProviderError, BreakerOpenError) as exc:
+        log.warning(
+            "ficha_fallback_finances_unavailable",
+            extra={"cif": cif, "master_id": master_id, "error": type(exc).__name__,
+                   "error_class": getattr(exc, "error_class", None)},
+        )
+        finances = None
+
+    log.info(
+        "ficha_fallback_composed",
+        extra={"cif": cif, "master_id": master_id, "finances_present": finances is not None},
+    )
+    return CompanyFicha(
+        cif_normalized=record.cif_normalized or cif.upper(),
+        master_id=master_id,
+        finances=finances,
+        identity=identity_dict,
+        ownership=None,
+        governance=None,
+        events=None,
+        ranking=finances.ranking if (finances and finances.ranking) else None,
+        engine_version="arroba-ficha-v1-fallback",
+    )
+
+
+def _master_record_to_ficha_identity(record: "MasterRecord") -> dict:
+    """HARDENING-008 · construye el dict `identity` con el shape del agregador Intel
+    a partir de un `MasterRecord` legacy. Passthrough puro de campos existentes;
+    R15 estricto: sin cálculo, solo mapping de claves. Mimica el shape que consume
+    `adaptIdentityFromFicha` (frontend) para que el fallback sea transparente en UI.
+    """
+    ident = record.identity
+    cls = record.classification
+    loc = record.location
+    ctc = record.contact
+    sz = record.size
+    return {
+        "cif": record.cif_normalized,
+        "master_id": record.master_id,
+        "record_status": record.record_status or record.status,
+        "legal_name": ident.legal_name if ident else None,
+        "commercial_name": ident.commercial_name if ident else None,
+        "aliases": list(ident.aliases) if (ident and ident.aliases) else [],
+        "country": (loc.pais if loc else None) or (ident.country if ident else None),
+        "cnae_primary": {
+            "code": cls.cnae_code,
+            "description": cls.cnae_description,
+            "section": cls.cnae_section,
+            "division": getattr(cls, "cnae_division", None),
+        } if cls else None,
+        "province": loc.provincia if loc else None,
+        "locality": loc.municipio if loc else None,
+        "postal_code": loc.codigo_postal if loc else None,
+        "website": ctc.web if ctc else None,
+        "domain": getattr(ctc, "domain", None) if ctc else None,
+        "employees_total": sz.employees_total if sz else None,
+        "capital_social": sz.capital_social if sz else None,
+        "corporate_purpose": record.objeto_social,
+        "activity": record.activity,
+        "activity_status": record.activity_status,
+        "mercantile_status": record.mercantile_status,
+        "legal_form": record.legal_form,
+        "incorporation_date": record.incorporation_date,
+        "is_listed": record.is_listed,
+        "listed_market": record.listed_market,
+        "sectors": list(record.sectors) if record.sectors else [],
+        "description": record.description,
+        "address": record.address,
+        "autonomous_community": record.autonomous_community,
+        "data_coverage": dict(record.data_coverage) if record.data_coverage else {},
+    }
 
 
 @companies_intel_router.get(
