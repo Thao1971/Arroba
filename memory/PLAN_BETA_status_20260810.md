@@ -797,3 +797,137 @@ Fidelidad a la fuente (R12: cero cálculo local). Si Intel decide consolidar, lo
 - ✅ HARDENING-019 Fase B canon CF + Gobierno ES · verde pre-tester
 - ⏸️ Comparativa peers T5-T10 · congelada `/tmp/wip_comparativa_20260813/`
 - ⏸️ `/connections` grafo Propiedad · aparcado (3 respuestas Intel pendientes)
+
+---
+## 2026-08-13 · Incidente OPS · cache stale post-push · HARDENING-004 sigue pendiente
+
+### Contexto del incidente
+Tras el push manual de HARDENING-018 (Propiedad 1:1) + HARDENING-019 (Fase B canon CF + Gobierno ES), `GET /api/companies/{cif}/ficha` en **producción** sigue devolviendo el payload viejo:
+- `control_graph` ausente / con shape v1
+- `market.*.narrative` no presentes
+- Labels ES 6/6 no presentes
+
+Root cause: la capa persistente Mongo `intelligence_cache` (§Decisión 0.1.2 · 2 capas + single-flight) mantiene el `value` serializado por el wrapper con contrato antiguo hasta que su `expires_at` supere el TTL. La aplicación de nuevos campos aditivos requiere **invalidación manual** (HARDENING-004 documentado 2026-08-10, sin automatizar por decisión del usuario).
+
+### Inventario del cache (para operativa)
+- **Colección Mongo**: `intelligence_cache` (constante `MongoCache.COLLECTION` en `cache.py:91`).
+- **Shape del documento**:
+  ```
+  { _id: "<key>", value: <JSON serializable>, expires_at: <unix_epoch_float>, is_error: bool }
+  ```
+- **Cache key canónica** (`cache.py:31-39`):
+  ```
+  f"{provider}:{engine}:{method}:{master_id}:{payload_hash}"
+  ```
+  Ejemplos reales observados en local:
+  - `agency_tool:financial:ficha:B28184687:-`
+  - `agency_tool:financial:analyze:B28184687:-`
+  - `agency_tool:master:get_by_cif:B28184687:-`
+  - `agency_tool:semantic:profile:B28184687:-`
+  - `agency_tool:semantic:similar:B28184687:ca502dec04523cdc` (con hash real cuando hay body)
+  - `agency_tool:signal:analyze:B28184687:-`
+  - `agency_tool:recommendation:buyers:10:B28184687:-` (incluye `limit=10` en `master_id`)
+  - `agency_tool:recommendation:opportunities:10:B28184687:-`
+  - `agency_tool:valuation:analyze_valuation:mc_80e03f1e1627:-` (aquí el `master_id` es el ID resuelto, NO el CIF).
+- **TTL** (`config.py:59-69`):
+  - default: `900s` (15 min)
+  - `master`: `24h` (identidad estable)
+  - `financial`, `signal`, `semantic`, `recommendation`, `strategy`: default (900s)
+  - `transaction`: `0` (no cache · event-driven)
+- **Engines cacheados**: master, financial (analyze / valuation / ficha / ratios_catalog), signal, semantic (profile / similar / schema / catalog), recommendation (buyers / opportunities), valuation, strategy.
+- **Layer 1 (memory · LRU 1024 max)**: se limpia con `supervisorctl restart backend`.
+- **Layer 2 (Mongo)**: persiste entre reinicios → requiere `deleteMany`.
+
+### Prueba local (2026-08-13 · CIF B28184687)
+Estado antes: 39 docs total · 7 con `B28184687` en `_id` (todos con `expires_at` en pasado por el `_id` viejo pero atravesando el gate `expires_at < now` en app-layer).
+
+Comando ejecutado:
+```
+mongosh "mongodb://localhost:27017/arroba_com" \
+  --eval 'db.intelligence_cache.deleteMany({ _id: /B28184687/ })'
+```
+Resultado: 7 documentos borrados.
+
+Tras `curl /api/companies/B28184687/ficha?authenticated=true`:
+- Se repuebla 1 entrada nueva: `agency_tool:financial:ficha:B28184687:-` con TTL 900s.
+- Header `X-Ficha-Source: aggregator` (llamada fresca, no fallback).
+- **12/12 checks del contrato nuevo verdes**:
+  - `control_graph.shareholders` = 2 · `narrative` presente
+  - `market.{sector,geo,concentration,position}.narrative` = 4/4 ✓
+  - `market.concentration.concentration_label_es` = "Muy concentrado"
+  - `market.sector.primary_driver_label` = "Actividad"
+  - `identity.is_listed_label_es` = "No cotizada"
+  - `governance.governance_role_labels_es` dict con 7 keys
+  - `governance.officers[0].role_label_es` = "Apoderado"
+  - `finances.cash_flow.cash_flow_labels_es` dict con 9 keys
+
+**Conclusión**: purga = fix. Código en prod está bien; sólo Mongo tapaba con el shape viejo.
+
+### Comandos para Daniel (Mongo de prod)
+
+**Opción A · Purga total** (más agresiva, invalida TODOS los engines para TODOS los CIFs):
+```
+mongosh "$PROD_MONGO_URI" --eval 'db.intelligence_cache.deleteMany({})'
+```
+Trade-off: primera request por CIF cacheado → cache-miss → llamada fresca a Intel. Sin downtime. Coste breve de latencia para el primer usuario que toque cada ficha (~2–5s de round-trip Intel). Es la más simple y **la recomendada** para este incidente porque el contrato nuevo afecta transversalmente a ficha / control_graph / market / governance / cash_flow.
+
+**Opción B · Purga por CIF específico** (`B28184687` de ejemplo · reemplazar por los CIFs afectados):
+```
+mongosh "$PROD_MONGO_URI" --eval 'db.intelligence_cache.deleteMany({ _id: /B28184687/ })'
+```
+Trade-off: quirúrgica; sólo invalida esa ficha. Buena si Daniel sabe que el usuario reportador consulta un CIF concreto. Menos eficaz si múltiples CIFs están cacheados con shape viejo.
+
+**Opción C · Purga por engine** (sólo el agregador `ficha`, deja `master`/`identity`/`financial`/`semantic`/etc. intactos):
+```
+mongosh "$PROD_MONGO_URI" --eval 'db.intelligence_cache.deleteMany({ _id: /:financial:ficha:/ })'
+```
+Trade-off: mínima invasión — el fetch del agregador `/ficha` es el único que devuelve el contrato completo (`control_graph`, `market`, `governance`, `finances`). Preserva la caché de los legacy per-sección (que sirven al Copilot y otros consumidores). **Recomendada si Daniel prefiere invalidar sólo lo estrictamente necesario**.
+
+**Recomendación operativa · orden de prueba**:
+1. Empezar con **Opción C** (mínima invasión). Verificar con un curl a un CIF cualquiera que el nuevo contrato llega.
+2. Si algún consumidor legacy sigue devolviendo shape viejo (por ejemplo Copilot vía `/financial-analysis`), escalar a **Opción A**.
+
+**Verificación post-purga en prod** (Daniel debería ejecutar):
+```
+curl -s -H "Cookie: {sesión válida prod}" \
+  "https://arroba.com/api/companies/B28184687/ficha?authenticated=true" \
+  | jq '{
+      cg: (.control_graph.shareholders | length),
+      narr_sector: (.market.sector.narrative != null),
+      narr_geo: (.market.geo.narrative != null),
+      narr_conc: (.market.concentration.narrative != null),
+      narr_pos: (.market.position.narrative != null),
+      conc_label: .market.concentration.concentration_label_es,
+      is_listed: .identity.is_listed_label_es,
+      role0: .governance.officers[0].role_label_es,
+      cf_labels: (.finances.cash_flow.cash_flow_labels_es | length),
+    }'
+```
+Salida esperada:
+```
+{
+  "cg": 2, "narr_sector": true, "narr_geo": true, "narr_conc": true, "narr_pos": true,
+  "conc_label": "Muy concentrado", "is_listed": "No cotizada", "role0": "Apoderado", "cf_labels": 9
+}
+```
+
+### HARDENING-004 · sigue pendiente
+
+Este incidente confirma la deuda operativa registrada 2026-08-10.
+
+**Propuesta mínima para el próximo turno** (no implementada hoy):
+- Endpoint `POST /api/admin/cache/purge` protegido por header `X-Admin-Token` (env `ARROBA_ADMIN_TOKEN`).
+  - Body: `{ "cif": "B28184687" }` → deleteMany por regex `_id: /:{cif}/`
+  - Body: `{ "engine": "ficha" }` → deleteMany por regex `_id: /:financial:ficha:/`
+  - Body: `{}` → deleteMany total (purga aggresiva, con confirmación `?force=true`).
+- Log de la operación en `audit_log`. Retorno JSON con `{deleted: <int>, before: <int>, after: <int>}`.
+- Efecto colateral: elimina la necesidad de `mongosh` en operativa post-deploy. Ejecutable desde cualquier consumer HTTP autenticado.
+
+**Alternativa complementaria**: hook post-deploy CI/CD que invoque el endpoint automáticamente tras cada push. Fuera del alcance del proxy Arroba (responsabilidad del pipeline de deploy).
+
+### Este turno: sin cambios de código
+
+- Backend: sin modificar (sólo docs).
+- Frontend: sin modificar.
+- HARDENING-004: **NO implementado** — sólo documentado. Requiere autorización explícita del usuario para el próximo turno.
+- Deploy: NO.
