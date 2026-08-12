@@ -1052,6 +1052,47 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
   );
 }
 
+/**
+ * HARDENING-020 · ErrorBoundary genérico para secciones inteligencia
+ * (`Senales`, `Oportunidades`, futuras). Aísla crashes de un sub-bloque
+ * para que la ficha completa siga montándose (defensa contra shape shifts
+ * del payload Intel, edge cases de mapeo, etc.). Loguea a consola en dev
+ * y degrada la sección a `<Empty label={label}/>` (nunca fabrica prosa).
+ */
+interface IntelSectionErrorBoundaryProps { label: string; sectionTestid?: string; children: React.ReactNode }
+interface IntelSectionErrorBoundaryState { hasError: boolean; error?: Error }
+class IntelligenceSectionErrorBoundary extends Component<IntelSectionErrorBoundaryProps, IntelSectionErrorBoundaryState> {
+  constructor(props: IntelSectionErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: Error): IntelSectionErrorBoundaryState {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error(`[IntelligenceSectionErrorBoundary:${this.props.label}] section crashed:`, error, info);
+    }
+  }
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return (
+        <section className="panel on" data-testid={this.props.sectionTestid ?? 'intel-section-error-boundary'}>
+          <div className="sec-h">{this.props.label}</div>
+          <Empty label={this.props.label} />
+          {process.env.NODE_ENV !== 'production' && this.state.error && (
+            <div className="cs" style={{ marginTop: 8, color: 'var(--n500)', fontSize: 11 }}>
+              [dev] {this.state.error.message}
+            </div>
+          )}
+        </section>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /* ============================ SEÑALES ============================ */
 /**
  * ÍTEM 2 · Turno post-D · consumo enriquecido del payload `signal-intelligence`.
@@ -1112,8 +1153,12 @@ const SIG_DIM_LABEL_ES: Record<string, string> = {
  * HARDENING-020 · Bandas cualitativas Anexo B (score 0-1 · dividido por 100
  * si viene >1, o multiplicado por 100 si es 0-1). Devuelve la banda ES.
  *   ≥80 → "muy alto"  ·  60-79 → "alto"  ·  40-59 → "moderado"  ·  <40 → "bajo"
+ * HARDENING-020-fix · guard contra inputs inválidos (`null`, `undefined`,
+ * `NaN`, `Infinity`). Retorna `null` para no fabricar prosa (R15).
  */
-function qualitativeBand(rawScore: number): string {
+function qualitativeBand(rawScore: number | null | undefined): string | null {
+  if (rawScore === null || rawScore === undefined) return null;
+  if (typeof rawScore !== 'number' || !Number.isFinite(rawScore)) return null;
   const pct = rawScore <= 1 ? rawScore * 100 : rawScore;
   if (pct >= 80) return 'muy alto';
   if (pct >= 60) return 'alto';
@@ -1194,7 +1239,7 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
                     )}
                   </div>
                 )}
-                {(s.recommended_actions?.length ?? 0) > 0 && (
+                {(s.recommended_actions?.length ?? 0) > 0 && Array.isArray(s.recommended_actions) && (
                   <div className="sig-actions" data-testid={`senal-${s.signal_id}-actions`}>
                     {(s.recommended_actions ?? []).map((a, j) => (
                       <span key={j} className="a" data-action={a}>{SIG_ACTION_LABEL_ES[a] ?? a}</span>
@@ -2486,7 +2531,7 @@ function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | 
           <div key={i} className="card" data-testid={`opp-card-${i}`}>
             <h3><span className="k" />{o.name ?? 'Tesis'}</h3>
             {o.reason && <p style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6 }}>{o.reason}</p>}
-            {(o.recommended_actions?.length ?? 0) > 0 && (
+            {(o.recommended_actions?.length ?? 0) > 0 && Array.isArray(o.recommended_actions) && (
               <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }} data-testid={`opp-card-${i}-actions`}>
                 {(o.recommended_actions ?? []).map((a, j) => (
                   <span
@@ -2642,10 +2687,10 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
               : <Comparativa semantic={props.semantic} buyers={props.buyers} />)}
             {active === 'senales' && (anon
               ? <section className="panel on"><div className="sec-h">Señales</div><Gate what="las señales" /></section>
-              : <Senales signal={props.signal} />)}
+              : <IntelligenceSectionErrorBoundary label="Señales" sectionTestid="senales-error-boundary"><Senales signal={props.signal} /></IntelligenceSectionErrorBoundary>)}
             {active === 'oportunidades' && (anon
               ? <section className="panel on"><div className="sec-h">Oportunidades</div><Gate what="las oportunidades" /></section>
-              : <Oportunidades opportunities={props.opportunities} />)}
+              : <IntelligenceSectionErrorBoundary label="Oportunidades" sectionTestid="oportunidades-error-boundary"><Oportunidades opportunities={props.opportunities} /></IntelligenceSectionErrorBoundary>)}
             {active === 'gobierno' && <Gobierno governance={props.governance} />}
             {active === 'propiedad' && (
               <ControlGraphErrorBoundary>

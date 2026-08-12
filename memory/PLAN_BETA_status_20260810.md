@@ -997,3 +997,70 @@ Detectado y corregido bloque duplicado al final de `CompanyFichaLayoutV2.tsx` (l
 - ⏸️ Comparativa peers T5-T10 · congelada `/tmp/wip_comparativa_20260813/`
 - ⏸️ `/connections` grafo Propiedad · aparcado (3 respuestas Intel pendientes)
 - ❌ HARDENING-004 automated cache invalidation · sin implementar (documentado post-incidente cache-stale)
+
+---
+## 2026-08-13 · HARDENING-020 corrección post-tester · fix client-side exception
+
+### Causa raíz identificada
+Tras aplicar HARDENING-020 y ejecutar `yarn build`, los hashes de los chunks Webpack cambiaron (nuevos artefactos en `.next/static/chunks/`). El servidor `next start` (que el pod dev corre en modo production, no `next dev`) **mantiene el manifest de chunks en memoria hasta un restart**. Consecuencia:
+- El servidor sirve HTML con `<script src="page-b296a8ee28ece354.js">` (hash del build previo).
+- El filesystem tiene ya el nuevo bundle (hash distinto).
+- El browser recibe `404` para el chunk viejo → `ChunkLoadError: Loading chunk 11 failed`.
+- React 18 propaga el error como `#423` (**"There was an error while hydrating this Suspense boundary"**) → Next.js muestra el fallback global: `Application error: a client-side exception has occurred`.
+
+**El código de HARDENING-020 no tiene bug**. Es un incidente operativo del workflow build ↔ hot-reload.
+
+Stack trace capturado del test previo (`console_20260812_165214.log`):
+```
+error: Failed to load resource: 404 at
+  http://localhost:3000/_next/static/chunks/app/%5Blocale%5D/(ficha)/empresa-f01/%5Bcif%5D/page-b296a8ee28ece354.js
+error: ChunkLoadError: Loading chunk 11 failed
+  at d.f.j (webpack-0a5c4b12ecd32c81.js)
+  ...
+PAGE ERROR: Minified React error #423
+  → "There was an error while hydrating this Suspense boundary"
+```
+
+### Fix aplicado (defense in depth)
+Aunque la causa raíz es operativa, se aplican tres refuerzos defensivos para blindar el UI contra edge cases futuros:
+
+1. **`qualitativeBand()` reforzada** (`CompanyFichaLayoutV2.tsx`):
+   - Firma cambia de `(rawScore: number) → string` a `(rawScore: number | null | undefined) → string | null`.
+   - Guard early return si `null`/`undefined`/`NaN`/`Infinity` → retorna `null` (R15: no fabricar).
+
+2. **`IntelligenceSectionErrorBoundary` genérico** (nueva clase, parametrizable con `label` + `sectionTestid`):
+   - Aísla crashes de una sección para que la ficha completa siga montándose.
+   - Loguea a consola en dev; degrada a `<Empty label={label} />` en cualquier entorno.
+   - En dev muestra `.error.message` bajo el `<Empty/>` para debug.
+   - Sigue el patrón de `ControlGraphErrorBoundary` (HARDENING-017).
+
+3. **Envolvente de Señales + Oportunidades**:
+   ```jsx
+   <IntelligenceSectionErrorBoundary label="Señales" sectionTestid="senales-error-boundary">
+     <Senales signal={props.signal} />
+   </IntelligenceSectionErrorBoundary>
+   ```
+   Idem `Oportunidades`. Cero coste si no crashea.
+
+4. **Guards Array.isArray**:
+   - `s.recommended_actions` y `o.recommended_actions` → `?.length && Array.isArray(...)` antes de `.map()`. Previene crash si el payload trae shape no-array (defensa contra Intel shape shift).
+
+### Verificación local (pod dev)
+- `yarn typecheck`: **verde** (3.30 s).
+- `yarn build`: **verde** (17.24 s) · First Load JS shared **87.3 kB** (baseline preservado).
+- `sudo supervisorctl restart frontend` tras el build (crítico · sin el restart el server sirve manifest viejo).
+- Screenshot `http://localhost:3000/es/empresa-f01/B28184687` sin sesión → carga "Empresa no encontrada" (ruta legítima cuando identity resolver falla en 404) SIN "Application error".
+- Console log de Playwright: **cero** ChunkLoadError, cero React error #423.
+
+### Workflow operativo endurecido (documentado)
+Para próximos turnos con cambios en frontend + `yarn build`:
+1. `yarn typecheck` verde.
+2. `yarn build` verde.
+3. **`sudo supervisorctl restart frontend`** (obligatorio · sin él el manifest queda stale).
+4. Screenshot smoke local para verificar ausencia de crash.
+
+### DEPLOY
+- **NO desplegado.** Bundle acumulado. En el push manual del usuario, ejecutar tras deploy:
+  1. Purga cache Mongo (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`).
+  2. Restart de los pods de producción (asegura que sirven el manifest fresco).
+- HARDENING-004 automatización sigue pendiente.
