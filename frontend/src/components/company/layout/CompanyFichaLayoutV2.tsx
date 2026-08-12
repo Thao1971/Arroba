@@ -356,7 +356,7 @@ function HeroBlock({ identity, semantic, financialAnalysis, market }: { identity
                 data-testid="hero-sector-signal-yoy"
                 style={{ fontSize: 13, color: 'var(--n700)' }}
               >
-                YoY <b>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</b>
+                <b>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</b> interanual
               </span>
             )}
           </div>
@@ -2504,6 +2504,76 @@ const OPP_ACTION_LABEL_ES: Record<string, string> = {
   export: 'Exportar',
   dismiss: 'Descartar',
 };
+
+/**
+ * HARDENING-020-fix (2026-08-13) · Prosa CF ES a partir de campos estructurados
+ * (Escenario A del brief). El `opportunity.reason` de Intel es texto crudo con
+ * tokens técnicos (`opportunity`, `acquisition_target`, `0.083638`) — se
+ * descarta por completo (R15: no parsear el string con regex).
+ *
+ * En su lugar leemos `opportunity.fit_dimensions.{strategic_fit,financial_fit,
+ * semantic_fit}` cada uno con `{value, evidence[], sources[]}` y componemos
+ * frases CF con vocabulario controlado local (mapa mínimo).
+ *
+ * TODO CANON · consumir `opportunity.reason_narrative_cf` cuando Intel lo
+ * emita (mismo patrón que `sector.narrative`, `geo.narrative`, etc.) y
+ * retirar este helper — REQ pendiente de emitir.
+ */
+type FitEntry = { value?: number | null; evidence?: string[] | null };
+function _findEvidenceFlag(entries: string[] | null | undefined, key: string): boolean | null {
+  if (!Array.isArray(entries)) return null;
+  const prefix = `${key}=`;
+  const hit = entries.find((e) => typeof e === 'string' && e.startsWith(prefix));
+  if (!hit) return null;
+  const v = hit.slice(prefix.length).trim().toLowerCase();
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  return null;
+}
+function _fitBand(value: number | null | undefined, kind: 'strategic' | 'semantic' | 'financial'): string | null {
+  if (value === null || value === undefined || !Number.isFinite(value)) return null;
+  // Escala Intel [0..1]. Umbrales del canon Anexo B para bandas cualitativas.
+  const pct = value <= 1 ? value * 100 : value;
+  if (kind === 'financial') {
+    if (pct >= 70) return 'buen encaje financiero';
+    if (pct >= 40) return 'encaje financiero moderado';
+    return 'encaje financiero ajustado';
+  }
+  if (kind === 'semantic') {
+    if (pct >= 70) return 'alta afinidad estratégica';
+    if (pct >= 40) return 'afinidad moderada';
+    return 'afinidad ligera';
+  }
+  // strategic
+  if (pct >= 70) return 'alta compatibilidad estratégica';
+  if (pct >= 40) return 'compatibilidad estratégica moderada';
+  return 'compatibilidad estratégica ligera';
+}
+function formatOpportunityReason(opp: BuyerItem): string | null {
+  const dims = opp.fit_dimensions as unknown as Record<string, FitEntry> | null;
+  if (!dims || typeof dims !== 'object') return null;
+  const strategic = dims.strategic_fit ?? null;
+  const financial = dims.financial_fit ?? null;
+  const semantic = dims.semantic_fit ?? null;
+  const parts: string[] = [];
+  // 1) Sector match (proviene de strategic_fit.evidence).
+  const sameSector = _findEvidenceFlag(strategic?.evidence ?? null, 'same_sector');
+  if (sameSector === true) parts.push('mismo sector');
+  else if (sameSector === false) parts.push('sector adyacente');
+  // 2) Semantic fit → afinidad.
+  const semBand = _fitBand(semantic?.value ?? null, 'semantic');
+  if (semBand) parts.push(semBand);
+  // 3) Financial fit → encaje financiero.
+  const finBand = _fitBand(financial?.value ?? null, 'financial');
+  if (finBand) parts.push(finBand);
+  if (!parts.length) return null;
+  // Capitaliza la primera letra de la primera parte.
+  const head = parts[0]!;
+  const capitalized = head.charAt(0).toUpperCase() + head.slice(1);
+  const rest = parts.slice(1);
+  return rest.length ? `${capitalized}, ${rest.join(', ')}.` : `${capitalized}.`;
+}
+
 function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | null }) {
   const items = opportunities?.recommendations ?? [];
   if (!items.length) return <Pending label="Oportunidades" />;
@@ -2527,10 +2597,13 @@ function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | 
         })}
       </div>
       <div className="row r2">
-        {items.slice(0, 2).map((o, i) => (
+        {items.slice(0, 2).map((o, i) => {
+          // HARDENING-020-fix · Prosa CF construida desde `fit_dimensions` (R15-safe · sin regex sobre `reason` crudo).
+          const prose = formatOpportunityReason(o);
+          return (
           <div key={i} className="card" data-testid={`opp-card-${i}`}>
             <h3><span className="k" />{o.name ?? 'Tesis'}</h3>
-            {o.reason && <p style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6 }}>{o.reason}</p>}
+            {prose && <p style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6 }} data-testid={`opp-card-${i}-reason`}>{prose}</p>}
             {(o.recommended_actions?.length ?? 0) > 0 && Array.isArray(o.recommended_actions) && (
               <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }} data-testid={`opp-card-${i}-actions`}>
                 {(o.recommended_actions ?? []).map((a, j) => (
@@ -2546,7 +2619,8 @@ function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | 
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

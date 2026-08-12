@@ -1064,3 +1064,49 @@ Para próximos turnos con cambios en frontend + `yarn build`:
   1. Purga cache Mongo (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`).
   2. Restart de los pods de producción (asegura que sirven el manifest fresco).
 - HARDENING-004 automatización sigue pendiente.
+
+---
+## 2026-08-13 · HARDENING-020-fix · Oportunidades reason CF + YoY residual
+
+### Fix 1 · Oportunidades · reason con tokens técnicos
+- **Payload inspeccionado** (`curl /api/companies/B28184687/opportunities?limit=4`):
+  - `opportunity.reason` es texto crudo: `"INDUSTRIAS MORERA es opportunity (rol: acquisition_target) para LABORATORIOS SERVIER: semejanza semántica 0.083638, ajuste financiero 0.3, sector igual, no consolidador."`
+  - **Campos estructurados disponibles** (Escenario A):
+    - `recommendation_type: "opportunity"` (top-level)
+    - `fit_dimensions.strategic_fit.{value, evidence[]}` con flags `same_sector`, `candidate_consolidator`, `same_group`.
+    - `fit_dimensions.financial_fit.{value, evidence[]}` con floats `size_proximity`, `margin_proximity`.
+    - `fit_dimensions.semantic_fit.{value, evidence[]}` con `embedding_cosine`, `same_section`.
+    - `fit_dimensions.signal_fit`, `execution_fit`.
+- **Escenario elegido**: **A** (Intel emite estructurados → construir prosa CF localmente).
+- **Helper añadido**: `formatOpportunityReason(opp: BuyerItem): string | null` en `CompanyFichaLayoutV2.tsx` (~línea 2440). Vocabulario CF controlado con 3 bandas:
+  - `strategic_fit.evidence` → "mismo sector" / "sector adyacente".
+  - `semantic_fit.value` (0-1) → "alta afinidad estratégica" (≥0.70) / "afinidad moderada" (≥0.40) / "afinidad ligera" (<0.40).
+  - `financial_fit.value` (0-1) → "buen encaje financiero" / "encaje financiero moderado" / "encaje financiero ajustado".
+- **R15 respetado**: cero regex sobre `opportunity.reason`. Solo consumo de campos estructurados. Umbrales del canon Anexo B.
+- **Ejemplo real de output CF** (Servier · INDUSTRIAS MORERA con `sem=0.0836, fin=0.2963, same_sector=True`):
+  > "Mismo sector, afinidad ligera, encaje financiero ajustado."
+- **Verificación local (unit-ish)**: 4/4 oportunidades del dataset Servier generan prosa CF sin `opportunity`, `acquisition_target`, `0.083638`, `0.3`. ✅
+- **REQ-INTEL emitido**: `/app/memory/PARA_INTEL_opportunities_narrative_cf.md` (P2 · pide `opportunities[i].reason_narrative_cf` en prosa CF ES · reemplazará el helper local cuando Intel emita).
+  - Copiado a `/app/frontend/public/handoff/PARA_INTEL_opportunities_narrative_cf.md` · HTTP 200 verificado.
+
+### Fix 2 · YoY residual (barrida final)
+- **Ocurrencia encontrada**: `CompanyFichaLayoutV2.tsx:359` — chip del hero widget de sector.
+  ```
+  YoY <b>{sector.national_yoy_pct > 0 ? '+' : ''}{...}%</b>
+  ```
+- **Sustitución aplicada**: `<b>{...}%</b> interanual` (número precede a la palabra en frase CF).
+- Otros `YoY` detectados NO son runtime visible:
+  - `home/copilot-demo-script.ts:116` · demo landing (fuera de ficha).
+  - `blocks/design-system-primitives.test.tsx:129` · test.
+  - `finanzas/FinancialEvolution.tsx:8, :78` · comentarios internos del código.
+  - `.bak_*` · backups históricos.
+- **Verificación local**: en la ficha visible (`/es/empresa-f01/B28184687`) no queda ningún "YoY" en JSX runtime. ✅
+
+### BUILD
+- `yarn typecheck`: **verde** (3.38 s).
+- `yarn build`: **verde** (17.42 s) · First Load JS shared **87.3 kB** (baseline preservado).
+- `sudo supervisorctl restart frontend`: aplicado tras build (workflow endurecido).
+
+### DEPLOY
+- **NO** — bundle acumulado (HARDENING-018 + 019 + 020 + fixes) para próximo push manual.
+- Checklist post-push (documentado): purga cache (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`) + restart pods.
