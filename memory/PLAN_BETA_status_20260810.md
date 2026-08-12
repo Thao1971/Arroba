@@ -578,3 +578,91 @@ Shape completo y utilizable · keys: `['available', 'company', 'control', 'cover
 
 ---
 
+## 2026-08-13 · Refactor Propiedad 1:1 mockup + Fase B canon (Gate STOP) · HARDENING-018
+
+### Fase 0 · lectura del mockup `ficha-empresa-f01.html`
+
+- **Descargado** desde `customer-assets-lqy194kg.emergentagent.net/.../1atdk9xz_ficha-empresa-f01.html` → `/tmp/mockup_propiedad.html` (2048 líneas).
+- **Bloques identificados**:
+  - `#ownSeg` (selector `.segtiny` con 3 tabs · iconos `network / bars / target`).
+  - `#ownTree`: `.own-th` + `.ownbar2` + grid `.own-g` de `.onode` + `.own-stem` + `.own-ent .box` (nodo central gradient) + `.own-stem` + `.own-th` + grid `.own-g` de `.pnode` + `.own-impl` (banner + CTA).
+  - `#ownList`: lista de `.owbar` con `.obn > .obtag`, `.obt > i data-w`, `.obp`.
+  - `#ownGraph`: `<div id="controlGraph">` renderizado por `interactiveGraph(container, {nodes, edges, ...})`.
+- **Keyframes**: `igIn .45s`, `rdIn .7s`, `revUp .5s`, `owbFill .9s`. Todas portadas literalmente en `propiedadMockupCss.ts`.
+- **Sistema iconos**: `<span data-ic>` con `svgIcon()` → mapeado a `lucide-react`: `network → Network`, `bars → BarChart3`, `target → Target`, `layers → Network` (reutilizo Network para participadas al no estar `Layers` importado sin bump de bundle), `link → ExternalLink`.
+- **Rail "Operación activa"** (`aside.deal#dealAside` del mockup): **NO portado** (directiva del usuario).
+
+### Fase 0 · payload Fase B canon (Servier B28184687 · auth) · Gate
+
+- `market.sector.narrative` ✅
+- `market.geo.narrative` ✅
+- `market.concentration.narrative` ✅
+- `market.position.narrative` ✅
+- `ranking.narrative` ✅ (extra)
+
+**Labels_es · cobertura 3 de 6 confirmadas · 3 pendientes**:
+- ✅ `market.concentration.concentration_label_es`
+- ✅ `governance.governance_role_labels_es` (dict a nivel bloque, no `role_label_es` por officer)
+- ✅ `identity.is_listed_label_es`
+- ❌ `signal_label` (items=[] · no falseable)
+- ❌ `primary_driver_label` (ni en hero ni en market)
+- ❌ `cash_flow_labels_es` (ni en finances top ni en finances.cash_flow)
+- ❌ `officers[*].role_label_es` (existe dict a nivel bloque, no como campo hermano)
+- ❌ `ownership.concentration_label_es`
+
+**Verdict Gate Fase B**: **STOP · parcialmente presente**. Regla del usuario: "mismo commit, nunca `<Empty/>` intermedio". Se aparca Fase B canon hasta co-entrega completa. Los mapas locales (`SIG_SEVERITY_LABEL`, `SIG_DIM_LABEL`, `_GOVERNANCE_ROLE_ES`, `fmtYesNo`) **permanecen** en el layout. TODOs `CANON CF Fase B` en `MercadoSectorPanel/GeoPanel/ConcentrationPanel/PositionPanel` **permanecen**.
+
+### Bloque 1 · Refactor Propiedad 1:1 mockup
+
+**Archivos creados**:
+- `/app/frontend/src/components/company/layout/propiedadMockupCss.ts` — `PROPIEDAD_MOCKUP_CSS` (CSS calcado 1:1 del mockup: `.segtiny`, `.own-*`, `.onode`, `.pnode`, `.owbar`, `.ig-*`, keyframes `revUp/igIn/rdIn/owbFill`).
+
+**Archivos modificados**:
+- `/app/frontend/src/lib/companies/intelligence-types.ts` · union `ControlGraphBlock` ya alineado con shape v2 en pasada anterior.
+- `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx`:
+  - Reescritura completa del bloque Propiedad (~500 líneas nuevas, ~516 líneas legacy eliminadas).
+  - Nuevos componentes: `OwnSegTabs`, `OwnTreeView`, `OwnListView`, `OwnGraphView`, `InteractiveControlGraph`, `PropiedadControlGraph`, `Propiedad` (fallback ownership legacy).
+  - `ControlGraphErrorBoundary` preservado (HARDENING-017).
+  - Motor `InteractiveControlGraph` (React + SVG imperativo via `useRef`/`useEffect`) portado literal del `interactiveGraph()` del mockup: pan/zoom/hover-highlight/drag/click-to-expand. Sin librerías nuevas.
+  - Iconos: `Network`, `BarChart3`, `Target`, `ExternalLink` de `lucide-react` (ya en bundle).
+  - Constante `OWN_STAKE_COLORS` extraída del mockup para la barra `.ownbar2`.
+  - `initialsFromName()` para el avatar del nodo central.
+  - Prop `identity` propagada de `props` para poblar `.own-ent .box` con `legal_name / CIF / city / province`.
+
+**Comportamiento**:
+- **Tab Árbol** (`#ownTree`): barra proporcional `.ownbar2` (con `title` HTML nativo por accionista) + grid 3 cols de `.onode` con dot color, tipo persona/jurídica, pct grande, `.hl` en el 1º y en UBO + nodo central gradient + grid 3 cols de `.pnode` con badge `.pp.ctrl` (≥50%) o `.pp.min` + banner `.own-impl` con `control_graph.narrative` + CTA "Explorar oportunidad" hacia `/es/oportunidades`.
+- **Tab Distribución** (`#ownList`): lista de `.owbar` con separador visual accionistas/participadas + animación `owbFill` en las barras.
+- **Tab Grafo** (`#ownGraph`): SVG interactivo pan+zoom con controles `+`/`−`/`⤢`. Nodos coloreados por tipo (`company` rojo brand · `ubo` negro · `shareholder`/`subsidiary` grises). Aristas curvas Bezier con labels de porcentaje. Hover-highlight (dim el resto). Click en nodo → si `expand[]` poblado despliega vecindario con animación `rdIn`; si no, muestra placeholder `.own-impl` **"Vecindario en preparación"** por 3.2s.
+
+**Decisión anon** (HARDENING-018 documentada en código): en anon (`isControlGraphAggregated`) → NO fabricamos tarjetas anónimas. Se muestra **card compacta** con `Accionistas registrados: N` + `Participadas registradas: N` + CTA `<Lock/> "Iniciar sesión para ver accionistas, participadas y grafo de control"`. Consistente con el resto de la ficha (Ownership legacy hacía lo mismo).
+
+**Fidelidad al mockup**:
+- Estructura DOM · 1:1.
+- Clases CSS · calcadas literalmente al mockup fuente.
+- Colores · exactos (`OWN_STAKE_COLORS` extraído del inline `<i style="background:#FF5757">` etc.).
+- Animaciones · portadas literal (`revUp`, `owbFill`, `igIn`, `rdIn`).
+- Gaps documentados:
+  - **Rail "Operación activa"** del mockup no portado (directiva).
+  - **Iconos** portados desde `lucide-react` (equivalencias documentadas · sin bump bundle).
+  - **Tooltip flotante** del mockup (`[data-tip]` con posicionamiento custom) sustituido por `title` HTML nativo por simplicidad (fase 2 · portar el `<div class="tip">` global si el usuario lo pide).
+
+**REQ emitido** para Nivel 2 del Grafo (click-to-expand):
+- `/app/memory/PARA_INTEL_control_graph_expand.md` (12.4 KB · shape completo + 5 sub-preguntas abiertas).
+- URL descargable: `https://musing-hellman-9.preview.emergentagent.com/handoff/PARA_INTEL_control_graph_expand.md` · HTTP **200** ✅.
+- Prioridad: cola Intel **#2** (tras Punto 1 = nombres reales).
+
+### Bloque 2 · Fase B canon · **STOP**
+
+Cobertura labels_es sólo 3/6. Se aparca. Sin cambios en Mercado / Rankings / Concentración / Position.
+
+### BUILD
+
+- `yarn typecheck` ✅ verde (3.26 s).
+- `yarn build` ✅ verde (18.28 s). First Load JS shared **87.3 kB** — idéntico al baseline, sin regresión (motor SVG imperativo + `useRef`/`useEffect` sin dependencias nuevas).
+
+### Deploy
+
+- **NO desplegado.** Acumulado sobre el bundle previo. Listo para el push manual del usuario tras luz verde de `e1_tester`.
+
+---
+
