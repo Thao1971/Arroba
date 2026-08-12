@@ -869,5 +869,113 @@ export interface CompanyFicha {
   ranking: Record<string, unknown> | null;
   /** HARDENING-012 · bloque `market` top-level Intel. Passthrough puro. */
   market: MarketBlock | null;
+  /** HARDENING-014 · bloque `control_graph` top-level Intel. Union discriminado. */
+  control_graph: ControlGraphBlock | null;
   engine_version: string;
 }
+
+/* ============================================================
+ * ControlGraphBlock (HARDENING-014 · 2026-08-13)
+ * ============================================================
+ * Shape del bloque `control_graph` del agregador Intel · union discriminado:
+ *
+ *   1) Autenticado con datos → shape nominal Intel completo:
+ *      { available:true, company, upstream[], downstream[], ubo?, nodes[],
+ *        edges[], control, group_id?, narrative?, coverage, engine_version }
+ *
+ *   2) Anónimo con datos → shape DPD agregado (sin nombres ni cifs):
+ *      { available:true, company, narrative?, coverage, control?, summary,
+ *        engine_version }
+ *      Sin `upstream`, `downstream`, `ubo`, `nodes`, `edges`.
+ *
+ *   3) available:false → passthrough para ambos.
+ */
+export interface ControlGraphCompany {
+  master_id?: string | null;
+  name?: string | null;
+  cif?: string | null;
+}
+export interface ControlGraphShareholder {
+  name: string;
+  cif?: string | null;
+  master_id?: string | null;
+  pct: number | null;
+  as_of_year?: number | null;
+  is_person?: boolean;
+  relationship?: string | null;
+  is_ubo?: boolean;
+}
+export interface ControlGraphParticipation {
+  name: string;
+  cif?: string | null;
+  master_id?: string | null;
+  pct: number | null;
+  as_of_year?: number | null;
+}
+export interface ControlGraphUbo {
+  name: string;
+  cif?: string | null;
+  is_person?: boolean;
+}
+export interface ControlGraphNode {
+  id: string;
+  name: string;
+  kind: 'company' | 'shareholder' | 'participation' | string;
+  cif?: string | null;
+  pct?: number | null;
+  is_ubo?: boolean;
+  is_person?: boolean;
+}
+export interface ControlGraphEdge {
+  source: string;
+  target: string;
+  pct: number | null;
+  type?: string;
+}
+export interface ControlGraphControl {
+  controlling_shareholder?: string | null;
+  top1_pct?: number | null;
+  tier?: string | null;
+}
+export interface ControlGraphCoverage {
+  upstream_count?: number;
+  downstream_count?: number;
+  truncated?: boolean;
+}
+export interface ControlGraphNominal {
+  available: true;
+  company: ControlGraphCompany | null;
+  upstream: ControlGraphShareholder[];
+  downstream: ControlGraphParticipation[];
+  ubo?: ControlGraphUbo | null;
+  nodes: ControlGraphNode[];
+  edges: ControlGraphEdge[];
+  control?: ControlGraphControl | null;
+  group_id?: string | null;
+  narrative?: string | null;
+  coverage?: ControlGraphCoverage | null;
+  engine_version?: string;
+}
+export interface ControlGraphAggregated {
+  available: true;
+  company?: ControlGraphCompany | null;
+  narrative?: string | null;
+  coverage?: ControlGraphCoverage | null;
+  control?: { tier?: string | null } | null;
+  group_id?: string | null;
+  summary: {
+    shareholders_count: number;
+    participations_count: number;
+    tier?: string | null;
+    top1_pct?: number | null;
+  };
+  engine_version?: string;
+}
+export interface ControlGraphUnavailable {
+  available: false;
+  engine_version?: string;
+}
+export type ControlGraphBlock =
+  | ControlGraphNominal
+  | ControlGraphAggregated
+  | ControlGraphUnavailable;

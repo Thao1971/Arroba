@@ -81,11 +81,21 @@ export const intelligenceClient = {
 
   /**
    * B-2.4 · agregador `/company/{cif}/ficha` (`arroba-ficha-v1`). Devuelve
-   * `identity + finances + ownership + governance + events + ranking` en una
-   * sola llamada. Mixed-access: anónimo recibe `finances=null`.
+   * `identity + finances + ownership + governance + events + ranking + market
+   * + control_graph` en una sola llamada.
+   *
+   * HARDENING-015 (2026-08-13) · Mixed-access con opt-in explícito:
+   *   - Anónimo por defecto (fail-closed): `authenticated=false` no envía flag.
+   *   - Autenticado: pasar `authenticated: true` añade `?authenticated=true`.
+   *     El backend valida sesión server-side y sólo desbloquea el shape
+   *     completo si AMBAS condiciones se cumplen (cookie válida + flag).
+   *   - El backend NUNCA confía en el flag por sí solo. La resolución final
+   *     queda expuesta en el header `X-Ficha-Auth`.
    */
-  ficha: (cif: string) =>
-    _get<CompanyFicha>(`/api/companies/${encodeURIComponent(cif)}/ficha`),
+  ficha: (cif: string, authenticated = false) => {
+    const qs = authenticated ? '?authenticated=true' : '';
+    return _get<CompanyFicha>(`/api/companies/${encodeURIComponent(cif)}/ficha${qs}`);
+  },
 };
 
 export type { IdentitySection, FinancialSection, FinancialAnalysis, ValuationAnalysis, ValuationSection, SemanticSection, SignalAnalysis, RecommendationSet, CompanyFicha };

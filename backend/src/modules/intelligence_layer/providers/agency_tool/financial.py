@@ -182,6 +182,12 @@ class AgencyToolFinancialProvider(FinancialProvider):
             # HARDENING-012 (2026-08-12) · passthrough puro del bloque `market`
             # top-level entregado por Intel (`arroba-company-ficha-v1`).
             market=data.get("market") if isinstance(data.get("market"), dict) else None,
+            # HARDENING-014 (2026-08-13) · passthrough puro del bloque `control_graph`
+            # top-level (grafo de propiedad · shareholders / participadas / UBO / nodes / edges / narrative).
+            # La anonimización DPD para visitante anónimo se aplica en el endpoint
+            # `get_company_ficha` (`_anonymize_control_graph`), no aquí. Se preserva el
+            # shape Intel exacto para consumo auth.
+            control_graph=data.get("control_graph") if isinstance(data.get("control_graph"), dict) else None,
             engine_version=INTERNAL_FICHA_ENGINE_VERSION,
         )
 

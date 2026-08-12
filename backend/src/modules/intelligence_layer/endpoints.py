@@ -283,6 +283,17 @@ async def get_company_ficha(
     response: Response,
     cif: str = Depends(_cif_param),
     user: UserPublic | None = Depends(get_optional_current_user),
+    authenticated: bool = Query(
+        default=False,
+        description=(
+            "HARDENING-015 (2026-08-13) · Opt-in explícito de vista autenticada. "
+            "Fail-closed: por defecto (ausente o false) el endpoint devuelve el "
+            "shape anónimo con DPD aplicada aunque exista cookie de sesión. Sólo "
+            "authenticated=true junto con cookie de sesión válida resuelve a "
+            "vista autenticada. El query param por sí solo, sin sesión válida, "
+            "NUNCA desbloquea datos protegidos."
+        ),
+    ),
 ) -> CompanyFicha:
     """Agrega en una sola llamada `identity + finances + ownership + governance + events + ranking`.
 
@@ -360,34 +371,47 @@ async def get_company_ficha(
         else:
             raise ProviderError(error_class or "provider_error", code="provider_error") from exc
 
-    if user is None:
-        # Mixed-access: bloque gated (`finances`) se nullifica para visitante
-        # anónimo. Además, `governance` y `ownership` se anonimizan (DPD ·
-        # B-2.3 / B-2.2): governance elimina la lista nominal `officers`;
-        # ownership elimina todos los nombres (físicos y jurídicos) y sólo
-        # emite un `summary` no identificativo. Ver R15 + DPD.
+    if user is None or authenticated is not True:
+        # HARDENING-015 (2026-08-13) · Fail-closed mixed-access:
+        #   * `user is None` → sin sesión → anónimo.
+        #   * `authenticated != true` → sesión presente pero SIN opt-in explícito → anónimo.
+        # Bloque gated (`finances`) se nullifica para visitante anónimo. Además,
+        # `governance` y `ownership` se anonimizan (DPD · B-2.3 / B-2.2):
+        # governance elimina la lista nominal `officers`; ownership elimina
+        # todos los nombres (físicos y jurídicos) y sólo emite un `summary` no
+        # identificativo. Ver R15 + DPD.
         #
         # HARDENING-013 (2026-08-12) · gating extendido: `ranking` top-level
         # y `market.position` son datos analíticos derivados de los ingresos
         # de la empresa; equivalen semánticamente a `finances.ranking` y por
-        # tanto DEBEN nulificarse en anon (antes solo `finances=None` cubría
-        # el bloque anidado, dejando fuga de los duplicados top-level). Los
-        # sub-bloques `market.{sector, geo, concentration}` siguen siendo
-        # públicos (contexto sectorial/territorial no identificativo).
+        # tanto DEBEN nulificarse en anon.
+        #
+        # HARDENING-014 (2026-08-13) · `control_graph` top-level: se anonimiza
+        # con `_anonymize_control_graph` (elimina upstream/downstream/ubo/nodes/edges).
+        effective_auth = False
         update_dict: dict = {
             "finances": None,
             "governance": _anonymize_governance(ficha.governance),
             "ownership": _anonymize_ownership(ficha.ownership),
             "ranking": None,
+            # HARDENING-014 (2026-08-13) · DPD backend `control_graph`: elimina
+            # PII de shareholders/participadas/UBO/nodes/edges. Preserva narrative,
+            # control.tier y summary agregado. Ver `_anonymize_control_graph`.
+            "control_graph": _anonymize_control_graph(ficha.control_graph),
         }
         if isinstance(ficha.market, dict):
             update_dict["market"] = {k: v for k, v in ficha.market.items() if k != "position"}
         ficha = ficha.model_copy(update=update_dict)
+    else:
+        effective_auth = True
 
     settings = get_intelligence_settings()
     response.headers["X-Intelligence-Mode"] = settings.agency_tool_mode
     response.headers["X-Provider"] = router._get_financial_provider().provider_name
     response.headers["X-Ficha-Source"] = ficha_source
+    # HARDENING-015 · trazabilidad: header con la resolución efectiva de auth
+    # aplicada al payload (útil para depurar 4 curls del amendment y para QA).
+    response.headers["X-Ficha-Auth"] = "authenticated" if effective_auth else "anonymous"
     return ficha
 
 
@@ -456,6 +480,71 @@ def _anonymize_ownership(ownership: dict | None) -> dict | None:
         "coverage": coverage,
         "summary": summary,
     }
+
+
+def _anonymize_control_graph(cg: dict | None) -> dict | None:
+    """HARDENING-014 · DPD backend · agrega el bloque `control_graph` para anon.
+
+    Política canónica (2026-08-13 · alineada con `_anonymize_ownership`):
+      * `None` o no dict → passthrough.
+      * `available` no `True` → passthrough del bloque tal cual (conserva señal).
+      * `available:true` → shape agregado NO identificativo:
+          - Elimina `upstream[]`, `downstream[]`, `ubo`, `nodes[]`, `edges[]`
+            (contienen nombres, cifs, pcts nominales y potencialmente PII si
+            algún nodo es persona física).
+          - Preserva `available`, `company` (identidad de la propia empresa
+            consultada · pública), `narrative` (prosa CF sin PII adicional),
+            `coverage` (counts sin PII), `control.tier` (etiqueta descriptiva
+            no identificativa), `group_id` (id de grupo empresarial · público).
+          - Emite `summary` agregado con counts y `top1_pct` sin nombre.
+
+    R15 + DPD estrictos: cero fabricación, cero nombres, cero cifs individuales.
+    """
+    if cg is None or not isinstance(cg, dict):
+        return cg
+    if cg.get("available") is not True:
+        return cg
+
+    upstream = cg.get("upstream") if isinstance(cg.get("upstream"), list) else []
+    downstream = cg.get("downstream") if isinstance(cg.get("downstream"), list) else []
+    coverage = cg.get("coverage") if isinstance(cg.get("coverage"), dict) else None
+    control = cg.get("control") if isinstance(cg.get("control"), dict) else None
+
+    coverage_up = None
+    coverage_down = None
+    if coverage is not None:
+        cu = coverage.get("upstream_count")
+        cd = coverage.get("downstream_count")
+        if isinstance(cu, int):
+            coverage_up = cu
+        if isinstance(cd, int):
+            coverage_down = cd
+    up_total = coverage_up if coverage_up is not None else len(upstream)
+    down_total = coverage_down if coverage_down is not None else len(downstream)
+
+    summary: dict = {
+        "shareholders_count": up_total,
+        "participations_count": down_total,
+    }
+    if control is not None:
+        tier = control.get("tier")
+        if isinstance(tier, str) and tier.strip():
+            summary["tier"] = tier.strip()
+        top1_pct = control.get("top1_pct")
+        if isinstance(top1_pct, (int, float)):
+            summary["top1_pct"] = top1_pct
+
+    out: dict = {
+        "available": True,
+        "company": cg.get("company") if isinstance(cg.get("company"), dict) else None,
+        "narrative": cg.get("narrative") if isinstance(cg.get("narrative"), str) else None,
+        "coverage": coverage,
+        "control": {"tier": summary.get("tier")} if summary.get("tier") else None,
+        "group_id": cg.get("group_id"),
+        "summary": summary,
+        "engine_version": cg.get("engine_version"),
+    }
+    return {k: v for k, v in out.items() if v is not None}
 
 
 def _anonymize_governance(governance: dict | None) -> dict | None:

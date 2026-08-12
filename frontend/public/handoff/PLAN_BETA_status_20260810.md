@@ -359,10 +359,6 @@ Scan recursivo buscando: `documents`, `docs`, `cuentas`, `annual_accounts`, `reg
 1. ¿Aplico Fase B del canon (retirar rows enum de Mercado/Rankings/Concentración cuando Intel confirme `narrative`) o esperamos a que Intel responda el REQ agregado de labels ES?
 2. ¿Emitir REQ formal `PARA_INTEL_sector_rollup_E6_E7.md` ahora o esperar al cierre de Comparativa T5-10?
 
----
-
-## 2026-08-13 · REQ `labels_es_batch` emitido · stream legacy en IDLE
-
 - **Doc emitido**: `/app/memory/PARA_INTEL_labels_es_batch.md` (17.9 KB · 6 familias de labels ES + §Sub-preguntas + §Checklist Fase B).
 - **URL descargable**: `https://musing-hellman-9.preview.emergentagent.com/handoff/PARA_INTEL_labels_es_batch.md` · HTTP **200** ✅ (local `http://localhost:3000/handoff/…` también HTTP 200).
 - **Cola Intel actualizada** (según directiva usuario 2026-08-13):
@@ -375,6 +371,109 @@ Scan recursivo buscando: `documents`, `docs`, `cuentas`, `annual_accounts`, `reg
   - Intel emite `control_graph` → cablear Propiedad.
   - Intel emite `narrative` + `labels_es_batch` (co-entrega) → cerrar Fase B canon.
   - Intel emite `peers` (Comparables T5-10) → cablear sección Comparativa.
+
+---
+
+## 2026-08-13/14 · Fase B canon + Propiedad cableada + Amendment auth · listo para push
+
+### Fase 0 · Diagnóstico (Bloque A + Bloque B) contra `/tmp/ficha_dumps/*.json`
+
+Test set (según `PARA_INTEL_CIFs_muestra.md`): 5 CIFs; sólo Servier `B28184687` resuelve (200); los otros 4 (`A08363419`, `A28017895`, `B65076193`, `B95758389`) devuelven 404 upstream Intel — problema de cobertura conocido, no regresión.
+
+**Bloque A · Fase B canon (Servier)**:
+- `market.sector.narrative` ✓ "El sector de fabricación de especialidades farmacéuticas se…"
+- `market.geo.narrative` ✓ "Madrid es una plaza empresarial de primer nivel…"
+- `market.concentration.narrative` ✓ "Es un mercado muy concentrado, en manos de unos pocos operadores…"
+- `market.position.narrative` ✓ "Se sitúa en cabeza por ingresos de su sector…"
+- `market.concentration.concentration_label_es` ✓ "Muy concentrado"
+- `signals.items[*].signal_label` ✗ (Servier `signals.items` está vacío · no falseable)
+- `hero.primary_driver_label` / `market.primary_driver_label` ✗
+- `ownership.concentration_label_es` ✗
+- `finances.cash_flow_labels_es` ✗
+- `governance.officers[*].role_label_es` ✗
+- `identity.is_listed_label_es` ✗
+
+→ **Gate A: STOP.** `narrative` presente (4/4) pero `labels_es` presente sólo 1/6 (`market.concentration_label_es`). No se puede retirar `SIG_SEVERITY_LABEL` / `_GOVERNANCE_ROLE_ES` / `fmtYesNo` / etc. sin dejar `<Empty/>` intermedios (regla: mismo commit, nunca `<Empty/>` intermedio). Se conservan los mapas locales y los TODOs `CANON CF Fase B` sembrados. Esperar co-entrega `narrative` + `labels_es_batch` de Intel.
+
+**Bloque B · Propiedad · `control_graph` (Servier)**:
+Shape completo y utilizable · keys: `['available', 'company', 'control', 'coverage', 'downstream', 'edges', 'engine_version', 'group_id', 'narrative', 'nodes', 'ubo', 'upstream']`.
+
+- `upstream[2]` con name/pct/is_person/is_ubo/relationship (SERVIER INTERNATIONAL BV 73,35% UBO; ARTS ET TECHNIQUES DU PROGRES 26,65%).
+- `downstream[2]` con name/cif/pct (DANVAL SA 100%; LABORATORIOS LESTRAL SA 100%).
+- `ubo` (SERVIER INTERNATIONAL BV · jurídica).
+- `nodes[5]` + `edges[4]` (grafo listo para tab Grafo).
+- `control` con `controlling_shareholder`, `top1_pct` 73,35, `tier` "Control mayoritario".
+- `narrative` CF: "Controlada por SERVIER INTERNATIONAL, BV (73,3%). Cabecera de un grupo con 2 participadas…".
+- `coverage` truncated=false.
+
+→ **Gate B: PROCEDIDO** (cobertura test set 1/5 por 404s Intel documentados, no regresión). Se implementa DPD backend + tabs Árbol/Distribución/Grafo + banner narrativo + UBO destacado + animaciones CSS puras (sin dependencias nuevas).
+
+### Cambios · Bloque B · Propiedad cableada con `control_graph`
+
+**Backend**:
+- `interfaces/ficha.py`: añadido `control_graph: dict | None` en `CompanyFicha` (HARDENING-014 · passthrough puro con shape observado documentado).
+- `providers/agency_tool/financial.py::fetch_ficha`: passthrough `data.get("control_graph")` en el mapper.
+- `endpoints.py::get_company_ficha`: llamada a `_anonymize_control_graph()` en la rama anónima; header `X-Ficha-Auth`.
+- `endpoints.py::_anonymize_control_graph` (nuevo, +73 líneas): elimina `upstream/downstream/ubo/nodes/edges`, emite `summary{shareholders_count, participations_count, tier?, top1_pct?}`, preserva `available/company/narrative/coverage/control.tier/group_id`. Consistente con `_anonymize_ownership`.
+
+**Frontend**:
+- `lib/companies/intelligence-types.ts`: añadido union type `ControlGraphBlock` = `ControlGraphNominal | ControlGraphAggregated | ControlGraphUnavailable` con interfaces por sub-bloque (~+90 líneas). `CompanyFicha.control_graph` añadido.
+- `components/company/layout/CompanyFichaLayoutV2.tsx`:
+  - Prop `controlGraph?: ControlGraphBlock | null` en `CompanyFichaLayoutV2Props`.
+  - Sustituido `Propiedad` legacy: fallback a control_graph primario + ownership legacy secundario.
+  - Componentes nuevos: `ControlGraphTabs`, `ControlGraphBanner`, `ControlGraphTreeView` (accionistas + UBO destacado + participadas), `ControlGraphDistributionView` (barras horizontales por pct), `ControlGraphGraphView` (SVG puro nodes/edges con marker arrow), `PropiedadControlGraph` (orquestador con union type guards).
+  - Keyframes `@keyframes cg-fade-in` + `cg-scale-in` inline · sin dependencias externas.
+  - Test-ids: `control-graph-tabs`, `control-graph-tab-{id}`, `control-graph-{arbol|distribucion|grafo}`, `control-graph-shareholders`, `control-graph-participations`, `control-graph-ubo`, `control-graph-shareholder-{i}`, `control-graph-participation-{i}`, `control-graph-node-{id}`, `control-graph-banner`, `control-graph-nominal|aggregated|empty|unknown`, `control-graph-summary-{shareholders|participations|tier|top1-pct}`.
+- `components/company/CompanyFichaF01Client.tsx`: pasa `controlGraph={ficha?.control_graph ?? null}` al layout.
+
+### Amendment · Fail-closed opt-in de auth (HARDENING-015)
+
+**Backend `endpoints.py::get_company_ficha`**:
+- Nuevo query param `authenticated: bool = Query(default=False)`.
+- Regla `if user is None or authenticated is not True: → anon`. Fail-closed: cualquier combinación distinta de `user válido AND authenticated=true` cae a anon.
+- Header nuevo `X-Ficha-Auth: authenticated | anonymous` (trazabilidad).
+
+**Frontend**:
+- `lib/companies/intelligence-client.ts::ficha`: nueva firma `ficha(cif, authenticated = false)` que añade `?authenticated=true` sólo si el flag es `true`. Anón por defecto.
+- `components/company/CompanyFichaF01Client.tsx`: SWR key extendida a `['ficha-b24-aggregate', cifUpper, isAuthenticated]` (revalida al loguearse/desloguearse); pasa `isAuthenticated` al fetcher.
+
+**Cache-key discriminator**:
+- Verificado en `cache.py::build_key` y `router.py::get_company_ficha`. El caché almacena el `CompanyFicha` **pre-DPD** (shape completo tal como Intel lo entrega). La anonimización se aplica **post-caché** en `endpoints.py::get_company_ficha`. **No hay colisión posible** entre respuestas auth y anon: ambas se derivan del mismo objeto cacheado y luego se transforman. No requiere discriminador en la key. Documentado en el endpoint.
+
+### Tests · 4 curls amendment (Servier · localhost:8001)
+
+| # | Comando | X-Ficha-Auth | finances | ranking | ownership.shareholders | cg.upstream | cg.nodes | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| 1 | sin cookie sin flag | `anonymous` | ✗ | ✗ | 0 | 0 | 0 | ✅ ANON |
+| 2 | sin cookie `?authenticated=true` | `anonymous` | ✗ | ✗ | 0 | 0 | 0 | ✅ ANON (fail-closed) |
+| 3 | con cookie sin flag | `anonymous` | ✗ | ✗ | 0 | 0 | 0 | ✅ ANON (opt-in requerido) |
+| 4 | con cookie `?authenticated=true` | `authenticated` | ✓ | ✓ | 2 | 2 | 5 | ✅ AUTH completo |
+
+**4/4 PASS**. Cero leaks. DPD respetada.
+
+### Build/Typecheck
+
+- `yarn typecheck` ✅ OK (3.99 s).
+- `yarn build` ✅ OK (19.69 s). First Load JS shared **87.3 kB** — idéntico al baseline previo (no ha subido).
+
+### Archivos modificados
+
+- `/app/backend/src/modules/intelligence_layer/interfaces/ficha.py` (+23 líneas comment + campo).
+- `/app/backend/src/modules/intelligence_layer/providers/agency_tool/financial.py` (+6 líneas passthrough).
+- `/app/backend/src/modules/intelligence_layer/endpoints.py` (+82 líneas · Query param + `_anonymize_control_graph` + header + doc).
+- `/app/frontend/src/lib/companies/intelligence-types.ts` (+94 líneas · union type `ControlGraphBlock`).
+- `/app/frontend/src/lib/companies/intelligence-client.ts` (+13 líneas · doc + opt-in `authenticated`).
+- `/app/frontend/src/components/company/CompanyFichaF01Client.tsx` (+2 líneas · pass `controlGraph`, revalida SWR con `isAuthenticated`).
+- `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` (+~330 líneas · nuevos componentes control_graph + keyframes).
+
+### Verificaciones pendientes de ejecución (no bloqueantes)
+
+- Smoke visual UI autenticada con Playwright (screenshot login+navegar+click tab Propiedad) — falló por timeout del helper de coroutine del tool, pero los curls confirman el JSON completo llega al frontend. UI validable manualmente por el usuario en preview.
+- Los 4 CIFs 404 no permiten validar `control_graph` en variedad (solo Servier). REQ `PARA_INTEL_CIFs_muestra.md` sigue abierto.
+
+### Deploy
+
+- **NO desplegado.** Cambios acumulados para el próximo push manual del usuario.
 
 ---
 

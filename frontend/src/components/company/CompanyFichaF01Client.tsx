@@ -170,13 +170,17 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const { isAuthenticated } = useAuth();
 
   // B-2.4 · Agregador: consolida `identity` + `financial-analysis` en 1 llamada.
+  // HARDENING-015 (2026-08-13) · Fail-closed opt-in explícito: el SWR key incluye
+  // `isAuthenticated` para revalidar cuando el usuario se loguea/desloguea, y
+  // el fetcher añade `?authenticated=true` sólo si hay sesión activa. Backend
+  // verifica sesión server-side; el flag por sí solo NUNCA desbloquea datos.
   const {
     data: ficha,
     error: fichaError,
     isLoading: fichaLoading,
   } = useSWR<CompanyFicha | null>(
-    ['ficha-b24-aggregate', cifUpper],
-    () => intelligenceClient.ficha(cifUpper),
+    ['ficha-b24-aggregate', cifUpper, isAuthenticated],
+    () => intelligenceClient.ficha(cifUpper, isAuthenticated),
     FETCH_CONFIG,
   );
 
@@ -271,6 +275,7 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
       opportunities={opportunities ?? null}
       governance={ficha?.governance ?? null}
       ownership={ficha?.ownership ?? null}
+      controlGraph={ficha?.control_graph ?? null}
       events={ficha?.events ?? null}
       market={ficha?.market ?? null}
       authenticated={isAuthenticated}

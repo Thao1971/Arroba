@@ -63,6 +63,28 @@ class CompanyFicha(BaseModel):
     # `finances.ranking` alimenta la sección Rankings independiente.
     market: dict | None = None
 
+    # HARDENING-014 · 2026-08-13 · Bloque `control_graph` top-level entregado
+    # por Intel (`arroba-company-ficha-v1`). Passthrough `dict | None`. Shape
+    # observado (Servier B28184687):
+    #   {
+    #     available: bool,
+    #     company: { master_id, name, cif },
+    #     upstream: [ { name, cif, master_id, pct, as_of_year, is_person,
+    #                    relationship, is_ubo } ],
+    #     downstream: [ { name, cif, master_id, pct, as_of_year } ],
+    #     ubo: { name, cif, is_person } | None,
+    #     group_id: str | None,
+    #     control: { controlling_shareholder, top1_pct, tier },
+    #     nodes: [ { id, name, kind, cif?, pct?, is_ubo?, is_person? } ],
+    #     edges: [ { source, target, pct, type } ],
+    #     narrative: str,
+    #     coverage: { upstream_count, downstream_count, truncated },
+    #     engine_version: str,
+    #   }
+    # Anon: se aplica DPD en el endpoint (elimina PII de `upstream/downstream/
+    # ubo/nodes/edges`, emite `summary` agregado). Auth: passthrough completo.
+    control_graph: dict | None = None
+
     engine_version: str = INTERNAL_FICHA_ENGINE_VERSION
 
 
