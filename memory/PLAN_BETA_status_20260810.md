@@ -931,3 +931,69 @@ Este incidente confirma la deuda operativa registrada 2026-08-10.
 - Frontend: sin modificar.
 - HARDENING-004: **NO implementado** — sólo documentado. Requiere autorización explícita del usuario para el próximo turno.
 - Deploy: NO.
+
+---
+## 2026-08-13 · HARDENING-020 Canon Anexo B Señales + Oportunidades + barrida universal
+
+### Contexto del turno
+- Canon actualizado a `w15cn6ml_CANON_NARRATIVA_CF_FICHA.md` v2 (23 líneas nuevas · Anexo B "Señales + Oportunidades" añadido). Refrescado en `/app/memory/` + `/app/frontend/public/handoff/`.
+- Foco: cerrar los dos bloques que aún mostraban payload crudo del motor. Sin tocar Comparativa (WIP `/tmp/wip_comparativa_20260813/`) ni `/connections`.
+
+### Fase 0 · Payload verificado
+- **Signals** endpoint `/api/companies/{cif}/signals` OK · 6 señales · shape con `explanation` (prosa Intel), `polarity`, `severity`, `category`, `dimensions{impact,confidence,urgency,persistence}`, `rule.id`, `recommended_actions`.
+  - `title` = rule token técnico (`growth.ebitda_expansion`) → no usable como titular.
+  - `explanation` sí es prosa CF ("EBITDA +24.4% interanual (> 20%).").
+  - Intel NO emite `polarity_label`, `category_label_es`, `evidence_label`, ni `impact_band` explícitos → fallback local documentado.
+- **Opportunities** endpoint `/api/companies/{cif}/opportunities?limit=N` OK · shape con `name` (prosa), `recommendation_type`, `score` (0-1), `reason` (prosa ES), `recommended_actions`, `fit_dimensions{}`.
+
+### Fase 1 · Señales (Anexo B aplicado)
+Componente `Senales` (`CompanyFichaLayoutV2.tsx`):
+- Titular ← `s.explanation` (prosa CF Intel). `title`/`signal_type`/`rule.id` NO visibles.
+- Polaridad ES canónica vía `SIG_POLARITY_LABEL_ES`: "Señal favorable/desfavorable/de alerta/informativa".
+- **Retirado** el bloque de evidencia cruda (`ebitda_growth_yoy · 0,24 · yoy`).
+- **Retirado** el chip `Urgencia`/`Persistencia`; sólo se renderizan `Impacto` + `Confianza` con bandas cualitativas (`muy alto` / `alto` / `moderado` / `bajo`) vía nuevo helper `qualitativeBand()`.
+- **Retirado** `Regla · {rule.id}`; el `rule.id` pasa a `data-rule` en el DOM para debug.
+- Acciones ES vía `SIG_ACTION_LABEL_ES` (`analyze→Analizar`, `add_to_watchlist→Añadir a seguimiento`, `compare→Comparar`, `contact→Contactar`, `value→Valorar`, `request_due_diligence→Solicitar due diligence`, +6 tokens más). Prefijo "→" retirado.
+- Categoría ES vía `SIG_CATEGORY_LABEL_ES` (`growth→Crecimiento`, `market→Mercado`, `operational→Operativo`, `ownership→Propiedad`, +4 más). TODO documentado para migrar a `category_label_es` de Intel cuando lo emita.
+- Subtítulo sección literal Anexo B: "Hechos y cambios recientes que afectan al atractivo de la compañía para una operación."
+
+### Fase 2 · Oportunidades (Anexo B aplicado)
+Componente `Oportunidades` (`CompanyFichaLayoutV2.tsx`):
+- **Retirado** "Puntuación 0–100 de cada tesis para esta compañía". Nuevo copy: "Atractivo por tesis para esta compañía."
+- Chip numérico `Math.round(v)` (0-100) → **retirado**. Sustituido por banda cualitativa (`qualitativeBand(v)`). Preservado el número real como `data-score` para debug.
+- Tesis ← `o.name` (prosa Intel). `recommendation_type` NO visible.
+- Acciones ES vía `OPP_ACTION_LABEL_ES` (superset de las de señales · +`prepare_teaser`, `find_buyer`, `save`). Estilo de badge coherente con Señales.
+
+### Fase 3 · Barrida universal · residuos crudos
+- **`sector.signal.replace(/_/g, ' ')`** (linea previa 1329) → RETIRADO. La `sector.narrative` ya lo cubre en prosa.
+- **`geo.signal.replace(/_/g, ' ')`** (linea previa 1351) → RETIRADO. `geo.narrative` cubre.
+- **"HHI"** como label suelto (línea 1379) → renombrado a "Índice de concentración" (número preservado como dato dentro de la fila, no como acrónimo etiqueta).
+- **"(HHI)" + "Nivel: {conc.level}"** en header MercadoConcentrationPanel → RETIRADO (§Canon 3 · jerga codificada).
+- **"({cnae_code} · {cnae_level})"** sufijo header MercadoSectorPanel → RETIRADO (§Canon 3 · nombre en claro).
+- **"({geo_level})"** sufijo header MercadoGeoPanel → RETIRADO.
+- **"YoY"** en hero widget + KPI chips → cambiado a "interanual" (§Canon 4 · cifra dentro de frase).
+- **"CAGR Ingresos (3a)"** → "Crecimiento anualizado (3 años)".
+- **"equity"** subtítulo Fondos propios → "patrimonio neto" (§Canon 4 · sin acrónimos ingleses sueltos).
+- Preservados por criterio: `EBITDA` con `<abbr title="...">` (canon 4 permite acrónimo financiero con glosa), `ROE` con `abbr`, `CNAE {code}` en Identity registral (contexto legal registral, distinto del contexto de mercado).
+
+### Fase 4 · Verificación
+- `yarn typecheck`: **verde** (3.32 s).
+- `yarn build`: **verde** (18.48 s) · First Load JS shared **87.3 kB** (baseline preservado).
+- Curl `/api/companies/B28184687/signals` (auth): 6 señales con `explanation`, `polarity`, `category`, `dimensions`, `recommended_actions` — mapeados por el rework a bandas + labels ES.
+- Curl `/api/companies/B28184687/opportunities?limit=4` (auth): 3 recomendaciones con `name`, `reason`, `recommended_actions` — bandas cualitativas + acciones ES aplicadas.
+- Curl `/api/companies/B28184687/signals` (anon): retorna `{}` con `code: no_session` (fail-closed por diseño · sección gated).
+
+### Bugfix accidental encontrado durante el turno
+Detectado y corregido bloque duplicado al final de `CompanyFichaLayoutV2.tsx` (líneas 2682-2691 fuera de la función `CompanyFichaLayoutV2` con contenido huérfano "uí verás la recomendación de actuación."). No commiteado antes (blame: "Not Committed Yet" · introducido en un merge/paste anterior de este turno). Retirado para restaurar la sintaxis.
+
+### DEPLOY
+- **NO desplegado.** Bundle acumulado para próximo push manual del usuario tras `e1_tester` verde.
+- **Recordatorio operativo para el push**: incluir purga cache (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`) tras el deploy para invalidar los payloads viejos (HARDENING-004 sigue pendiente de automatización).
+
+### Estado global (post-HARDENING-020)
+- ✅ HARDENING-018 Propiedad 1:1 · verde pre-push (bundle acumulado)
+- ✅ HARDENING-019 Fase B canon CF + Gobierno ES · verde pre-push
+- ✅ HARDENING-020 Canon Anexo B Señales + Oportunidades + barrida · verde pre-tester
+- ⏸️ Comparativa peers T5-T10 · congelada `/tmp/wip_comparativa_20260813/`
+- ⏸️ `/connections` grafo Propiedad · aparcado (3 respuestas Intel pendientes)
+- ❌ HARDENING-004 automated cache invalidation · sin implementar (documentado post-incidente cache-stale)

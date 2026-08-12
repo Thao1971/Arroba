@@ -443,7 +443,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
 
       {k ? (
         <div className="kgrid" style={{ marginTop: 16 }}>
-          <div className="kpi"><div className="l">Facturación</div><div className="v">{fmtEUR(k.revenue ?? null)}</div>{k.revenue_growth_yoy != null && <div className={`d ${k.revenue_growth_yoy >= 0 ? 'up' : 'down'}`}>{k.revenue_growth_yoy >= 0 ? '▲' : '▼'} {pctF(k.revenue_growth_yoy)} YoY</div>}</div>
+          <div className="kpi"><div className="l">Facturación</div><div className="v">{fmtEUR(k.revenue ?? null)}</div>{k.revenue_growth_yoy != null && <div className={`d ${k.revenue_growth_yoy >= 0 ? 'up' : 'down'}`}>{k.revenue_growth_yoy >= 0 ? '▲' : '▼'} {pctF(k.revenue_growth_yoy)} interanual</div>}</div>
           <div className="kpi"><div className="l"><abbr title="Beneficio antes de intereses, impuestos, depreciación y amortización.">EBITDA</abbr></div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf">margen {pctF(k.ebitda_margin)}</div>}</div>
           <div className="kpi"><div className="l">Resultado neto</div><div className="v">{fmtEUR(k.net_income ?? null)}</div>{k.net_margin != null && <div className="d inf">margen {pctF(k.net_margin)}</div>}</div>
           <div className="kpi"><div className="l">Empleados</div><div className="v">{fmtNum(sz.employees_total)}</div><div className="d inf">plantilla</div></div>
@@ -453,9 +453,9 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       {k && (
         <div className="kgrid" style={{ marginTop: 12 }}>
           <div className="kpi">
-            <div className="l">CAGR Ingresos (3a)</div>
+            <div className="l">Crecimiento anualizado (3 años)</div>
             <div className="v">{pctF(k.revenue_cagr)}</div>
-            <div className="d inf">crecimiento anualizado</div>
+            <div className="d inf">tasa acumulada media</div>
           </div>
           <div className="kpi">
             <div className="l">Crecimiento anual</div>
@@ -465,7 +465,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
           <div className="kpi">
             <div className="l">Fondos propios</div>
             <div className="v">{fmtEurCompact(financialAnalysis?.balance_sheet?.equity ?? null)}</div>
-            <div className="d inf">equity</div>
+            <div className="d inf">patrimonio neto</div>
           </div>
           <TrendPill trend={financialAnalysis?.evolution?.trend ?? null} />
         </div>
@@ -1055,33 +1055,70 @@ function Comparativa({ semantic, buyers }: { semantic: SemanticSection | null; b
 /* ============================ SEÑALES ============================ */
 /**
  * ÍTEM 2 · Turno post-D · consumo enriquecido del payload `signal-intelligence`.
- * Preserva el estilo timeline del mockup (`.tl .ev`) y añade:
- *   · `explanation` como texto principal (prosa CF, R15 literal).
- *   · `evidence.{metric, value, window}` como bullet secundario.
- *   · `dimensions.{impact, urgency, persistence, confidence}` como tags.
- *   · `rule.id` como pie discreto (meta-información del motor).
- * Empty state · copy Corporate Finance: "Sin señales relevantes".
+ * HARDENING-020 (2026-08-13) · Canon Narrativa CF · Anexo B (Señales) aplicado:
+ *   · Titular = `explanation` (prosa Intel: "EBITDA +24,4% interanual"). Nunca
+ *     se muestra `title`/`signal_type`/`rule.id` porque son tokens técnicos
+ *     de máquina (p. ej. `growth.ebitda_expansion`).
+ *   · Polaridad = etiqueta ES canónica "Señal {favorable|desfavorable|de
+ *     alerta|informativa}" (mapa `SIG_POLARITY_LABEL_ES`; fallback si Intel
+ *     no emite `polarity_label`).
+ *   · Evidencia cruda (`ebitda_growth_yoy · 0,24 · yoy`) → OCULTA. La prosa
+ *     del titular ya la comunica en lenguaje CF (§Anexo B).
+ *   · Scores (impact/confidence) → bandas cualitativas ES ("muy alto/alto/
+ *     moderado/bajo") vía `qualitativeBand()`. Urgency/persistence se omiten.
+ *   · Acciones → etiquetas ES vía `SIG_ACTION_LABEL_ES`; sin "→".
+ *   · Categoría → etiqueta ES vía `SIG_CATEGORY_LABEL_ES` (fallback local
+ *     porque el motor aún no emite `category_label_es` per señal · TODO
+ *     migrar cuando Intel lo emita, mismo patrón que HARDENING-019).
+ *   · "Regla · {rule.id}" → RETIRADO (mecanismo interno). `rule.id` sigue
+ *     disponible como `data-rule` para debugging DOM.
+ *   · Subtítulo sección = copy literal Anexo B.
  */
-const SIG_SEVERITY_LABEL: Record<string, string> = {
-  risk: 'Riesgo',
-  opportunity: 'Oportunidad',
-  info: 'Informativo',
-  warning: 'Alerta',
-  critical: 'Crítica',
+const SIG_POLARITY_LABEL_ES: Record<string, string> = {
+  positive: 'Señal favorable',
+  negative: 'Señal desfavorable',
+  warning: 'Señal de alerta',
+  info: 'Señal informativa',
+  neutral: 'Señal informativa',
 };
-const SIG_DIM_LABEL: Record<string, string> = {
+const SIG_CATEGORY_LABEL_ES: Record<string, string> = {
+  growth: 'Crecimiento',
+  market: 'Mercado',
+  operational: 'Operativo',
+  ownership: 'Propiedad',
+  financial: 'Financiero',
+  legal: 'Legal',
+  compliance: 'Cumplimiento',
+  reputation: 'Reputacional',
+  strategic: 'Estratégico',
+  governance: 'Gobierno',
+};
+const SIG_ACTION_LABEL_ES: Record<string, string> = {
+  analyze: 'Analizar',
+  add_to_watchlist: 'Añadir a seguimiento',
+  compare: 'Comparar',
+  contact: 'Contactar',
+  value: 'Valorar',
+  request_due_diligence: 'Solicitar due diligence',
+  share: 'Compartir',
+  export: 'Exportar',
+  dismiss: 'Descartar',
+};
+const SIG_DIM_LABEL_ES: Record<string, string> = {
   impact: 'Impacto',
-  urgency: 'Urgencia',
-  persistence: 'Persistencia',
   confidence: 'Confianza',
 };
-function fmtNumOrText(v: number | string | null | undefined): string {
-  if (v == null) return '—';
-  if (typeof v === 'number') {
-    if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`;
-    return v.toLocaleString('es-ES', { maximumFractionDigits: 2 });
-  }
-  return String(v);
+/**
+ * HARDENING-020 · Bandas cualitativas Anexo B (score 0-1 · dividido por 100
+ * si viene >1, o multiplicado por 100 si es 0-1). Devuelve la banda ES.
+ *   ≥80 → "muy alto"  ·  60-79 → "alto"  ·  40-59 → "moderado"  ·  <40 → "bajo"
+ */
+function qualitativeBand(rawScore: number): string {
+  const pct = rawScore <= 1 ? rawScore * 100 : rawScore;
+  if (pct >= 80) return 'muy alto';
+  if (pct >= 60) return 'alto';
+  if (pct >= 40) return 'moderado';
+  return 'bajo';
 }
 function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   const items = signal?.signals ?? [];
@@ -1101,49 +1138,70 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   const cls = (pol: string | null) => pol === 'positive' ? 'ok' : pol === 'negative' ? 'r' : pol === 'warning' ? 'w' : 'i';
   return (
     <section className="panel on" data-testid="senales-section">
-      <style>{`.sig-explain{font-size:14px;color:var(--n800);line-height:1.55;margin-top:6px}.sig-evidence{font-size:12.5px;color:var(--n700);margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.sig-evidence .lb{color:var(--n600);text-transform:uppercase;letter-spacing:.3px;font-size:11px}.sig-dims{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.sig-dim{padding:3px 10px;border-radius:999px;background:var(--n100);color:var(--n800);font-size:11.5px;font-weight:600}.sig-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}.sig-actions .a{padding:3px 8px;border:1px solid var(--n200);border-radius:6px;font-size:11.5px;color:var(--n700)}.sig-rule{font-size:10.5px;color:var(--n500);margin-top:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2px}`}</style>
+      <style>{`.sig-explain{font-size:14px;color:var(--n800);line-height:1.55;margin-top:6px}.sig-dims{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.sig-dim{padding:3px 10px;border-radius:999px;background:var(--n100);color:var(--n800);font-size:11.5px;font-weight:600}.sig-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}.sig-actions .a{padding:3px 10px;border:1px solid var(--n200);border-radius:6px;font-size:11.5px;color:var(--n700);background:#fff}`}</style>
       <div className="sec-h">Señales</div>
-      <div className="sec-s">Hechos y eventos que Arroba ha detectado y que hacen a la compañía más (o menos) atractiva para una operación.</div>
+      <div className="sec-s">Hechos y cambios recientes que afectan al atractivo de la compañía para una operación.</div>
       <div className="tl">
         {items.map((s) => {
+          // HARDENING-020 · Titular = prosa Intel (`explanation`). Nunca `title`
+          // porque en el shape actual Intel emite `title = signal_type` (token
+          // técnico tipo `growth.ebitda_expansion`). Si `explanation` no viene
+          // → mostramos un fallback CF neutro (nunca el token técnico).
+          const headline = s.explanation ?? 'Cambio detectado';
+          // Polaridad ES canónica (fallback si Intel no emite `polarity_label`).
+          const polarityLabel = s.polarity ? (SIG_POLARITY_LABEL_ES[s.polarity] ?? null) : null;
+          // Category ES canónica (fallback local · TODO migrar a `category_label_es` Intel).
+          const categoryLabel = s.category ? (SIG_CATEGORY_LABEL_ES[s.category] ?? null) : null;
+          // Dimensions cualitativas (sólo impact + confidence per §Anexo B).
           const dims = s.dimensions ?? null;
-          const evi = s.evidence ?? null;
-          const severityLabel = s.severity ? (SIG_SEVERITY_LABEL[s.severity] ?? s.severity) : null;
+          const impactBand = dims && typeof dims.impact === 'number' ? qualitativeBand(dims.impact) : null;
+          const confidenceBand = dims && typeof dims.confidence === 'number' ? qualitativeBand(dims.confidence) : null;
           return (
-            <div key={s.signal_id} className={`ev ${cls(s.polarity)}`} data-testid={`senal-${s.signal_id}`}>
+            <div
+              key={s.signal_id}
+              className={`ev ${cls(s.polarity)}`}
+              data-testid={`senal-${s.signal_id}`}
+              data-rule={s.rule?.id ?? undefined}
+            >
               <div className="mk" />
               <div className="c">
                 <div className="th">
                   <div>
-                    <div className="t">{s.title ?? s.signal_type ?? 'Señal'}</div>
-                    {/* CANON CF · Anexo A: `severityLabel` como "Relevancia {alta|media|baja}" en prosa · sin `%` crudo. */}
-                    {severityLabel && <div className="m">Relevancia {severityLabel.toLowerCase()}</div>}
+                    <div className="t">{headline}</div>
+                    {polarityLabel && <div className="m" data-testid={`senal-${s.signal_id}-polarity`}>{polarityLabel}</div>}
                   </div>
-                  {s.category && <span className="tag">{s.category}</span>}
+                  {categoryLabel && <span className="tag" data-testid={`senal-${s.signal_id}-category`}>{categoryLabel}</span>}
                 </div>
-                {s.explanation && <div className="sig-explain">{s.explanation}</div>}
-                {evi && (evi.metric || evi.value != null) && (
-                  <div className="sig-evidence">
-                    <span className="lb">Evidencia</span>
-                    {evi.metric && <span><b>{evi.metric}</b></span>}
-                    {evi.value != null && <span>· {fmtNumOrText(evi.value)}</span>}
-                    {evi.window && <span>· {evi.window}</span>}
-                  </div>
-                )}
-                {dims && Object.keys(dims).length > 0 && (
+                {(impactBand || confidenceBand) && (
                   <div className="sig-dims">
-                    {(Object.entries(dims) as Array<[string, number]>).filter(([, v]) => typeof v === 'number').map(([k, v]) => (
-                      <span key={k} className="sig-dim">{SIG_DIM_LABEL[k] ?? k}: {Math.round(v * 100)}%</span>
-                    ))}
+                    {impactBand && (
+                      <span
+                        className="sig-dim"
+                        data-testid={`senal-${s.signal_id}-impact`}
+                        data-score={typeof dims?.impact === 'number' ? dims.impact : undefined}
+                      >
+                        {SIG_DIM_LABEL_ES.impact} {impactBand}
+                      </span>
+                    )}
+                    {confidenceBand && (
+                      <span
+                        className="sig-dim"
+                        data-testid={`senal-${s.signal_id}-confidence`}
+                        data-score={typeof dims?.confidence === 'number' ? dims.confidence : undefined}
+                      >
+                        {SIG_DIM_LABEL_ES.confidence} {confidenceBand}
+                      </span>
+                    )}
                   </div>
                 )}
                 {(s.recommended_actions?.length ?? 0) > 0 && (
-                  <div className="sig-actions">
-                    {(s.recommended_actions ?? []).map((a, j) => <span key={j} className="a">→ {a}</span>)}
+                  <div className="sig-actions" data-testid={`senal-${s.signal_id}-actions`}>
+                    {(s.recommended_actions ?? []).map((a, j) => (
+                      <span key={j} className="a" data-action={a}>{SIG_ACTION_LABEL_ES[a] ?? a}</span>
+                    ))}
                   </div>
                 )}
                 {fmtDate(s.detected_at) && <div className="yr">{fmtDate(s.detected_at)}</div>}
-                {s.rule?.id && <div className="sig-rule">Regla · {s.rule.id}</div>}
               </div>
             </div>
           );
@@ -1253,7 +1311,7 @@ function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intel
   const driverLabel = sector.primary_driver_label ?? null;
   return (
     <div className="card" data-testid="mercado-sector-panel">
-      <h3><span className="k" />Contexto sectorial · {sector.cnae_label ?? '—'} <span className="cs" style={{ marginLeft: 8 }}>({sector.cnae_code ?? '—'} · {sector.cnae_level ?? '—'})</span></h3>
+      <h3><span className="k" />Contexto sectorial · {sector.cnae_label ?? '—'}</h3>
       {isDegraded && sector.cnae_level && (
         <div className="cs" data-testid="mercado-sector-caveat" style={{ background: '#fff9e6', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
           <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
@@ -1267,8 +1325,8 @@ function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intel
       <div className="idrow"><span className="k">Dinamismo</span><span className="v">{fmtScore(sector.dynamism_score)}</span></div>
       <div className="idrow"><span className="k">Crecimiento</span><span className="v">{fmtScore(sector.growth_score)}</span></div>
       <div className="idrow"><span className="k">Actividad</span><span className="v">{fmtScore(sector.activity_score)}</span></div>
-      <div className="idrow"><span className="k">Tendencia nacional</span><span className="v"><TrendBadge direction={sector.trend_direction} /> {sector.national_yoy_pct != null && <span style={{ marginLeft: 8 }}>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct}% YoY</span>}</span></div>
-      {sector.signal && <div className="idrow"><span className="k">Señal</span><span className="v">{sector.signal.replace(/_/g, ' ')}</span></div>}
+      <div className="idrow"><span className="k">Tendencia nacional</span><span className="v"><TrendBadge direction={sector.trend_direction} /> {sector.national_yoy_pct != null && <span style={{ marginLeft: 8 }}>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct}% interanual</span>}</span></div>
+      {/* HARDENING-020 · Canon §2 · el enum crudo `sector.signal` (p. ej. `sector_contraction`) YA está descrito en prosa dentro de `sector.narrative`. Se retira el row para no duplicar en jerga. */}
       {driverLabel && <div className="idrow" data-testid="mercado-sector-driver"><span className="k">Impulsor principal</span><span className="v">{driverLabel}</span></div>}
       {sector.active_companies != null && sector.active_companies > 0 && (
         <div className="idrow"><span className="k">Empresas activas</span><span className="v">{fmtNum(sector.active_companies)}</span></div>
@@ -1282,7 +1340,7 @@ function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-t
   const driverLabel = geo.primary_driver_label ?? null;
   return (
     <div className="card" style={{ marginTop: 16 }} data-testid="mercado-geo-panel">
-      <h3><span className="k" />Contexto territorial · {geo.geo_name ?? '—'} <span className="cs" style={{ marginLeft: 8 }}>({geo.geo_level ?? '—'})</span></h3>
+      <h3><span className="k" />Contexto territorial · {geo.geo_name ?? '—'}</h3>
       {geo.narrative && (
         <p data-testid="mercado-geo-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{geo.narrative}</p>
       )}
@@ -1290,7 +1348,7 @@ function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-t
       <div className="idrow"><span className="k">Dinamismo</span><span className="v">{fmtScore(geo.dynamism_score)}</span></div>
       <div className="idrow"><span className="k">Crecimiento</span><span className="v">{fmtScore(geo.growth_score)}</span></div>
       <div className="idrow"><span className="k">Tendencia</span><span className="v"><TrendBadge direction={geo.trend_direction} /></span></div>
-      {geo.signal && <div className="idrow"><span className="k">Señal</span><span className="v">{geo.signal.replace(/_/g, ' ')}</span></div>}
+      {/* HARDENING-020 · Canon §2 · el enum crudo `geo.signal` (`corporate_hub`, etc.) YA está descrito en prosa dentro de `geo.narrative`. Se retira el row. */}
       {driverLabel && <div className="idrow" data-testid="mercado-geo-driver"><span className="k">Impulsor principal</span><span className="v">{driverLabel}</span></div>}
       {geo.active_companies != null && (
         <div className="idrow"><span className="k">Empresas activas</span><span className="v">{fmtNum(geo.active_companies)}</span></div>
@@ -1308,7 +1366,8 @@ function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/in
   const classLabel = conc.concentration_label_es ?? null;
   return (
     <div className="card" style={{ marginTop: 16 }} data-testid="mercado-concentration-panel">
-      <h3><span className="k" />Concentración de mercado (HHI){conc.level ? <span className="cs" style={{ marginLeft: 8 }}>Nivel: {conc.level}</span> : null}</h3>
+      <h3><span className="k" />Concentración de mercado</h3>
+      {/* HARDENING-020 · Canon §3 · retirado el sufijo "(HHI)" y el prefijo "Nivel: {conc.level}" (jerga codificada). La narrative ya describe el nivel en prosa CF. */}
       {conc.degraded && (
         <div className="cs" data-testid="mercado-concentration-degraded" style={{ background: '#fff9e6', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
           <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
@@ -1318,7 +1377,8 @@ function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/in
       {conc.narrative && (
         <p data-testid="mercado-concentration-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{conc.narrative}</p>
       )}
-      <div className="idrow"><span className="k">HHI</span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
+      <div className="idrow"><span className="k">Índice de concentración</span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
+      {/* HARDENING-020 · Canon §2 · "HHI" retirado como etiqueta suelta (acrónimo·metodología). El número se preserva como dato dentro de la fila, con label CF ES neutro. */}
       {classLabel && (
         <div className="idrow" data-testid="mercado-concentration-classification"><span className="k">Clasificación</span><span className="v">{classLabel}</span></div>
       )}
@@ -2372,29 +2432,74 @@ function Gobierno({ governance }: { governance?: GovernanceBlock | null }) {
 }
 
 /* ============================ OPORTUNIDADES ============================ */
+/**
+ * HARDENING-020 (2026-08-13) · Canon Narrativa CF · Anexo B (Oportunidades) aplicado:
+ *   · "Puntuación 0–100 de cada tesis" → RETIRADO. Copy CF: "Atractivo por tesis."
+ *     La barra sigue mostrando la magnitud proporcional; el número absoluto (`db > i`)
+ *     se preserva sólo como atributo `data-score` para debug.
+ *   · Tesis = `o.name` (nombre en prosa, ya emitido por Intel). Nunca
+ *     `recommendation_type` crudo.
+ *   · Reason = prosa Intel (ya llega ES).
+ *   · Acciones → labels ES via `OPP_ACTION_LABEL_ES` (superset de las de Señales
+ *     más las específicas de deal · `request_due_diligence`, `value`, `contact`).
+ *     Sin "→".
+ *   · Subtítulo sección = copy literal Anexo B / Corporate Finance.
+ */
+const OPP_ACTION_LABEL_ES: Record<string, string> = {
+  analyze: 'Analizar',
+  value: 'Valorar',
+  request_due_diligence: 'Solicitar due diligence',
+  contact: 'Contactar',
+  compare: 'Comparar',
+  add_to_watchlist: 'Añadir a seguimiento',
+  prepare_teaser: 'Preparar teaser',
+  find_buyer: 'Buscar comprador',
+  save: 'Guardar',
+  share: 'Compartir',
+  export: 'Exportar',
+  dismiss: 'Descartar',
+};
 function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | null }) {
   const items = opportunities?.recommendations ?? [];
   if (!items.length) return <Pending label="Oportunidades" />;
   return (
-    <section className="panel on">
+    <section className="panel on" data-testid="oportunidades-section">
       <div className="sec-h">Oportunidades</div>
       <div className="sec-s">Las jugadas que tienen sentido para esta empresa, ordenadas por lo atractivas que son.</div>
       <div className="card">
         <h3><span className="k" />Atractivo por dimensión estratégica</h3>
-        <div className="cs">Puntuación 0–100 de cada tesis para esta compañía</div>
+        <div className="cs">Atractivo por tesis para esta compañía.</div>
         {items.map((o, i) => {
           const v = clamp100(o.score) ?? 0;
+          const label = o.name ?? 'Tesis';
           return (
-            <div key={o.master_id ?? i} className="dim"><span className="dn">{o.name ?? o.recommendation_type ?? 'Tesis'}</span><span className="db"><i style={{ width: `${v}%` }} /></span><span className="dv">{Math.round(v)}</span></div>
+            <div key={o.master_id ?? i} className="dim" data-testid={`opp-dim-${i}`} data-score={v}>
+              <span className="dn">{label}</span>
+              <span className="db"><i style={{ width: `${v}%` }} /></span>
+              <span className="dv">{qualitativeBand(v)}</span>
+            </div>
           );
         })}
       </div>
       <div className="row r2">
         {items.slice(0, 2).map((o, i) => (
-          <div key={i} className="card">
-            <h3><span className="k" />{o.name ?? o.recommendation_type ?? 'Tesis'}</h3>
+          <div key={i} className="card" data-testid={`opp-card-${i}`}>
+            <h3><span className="k" />{o.name ?? 'Tesis'}</h3>
             {o.reason && <p style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6 }}>{o.reason}</p>}
-            {(o.recommended_actions ?? []).map((a, j) => <div key={j} className="sact" style={{ marginTop: j === 0 ? 10 : 0 }}>→ {a}</div>)}
+            {(o.recommended_actions?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }} data-testid={`opp-card-${i}-actions`}>
+                {(o.recommended_actions ?? []).map((a, j) => (
+                  <span
+                    key={j}
+                    className="sact"
+                    data-action={a}
+                    style={{ padding: '3px 10px', border: '1px solid var(--n200)', borderRadius: 6, fontSize: 11.5, color: 'var(--n700)', background: '#fff' }}
+                  >
+                    {OPP_ACTION_LABEL_ES[a] ?? a}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>
