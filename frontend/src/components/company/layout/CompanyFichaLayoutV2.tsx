@@ -360,12 +360,12 @@ function HeroBlock({ identity, semantic, financialAnalysis, market }: { identity
               </span>
             )}
           </div>
-          {sector.primary_driver && (
+          {(sector.primary_driver_label ?? sector.primary_driver) && (
             <div
               data-testid="hero-sector-signal-driver"
               style={{ marginTop: 6, fontSize: 13, color: 'var(--n800)', lineHeight: 1.5 }}
             >
-              Impulsor principal · <b>{sector.primary_driver}</b>
+              Impulsor principal · <b>{sector.primary_driver_label ?? sector.primary_driver}</b>
             </div>
           )}
           {sector.cnae_label && (
@@ -631,14 +631,13 @@ function FinTable({ block }: { block: FinancialTableBlock }) {
  * R15: sin cálculos de subtotales en frontend; solo pintamos las 6 filas que llegan.
  * Los `values[i]` alinean 1:1 con `years[i]`. Los signos (Capex/financing negativos)
  * se preservan tal como los emite Intel; `fmtCell` los renderiza con separador `es-ES`.
+ *
+ * HARDENING-019 · Fase B canon CF (2026-08-13): el enum local `CF_CATEGORY_LABEL`
+ * se retiró en el mismo commit; los labels ES vienen de `cf.category_labels_es`
+ * (Intel `analyze.statements.cash_flow.category_labels_es`). El orden por
+ * categoría se preserva como convención estable (`operating → investing →
+ * financing → net_change → summary`); nuevas categorías Intel se apilan al final.
  */
-const CF_CATEGORY_LABEL: Record<string, string> = {
-  operating: 'Actividades de explotación',
-  investing: 'Actividades de inversión',
-  financing: 'Actividades de financiación',
-  net_change: 'Variación de tesorería',
-  summary: 'Indicadores',
-};
 const CF_CATEGORY_ORDER: readonly string[] = ['operating', 'investing', 'financing', 'net_change', 'summary'];
 function CashFlowTable({ cf }: { cf: CashFlowStatement }) {
   const groups = useMemo(() => {
@@ -649,7 +648,12 @@ function CashFlowTable({ cf }: { cf: CashFlowStatement }) {
       map.get(cat)!.push(row);
     }
     const ordered = [...CF_CATEGORY_ORDER.filter((c) => map.has(c)), ...Array.from(map.keys()).filter((c) => !CF_CATEGORY_ORDER.includes(c))];
-    return ordered.map((cat) => ({ cat, label: CF_CATEGORY_LABEL[cat] ?? cat, rows: map.get(cat)! }));
+    const catLabels = cf.category_labels_es ?? null;
+    return ordered.map((cat) => ({
+      cat,
+      label: catLabels?.[cat] ?? cat,
+      rows: map.get(cat)!,
+    }));
   }, [cf]);
   const colCount = cf.years.length + 1;
   return (
@@ -1245,6 +1249,8 @@ function TrendBadge({ direction }: { direction?: string | null }) {
 function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intelligence-types').MarketSector | null }) {
   if (!sector || sector.available === false) return <Empty label="Contexto sectorial" />;
   const isDegraded = sector.cnae_level === 'section' || sector.cnae_level === 'division';
+  // HARDENING-019 · Fase B canon CF · Impulsor y prosa 100% ES desde Intel.
+  const driverLabel = sector.primary_driver_label ?? null;
   return (
     <div className="card" data-testid="mercado-sector-panel">
       <h3><span className="k" />Contexto sectorial · {sector.cnae_label ?? '—'} <span className="cs" style={{ marginLeft: 8 }}>({sector.cnae_code ?? '—'} · {sector.cnae_level ?? '—'})</span></h3>
@@ -1254,13 +1260,16 @@ function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intel
           Cobertura Intel a nivel <b>{sector.cnae_level === 'division' ? 'división CNAE (2 dígitos)' : 'sección CNAE'}</b> — nivel más granular no disponible para este sector.
         </div>
       )}
+      {sector.narrative && (
+        <p data-testid="mercado-sector-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{sector.narrative}</p>
+      )}
       <div className="idrow"><span className="k">Tamaño (size)</span><span className="v">{fmtScore(sector.size_score)}</span></div>
       <div className="idrow"><span className="k">Dinamismo</span><span className="v">{fmtScore(sector.dynamism_score)}</span></div>
       <div className="idrow"><span className="k">Crecimiento</span><span className="v">{fmtScore(sector.growth_score)}</span></div>
       <div className="idrow"><span className="k">Actividad</span><span className="v">{fmtScore(sector.activity_score)}</span></div>
       <div className="idrow"><span className="k">Tendencia nacional</span><span className="v"><TrendBadge direction={sector.trend_direction} /> {sector.national_yoy_pct != null && <span style={{ marginLeft: 8 }}>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct}% YoY</span>}</span></div>
       {sector.signal && <div className="idrow"><span className="k">Señal</span><span className="v">{sector.signal.replace(/_/g, ' ')}</span></div>}
-      {sector.primary_driver && <div className="idrow"><span className="k">Impulsor principal</span><span className="v">{sector.primary_driver}</span></div>}
+      {driverLabel && <div className="idrow" data-testid="mercado-sector-driver"><span className="k">Impulsor principal</span><span className="v">{driverLabel}</span></div>}
       {sector.active_companies != null && sector.active_companies > 0 && (
         <div className="idrow"><span className="k">Empresas activas</span><span className="v">{fmtNum(sector.active_companies)}</span></div>
       )}
@@ -1269,15 +1278,20 @@ function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intel
 }
 function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-types').MarketGeo | null }) {
   if (!geo || geo.available === false) return <Empty label="Contexto territorial" />;
-  // CANON CF · Fase B (§5.bis) · TODO: consumir `geo.narrative` de Intel cuando esté emitido.
+  // HARDENING-019 · Fase B canon CF · consume `geo.narrative` de Intel (retirada del TODO previo).
+  const driverLabel = geo.primary_driver_label ?? null;
   return (
     <div className="card" style={{ marginTop: 16 }} data-testid="mercado-geo-panel">
       <h3><span className="k" />Contexto territorial · {geo.geo_name ?? '—'} <span className="cs" style={{ marginLeft: 8 }}>({geo.geo_level ?? '—'})</span></h3>
+      {geo.narrative && (
+        <p data-testid="mercado-geo-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{geo.narrative}</p>
+      )}
       <div className="idrow"><span className="k">Tamaño (size)</span><span className="v">{fmtScore(geo.size_score)}</span></div>
       <div className="idrow"><span className="k">Dinamismo</span><span className="v">{fmtScore(geo.dynamism_score)}</span></div>
       <div className="idrow"><span className="k">Crecimiento</span><span className="v">{fmtScore(geo.growth_score)}</span></div>
       <div className="idrow"><span className="k">Tendencia</span><span className="v"><TrendBadge direction={geo.trend_direction} /></span></div>
       {geo.signal && <div className="idrow"><span className="k">Señal</span><span className="v">{geo.signal.replace(/_/g, ' ')}</span></div>}
+      {driverLabel && <div className="idrow" data-testid="mercado-geo-driver"><span className="k">Impulsor principal</span><span className="v">{driverLabel}</span></div>}
       {geo.active_companies != null && (
         <div className="idrow"><span className="k">Empresas activas</span><span className="v">{fmtNum(geo.active_companies)}</span></div>
       )}
@@ -1289,8 +1303,9 @@ function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-t
 }
 function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/intelligence-types').MarketConcentration | null }) {
   if (!conc || conc.available === false) return <Empty label="Concentración de mercado" />;
-  // CANON CF · Fase B (§5.bis) · TODO: consumir `concentration.narrative` de Intel cuando esté emitido.
+  // HARDENING-019 · Fase B canon CF · consume `concentration.narrative` + `concentration_label_es` de Intel.
   const degradationCaveat = conc.degraded_reason ?? conc.caveat ?? null;
+  const classLabel = conc.concentration_label_es ?? null;
   return (
     <div className="card" style={{ marginTop: 16 }} data-testid="mercado-concentration-panel">
       <h3><span className="k" />Concentración de mercado (HHI){conc.level ? <span className="cs" style={{ marginLeft: 8 }}>Nivel: {conc.level}</span> : null}</h3>
@@ -1300,9 +1315,12 @@ function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/in
           Concentración calculada con muestra parcial (universo insuficiente para nivel más granular).
         </div>
       )}
+      {conc.narrative && (
+        <p data-testid="mercado-concentration-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{conc.narrative}</p>
+      )}
       <div className="idrow"><span className="k">HHI</span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
-      {conc.concentration_label && (
-        <div className="idrow"><span className="k">Clasificación</span><span className="v">{conc.concentration_label.replace(/_/g, ' ')}</span></div>
+      {classLabel && (
+        <div className="idrow" data-testid="mercado-concentration-classification"><span className="k">Clasificación</span><span className="v">{classLabel}</span></div>
       )}
       {conc.market_actors_count != null && conc.market_actors_count > 0 && (
         <div className="idrow"><span className="k">Actores en el mercado</span><span className="v">{fmtNum(conc.market_actors_count)}</span></div>
@@ -1330,13 +1348,17 @@ function MercadoPositionPanel({ pos, anon }: { pos?: import('@/lib/companies/int
     );
   }
   if (!pos || pos.available === false) return <Empty label="Posición sectorial" />;
-  // CANON CF · Fase B (§5.bis) · TODO: consumir `position.narrative` de Intel (foldea rank/percentil/scope/explain
-  // en una única frase CF) cuando esté emitido y retirar los rows enum/scope crudos.
+  // HARDENING-019 · Fase B canon CF · consume `position.narrative` de Intel (foldea
+  // rank/percentil/scope/explain en una única frase CF); rows crudos se preservan
+  // debajo como detalle numérico cuando existen.
   const mp = pos.market_position ?? null;
   const lp = pos.locality_position ?? null;
   return (
     <div className="card" style={{ marginTop: 16 }} data-testid="mercado-position-panel">
       <h3><span className="k" />Posición de la empresa en el sector</h3>
+      {pos.narrative && (
+        <p data-testid="mercado-position-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{pos.narrative}</p>
+      )}
       <div className="idrow"><span className="k">Percentil sectorial (ingresos)</span><span className="v"><b style={{ fontSize: 18 }}>{pos.sector_revenue_percentile != null ? `${pos.sector_revenue_percentile}º` : '—'}</b></span></div>
       {mp?.rank != null && mp?.total != null && (
         <div className="idrow"><span className="k">{mp.scope ?? 'Universo comparable'}</span><span className="v"><b>#{mp.rank}</b> de {fmtNum(mp.total)}</span></div>
@@ -1514,7 +1536,7 @@ function IdentidadAmpliada({ identity }: { identity: IdentitySection }) {
 
       <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
         <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Cotización</h5>
-        <IdentityRow label="Estado de cotización" value={fmtYesNo(listed)}                       testid="identity-expanded-cotizacion-is_listed" />
+        <IdentityRow label="Estado de cotización" value={registry.is_listed_label_es ?? fmtYesNo(listed)}                       testid="identity-expanded-cotizacion-is_listed" />
         <IdentityRow label="Mercado"           value={listed_market}                             testid="identity-expanded-cotizacion-listed_market" />
         {/* R15: `ticker` no lo entrega Intel; siempre `<Empty/>`. */}
         <IdentityRow label="Ticker"            value={null}                                      testid="identity-expanded-cotizacion-ticker" />
@@ -2329,7 +2351,7 @@ function Gobierno({ governance }: { governance?: GovernanceBlock | null }) {
                 {officers.map((o, i) => (
                   <tr key={`${o.name}-${i}`} data-testid={`gobierno-officer-${i}`}>
                     <td>{o.name || '—'}</td>
-                    <td>{o.role || '—'}</td>
+                    <td>{o.role_label_es ?? o.role_es ?? o.role ?? '—'}</td>
                     <td style={{ textAlign: 'right' }}>{fmtDate(o.since) ?? (o.year != null ? String(o.year) : '—')}</td>
                   </tr>
                 ))}

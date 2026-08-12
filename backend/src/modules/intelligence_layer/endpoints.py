@@ -600,11 +600,15 @@ def _anonymize_governance(governance: dict | None) -> dict | None:
 
     El backend es la ÚNICA capa que ve nombres nominales; la respuesta que
     viaja al frontend anónimo no contiene ningún nombre de persona física.
-    `role_label` aplica un mapa i18n determinista `_GOVERNANCE_ROLE_ES` a
-    los roles conocidos que Intel emite en inglés (`Representative`, `Joint
-    And Several Director`, etc.) para preservar la nomenclatura CF española
-    de la UI. Roles no mapeados se emiten en su forma original (passthrough).
-    `role` es el slug determinista (lower + `_`) del label original Intel.
+
+    HARDENING-019 · Fase B canon CF (2026-08-13): el mapa i18n local
+    `_GOVERNANCE_ROLE_ES` se retira en el mismo commit — Intel ya emite
+    labels ES por officer (`officers[i].role_label_es`), por el dict a nivel
+    sección (`governance.governance_role_labels_es`) y en el campo primario
+    `officers[i].role` (que llega ya en español CF). Prioridad de resolución:
+    `role_label_es` > `role_es` > `role`.
+    `role` (slug de salida) sigue siendo el slug determinista del label ES
+    (útil para keys estables y ordenación).
     """
     if governance is None:
         return None
@@ -619,18 +623,12 @@ def _anonymize_governance(governance: dict | None) -> dict | None:
 
     role_counts: dict[str, dict] = {}
     for off in officers:
-        label = off.get("role")
-        if not isinstance(label, str) or not label.strip():
+        # HARDENING-019 · Fase B canon CF · label ES directo del payload Intel.
+        # Prioridad `role_label_es` > `role_es` > `role`. Cero traducción local.
+        es_label = off.get("role_label_es") or off.get("role_es") or off.get("role")
+        if not isinstance(es_label, str) or not es_label.strip():
             continue
-        label = label.strip()
-        # 1) slug a partir del label original Intel (para lookup i18n).
-        raw_slug = _slugify_role(label)
-        # 2) label ES = traducción determinista si conocemos el slug; si no,
-        #    passthrough del label original (R15).
-        es_label = _GOVERNANCE_ROLE_ES.get(raw_slug, label)
-        # 3) slug canónico DE SALIDA = slug del label ES (consolida sinónimos
-        #    Intel EN↔ES bajo el mismo bucket · p. ej. `joint_and_several_director`
-        #    y `administrador_solidario` cuentan en una sola fila).
+        es_label = es_label.strip()
         slug = _slugify_role(es_label)
         bucket = role_counts.setdefault(slug, {"role": slug, "role_label": es_label, "count": 0})
         bucket["count"] += 1
@@ -657,34 +655,11 @@ def _anonymize_governance(governance: dict | None) -> dict | None:
     }
 
 
-# B-2.3 · Mapa i18n determinista Intel → CF español.
-# Solo aplica al `role_label` del summary agregado (no toca el `slug`, no toca
-# la respuesta autenticada). Vocabulario controlado, cero invención.
-_GOVERNANCE_ROLE_ES: dict[str, str] = {
-    "administrador_solidario": "Administrador Solidario",
-    "administrador_unico": "Administrador Único",
-    "administrador_mancomunado": "Administrador Mancomunado",
-    "apoderado": "Apoderado",
-    "auditor": "Auditor",
-    "auditor_cuentas_conjunto": "Auditor de Cuentas Conjunto",
-    "consejero": "Consejero",
-    "consejero_delegado": "Consejero Delegado",
-    "director_general": "Director General",
-    "joint_accounts_auditor": "Auditor de Cuentas Conjunto",
-    "joint_and_several_director": "Administrador Solidario",
-    "presidente": "Presidente",
-    "representative": "Representante",
-    "secretario": "Secretario",
-    "vicepresidente": "Vicepresidente",
-}
-
-
 def _slugify_role(label: str) -> str:
-    """Slug determinista para un role Intel. Lower + ascii + `_`.
+    """Slug determinista para un role. Lower + ascii + `_`.
 
-    No aporta traducción: `label` ya viene en español CF (o en inglés cuando
-    Intel emite roles no traducidos). El slug es SOLO para uso interno
-    (ordenación, testing, i18n futura).
+    Sin traducción: `label` ya viene en español CF (Intel `role_label_es`).
+    El slug es SOLO para uso interno (ordenación estable, keys, testing).
     """
     import unicodedata
     ascii_str = unicodedata.normalize("NFKD", label).encode("ascii", "ignore").decode("ascii")

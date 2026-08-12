@@ -346,6 +346,18 @@ export interface CashFlowRow {
 export interface CashFlowStatement {
   years: number[];
   rows: CashFlowRow[];
+  /**
+   * HARDENING-019 · Fase B canon CF · dict ES key→label para las filas del cash flow
+   * (Intel `finances.cash_flow.cash_flow_labels_es`). Redundante con `row.label`
+   * (que ya viene ES) pero permite consultarlo por `row.key` sin depender del label crudo.
+   */
+  cash_flow_labels_es?: Record<string, string> | null;
+  /**
+   * HARDENING-019 · Fase B canon CF · dict ES category→label para agrupar filas
+   * (Intel `finances.cash_flow.category_labels_es`). Sustituye al enum local
+   * `CF_CATEGORY_LABEL` retirado en el mismo commit.
+   */
+  category_labels_es?: Record<string, string> | null;
 }
 
 export interface FinancialAnalysis {
@@ -477,6 +489,8 @@ export interface IdentityRegistryStatus {
   legal_form?: string | null;
   incorporation_date?: string | null;
   is_listed?: boolean | null;
+  /** HARDENING-019 · Fase B canon CF · label ES de cotización (Intel `identity.is_listed_label_es`). */
+  is_listed_label_es?: string | null;
   listed_market?: string | null;
 }
 
@@ -674,6 +688,10 @@ export interface RecommendationSet {
 export interface GovernanceOfficer {
   name: string;
   role: string;
+  /** HARDENING-019 · Fase B canon CF · role en español (Intel `officers[].role_es`). */
+  role_es?: string | null;
+  /** HARDENING-019 · Fase B canon CF · label ES del rol (Intel `officers[].role_label_es`). */
+  role_label_es?: string | null;
   since: string | null;
   year: number | null;
 }
@@ -805,7 +823,11 @@ export interface MarketSector {
   national_yoy_pct?: number | null;
   trend_direction?: 'up' | 'stable' | 'down' | string | null;
   primary_driver?: string | null;
+  /** HARDENING-019 · Fase B canon CF · label ES del impulsor (Intel `market.sector.primary_driver_label`). */
+  primary_driver_label?: string | null;
   signal?: string | null;
+  /** HARDENING-019 · Fase B canon CF · prosa CF del sector (Intel `market.sector.narrative`). */
+  narrative?: string | null;
 }
 export interface MarketGeo {
   available?: boolean;
@@ -822,7 +844,11 @@ export interface MarketGeo {
   active_companies?: number | null;
   trend_direction?: 'up' | 'stable' | 'down' | string | null;
   primary_driver?: string | null;
+  /** HARDENING-019 · Fase B canon CF · label ES del impulsor (Intel `market.geo.primary_driver_label`). */
+  primary_driver_label?: string | null;
   signal?: string | null;
+  /** HARDENING-019 · Fase B canon CF · prosa CF del contexto territorial (Intel `market.geo.narrative`). */
+  narrative?: string | null;
 }
 export interface MarketConcentration {
   available?: boolean;
@@ -832,6 +858,8 @@ export interface MarketConcentration {
   cnae_value?: string | null;
   hhi?: number | null;
   concentration_label?: string | null;
+  /** HARDENING-019 · Fase B canon CF · label ES de concentración (Intel `market.concentration.concentration_label_es`). */
+  concentration_label_es?: string | null;
   market_actors_count?: number | null;
   distinct_ownership_groups?: number | null;
   standalone_targets_count?: number | null;
@@ -840,6 +868,8 @@ export interface MarketConcentration {
   hhi_methodology?: string | null;
   caveat?: string | null;
   degraded_reason?: string | null;
+  /** HARDENING-019 · Fase B canon CF · prosa CF de concentración (Intel `market.concentration.narrative`). */
+  narrative?: string | null;
 }
 export interface MarketPosition {
   available?: boolean;
@@ -847,6 +877,8 @@ export interface MarketPosition {
   market_position?: { rank?: number | null; total?: number | null; scope?: string | null } | null;
   locality_position?: { rank?: number | null; total?: number | null; scope?: string | null } | null;
   explain?: string[];
+  /** HARDENING-019 · Fase B canon CF · prosa CF de posición (Intel `market.position.narrative`). */
+  narrative?: string | null;
 }
 export interface MarketBlock {
   available?: boolean;

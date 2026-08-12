@@ -723,3 +723,77 @@ Hasta luz verde con esos 3 puntos, el placeholder actual del frontend ("Vecindar
 
 ---
 
+
+---
+## 2026-08-13 · HARDENING-019 Fase B canon + Gobierno ES + Verificación Propiedad 1:1 pre-push
+
+### Contexto del turno
+- **Comparativa (peers T5-T10)** CONGELADA en backup `/tmp/wip_comparativa_20260813/`. Diff completo + README con instrucciones para retomar mañana. Working tree limpio antes de arrancar Fase B.
+- **`/connections`** APARCADO (esperando 3 respuestas Intel · sin cambios).
+- **Fase B canon**: gate `Fase 0` verde (5/6 labels ES exactos + 6/6 semánticos con matices de ruta) + 4/4 narratives Mercado preservadas → **PROCEDER**.
+
+### Fase 0 · Labels 6/6 (gate verde)
+- `market.concentration.concentration_label_es` = "Muy concentrado" ✅
+- `governance.governance_role_labels_es` (dict sección · Intel) ✅
+- `identity.is_listed_label_es` = "No cotizada" ✅
+- `market.{sector,geo}.primary_driver_label` (`"Actividad"` / `"Tamaño de mercado"`) ✅
+- `governance.officers[].role_label_es` = `"Apoderado"` (+ bonus `role_es`) ✅
+- `finances.cash_flow.cash_flow_labels_es` + `.category_labels_es` (dicts) ✅
+  - Nota: ruta canónica final `finances.cash_flow.{cash_flow_labels_es,category_labels_es}` (dentro del sub-bloque, no top-level `finances.cash_flow_labels_es` como se esperaba). Semánticamente idéntico.
+- Narratives 4/4: sector / geo / concentration / position ✅ (todas presentes en auth)
+
+### Cambios frontend (Fase B canon aplicado)
+- `intelligence-types.ts`:
+  - `MarketSector`: + `primary_driver_label`, `narrative`
+  - `MarketGeo`: + `primary_driver_label`, `narrative`
+  - `MarketConcentration`: + `concentration_label_es`, `narrative`
+  - `MarketPosition`: + `narrative`
+  - `GovernanceOfficer`: + `role_es`, `role_label_es`
+  - `IdentityRegistryStatus`: + `is_listed_label_es`
+  - `CashFlowStatement`: + `cash_flow_labels_es`, `category_labels_es`
+- `CompanyFichaLayoutV2.tsx`:
+  - `MercadoSectorPanel`: renderiza `sector.narrative` + `primary_driver_label`.
+  - `MercadoGeoPanel`: renderiza `geo.narrative` + `primary_driver_label`.
+  - `MercadoConcentrationPanel`: renderiza `conc.narrative` + `concentration_label_es` (retirada `conc.concentration_label.replace(/_/g,' ')`).
+  - `MercadoPositionPanel`: renderiza `pos.narrative` como bloque principal (rank/percentil se preservan como detalle numérico).
+  - `Gobierno` (path nominal): `o.role_label_es ?? o.role_es ?? o.role`.
+  - Hero widget sector driver: `sector.primary_driver_label ?? sector.primary_driver`.
+  - Identity `is_listed`: `registry.is_listed_label_es ?? fmtYesNo(listed)`.
+  - `CashFlowTable`: enum local `CF_CATEGORY_LABEL` RETIRADO; labels ES desde `cf.category_labels_es`.
+- TODOs Fase B canon cerrados: 4 (Sector, Geo, Concentration, Position).
+
+### Cambios backend (Fase B canon aplicado)
+- `endpoints.py`:
+  - `_anonymize_governance()`: fuente del label ES ahora es `officers[].role_label_es` (con fallback `role_es` → `role`). Mapa Python `_GOVERNANCE_ROLE_ES` (16 entradas) **RETIRADO**. `_slugify_role` conservado como helper interno para keys estables.
+
+### DPD 4 curls post-Fase B
+1. **Anon SIN flag**: `finances=None`, `market.position=None`, governance shape `summary` con `role_label` ES desde payload; **narratives sector/geo/concentration preservadas** (contexto CNAE público según ley HARDENING-016 documentada). ✅
+2. **Anon CON flag** (fail-closed): idéntico a #1. `finances=None`. ✅
+3. **Cookie SIN flag** (opt-in requerido): idéntico a #1. `finances=None`. ✅
+4. **Cookie CON flag**: `finances` poblado, todas las narratives ES + labels ES presentes, officers nominales con `role_label_es`. ✅
+
+### Verificación Propiedad 1:1 pre-push (HARDENING-018 regresión)
+- **Anon**: `control_graph.available:true` con `summary:{shareholders_count:2, participations_count:2}` y NADA de shareholders/subsidiaries/narrative/graph/ubo. ✅
+- **Auth**: `control_graph` completo — 2 shareholders + 2 subsidiaries + narrative + graph con 5 nodes. ✅
+
+### Nota sobre efecto colateral (documentado, aceptado)
+Al retirar el mapa Python de sinónimos, la agregación DPD ahora refleja fielmente las variantes de casing que Intel emite:
+- Antes: 1 bucket "Auditor de Cuentas Conjunto"
+- Ahora: 3 buckets separados por variantes exactas ("Auditor Cuentas Conjunto", "Auditor de cuentas", "Auditor de cuentas conjunto")
+
+Fidelidad a la fuente (R12: cero cálculo local). Si Intel decide consolidar, lo hace en el motor; Arroba no reintroduce diccionarios de sinónimos locales.
+
+### BUILD
+- `yarn typecheck`: **verde** (4.24 s)
+- `yarn build`: **verde** (17.36 s) · First Load JS shared **87.3 kB** (baseline preservado)
+- Backend lint (`ruff` intelligence_layer/endpoints.py): **verde**
+- ESLint frontend layout: **verde**
+
+### DEPLOY
+- **NO desplegado.** Bundle acumulado para push manual del usuario tras luz verde del tester (`e1_tester` visual Fase B + Gobierno ES + regresión Propiedad + regresión DPD).
+
+### Estado global
+- ✅ HARDENING-018 Propiedad 1:1 · verde pre-push
+- ✅ HARDENING-019 Fase B canon CF + Gobierno ES · verde pre-tester
+- ⏸️ Comparativa peers T5-T10 · congelada `/tmp/wip_comparativa_20260813/`
+- ⏸️ `/connections` grafo Propiedad · aparcado (3 respuestas Intel pendientes)
