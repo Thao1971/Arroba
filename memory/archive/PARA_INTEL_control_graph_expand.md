@@ -1,3 +1,12 @@
+# [WITHDRAWN · 2026-08-13]
+# Este REQ se retira. Intel ya expone un endpoint deduplicado de conexiones
+# (a confirmar la ruta exacta; Arroba lo cableará directamente al click sobre
+# un nodo del grafo). El comportamiento click-to-expand ya no requerirá
+# `expand[]` embebido en `control_graph.graph.nodes[i]`.
+# Ver: cableado /connections en `CompanyFichaLayoutV2.tsx::InteractiveControlGraph`
+#      + proxy `intelligence_layer/endpoints.py::get_connections`.
+# Estado del REQ original: retirado antes de acuse de recibo por Intel.
+
 # PARA INTEL · Solicitud REQ · Vecindario de nodo del grafo de control (click-to-expand)
 
 > **Emisor**: Arroba.com (equipo de producto).

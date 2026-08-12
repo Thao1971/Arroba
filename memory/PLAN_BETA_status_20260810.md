@@ -666,3 +666,60 @@ Cobertura labels_es sólo 3/6. Se aparca. Sin cambios en Mercado / Rankings / Co
 
 ---
 
+## 2026-08-13 · Retirada REQ `control_graph_expand` + Fase 0 `/connections` · STOP
+
+### Tarea 1 · REQ retirado
+
+- **Archivo movido** a `/app/memory/archive/PARA_INTEL_control_graph_expand.md` con cabecera `# [WITHDRAWN · 2026-08-13]` documentando la razón (Intel ya expone endpoint deduplicado; Arroba lo cableará directamente).
+- **Handoff público retirado**: `/app/frontend/public/handoff/PARA_INTEL_control_graph_expand.md` eliminado. La URL antes servida devuelve **HTTP 400** en preview (verificado).
+- **Cola Intel post-retirada** (actualizada):
+  1. Nombres reales del `control_graph` (pendiente).
+  2. `labels_es_batch` (3/6 confirmadas · 3/6 pendientes).
+  3. `comparables` T5-T10 (emitido).
+  4. Sector & Roll-up E6/E7 (aparcado).
+
+### Tarea 2 · Fase 0 `/connections` · **STOP · endpoint no identificable**
+
+Investigación exhaustiva del contrato upstream de Intel para localizar el endpoint deduplicado de conexiones que menciona el usuario:
+
+- **Grep del backend Arroba** (`/app/backend/src/modules/intelligence_layer/`): **cero matches** para `connections`. Arroba no proxeya nada con ese nombre hoy.
+- **12 patrones probados upstream Intel** (con `X-API-Key: ARROBA_SERVICE_API_KEY_PRIMARY`): TODOS **HTTP 404** (`/api/v1/company/{cif}/connections`, `/api/v1/connections?cif=`, `/api/v1/company/{cif}/neighborhood`, `/api/v1/company-connections/{cif}`, `/api/v1/company/{cif}/expand?node_id=`, `/api/v1/node/{id}/connections`, `/api/v1/entities/{id}/connections`, etc.).
+- **OpenAPI Intel** (`/api/v1/openapi.json` · 646 paths totales · fetched hoy) · búsqueda por `connect`, `expand`, `neighbor`, `node_id`, `related`, `peer`: no aparece ningún path con `/connections` en el spec.
+- **Dos candidatos** que pueden asemejarse a lo que el usuario describe:
+  1. **`GET /api/v1/company/{identifier}/control-graph`** con `?authenticated=true` → devuelve exactamente el bloque `control_graph` que ya viene en `/ficha`. **NO es endpoint de vecindario**, es extractor del mismo bloque agregado.
+  2. **`GET /api/v1/data-layer/graph/{master_id}/traverse`** (`?max_hops=1&max_nodes=8&relationship_types=`) → T3 Navigable Control Graph multi-hop BFS.
+     - Auth exige `Authorization` header (no X-API-Key). Con Bearer + api-key → **401 Invalid credentials**. Con Authorization raw = api-key → **500 Internal Server Error**. Sin header → **401 Missing authorization header**.
+     - Arroba **no dispone** del token JWT/Bearer que esta ruta espera.
+
+**Problema adicional de mapping**:
+- `control_graph.graph.nodes[]` de Servier usa IDs sintéticos `company / sh1 / sh2 / sub1 / sub2`. **NO son `master_id`** que el `traverse` requiere (`mc_...`).
+- `shareholders[i].master_id` viene `null` en Servier (extranjeros: SERVIER INTERNATIONAL BV, ARTS ET TECHNIQUES DU PROGRES) → no hay `master_id` que pasar a un eventual `/traverse`.
+
+### Verdict
+
+**STOP Tareas 3-5** (wiring click-to-expand + DPD 3 curls + aviso banner warning):
+- Sin ruta upstream identificada, cablear un proxy stub genera trabajo desechable cuando Intel confirme la ruta real (query params, shape, auth flow).
+- Antes de codear el proxy Arroba + hook fetch + animación rdIn de expansión + retry, necesito del usuario:
+
+1. **Ruta upstream real** que Intel ha publicado para `/connections` (path completo). Los 12 patrones probados devuelven 404 en OpenAPI 2026-08-13 · `sha256[:8]=2ba91e0d`. ¿Path exacto? ¿Query params? ¿Body/GET?
+2. **Auth de esa ruta**. Si difiere de X-API-Key (como `/data-layer/graph/{master_id}/traverse` que exige Authorization) → ¿Arroba dispone del token? ¿Intel emite JWT nuevo para Arroba?
+3. **ID pivote**. ¿El endpoint acepta el `node_id` sintético (`sh1`/`sub1`) o requiere `master_id`? Si `master_id`, en Servier `shareholders[i].master_id` viene `null` para los extranjeros — ¿Intel resolverá esa carencia antes o después del wiring?
+
+Hasta luz verde con esos 3 puntos, el placeholder actual del frontend ("Vecindario en preparación") se mantiene intacto. Es la única implementación honesta bajo R15 sin fabricar datos.
+
+### Sin cambios funcionales en backend/frontend este turno
+
+- **Backend**: sin modificar. Sin proxy `/connections` añadido (esperar ruta real de Intel).
+- **Frontend**: sin modificar. `InteractiveControlGraph` (HARDENING-018) ya está listo para consumir el fetch en cuanto el proxy Arroba conecte con la ruta upstream real.
+
+### BUILD
+
+- `yarn typecheck` ✅ verde (no hay cambios de código este turno).
+- `yarn build` ✅ verde. First Load JS shared **87.3 kB** — sin regresión.
+
+### Deploy
+
+- **NO desplegado.** Cambios de este turno: sólo documentación (retirada REQ + PLAN_BETA_status). Todo lo demás intacto en preview.
+
+---
+
