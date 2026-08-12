@@ -477,3 +477,104 @@ Shape completo y utilizable · keys: `['available', 'company', 'control', 'cover
 
 ---
 
+## 2026-08-13 · Pasada correctiva DPD sweep + Fix client crash (HARDENING-016/017)
+
+### P0.1 · DPD SWEEP exhaustivo (HARDENING-016)
+
+**Ley del turno** documentada en cada helper anon: _"si en anon oculto una lista o campo gateado, oculto también toda su prosa, resúmenes y KPIs derivados"_.
+
+**Diagnóstico** (payload real Intel `/api/v1/company/B28184687/ficha` · 2026-08-13):
+- Detectado cambio de shape en `control_graph`: Intel migró v1 (`upstream/downstream/nodes/edges/control`) a **v2** (`shareholders/subsidiaries/graph{nodes,edges}/distribution/ubo` con nombres ya anonimizados a `"Accionista principal"`, `"Beneficiario último"`, etc.).
+- Campos que resumen datos gateados y estaban leakeando en anon: `control_graph.narrative`, `control_graph.control.*`, `control_graph.summary.top1_pct`, `control_graph.summary.tier`, `ownership.summary.top1_pct`, `ownership.summary.tier`.
+
+**Cambios backend** (`/app/backend/src/modules/intelligence_layer/endpoints.py`):
+- `_anonymize_ownership` (HARDENING-016): elimina `summary.top1_pct` y `summary.tier`. Preserva sólo `summary.total_shareholders`.
+- `_anonymize_control_graph` (HARDENING-014 + HARDENING-016 + adaptación v2): elimina `shareholders`, `subsidiaries`, `ubo`, `graph`, `distribution`, `narrative`. Preserva `available`, `company`, `coverage`, `summary{shareholders_count, participations_count}`, `engine_version`.
+- `_anonymize_market` (nuevo · HARDENING-016): elimina `position` completo + `concentration.explain` defensivo. Preserva `sector.narrative`, `geo.narrative`, `concentration.narrative`, `concentration.hhi`.
+
+**Criterio de mantenimiento en anon** (documentado en docstrings):
+- `market.sector.narrative` **MANTENER**: contexto CNAE público del sector.
+- `market.geo.narrative` **MANTENER**: contexto territorial público.
+- `market.concentration.narrative` **MANTENER**: concentración agregada del mercado (universo CNAE público).
+- `market.concentration.hhi` **MANTENER**: índice del mercado, no de la empresa.
+- `market.concentration.explain` **ELIMINAR** defensivo (por si Intel lo poblase con KPIs privados en futuro).
+
+**Matrix API extendida (Servier B28184687 · localhost:8001)**:
+
+| Campo | A (anon) | B (anon+flag) | C (auth-cookie s/flag) | D (auth+flag) |
+|---|:-:|:-:|:-:|:-:|
+| `control_graph.narrative` | null ✓ | null ✓ | null ✓ | populado ✓ |
+| `control_graph.shareholders` | null ✓ | null ✓ | null ✓ | list[2] ✓ |
+| `control_graph.subsidiaries` | null ✓ | null ✓ | null ✓ | list[2] ✓ |
+| `control_graph.graph` | null ✓ | null ✓ | null ✓ | dict[2] ✓ |
+| `control_graph.distribution` | null ✓ | null ✓ | null ✓ | list[2] ✓ |
+| `control_graph.ubo` | null ✓ | null ✓ | null ✓ | dict[4] ✓ |
+| `control_graph.summary.top1_pct` | null ✓ | null ✓ | null ✓ | null (Intel no emite) |
+| `control_graph.summary.tier` | null ✓ | null ✓ | null ✓ | null (Intel no emite) |
+| `control_graph.control` | null ✓ | null ✓ | null ✓ | null (Intel no emite) |
+| `control_graph.summary.shareholders_count` | 2 ✓ | 2 ✓ | 2 ✓ | — (auth no usa summary) |
+| `control_graph.summary.participations_count` | 2 ✓ | 2 ✓ | 2 ✓ | — |
+| `ownership.summary.top1_pct` | null ✓ | null ✓ | null ✓ | null (auth no usa summary) |
+| `ownership.summary.tier` | null ✓ | null ✓ | null ✓ | null |
+| `ownership.summary.total_shareholders` | 2 ✓ | 2 ✓ | 2 ✓ | — |
+| `ownership.shareholders` | null ✓ | null ✓ | null ✓ | list[2] ✓ |
+| `ownership.control` | null ✓ | null ✓ | null ✓ | dict[4] ✓ |
+| `market.position` | null ✓ | null ✓ | null ✓ | dict[6] ✓ |
+| `market.concentration.narrative` | populado ✓ | populado ✓ | populado ✓ | populado ✓ |
+| `market.concentration.hhi` | 10000.0 ✓ | 10000.0 ✓ | 10000.0 ✓ | 10000.0 ✓ |
+| `market.concentration.explain` | null ✓ | null ✓ | null ✓ | null (Intel no emite) |
+| `market.sector.narrative` | populado ✓ | populado ✓ | populado ✓ | populado ✓ |
+| `market.geo.narrative` | populado ✓ | populado ✓ | populado ✓ | populado ✓ |
+| `finances` | null ✓ | null ✓ | null ✓ | dict[33] ✓ |
+| `finances.assessment.verdict` | null ✓ | null ✓ | null ✓ | populado ✓ |
+| `ranking` | null ✓ | null ✓ | null ✓ | dict[5] ✓ |
+
+**Verdict**: **A ✅ · B ✅ · C ✅ · D ✅ · ALL 4 PASS**. Cero leak PII en anon. Auth completo. Header `X-Ficha-Auth` refleja resolución server-side.
+
+### P0.2 · Fix client crash (HARDENING-017)
+
+**Root cause identificado** (dos vectores concurrentes):
+
+1. **Cambio de shape Intel v1 → v2**: los componentes React asumían `upstream/downstream/nodes/edges` (v1). Intel migró a `shareholders/subsidiaries/graph.nodes/graph.edges` (v2). El `isControlGraphNominal(cg)` = `Array.isArray(cg.upstream)` era `false` → discriminador de union type caía a `unknown` → sección quedaba en `<Empty/>`. En el tab Grafo del código v1, `filter((n) => n.kind === 'participation')` no matcheaba `"participada"` español ni el nuevo `"subsidiary"` v2 → edges con `nodePos.get()` devolvía undefined → renders inconsistentes o crashes.
+2. **Enum `kind` divergente**: v1 emitía `"participada"`, v2 emite `"subsidiary"`. Ninguno matcheaba el `"participation"` esperado.
+
+**Fixes aplicados**:
+
+- **Adaptación al shape v2 Intel** (`intelligence-types.ts` + `CompanyFichaLayoutV2.tsx`):
+  - Union type `ControlGraphNominal` reescrito para v2: `shareholders[]`, `subsidiaries[]`, `graph{nodes[], edges[]}` con `id/label/kind` y `from/to/pct`, `distribution[]`, `ubo{name, type, kind, pct_effective}`.
+  - Componentes `ControlGraphTreeView`, `ControlGraphDistributionView`, `ControlGraphGraphView` reescritos para consumir v2.
+  - Enum `kind` ampliado defensivamente a `{'company', 'shareholder', 'ubo', 'subsidiary', 'participation', 'participada'}` para soportar cualquiera de las versiones.
+- **Guards defensivos R15**:
+  - `Array.isArray(cg.shareholders/subsidiaries/graph.nodes/graph.edges) ? … : []`.
+  - `typeof x.pct === 'number' ? x.pct : null` en todos los accesos numéricos.
+  - Optional chaining `n?.id`, `e?.from`, `e?.to`, `sh?.pct` en todos los mapas y sorts.
+  - `nodePos.get()` con return null si no está el nodo (skip render sin crash).
+- **`ControlGraphErrorBoundary` (nuevo · class component)**: envuelve `<Propiedad>` en el layout (línea 1929). En `componentDidCatch` loguea a consola en dev con `error + info`; muestra fallback `<Empty label="Estructura accionarial" />` en prod. NO silencia errores en dev.
+- **`ControlGraphBanner`**: `subtitle` en vez de `tier` (v2 no expone tier en la banner). Muestra `as_of_year` como subtítulo cuando está poblado.
+
+**Archivos frontend modificados**:
+- `/app/frontend/src/lib/companies/intelligence-types.ts` (~110 líneas rework del union type v2).
+- `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` (~330 líneas rework de componentes control_graph v2 + ErrorBoundary + guards).
+
+**Verificación visual local Chrome**: pendiente de handoff al `e1_tester`. Los curls confirman que:
+- Auth recibe el shape v2 completo con `shareholders[2]/subsidiaries[2]/graph{nodes[5],edges[4]}/distribution[2]/ubo{4 keys}/narrative`.
+- Anon recibe el shape agregado sin PII (`available/company/coverage/summary{2 counts}`).
+- Los guards evitan crashes por `undefined`.
+
+### BUILD
+
+- `yarn typecheck` ✅ verde (4.64 s).
+- `yarn build` ✅ verde (18.71 s). First Load JS shared **87.3 kB** — idéntico al baseline, sin regresión.
+
+### Archivos modificados en esta pasada correctiva
+
+- `/app/backend/src/modules/intelligence_layer/endpoints.py` — HARDENING-016 en `_anonymize_ownership`, `_anonymize_control_graph` reescrito para shape v2, nuevo helper `_anonymize_market`. Reemplaza la lógica ad-hoc previa del `update_dict`.
+- `/app/frontend/src/lib/companies/intelligence-types.ts` — union type `ControlGraphNominal` v2.
+- `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` — `ControlGraphErrorBoundary` (class), componentes v2 (`ControlGraphTreeView`, `ControlGraphDistributionView`, `ControlGraphGraphView`), guards defensivos, banner con `subtitle`.
+
+### Deploy
+
+- **NO desplegado.** Acumulado sobre el bundle previo. Listo para el push manual del usuario tras luz verde de `e1_tester`.
+
+---
+

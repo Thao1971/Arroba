@@ -395,12 +395,15 @@ async def get_company_ficha(
             "ownership": _anonymize_ownership(ficha.ownership),
             "ranking": None,
             # HARDENING-014 (2026-08-13) · DPD backend `control_graph`: elimina
-            # PII de shareholders/participadas/UBO/nodes/edges. Preserva narrative,
-            # control.tier y summary agregado. Ver `_anonymize_control_graph`.
+            # PII de shareholders/participadas/UBO/nodes/edges + HARDENING-016
+            # elimina también `narrative` (menciona nombres) y `control.*`
+            # (KPIs derivados de la lista gateada). Ver `_anonymize_control_graph`.
             "control_graph": _anonymize_control_graph(ficha.control_graph),
+            # HARDENING-016 (2026-08-13) · DPD sweep exhaustivo · `market`:
+            # elimina `position` completo (bloque gateado) + `concentration.explain`
+            # defensivo. Preserva sector/geo/concentration (contexto CNAE público).
+            "market": _anonymize_market(ficha.market),
         }
-        if isinstance(ficha.market, dict):
-            update_dict["market"] = {k: v for k, v in ficha.market.items() if k != "position"}
         ficha = ficha.model_copy(update=update_dict)
     else:
         effective_auth = True
@@ -418,21 +421,22 @@ async def get_company_ficha(
 def _anonymize_ownership(ownership: dict | None) -> dict | None:
     """B-2.2 · DPD backend · agrega el bloque `ownership` para usuario anónimo.
 
-    Política canónica aprobada (2026-08-11, tras Fase 0 sobre Servier):
+    Política canónica **HARDENING-016 (2026-08-13 · DPD SWEEP exhaustivo)**:
       * Si `ownership` es `None` o no es dict → passthrough.
       * Si `available` no es `True` → passthrough del bloque tal cual.
       * Si `available:true` → devuelve un shape agregado NO identificativo,
         SIN nombres (ni físicos ni jurídicos), SIN cifs individuales, SIN pcts
-        individuales:
+        individuales, SIN KPIs derivados de la lista gateada:
           {
             "available": True,
-            "coverage": <coverage passthrough>,
-            "summary": {
-              "total_shareholders": <N>,
-              "tier":     <control.tier passthrough, si viene>,     # opcional
-              "top1_pct": <control.top1_pct passthrough, si viene>  # opcional (sin nombre)
-            }
+            "coverage": <coverage passthrough sin PII>,
+            "summary": { "total_shareholders": <N> }
           }
+
+    **Ley del turno HARDENING-016**: cualquier `narrative` / `summary.top1_pct`
+    / `summary.top3_pct` / `summary.tier` / `summary.hhi` / `control.*` es un
+    resumen o KPI derivado de la lista nominal → se **elimina en anon**. Sólo
+    persiste el `total_shareholders` (contador agregado sin PII derivada).
 
     Cero heurística de clasificación jurídica/física (descartada por Fase 0:
     Intel no emite `type` explícito y los CIF llegan `null` para sociedades
@@ -462,18 +466,10 @@ def _anonymize_ownership(ownership: dict | None) -> dict | None:
             coverage_count = sc
     total = coverage_count if coverage_count is not None else len(shareholders)
 
+    # HARDENING-016 · Sweep DPD: NO propagar `control.tier` ni `control.top1_pct`
+    # al anon. Son KPIs derivados de la lista de accionistas gateada. Preservar
+    # sólo el contador agregado `total_shareholders`.
     summary: dict = {"total_shareholders": total}
-    control = ownership.get("control") if isinstance(ownership.get("control"), dict) else None
-    if control is not None:
-        # `tier` es una etiqueta descriptiva no identificativa (p. ej. "Control
-        # mayoritario", "Control conjunto") · seguro para anónimo.
-        tier = control.get("tier")
-        if isinstance(tier, str) and tier.strip():
-            summary["tier"] = tier.strip()
-        # `top1_pct` es una cifra sin nombre asociado · seguro para anónimo.
-        top1_pct = control.get("top1_pct")
-        if isinstance(top1_pct, (int, float)):
-            summary["top1_pct"] = top1_pct
 
     return {
         "available": True,
@@ -483,68 +479,102 @@ def _anonymize_ownership(ownership: dict | None) -> dict | None:
 
 
 def _anonymize_control_graph(cg: dict | None) -> dict | None:
-    """HARDENING-014 · DPD backend · agrega el bloque `control_graph` para anon.
+    """HARDENING-014 + HARDENING-016 · DPD backend `control_graph` para anon.
 
-    Política canónica (2026-08-13 · alineada con `_anonymize_ownership`):
+    Shape del contrato Intel (2026-08-13 · post-REQ):
+      { available, company, as_of_year, shareholders[], subsidiaries[], ubo,
+        graph{nodes[], edges[]}, distribution[], narrative, coverage, engine_version }
+
+    Política canónica (2026-08-13 · SWEEP DPD exhaustivo tras P0 tester):
       * `None` o no dict → passthrough.
       * `available` no `True` → passthrough del bloque tal cual (conserva señal).
       * `available:true` → shape agregado NO identificativo:
-          - Elimina `upstream[]`, `downstream[]`, `ubo`, `nodes[]`, `edges[]`
-            (contienen nombres, cifs, pcts nominales y potencialmente PII si
-            algún nodo es persona física).
+          - Elimina `shareholders[]`, `subsidiaries[]`, `ubo`, `graph`,
+            `distribution` (aunque Intel ya anonimice los nombres, la política
+            de opt-in explícito exige ocultar la totalidad de las estructuras
+            gateadas en anon).
+          - **HARDENING-016** · Elimina `narrative` (menciona control/porcentajes
+            derivados de la lista gateada).
+          - **HARDENING-016** · `summary` reducido a counts puros
+            (`shareholders_count`, `participations_count`).
           - Preserva `available`, `company` (identidad de la propia empresa
-            consultada · pública), `narrative` (prosa CF sin PII adicional),
-            `coverage` (counts sin PII), `control.tier` (etiqueta descriptiva
-            no identificativa), `group_id` (id de grupo empresarial · público).
-          - Emite `summary` agregado con counts y `top1_pct` sin nombre.
+            consultada · pública), `coverage` (flags booleanos de cobertura
+            sin PII), `engine_version`.
 
-    R15 + DPD estrictos: cero fabricación, cero nombres, cero cifs individuales.
+    **Ley del turno HARDENING-016**: si en anon oculto una lista o campo
+    gateado, oculto también toda su prosa, resúmenes y KPIs derivados.
+
+    R15 + DPD estrictos: cero fabricación, cero prosa que mencione datos
+    gateados, cero KPIs derivados.
     """
     if cg is None or not isinstance(cg, dict):
         return cg
     if cg.get("available") is not True:
         return cg
 
-    upstream = cg.get("upstream") if isinstance(cg.get("upstream"), list) else []
-    downstream = cg.get("downstream") if isinstance(cg.get("downstream"), list) else []
+    shareholders = cg.get("shareholders") if isinstance(cg.get("shareholders"), list) else []
+    subsidiaries = cg.get("subsidiaries") if isinstance(cg.get("subsidiaries"), list) else []
     coverage = cg.get("coverage") if isinstance(cg.get("coverage"), dict) else None
-    control = cg.get("control") if isinstance(cg.get("control"), dict) else None
 
-    coverage_up = None
-    coverage_down = None
-    if coverage is not None:
-        cu = coverage.get("upstream_count")
-        cd = coverage.get("downstream_count")
-        if isinstance(cu, int):
-            coverage_up = cu
-        if isinstance(cd, int):
-            coverage_down = cd
-    up_total = coverage_up if coverage_up is not None else len(upstream)
-    down_total = coverage_down if coverage_down is not None else len(downstream)
-
+    # HARDENING-016 · Sweep DPD: counts puros derivados sólo de las listas.
     summary: dict = {
-        "shareholders_count": up_total,
-        "participations_count": down_total,
+        "shareholders_count": len(shareholders),
+        "participations_count": len(subsidiaries),
     }
-    if control is not None:
-        tier = control.get("tier")
-        if isinstance(tier, str) and tier.strip():
-            summary["tier"] = tier.strip()
-        top1_pct = control.get("top1_pct")
-        if isinstance(top1_pct, (int, float)):
-            summary["top1_pct"] = top1_pct
 
     out: dict = {
         "available": True,
         "company": cg.get("company") if isinstance(cg.get("company"), dict) else None,
-        "narrative": cg.get("narrative") if isinstance(cg.get("narrative"), str) else None,
         "coverage": coverage,
-        "control": {"tier": summary.get("tier")} if summary.get("tier") else None,
-        "group_id": cg.get("group_id"),
         "summary": summary,
         "engine_version": cg.get("engine_version"),
     }
     return {k: v for k, v in out.items() if v is not None}
+
+
+def _anonymize_market(market: dict | None) -> dict | None:
+    """HARDENING-016 (2026-08-13) · DPD backend para el bloque `market`.
+
+    **Ley del turno HARDENING-016**: si en anon oculto una lista/campo gateado,
+    oculto también su prosa, resúmenes y KPIs derivados.
+
+    Decisiones por sub-bloque (criterio documentado en el reporte):
+      * `market.position` → **nulificar completo** (bloque gateado). Ya lo
+        hacía el update_dict antes; aquí se refuerza por seguridad.
+      * `market.sector.narrative` → **MANTENER** (contexto CNAE público del
+        sector · no menciona ranking/posición/facturación privados).
+      * `market.geo.narrative` → **MANTENER** (contexto territorial público ·
+        no menciona datos privados de la empresa).
+      * `market.concentration.narrative` → **MANTENER** (concentración
+        agregada del mercado · dato público del universo CNAE, aplicable a
+        todas las empresas del sector; no revela KPI privado de la empresa).
+      * `market.concentration.hhi` → **MANTENER** (índice del mercado, no de
+        la empresa).
+      * `market.concentration.explain` → **ELIMINAR** si menciona los KPIs
+        privados de la empresa consultada (defensivo · payload actual no lo
+        emite pero contrato Intel podría poblar).
+
+    En Servier (payload real 2026-08-13): sector/geo/concentration son
+    contexto CNAE público sin datos privados de la empresa. Se preservan.
+    """
+    if market is None or not isinstance(market, dict):
+        return market
+
+    out: dict = {}
+    for k, v in market.items():
+        if k == "position":
+            # HARDENING-013 · bloque gateado (ranking/percentil de la empresa).
+            continue
+        if k == "concentration" and isinstance(v, dict):
+            # Defensivo: eliminar `explain` si existe (podría enumerar KPIs
+            # privados de la empresa; en payload actual no viene). Mantener
+            # `narrative`, `hhi`, `hhi_band`, `concentration_label_es` (dato
+            # sectorial público).
+            cleaned = {kk: vv for kk, vv in v.items() if kk != "explain"}
+            out[k] = cleaned
+            continue
+        out[k] = v
+    return out
 
 
 def _anonymize_governance(governance: dict | None) -> dict | None:

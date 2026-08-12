@@ -875,18 +875,23 @@ export interface CompanyFicha {
 }
 
 /* ============================================================
- * ControlGraphBlock (HARDENING-014 · 2026-08-13)
+ * ControlGraphBlock (HARDENING-014 · 2026-08-13 · shape v2 post-REQ Intel)
  * ============================================================
  * Shape del bloque `control_graph` del agregador Intel · union discriminado:
  *
- *   1) Autenticado con datos → shape nominal Intel completo:
- *      { available:true, company, upstream[], downstream[], ubo?, nodes[],
- *        edges[], control, group_id?, narrative?, coverage, engine_version }
- *
- *   2) Anónimo con datos → shape DPD agregado (sin nombres ni cifs):
- *      { available:true, company, narrative?, coverage, control?, summary,
+ *   1) Autenticado con datos → shape nominal Intel completo v2:
+ *      { available:true, company, as_of_year, shareholders[], subsidiaries[],
+ *        ubo, graph:{nodes[], edges[]}, distribution[], narrative, coverage,
  *        engine_version }
- *      Sin `upstream`, `downstream`, `ubo`, `nodes`, `edges`.
+ *      Intel YA anonimiza los nombres (`"Accionista principal"`, `"Beneficiario
+ *      último"`, `"Participada 1"`) — Arroba no re-anonimiza.
+ *
+ *   2) Anónimo con datos → shape DPD agregado (Arroba oculta las estructuras
+ *      gateadas por política opt-in):
+ *      { available:true, company, coverage, summary{shareholders_count,
+ *        participations_count}, engine_version }
+ *      Sin `shareholders`, `subsidiaries`, `ubo`, `graph`, `distribution`,
+ *      `narrative`.
  *
  *   3) available:false → passthrough para ambos.
  */
@@ -896,62 +901,62 @@ export interface ControlGraphCompany {
   cif?: string | null;
 }
 export interface ControlGraphShareholder {
-  name: string;
+  name: string | null;
+  type?: 'legal' | 'natural' | string | null;
+  pct: number | null;
+  label?: string | null;
   cif?: string | null;
   master_id?: string | null;
-  pct: number | null;
-  as_of_year?: number | null;
-  is_person?: boolean;
-  relationship?: string | null;
   is_ubo?: boolean;
 }
-export interface ControlGraphParticipation {
-  name: string;
+export interface ControlGraphSubsidiary {
+  name: string | null;
   cif?: string | null;
   master_id?: string | null;
   pct: number | null;
-  as_of_year?: number | null;
+  activity?: string | null;
+  control_label?: string | null;
 }
 export interface ControlGraphUbo {
-  name: string;
-  cif?: string | null;
-  is_person?: boolean;
+  name?: string | null;
+  type?: string | null;
+  kind?: string | null;
+  pct_effective?: number | null;
 }
 export interface ControlGraphNode {
   id: string;
-  name: string;
-  kind: 'company' | 'shareholder' | 'participation' | string;
-  cif?: string | null;
-  pct?: number | null;
-  is_ubo?: boolean;
-  is_person?: boolean;
+  label: string;
+  kind: 'company' | 'shareholder' | 'ubo' | 'subsidiary' | string;
 }
 export interface ControlGraphEdge {
-  source: string;
-  target: string;
+  from: string;
+  to: string;
   pct: number | null;
-  type?: string;
 }
-export interface ControlGraphControl {
-  controlling_shareholder?: string | null;
-  top1_pct?: number | null;
-  tier?: string | null;
+export interface ControlGraphGraph {
+  nodes: ControlGraphNode[];
+  edges: ControlGraphEdge[];
+}
+export interface ControlGraphDistributionItem {
+  label: string;
+  pct: number | null;
+  tone?: 'primary' | 'neutral' | string | null;
 }
 export interface ControlGraphCoverage {
-  upstream_count?: number;
-  downstream_count?: number;
+  shareholders?: boolean;
+  subsidiaries?: boolean;
+  ubo?: boolean;
   truncated?: boolean;
 }
 export interface ControlGraphNominal {
   available: true;
   company: ControlGraphCompany | null;
-  upstream: ControlGraphShareholder[];
-  downstream: ControlGraphParticipation[];
+  as_of_year?: number | null;
+  shareholders: ControlGraphShareholder[];
+  subsidiaries: ControlGraphSubsidiary[];
   ubo?: ControlGraphUbo | null;
-  nodes: ControlGraphNode[];
-  edges: ControlGraphEdge[];
-  control?: ControlGraphControl | null;
-  group_id?: string | null;
+  graph?: ControlGraphGraph | null;
+  distribution?: ControlGraphDistributionItem[] | null;
   narrative?: string | null;
   coverage?: ControlGraphCoverage | null;
   engine_version?: string;
@@ -959,15 +964,10 @@ export interface ControlGraphNominal {
 export interface ControlGraphAggregated {
   available: true;
   company?: ControlGraphCompany | null;
-  narrative?: string | null;
   coverage?: ControlGraphCoverage | null;
-  control?: { tier?: string | null } | null;
-  group_id?: string | null;
   summary: {
     shareholders_count: number;
     participations_count: number;
-    tier?: string | null;
-    top1_pct?: number | null;
   };
   engine_version?: string;
 }

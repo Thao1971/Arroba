@@ -7,7 +7,7 @@
  * clases del mockup; los datos son SIEMPRE reales (R4/R10: el front no calcula
  * ni inventa). Las secciones sin motor cableado quedan como "pronto".
  */
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Component, Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Activity, BarChart3, Bell, Bookmark, Coins, Euro, FileText, Files, GitCompare,
   Hourglass, LayoutGrid, Lock, type LucideIcon, Network, PieChart, Scale, Share2,
@@ -1523,6 +1523,49 @@ function IdentidadAmpliada({ identity }: { identity: IdentitySection }) {
 }
 
 /* ============================ PROPIEDAD (Control Graph · HARDENING-014) ============================ */
+
+/**
+ * HARDENING-017 (2026-08-13) · ErrorBoundary local para la sección Propiedad.
+ * Evita que un shape inesperado del payload Intel (nuevo enum de `kind`, campo
+ * numérico que llega null, etc.) rompa toda la ficha. Loguea a consola en dev
+ * y degrada la sección a `<Empty/>` en prod. NO silencia errores.
+ */
+interface ControlGraphErrorBoundaryProps { children: React.ReactNode }
+interface ControlGraphErrorBoundaryState { hasError: boolean; error?: Error }
+class ControlGraphErrorBoundary extends Component<ControlGraphErrorBoundaryProps, ControlGraphErrorBoundaryState> {
+  constructor(props: ControlGraphErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: Error): ControlGraphErrorBoundaryState {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    // Log completo en dev (no silencia); en prod queda al servicio de telemetría.
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error('[ControlGraphErrorBoundary] Propiedad section crashed:', error, info);
+    }
+  }
+  render(): React.ReactNode {
+    if (this.state.hasError) {
+      return (
+        <section className="panel on" data-testid="control-graph-error-boundary">
+          <div className="sec-h">Estructura accionarial y control</div>
+          <div className="sec-s">Accionariado, participadas y grafo de control según fuentes registrales.</div>
+          <Empty label="Estructura accionarial" />
+          {process.env.NODE_ENV !== 'production' && this.state.error && (
+            <div className="cs" style={{ marginTop: 8, color: 'var(--n500)', fontSize: 11 }}>
+              [dev] {this.state.error.message}
+            </div>
+          )}
+        </section>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /**
  * HARDENING-014 (2026-08-13) · Estructura accionarial y de control.
  * Fuente canónica primaria: `control_graph` top-level del agregador Intel.
@@ -1543,11 +1586,12 @@ function isOwnershipAggregated(o: OwnershipBlock): o is OwnershipAggregated {
     && typeof (o as OwnershipAggregated).summary?.total_shareholders === 'number';
 }
 function isControlGraphNominal(c: ControlGraphBlock): c is ControlGraphNominal {
-  return c.available === true && Array.isArray((c as ControlGraphNominal).upstream);
+  return c.available === true && Array.isArray((c as ControlGraphNominal).shareholders);
 }
 function isControlGraphAggregated(c: ControlGraphBlock): c is ControlGraphAggregated {
   return c.available === true && typeof (c as ControlGraphAggregated).summary === 'object'
-    && typeof (c as ControlGraphAggregated).summary?.shareholders_count === 'number';
+    && typeof (c as ControlGraphAggregated).summary?.shareholders_count === 'number'
+    && !Array.isArray((c as unknown as ControlGraphNominal).shareholders);
 }
 function fmtPct(v: number | null | undefined): string {
   if (v === null || v === undefined) return '—';
@@ -1585,20 +1629,24 @@ function ControlGraphTabs({ active, setActive }: { active: PropiedadTab; setActi
   );
 }
 
-function ControlGraphBanner({ narrative, tier }: { narrative?: string | null; tier?: string | null }) {
-  if (!narrative && !tier) return null;
+function ControlGraphBanner({ narrative, subtitle }: { narrative?: string | null; subtitle?: string | null }) {
+  if (!narrative && !subtitle) return null;
   return (
     <div className="card" data-testid="control-graph-banner" style={{ borderLeft: '3px solid var(--red)', background: 'var(--red-050, #fef2f2)', marginBottom: 16 }}>
-      {tier && <div className="cs" style={{ color: 'var(--red)', fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase', fontSize: 11, marginBottom: 6 }}>{tier}</div>}
+      {subtitle && <div className="cs" style={{ color: 'var(--red)', fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase', fontSize: 11, marginBottom: 6 }}>{subtitle}</div>}
       {narrative && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--n800)' }}>{narrative}</p>}
     </div>
   );
 }
 
 function ControlGraphTreeView({ cg }: { cg: ControlGraphNominal }) {
-  const shs = [...cg.upstream].sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
-  const parts = [...cg.downstream].sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
+  // HARDENING-017 · Guards defensivos R15 · shape v2 Intel.
+  const shareholdersRaw = Array.isArray(cg.shareholders) ? cg.shareholders : [];
+  const subsidiariesRaw = Array.isArray(cg.subsidiaries) ? cg.subsidiaries : [];
+  const shs = [...shareholdersRaw].sort((a, b) => (b?.pct ?? -1) - (a?.pct ?? -1));
+  const parts = [...subsidiariesRaw].sort((a, b) => (b?.pct ?? -1) - (a?.pct ?? -1));
   const centerName = cg.company?.name ?? '—';
+  const ubo = cg.ubo ?? null;
   return (
     <div data-testid="control-graph-arbol">
       {shs.length > 0 && (
@@ -1608,44 +1656,54 @@ function ControlGraphTreeView({ cg }: { cg: ControlGraphNominal }) {
           <table className="rec">
             <tbody>
               <tr>
-                <th>Nombre</th>
-                <th>CIF/NIF</th>
+                <th>Denominación</th>
+                <th>Naturaleza</th>
                 <th style={{ textAlign: 'right' }}>Participación</th>
-                <th style={{ textAlign: 'right' }}>Ejercicio</th>
+                <th>Etiqueta</th>
               </tr>
               {shs.map((sh, i) => (
                 <tr key={`sh-${i}`} data-testid={`control-graph-shareholder-${i}`} style={{ animation: `cg-fade-in .35s ease ${i * 60}ms both` }}>
                   <td>
-                    {sh.name || '—'}
-                    {sh.is_ubo && <span style={{ marginLeft: 8, padding: '2px 6px', fontSize: 10, fontWeight: 600, color: 'var(--red)', background: 'var(--red-050,#fef2f2)', borderRadius: 4 }}>UBO</span>}
+                    {sh?.name || '—'}
+                    {sh?.is_ubo && <span style={{ marginLeft: 8, padding: '2px 6px', fontSize: 10, fontWeight: 600, color: 'var(--red)', background: 'var(--red-050,#fef2f2)', borderRadius: 4 }}>UBO</span>}
                   </td>
-                  <td>{sh.cif || '—'}</td>
-                  <td style={{ textAlign: 'right' }}>{fmtPct(sh.pct)}</td>
-                  <td style={{ textAlign: 'right' }}>{sh.as_of_year != null ? String(sh.as_of_year) : '—'}</td>
+                  <td>{sh?.type === 'legal' ? 'Persona jurídica' : sh?.type === 'natural' ? 'Persona física' : '—'}</td>
+                  <td style={{ textAlign: 'right' }}>{fmtPct(sh?.pct ?? null)}</td>
+                  <td style={{ color: 'var(--n600)', fontSize: 12 }}>{sh?.label ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      {cg.ubo && cg.ubo.name && (
+      {ubo && (ubo.name || ubo.kind) && (
         <div className="card" data-testid="control-graph-ubo" style={{ marginTop: 16, background: 'linear-gradient(135deg, var(--red-050,#fef2f2), transparent 60%)' }}>
           <h3><span className="k" />UBO · Titular real</h3>
           <div className="cs">Beneficiario último del control según fuentes registrales</div>
-          <div className="idrow">
-            <span className="k">Denominación</span>
-            <span className="v"><b>{cg.ubo.name}</b></span>
-          </div>
-          {cg.ubo.cif && (
+          {ubo.name && (
             <div className="idrow">
-              <span className="k">CIF/NIF</span>
-              <span className="v"><b>{cg.ubo.cif}</b></span>
+              <span className="k">Denominación</span>
+              <span className="v"><b>{ubo.name}</b></span>
             </div>
           )}
-          <div className="idrow">
-            <span className="k">Naturaleza</span>
-            <span className="v"><b>{cg.ubo.is_person ? 'Persona física' : 'Persona jurídica'}</b></span>
-          </div>
+          {ubo.kind && (
+            <div className="idrow">
+              <span className="k">Tipología</span>
+              <span className="v"><b>{ubo.kind}</b></span>
+            </div>
+          )}
+          {ubo.type && (
+            <div className="idrow">
+              <span className="k">Naturaleza</span>
+              <span className="v"><b>{ubo.type === 'legal' ? 'Persona jurídica' : ubo.type === 'natural' ? 'Persona física' : ubo.type}</b></span>
+            </div>
+          )}
+          {ubo.pct_effective != null && (
+            <div className="idrow">
+              <span className="k">Control efectivo</span>
+              <span className="v"><b>{fmtPct(ubo.pct_effective)}</b></span>
+            </div>
+          )}
         </div>
       )}
       {parts.length > 0 ? (
@@ -1655,17 +1713,17 @@ function ControlGraphTreeView({ cg }: { cg: ControlGraphNominal }) {
           <table className="rec">
             <tbody>
               <tr>
-                <th>Nombre</th>
-                <th>CIF/NIF</th>
+                <th>Denominación</th>
+                <th>Actividad</th>
                 <th style={{ textAlign: 'right' }}>Participación</th>
-                <th style={{ textAlign: 'right' }}>Ejercicio</th>
+                <th>Alcance de control</th>
               </tr>
               {parts.map((p, i) => (
                 <tr key={`part-${i}`} data-testid={`control-graph-participation-${i}`} style={{ animation: `cg-fade-in .35s ease ${i * 60}ms both` }}>
-                  <td>{p.name || '—'}</td>
-                  <td>{p.cif || '—'}</td>
-                  <td style={{ textAlign: 'right' }}>{fmtPct(p.pct)}</td>
-                  <td style={{ textAlign: 'right' }}>{p.as_of_year != null ? String(p.as_of_year) : '—'}</td>
+                  <td>{p?.name || '—'}</td>
+                  <td>{p?.activity || '—'}</td>
+                  <td style={{ textAlign: 'right' }}>{fmtPct(p?.pct ?? null)}</td>
+                  <td style={{ color: 'var(--n600)', fontSize: 12 }}>{p?.control_label || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1682,27 +1740,33 @@ function ControlGraphTreeView({ cg }: { cg: ControlGraphNominal }) {
 }
 
 function ControlGraphDistributionView({ cg }: { cg: ControlGraphNominal }) {
-  const shs = [...cg.upstream].sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1));
-  const total = shs.reduce((acc, s) => acc + (s.pct ?? 0), 0);
+  // HARDENING-017 · Consume `distribution[]` de Intel si viene poblado, con
+  // fallback a `shareholders[]` (deriva la distribución de la lista).
+  const distRaw = Array.isArray(cg.distribution) ? cg.distribution : null;
+  const items = distRaw && distRaw.length > 0
+    ? distRaw.map((d) => ({ label: d?.label ?? '—', pct: typeof d?.pct === 'number' ? d.pct : null, tone: d?.tone ?? 'neutral' }))
+    : (Array.isArray(cg.shareholders) ? cg.shareholders : []).map((s) => ({ label: s?.name ?? '—', pct: typeof s?.pct === 'number' ? s.pct : null, tone: s?.is_ubo ? 'primary' : 'neutral' }));
+  const total = items.reduce((acc, it) => acc + (typeof it.pct === 'number' ? it.pct : 0), 0);
   return (
     <div className="card" data-testid="control-graph-distribucion">
       <h3><span className="k" />Distribución accionarial</h3>
       <div className="cs">Porcentaje de control · total registrado {fmtPct(total)}</div>
-      {shs.length > 0 ? (
+      {items.length > 0 ? (
         <div style={{ marginTop: 16 }}>
-          {shs.map((sh, i) => {
-            const pct = sh.pct ?? 0;
+          {items.map((it, i) => {
+            const pct = typeof it.pct === 'number' ? it.pct : 0;
+            const isPrimary = it.tone === 'primary';
             return (
               <div key={`d-${i}`} data-testid={`control-graph-dist-${i}`} style={{ marginBottom: 12, animation: `cg-fade-in .4s ease ${i * 80}ms both` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
                   <span style={{ fontWeight: 500, color: 'var(--n800)' }}>
-                    {sh.name || '—'}
-                    {sh.is_ubo && <span style={{ marginLeft: 6, padding: '1px 5px', fontSize: 9, fontWeight: 600, color: 'var(--red)', background: 'var(--red-050,#fef2f2)', borderRadius: 3 }}>UBO</span>}
+                    {it.label || '—'}
+                    {isPrimary && <span style={{ marginLeft: 6, padding: '1px 5px', fontSize: 9, fontWeight: 600, color: 'var(--red)', background: 'var(--red-050,#fef2f2)', borderRadius: 3 }}>PRINCIPAL</span>}
                   </span>
-                  <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--n700)' }}>{fmtPct(sh.pct)}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--n700)' }}>{fmtPct(it.pct)}</span>
                 </div>
                 <div style={{ height: 8, background: 'var(--n200)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, pct))}%`, background: sh.is_ubo ? 'var(--red)' : 'var(--n700)', borderRadius: 4, transition: 'width .6s cubic-bezier(.2,.8,.2,1)' }} />
+                  <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, pct))}%`, background: isPrimary ? 'var(--red)' : 'var(--n700)', borderRadius: 4, transition: 'width .6s cubic-bezier(.2,.8,.2,1)' }} />
                 </div>
               </div>
             );
@@ -1714,24 +1778,28 @@ function ControlGraphDistributionView({ cg }: { cg: ControlGraphNominal }) {
 }
 
 function ControlGraphGraphView({ cg }: { cg: ControlGraphNominal }) {
-  // Layout SVG puro con posiciones deterministas.
-  const nodes = cg.nodes ?? [];
-  const edges = cg.edges ?? [];
+  // HARDENING-017 · Guards defensivos R15 · shape v2 Intel (`graph.nodes/edges`
+  // con `id/label/kind` y `from/to/pct`).
+  const graph = cg.graph ?? null;
+  const nodes = graph && Array.isArray(graph.nodes) ? graph.nodes : [];
+  const edges = graph && Array.isArray(graph.edges) ? graph.edges : [];
   if (nodes.length === 0) return <div className="card" data-testid="control-graph-grafo-empty"><Empty label="Grafo de control" /></div>;
 
-  const centerNode = nodes.find((n) => n.kind === 'company');
-  const shareholders = nodes.filter((n) => n.kind === 'shareholder');
-  const participations = nodes.filter((n) => n.kind === 'participation');
+  const centerNode = nodes.find((n) => n?.kind === 'company');
+  const shareholders = nodes.filter((n) => n?.kind === 'shareholder' || n?.kind === 'ubo');
+  const participations = nodes.filter((n) => n?.kind === 'subsidiary' || n?.kind === 'participation' || n?.kind === 'participada');
   const W = 720, H = 380;
   const centerX = W / 2, centerY = H / 2;
 
   const nodePos = new Map<string, { x: number; y: number }>();
-  if (centerNode) nodePos.set(centerNode.id, { x: centerX, y: centerY });
+  if (centerNode?.id) nodePos.set(centerNode.id, { x: centerX, y: centerY });
   shareholders.forEach((n, i) => {
+    if (!n?.id) return;
     const spacing = W / (shareholders.length + 1);
     nodePos.set(n.id, { x: spacing * (i + 1), y: 60 });
   });
   participations.forEach((n, i) => {
+    if (!n?.id) return;
     const spacing = W / (participations.length + 1);
     nodePos.set(n.id, { x: spacing * (i + 1), y: H - 60 });
   });
@@ -1747,25 +1815,28 @@ function ControlGraphGraphView({ cg }: { cg: ControlGraphNominal }) {
           </marker>
         </defs>
         {edges.map((e, i) => {
-          const s = nodePos.get(e.source);
-          const t = nodePos.get(e.target);
+          if (!e || !e.from || !e.to) return null;
+          const s = nodePos.get(e.from);
+          const t = nodePos.get(e.to);
           if (!s || !t) return null;
+          const pctValue = typeof e.pct === 'number' ? e.pct : null;
           return (
             <g key={`edge-${i}`} style={{ animation: `cg-fade-in .5s ease ${200 + i * 80}ms both` }}>
               <line x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke="var(--n400,#cbd5e1)" strokeWidth={1.5} markerEnd="url(#cg-arrow)" />
-              {e.pct != null && (
+              {pctValue != null && (
                 <text x={(s.x + t.x) / 2 + 6} y={(s.y + t.y) / 2 - 6} fontSize="10" fill="var(--n600,#64748b)" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {fmtPct(e.pct)}
+                  {fmtPct(pctValue)}
                 </text>
               )}
             </g>
           );
         })}
         {nodes.map((n, i) => {
+          if (!n?.id) return null;
           const p = nodePos.get(n.id);
           if (!p) return null;
           const isCenter = n.kind === 'company';
-          const isUbo = !!n.is_ubo;
+          const isUbo = n.kind === 'ubo';
           const r = isCenter ? 34 : 24;
           const fill = isCenter ? 'var(--red)' : isUbo ? 'var(--red-050,#fef2f2)' : 'white';
           const stroke = isCenter ? 'var(--red)' : isUbo ? 'var(--red)' : 'var(--n400,#cbd5e1)';
@@ -1774,13 +1845,8 @@ function ControlGraphGraphView({ cg }: { cg: ControlGraphNominal }) {
             <g key={`node-${n.id}`} data-testid={`control-graph-node-${n.id}`} style={{ animation: `cg-scale-in .4s cubic-bezier(.2,.8,.2,1) ${i * 60}ms both`, transformOrigin: `${p.x}px ${p.y}px` }}>
               <circle cx={p.x} cy={p.y} r={r} fill={fill} stroke={stroke} strokeWidth={isCenter ? 2 : 1.5} />
               <text x={p.x} y={p.y + 4} fontSize="10" fontWeight="500" textAnchor="middle" fill={textColor} style={{ pointerEvents: 'none' }}>
-                {(n.name ?? '').slice(0, 12)}
+                {(n.label ?? '').slice(0, 12)}
               </text>
-              {n.pct != null && !isCenter && (
-                <text x={p.x} y={p.y + r + 14} fontSize="10" fontWeight="600" textAnchor="middle" fill="var(--n700)" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {fmtPct(n.pct)}
-                </text>
-              )}
             </g>
           );
         })}
@@ -1811,7 +1877,6 @@ function PropiedadControlGraph({ cg }: { cg: ControlGraphBlock }) {
       <section className="panel on" data-testid="control-graph-aggregated">
         <div className="sec-h">Estructura accionarial y control</div>
         <div className="sec-s">Accionariado, participadas y grafo de control según fuentes registrales.</div>
-        <ControlGraphBanner narrative={cg.narrative} tier={cg.control?.tier ?? s.tier ?? null} />
         <div className="card">
           <h3><span className="k" />Vista agregada</h3>
           <div className="cs">Datos no identificativos · el detalle nominal se muestra a usuarios registrados</div>
@@ -1823,18 +1888,6 @@ function PropiedadControlGraph({ cg }: { cg: ControlGraphBlock }) {
             <span className="k">Participadas registradas</span>
             <span className="v"><b>{fmtNum(s.participations_count)}</b></span>
           </div>
-          {s.tier && (
-            <div className="idrow" data-testid="control-graph-summary-tier">
-              <span className="k">Estructura de control</span>
-              <span className="v"><b>{s.tier}</b></span>
-            </div>
-          )}
-          {s.top1_pct != null && (
-            <div className="idrow" data-testid="control-graph-summary-top1-pct">
-              <span className="k">Participación del accionista mayoritario</span>
-              <span className="v"><b>{fmtPct(s.top1_pct)}</b></span>
-            </div>
-          )}
           <div className="cs" style={{ marginTop: 12, fontStyle: 'italic' }}>
             <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
             <a href="/es/login" style={{ color: 'var(--red)', fontWeight: 600, textDecoration: 'none' }}>
@@ -1850,7 +1903,7 @@ function PropiedadControlGraph({ cg }: { cg: ControlGraphBlock }) {
       <section className="panel on" data-testid="control-graph-nominal">
         <div className="sec-h">Estructura accionarial y control</div>
         <div className="sec-s">Accionariado, participadas y grafo de control según fuentes registrales.</div>
-        <ControlGraphBanner narrative={cg.narrative} tier={cg.control?.tier ?? null} />
+        <ControlGraphBanner narrative={cg.narrative} subtitle={cg.as_of_year != null ? `Datos referidos al ejercicio ${cg.as_of_year}` : null} />
         <ControlGraphTabs active={tab} setActive={setTab} />
         {tab === 'arbol' && <ControlGraphTreeView cg={cg} />}
         {tab === 'distribucion' && <ControlGraphDistributionView cg={cg} />}
@@ -2252,7 +2305,11 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
               ? <section className="panel on"><div className="sec-h">Oportunidades</div><Gate what="las oportunidades" /></section>
               : <Oportunidades opportunities={props.opportunities} />)}
             {active === 'gobierno' && <Gobierno governance={props.governance} />}
-            {active === 'propiedad' && <Propiedad ownership={props.ownership} controlGraph={props.controlGraph} />}
+            {active === 'propiedad' && (
+              <ControlGraphErrorBoundary>
+                <Propiedad ownership={props.ownership} controlGraph={props.controlGraph} />
+              </ControlGraphErrorBoundary>
+            )}
             {active === 'eventos' && <Eventos events={props.events} />}
             {active === 'rankings' && (anon
               ? <section className="panel on" data-testid="rankings-gated"><div className="sec-h">Posicionamiento sectorial y competitivo</div><Gate what="tu posición en el sector, la posición local y la lectura CF" /></section>
