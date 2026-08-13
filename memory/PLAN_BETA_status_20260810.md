@@ -1714,3 +1714,112 @@ Documentado en `/app/scripts/README.md`.
 `HARDENING-021 + 004 + 022 + 022b + 004b + 022c + glosario + 005`
 
 Secuencia de deploy documentada en `/app/DEPLOY_NOTES.md`.
+
+---
+
+## 2026-08-13 · HARDENING-022d · Bundle correctivo pre-push · DONE
+
+3 bugs quirúrgicos front-only. Un solo push consolidado.
+
+### Bug 1 · Tooltips pegados / posición 0,0 (P0) · FIX
+
+**Root cause detectado**:
+- `hide()` con `setTimeout(120ms)` diferido perceptible como "sticky".
+- `positionTip()` medía `tipRect` durante la transición CSS con opacity aún animando → dimensiones intermedias erróneas.
+- Sin protección para "un solo tooltip a la vez" cuando cambia el anchor.
+
+**Cambios en `/app/frontend/src/components/company/atoms/Tip.tsx`**:
+
+| Aspecto | Antes | Ahora |
+|:--|:--|:--|
+| Cierre en mouseleave | `setTimeout(hide, 120)` diferido | Síncrono inmediato |
+| Cierre en blur | Idem (diferido) | Síncrono inmediato |
+| Cierre con Escape | Ya funcionaba (`onKeyDown`) | Preservado + hide inmediato |
+| Medición del tipRect | Directo tras `add('show')` en frame de renderizado | Doble `requestAnimationFrame` + guard `if (!activeAnchor) return` |
+| Estado inicial | `top:0, left:0` (esquina) | `top:-9999px; left:-9999px` (fuera de viewport) |
+| Multi-anchor | Estado global sin transición explícita | `show()` cierra el anterior si `activeAnchor !== anchor` |
+| Viewport clamp | Solo horizontal | Horizontal + vertical (flip arriba↔abajo si no cabe) |
+| Rect degenerado | Sin guard | `if (rect.width===0 && rect.height===0) return` |
+
+**Verificación**:
+- Bundle compilado `page-1488d53456fd3208.js` contiene `arroba-global-tip` ✅
+- Lógica de posicionamiento reemplazada íntegramente + hide síncrono verificado en source.
+
+### Bug 2 · Marco azul en boxes de anillos · FIX
+
+**Root cause**: el `<span class="help" tabIndex={0}>` de las labels de los anillos recibe el **focus outline azul default** del navegador (Chrome/Firefox) al hacer Tab teclado o click sostenido.
+
+**Cambios en `/app/frontend/src/components/company/layout/fichaMockupCss.ts`**:
+
+Reglas CSS inyectadas (canon rojo en focus-visible para preservar accesibilidad teclado):
+
+```css
+.afk .help:focus { outline: none }
+.afk .help:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; border-radius: 2px }
+.afk .ring [tabindex]:focus, .afk .ring .help:focus,
+.afk .kpi [tabindex]:focus, .afk .kpi .help:focus { outline: none }
+.afk .ring [tabindex]:focus-visible, .afk .ring .help:focus-visible,
+.afk .kpi [tabindex]:focus-visible, .afk .kpi .help:focus-visible {
+  outline: 2px solid var(--red); outline-offset: 2px; border-radius: 2px
+}
+```
+
+**Verificación**:
+- Bundle compilado `.next/server/chunks/689.js` + `156.js` contienen `focus-visible` con overrides rojos ✅
+- Zero azul en el DOM path de los rings.
+- Accesibilidad teclado preservada con `:focus-visible` en rojo canon.
+
+### Bug 3 · Tesis Empty · restaurar fallback (regresión) · FIX
+
+**Root cause**: en HARDENING-022b retiré `finances.assessment.verdict` como fallback bajo la premisa de que Intel ya emitía `opportunity.thesis.narrative` en Prod. En Dev pod Intel aún NO lo emite → Tesis renderiza `<Empty/>` cuando SÍ hay `verdict` disponible. Regresión reportada.
+
+**Cambio en `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx`** (dentro de `Resumen()`):
+
+```ts
+const thesisNarrative = p.opportunity?.thesis?.narrative;
+const verdictRaw = financialAnalysis?.assessment?.verdict;
+const thesisText: string | null = (
+  (typeof thesisNarrative === 'string' && thesisNarrative.trim().length > 0)
+    ? thesisNarrative.trim()
+    : (typeof verdictRaw === 'string' && verdictRaw.trim().length > 0)
+      ? verdictRaw.trim()
+      : null
+);
+```
+
+**Compatibilidad**:
+- Dev pod (Intel narrative aún ausente): renderiza `finances.assessment.verdict` → "Perfil financiero sólido y consistente…"
+- Prod (Intel narrative populado): renderiza `narrative` (prioridad más alta en la cascada).
+- Ambos null → Empty honesto (comportamiento R15 estricto).
+
+**Verificación**:
+- Bundle compilado contiene la cascada exacta: `void 0===o?void 0:o.verdict,et="string"==typeof ea&&ea.tr...` ✅
+- Curl backend Servier auth: `opportunity=None`, `assessment.verdict="Perfil financiero sólido..."` → fallback activo en Dev.
+
+### Verificación
+
+| Item | Estado |
+|:--|:--:|
+| `yarn typecheck` | ✅ verde (3.57 s) |
+| `yarn build` | ✅ verde (17 s) |
+| First Load JS shared | **87.3 kB** (baseline sin regresión) |
+| Ruta `/es/empresa-f01/[cif]` | 50.9 kB / 163 kB (+0.2 kB por overrides CSS + fallback) |
+| Bundle `arroba-global-tip` | ✅ presente |
+| Bundle `focus-visible` overrides | ✅ presente (2 chunks) |
+| Bundle `verdict` fallback cascada | ✅ presente |
+| Curl SSR HTML anon Servier | ✅ 200 · cabecera + T3 prosa oscura + T5 detalles |
+| Frontend restarted | ✅ |
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|:--|:--|
+| `/app/frontend/src/components/company/atoms/Tip.tsx` | Reescritura del `TipProvider`: hide síncrono + doble rAF + guard `activeAnchor` + flip vertical + rect degenerado guard |
+| `/app/frontend/src/components/company/layout/fichaMockupCss.ts` | +5 líneas CSS · overrides `outline` para `.help`, `.ring [tabindex]`, `.kpi [tabindex]` |
+| `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` | Restaurado fallback `assessment.verdict` en cascada + JSDoc actualizado |
+| `/app/memory/PLAN_BETA_status_20260810.md` | Este bloque |
+| `/app/DEPLOY_NOTES.md` | Actualizado con HARDENING-022d en el bundle |
+
+### Deploy
+
+- **NO desplegado.** Bundle final consolidado: **HARDENING-021 + 004 + 022 + 022b + 004b + 022c + Glosario (5 keys) + 005 + 022d**.

@@ -559,14 +559,21 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const descriptionSource = identity.description_source ?? null;
   const showDisclaimer = descriptionSource === 'ai' || descriptionSource === 'web';
 
-  // HARDENING-022b · T4 · Tesis de oportunidad. Fuente única: Intel emite
-  // `opportunity.thesis.narrative` (bloque `opportunity`, no `opportunities`).
-  // Fallback legacy `finances.assessment.verdict` RETIRADO por instrucción del
-  // usuario (turno 022b). Si Intel no emite → Empty honesto "En preparación".
+  // HARDENING-022d (2026-08-13) · T4 · Tesis de oportunidad.
+  // Fuente preferida: Intel emite `opportunity.thesis.narrative` (bloque
+  // `opportunity` de `/ficha`). Fallback R15-compliant a `finances.assessment.verdict`
+  // (otro campo REAL, no fabricación): restaurado tras confirmar que Prod y
+  // Dev pods pueden ir desincronizados en el rollout Intel. Cascada:
+  //     opportunity.thesis.narrative → finances.assessment.verdict → null.
   const thesisNarrative = p.opportunity?.thesis?.narrative;
-  const thesisText = typeof thesisNarrative === 'string' && thesisNarrative.trim().length > 0
-    ? thesisNarrative.trim()
-    : null;
+  const verdictRaw = financialAnalysis?.assessment?.verdict;
+  const thesisText: string | null = (
+    (typeof thesisNarrative === 'string' && thesisNarrative.trim().length > 0)
+      ? thesisNarrative.trim()
+      : (typeof verdictRaw === 'string' && verdictRaw.trim().length > 0)
+        ? verdictRaw.trim()
+        : null
+  );
 
   // T2 · KPIs · DN/EBITDA. R15: solo mostramos si Intel emite el valor.
   // Intel provenance canonical key: `net_debt_ebitda` (verificado Servier 2026-08-13);
@@ -809,12 +816,12 @@ function ResumenProsaCard({ text, showDisclaimer }: { text: string | null; showD
 }
 
 /**
- * HARDENING-022 (c · 2026-08-13) · T4 · Tesis de oportunidad.
+ * HARDENING-022 (d · 2026-08-13) · T4 · Tesis de oportunidad.
  * · Card destacada con acento rojo (borde-izq rojo + fondo rosa muy suave).
- * · Fuente única: `opportunity.thesis.narrative` (bloque `opportunity` de `/ficha`).
- *   Fallback legacy `finances.assessment.verdict` **retirado en 022b**.
- *   Sub-card "Contexto sectorial" **retirado en 022c** (la prosa Intel ya lo combina).
- * · Si Intel no emite → Empty honesto "En preparación".
+ * · Fuente preferida: `opportunity.thesis.narrative` (bloque `opportunity` de `/ficha`).
+ *   Fallback R15-compliant: `finances.assessment.verdict` (otro campo real Intel).
+ *   Sub-card "Contexto sectorial" retirado en 022c (la prosa Intel ya lo combina).
+ * · Si NI narrative NI verdict → Empty honesto "En preparación".
  * · CTA "Explorar oportunidad" (link a la pestaña Oportunidades cuando exista).
  */
 function TesisOportunidadCard({ text }: { text: string | null }) {

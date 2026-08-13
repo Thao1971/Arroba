@@ -58,12 +58,19 @@ export function TipProvider({ children }: { children: React.ReactNode }) {
     tip.id = TIP_ID;
     tip.setAttribute('role', 'tooltip');
     tip.setAttribute('aria-hidden', 'true');
+    // Estado inicial invisible + fuera de viewport para no interferir cuando aún
+    // no hay anchor activo (HARDENING-022d · fix "esquina superior izquierda").
+    tip.style.left = '-9999px';
+    tip.style.top = '-9999px';
     root.appendChild(tip);
     doc.body.appendChild(root);
 
     let activeAnchor: HTMLElement | null = null;
-    let hideTimeout: number | null = null;
+    // NOTA: hemos retirado el `hideTimeout` diferido (HARDENING-022d bug 1a) —
+    // el sticky perceptible venía de `setTimeout(hide, 120)` que impedía el
+    // cierre inmediato en mouseleave/blur. Ahora `hide()` es síncrono.
     let touchHideTimeout: number | null = null;
+    let rafHandle: number | null = null;
 
     function resolveCopy(raw: string | null): string | null {
       if (!raw) return null;
@@ -79,30 +86,66 @@ export function TipProvider({ children }: { children: React.ReactNode }) {
       return escapeHtml(trimmed);
     }
 
+    /**
+     * Ancla el tooltip al `getBoundingClientRect()` del anchor.
+     * Cascada: encima del anchor centrado → si no cabe arriba, debajo →
+     * clamp horizontal a viewport (con 8 px de margen).
+     * HARDENING-022d bug 1b/1c · fix "posición sin anchor" + viewport clamp.
+     */
     function positionTip(anchor: HTMLElement) {
       const rect = anchor.getBoundingClientRect();
-      // Medir tras hacer visible con opacity 0 para tener dimensiones.
-      tip.style.opacity = '0';
-      tip.classList.add('show');
-      const tipRect = tip.getBoundingClientRect();
-      // Preferencia: encima del anchor, centrado.
-      let top = rect.top - tipRect.height - 8;
-      let left = rect.left + rect.width / 2 - tipRect.width / 2;
-      // Si no cabe arriba, ponerlo debajo.
-      if (top < 8) {
-        top = rect.bottom + 8;
+      // Rect degenerado (elemento sin caja renderizada) → abortar posicionamiento.
+      if (rect.width === 0 && rect.height === 0) {
+        tip.classList.remove('show');
+        return;
       }
-      // Clamp horizontal a viewport.
-      const vw = window.innerWidth;
-      if (left < 8) left = 8;
-      if (left + tipRect.width > vw - 8) left = vw - tipRect.width - 8;
-      tip.style.left = `${Math.round(left)}px`;
-      tip.style.top = `${Math.round(top)}px`;
-      tip.style.opacity = '1';
+      // Medir el tip con opacity 0 pero visibility visible para forzar layout.
+      // `visibility: hidden` mantendría el rect pero el mockup CSS controla
+      // opacity via `.show`, así que aplicamos `show` y leemos rect.
+      tip.classList.add('show');
+      // Doble rAF para dejar que el navegador aplique el layout antes de medir.
+      if (rafHandle != null) window.cancelAnimationFrame(rafHandle);
+      rafHandle = window.requestAnimationFrame(() => {
+        rafHandle = window.requestAnimationFrame(() => {
+          if (!activeAnchor) return; // se ocultó durante el rAF
+          const tipRect = tip.getBoundingClientRect();
+          const vw = window.innerWidth;
+          const vh = window.innerHeight;
+          const margin = 8;
+          // Preferencia: encima del anchor, centrado horizontalmente.
+          let top = rect.top - tipRect.height - margin;
+          let left = rect.left + rect.width / 2 - tipRect.width / 2;
+          // Flip vertical si no cabe arriba.
+          if (top < margin) {
+            top = rect.bottom + margin;
+            // Si tampoco cabe abajo, forzar dentro del viewport arriba.
+            if (top + tipRect.height > vh - margin) {
+              top = Math.max(margin, vh - tipRect.height - margin);
+            }
+          }
+          // Clamp horizontal a viewport.
+          if (left < margin) left = margin;
+          if (left + tipRect.width > vw - margin) left = vw - tipRect.width - margin;
+          tip.style.left = `${Math.round(left)}px`;
+          tip.style.top = `${Math.round(top)}px`;
+        });
+      });
     }
 
+    /**
+     * Muestra el tooltip para un nuevo anchor. Si ya había uno activo,
+     * lo cierra primero (una sola instancia visible · HARDENING-022d bug 1d).
+     */
     function show(anchor: HTMLElement) {
-      if (hideTimeout) { window.clearTimeout(hideTimeout); hideTimeout = null; }
+      // Si el anchor ya está activo, sólo re-anclar (no re-renderizar).
+      if (activeAnchor === anchor) {
+        positionTip(anchor);
+        return;
+      }
+      // Cerrar el anterior antes de mostrar el nuevo.
+      if (activeAnchor && activeAnchor !== anchor) {
+        activeAnchor.removeAttribute('aria-describedby');
+      }
       const raw = anchor.getAttribute('data-tip');
       const copy = resolveCopy(raw);
       if (!copy) return;
@@ -114,15 +157,16 @@ export function TipProvider({ children }: { children: React.ReactNode }) {
     }
 
     function hide() {
-      if (hideTimeout) window.clearTimeout(hideTimeout);
-      hideTimeout = window.setTimeout(() => {
-        tip.classList.remove('show');
-        tip.setAttribute('aria-hidden', 'true');
-        if (activeAnchor) {
-          activeAnchor.removeAttribute('aria-describedby');
-          activeAnchor = null;
-        }
-      }, 120);
+      if (rafHandle != null) { window.cancelAnimationFrame(rafHandle); rafHandle = null; }
+      tip.classList.remove('show');
+      tip.setAttribute('aria-hidden', 'true');
+      // Fuera de viewport tras ocultar para no interceptar layout accidental.
+      tip.style.left = '-9999px';
+      tip.style.top = '-9999px';
+      if (activeAnchor) {
+        activeAnchor.removeAttribute('aria-describedby');
+        activeAnchor = null;
+      }
     }
 
     function findAnchor(target: EventTarget | null): HTMLElement | null {
@@ -139,8 +183,10 @@ export function TipProvider({ children }: { children: React.ReactNode }) {
     function onMouseOut(e: MouseEvent) {
       const anchor = findAnchor(e.target);
       if (!anchor) return;
+      // Si el mouse va a otro elemento dentro del MISMO anchor, no ocultar.
       const to = e.relatedTarget instanceof Element ? e.relatedTarget.closest('[data-tip]') : null;
       if (to === anchor) return;
+      // Cualquier otra salida (fuera del anchor, o a otro anchor distinto) → cerrar.
       hide();
     }
     function onFocusIn(e: FocusEvent) {
@@ -159,7 +205,7 @@ export function TipProvider({ children }: { children: React.ReactNode }) {
       }
       if (touchHideTimeout) window.clearTimeout(touchHideTimeout);
       show(anchor);
-      // En móvil, ocultar tras 3s si no hay nueva interacción.
+      // En móvil, ocultar tras 3 s si no hay nueva interacción.
       touchHideTimeout = window.setTimeout(hide, 3000);
     }
     function onScrollOrResize() {
@@ -187,8 +233,8 @@ export function TipProvider({ children }: { children: React.ReactNode }) {
       doc.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('resize', onScrollOrResize);
-      if (hideTimeout) window.clearTimeout(hideTimeout);
       if (touchHideTimeout) window.clearTimeout(touchHideTimeout);
+      if (rafHandle != null) window.cancelAnimationFrame(rafHandle);
       // Retirar el root del DOM.
       if (root.parentNode) root.parentNode.removeChild(root);
     };

@@ -15,6 +15,7 @@ cambios validados en dev pod contra Servier `B28184687` (auth + anon).
 | HARDENING-022c  | Cleanup Resumen · -177 L (5 items retirados)          | ✅ |
 | GLOSARIO        | 5 keys nuevas (FACTURACION · ACTIVOS_TOTALES · QUALITY_SCORE · BUYER_FIT_SCORE · OPPORTUNITY_SCORE) | ✅ |
 | HARDENING-005   | `scripts/post_deploy.sh` orquesta purge + smoke      | ✅ |
+| HARDENING-022d  | Bundle correctivo · tooltips + rings sin focus azul + fallback verdict restaurado | ✅ |
 
 Detalle completo por bloque: `/app/memory/PLAN_BETA_status_20260810.md`.
 
