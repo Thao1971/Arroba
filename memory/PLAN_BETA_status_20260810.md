@@ -1173,3 +1173,71 @@ Razón: el turno prioriza tooltips + MethodDetails (ROI visual inmediato) sobre 
 ### DEPLOY
 - **NO** — bundle acumulado (HARDENING-018 + 019 + 020 + 020-fix + 021) para próximo push manual.
 - **Checklist post-push**: purga cache (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`) + restart pods prod para servir manifest fresco.
+
+---
+## 2026-08-13 · HARDENING-021 Fase 1 completa · 3 hooks + 4 tooltips + lvlIn revisado
+
+### Tarea 1 · Tooltips restantes cableados (4/4)
+Todos con el patrón `<span className="help" data-tip="{KEY}" tabIndex={0}>...</span>` (canon del mockup · líneas 615/616), consumiendo el glosario ya publicado.
+
+| Término runtime | Key GLOSARIO | Ubicación exacta |
+|---|---|---|
+| Enterprise Value | `ENTERPRISE_VALUE` | `CompanyFichaLayoutV2.tsx:995` (h3 card Valoración) |
+| Múltiplo (EV/EBITDA) | `EV_EBITDA` | `CompanyFichaLayoutV2.tsx:999` (idrow) |
+| Equity value | `EQUITY_VALUE` | `CompanyFichaLayoutV2.tsx:1000` (idrow) |
+| Percentil sectorial | `PERCENTIL_SECTORIAL` | `CompanyFichaLayoutV2.tsx:1378` (Rankings percentil grande) |
+
+**Ajustes en `glosario.ts`**: ninguno. Las 4 keys ya coincidían exactas con el glosario canónico.
+
+**`<abbr title>` legacy retirado**: 1 (Enterprise Value línea 995) — reemplazado por `<span className="help">` para consistencia con el resto del sistema `.tip`.
+
+### Tarea 2 · 3 hooks cableados con mesura
+
+**`useRevealOnScroll` (revUp)** aplicado a **cards con más valor de reveal** — mesura estricta, no cascada:
+- `¿Por qué este valor?` (Valoración · `valuation-why-this-value`)
+- `<MethodDetails>` Valoración (`valuation-method-wrap`)
+- `<MethodDetails>` HHI (`hhi-method-wrap`)
+- `<MethodDetails>` Rankings (`rankings-method-wrap`)
+
+Envueltas con nuevo helper `<RevealCard>` (línea 306) que aplica `useRevealOnScroll` + estado inicial `opacity:0; transform:translateY(10px)` + `revUp .5s cubic-bezier(.2,.7,.3,1) forwards` cuando entra en viewport. `once: true`, respeta `prefers-reduced-motion` (fallback estado `opacity:1` inmediato en el hook).
+
+**Decisión de mesura**: NO aplicado a las secciones `<section className="panel on">` porque ya usan la animación `fade .25s ease` heredada del mockup (línea 115 CSS) cuando cambia la tab. Duplicar `revUp` sobre ellas produce doble entrance.
+
+**`useCountUp`** aplicado a 2 lugares:
+- `Ring` (Diagnóstico rings de score, línea 218 refactorizado) · antes usaba `requestAnimationFrame` al mount; ahora se dispara al entrar en viewport vía `IntersectionObserver`. Respeta `prefers-reduced-motion` (muestra valor final directo). Una sola animación por elemento.
+- `PercentileValue` (Rankings percentil grande, línea 282) · componente nuevo · anima `0 → pct` con formato `${Math.round(n)}º`. Si `pct` es null → renderiza guión (R15).
+
+**Decisión de mesura**: NO aplicado a los KPIs del hero (Facturación/EBITDA/Empleados). Razón: son 6 KPIs simultáneos, animarlos todos genera ruido visual "wall of animation". Los rings de score y el percentil grande ya son puntos focales suficientes para transmitir "explicabilidad activa".
+
+**`useBarFill`** aplicado a:
+- `.owbar .obt i` (Propiedad · tab Distribución) vía nuevo componente `OwnBar` (línea 300). Anima `width:0 → pct%` al aparecer en viewport, aprovechando la transición CSS `.9s cubic-bezier(.3,.7,.3,1)` ya en `fichaMockupCss.ts`. Una animación por elemento; los ítems siguientes de la lista se animan escalonadamente porque cada uno tiene su propio observer.
+
+**Decisión de mesura**: NO aplicado a `.rk .rb i` (barras Rankings) — la sección Rankings actual **no renderiza barras** (usa `.idrow` con números). Las `<PorQueEsteValor>` no tienen `.gaprow .gb i` en el shape actual (los `hypotheses` son strings, no ejes numéricos). Se re-cablearán cuando Intel emita eses estructurados.
+
+**Reduced-motion honrado en los 3 hooks**: `useCountUp` verifica `matchMedia('(prefers-reduced-motion: reduce)').matches` y muestra valor final directo; `useRevealOnScroll` deja el elemento visible sin animación en SSR/legacy; `useBarFill` aplica el `width:pct%` inmediatamente sin transición cuando el observer no está disponible.
+
+### Tarea 3 · lvlIn Finanzas
+- Grep `Nivel de detalle` sólo devuelve resultados en `CompanyFichaLayoutV2.tsx.bak_*` (backups históricos).
+- **El slider NO existe en la vista actual del layout V2**. Fue retirado en la refactorización del layout (probablemente en HARDENING-011 o previo, coincidiendo con la introducción de las tablas Balance/Cuenta con expand/collapse por row en vez de un slider global).
+- **`lvlIn` no cableado** — no hay componente donde aplicarlo hoy. Cuando el usuario reintroduzca el slider (o un mecanismo equivalente de despliegue progresivo de rows), aplicaremos `.lvl-in-row` con `animation: lvlIn .28s ease both` + delays escalonados. Documentado aquí para retomar cuando aplique.
+
+### BUILD
+- `yarn typecheck`: **verde** (3.41 s) — 1 warning inicial de TS null-check en el observer intermitente del Ring, corregido explicitando el tipo `IntersectionObserver | null`.
+- `yarn build`: **verde** (17.29 s) · First Load JS shared **87.3 kB** (baseline preservado — el wiring nuevo se comparte dinámicamente entre chunks de la ficha).
+- `sudo supervisorctl restart frontend`: aplicado (workflow endurecido).
+
+### DEPLOY
+- **NO** — bundle acumulado (HARDENING-018 + 019 + 020 + 020-fix + 021 completo) para push manual del usuario.
+- **Smoke manual Daniel**: verificación visual en pod dev antes del push.
+- **Checklist post-push (recordatorio)**: purga cache Mongo (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`) + restart pods prod para servir manifest fresco.
+
+### Estado global (post-HARDENING-021)
+- ✅ HARDENING-018 Propiedad 1:1 · verde pre-push
+- ✅ HARDENING-019 Fase B canon CF + Gobierno ES · verde pre-push
+- ✅ HARDENING-020 Anexo B Señales + Oportunidades + barrida · verde pre-push
+- ✅ HARDENING-020-fix Oportunidades reason CF + YoY residual · verde pre-push
+- ✅ HARDENING-021 Fase 1 (tooltips + micro-animaciones) + Fase 3 (MethodDetails) · verde pre-push
+- ⏸️ Fase 2 (procedencia por métrica `.srcdot`) · aparcada · REQ P2 emitido
+- ⏸️ Comparativa peers T5-T10 · congelada `/tmp/wip_comparativa_20260813/`
+- ⏸️ `/connections` grafo Propiedad · aparcado (3 respuestas Intel pendientes)
+- ❌ HARDENING-004 automated cache invalidation · sin implementar

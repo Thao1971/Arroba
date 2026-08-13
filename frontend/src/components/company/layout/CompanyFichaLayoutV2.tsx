@@ -22,6 +22,7 @@ import type {
 } from '@/lib/companies/intelligence-types';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 import { MethodDetails, METHOD_VALORACION, METHOD_HHI, METHOD_RANKINGS } from '@/components/company/atoms/MethodDetails';
+import { useRevealOnScroll, useCountUp, useBarFill } from '@/hooks/useRevealOnScroll';
 import { PROPIEDAD_MOCKUP_CSS } from './propiedadMockupCss';
 import { notify } from '@/lib/notify';
 
@@ -216,23 +217,57 @@ function EvolutionChart({ series, years, masked }: { series: EvoSerie[]; years: 
   );
 }
 function Ring({ val, label, color }: { val: number; label: string; color: string }) {
+  /**
+   * HARDENING-021 · Fase 1 · Ring anima al aparecer en viewport (no al mount).
+   * Respeta `prefers-reduced-motion`. Una única animación por elemento.
+   */
   const r = 34, c = 2 * Math.PI * r;
-  const [off, setOff] = useState(c);
-  const [num, setNum] = useState(0);
-  useEffect(() => {
-    const t0 = performance.now(), dur = 1150;
+  const [off, setOff] = React.useState(c);
+  const [num, setNum] = React.useState(0);
+  const wrapRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof window === 'undefined') return;
+    const prefersReduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (prefersReduce) {
+      setNum(Math.round(val));
+      setOff(c * (1 - val / 100));
+      return;
+    }
+    let started = false;
     let raf = 0;
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
-      setOff(c * (1 - (val / 100) * e));
-      setNum(Math.round(val * e));
-      if (p < 1) raf = requestAnimationFrame(tick);
+    const observer: IntersectionObserver | null = typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting && !started) {
+              started = true;
+              const t0 = performance.now(), dur = 1150;
+              const tick = (now: number) => {
+                const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+                setOff(c * (1 - (val / 100) * e));
+                setNum(Math.round(val * e));
+                if (p < 1) raf = requestAnimationFrame(tick);
+              };
+              raf = requestAnimationFrame(tick);
+              if (observer) observer.disconnect();
+              break;
+            }
+          }
+        }, { threshold: 0.1 })
+      : null;
+    if (observer) observer.observe(el);
+    else {
+      // Fallback SSR/legacy: mostrar valor final.
+      setNum(Math.round(val));
+      setOff(c * (1 - val / 100));
+    }
+    return () => {
+      if (observer) observer.disconnect();
+      if (raf) cancelAnimationFrame(raf);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
   }, [val, c]);
   return (
-    <div className="ring">
+    <div className="ring" ref={wrapRef}>
       <div className="lbl">{label}</div>
       <svg width={92} height={92} viewBox="0 0 92 92">
         <circle cx={46} cy={46} r={r} fill="none" stroke={N2} strokeWidth={8} />
@@ -244,6 +279,49 @@ function Ring({ val, label, color }: { val: number; label: string; color: string
     </div>
   );
 }
+/**
+ * HARDENING-021 · Fase 1 · Componente para el "Percentil grande" de Rankings.
+ * Anima el número de 0 → value al entrar en viewport (con `useCountUp`).
+ * Si `value` es null → renderiza guión (R15).
+ */
+function PercentileValue({ value }: { value: number | null | undefined }) {
+  const { ref, display } = useCountUp<HTMLSpanElement>(
+    typeof value === 'number' ? value : null,
+    { duration: 900, format: (n) => `${Math.round(n)}º` },
+  );
+  if (value == null) return <b style={{ fontSize: 22 }}>—</b>;
+  return <b ref={ref} style={{ fontSize: 22 }}>{display}</b>;
+}
+/**
+ * HARDENING-021 · Fase 1 · Barra `.owbar .obt i` de la lista de Distribución
+ * (Propiedad). Anima `width` de 0 → pct al aparecer en viewport (transición
+ * CSS `.9s cubic-bezier(.3,.7,.3,1)` ya definida en fichaMockupCss.ts).
+ */
+function OwnBar({ pct }: { pct: number }) {
+  const ref = useBarFill<HTMLElement>(pct);
+  return <i ref={ref} data-w={String(pct)} />;
+}
+/**
+ * HARDENING-021 · Fase 1 · Wrapper de reveal para cards que se benefician
+ * de una entrada al scrollear (Fase 3 · MethodDetails, "¿Por qué este valor?",
+ * etc.). Aplica `useRevealOnScroll` con mesura: `once: true`, respeta
+ * `prefers-reduced-motion`, opacidad 0 → 1 con `translateY(10px)` inicial.
+ * Un solo trigger por elemento — no re-anima en scroll de vuelta.
+ */
+function RevealCard({ children, style, className, testid }: { children: React.ReactNode; style?: React.CSSProperties; className?: string; testid?: string }) {
+  const ref = useRevealOnScroll<HTMLDivElement>();
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ opacity: 0, transform: 'translateY(10px)', ...style }}
+      data-testid={testid}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** CTA de registro (mixed-access): el visitante anónimo ve esto en lugar de las cifras. */
 function Gate({ what }: { what: string }) {
   return (
@@ -914,12 +992,12 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
         )}
         {r && (
           <div className="card">
-            <h3><span className="k" /><abbr title="Valor de la empresa: equity + deuda neta. Métrica de compra teórica.">Enterprise Value</abbr></h3>
+            <h3><span className="k" /><span className="help" data-tip="ENTERPRISE_VALUE" tabIndex={0}>Enterprise Value</span></h3>
             <div className="evrow"><span className="lb">{scenarioName(0)}</span><div className="evbar"><i style={{ width: `${pctOf(r.low)}%`, background: 'var(--red)' }} /></div><span className="val">{fmtEUR(r.low)}</span></div>
             <div className="evrow"><span className="lb">{scenarioName(1)}</span><div className="evbar"><i style={{ width: `${pctOf(r.central)}%`, background: 'var(--info)' }} /></div><span className="val">{fmtEUR(r.central)}</span></div>
             <div className="evrow"><span className="lb">{scenarioName(2)}</span><div className="evbar"><i style={{ width: `${pctOf(r.high)}%`, background: 'var(--ok)' }} /></div><span className="val">{fmtEUR(r.high)}</span></div>
-            {valuation.multiple != null && <div className="idrow" style={{ marginTop: 10 }}><span className="k">Múltiplo</span><span className="v">{valuation.multiple.toLocaleString('es-ES', { maximumFractionDigits: 1 })}× {valuation.multiple_basis ?? 'EBITDA'}</span></div>}
-            <div className="idrow"><span className="k" style={{ fontWeight: 700, color: 'var(--n900)' }}>Equity value</span><span className="v" style={{ color: 'var(--red-hover)' }}>{fmtEUR(valuation.equity_value)}</span></div>
+            {valuation.multiple != null && <div className="idrow" style={{ marginTop: 10 }}><span className="k"><span className="help" data-tip="EV_EBITDA" tabIndex={0}>Múltiplo</span></span><span className="v">{valuation.multiple.toLocaleString('es-ES', { maximumFractionDigits: 1 })}× {valuation.multiple_basis ?? 'EBITDA'}</span></div>}
+            <div className="idrow"><span className="k" style={{ fontWeight: 700, color: 'var(--n900)' }}><span className="help" data-tip="EQUITY_VALUE" tabIndex={0}>Equity value</span></span><span className="v" style={{ color: 'var(--red-hover)' }}>{fmtEUR(valuation.equity_value)}</span></div>
           </div>
         )}
       </div>
@@ -951,25 +1029,25 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
         </div>
       )}
       {valuation.hypotheses.length > 0 && (
-        <div className="card" style={{ marginTop: 16 }}>
+        <RevealCard className="card" style={{ marginTop: 16 }} testid="valuation-why-this-value">
           <h3><span className="k" />¿Por qué este valor?</h3>
           <div className="cs">Explicación detrás del número, no sólo la cifra</div>
           <div style={{ paddingTop: 4 }}>
             {valuation.hypotheses.map((h, i) => <div key={i} style={{ fontSize: 13, color: 'var(--n700)', padding: '4px 0', lineHeight: 1.55 }}>◆ {h}</div>)}
           </div>
-        </div>
+        </RevealCard>
       )}
       {/* HARDENING-021 · Fase 3 · Metodología estática canónica (prosa CF redactada por Arroba,
           no dato de empresa · R15 respetado). Reemplaza el `<details className="method">`
           genérico que sólo mostraba el string `methodology` del payload. */}
-      <div style={{ marginTop: 16 }}>
+      <RevealCard style={{ marginTop: 16 }} testid="valuation-method-wrap">
         <MethodDetails
           title={METHOD_VALORACION.title}
           formula={METHOD_VALORACION.formula}
           steps={[...METHOD_VALORACION.steps]}
           testid="method-valoracion"
         />
-      </div>
+      </RevealCard>
       {methodology && (
         <div className="cs" style={{ marginTop: 8, fontSize: 11, color: 'var(--n500)', fontStyle: 'italic' }} data-testid="method-valoracion-source-note">
           Nota metodológica del motor: {methodology}
@@ -1297,8 +1375,8 @@ function Rankings({ analysis }: { analysis: FinancialAnalysis | null }) {
         <h3><span className="k" />Percentil sectorial</h3>
         <div className="cs">Posición relativa por ingresos dentro del sector CNAE</div>
         <div className="idrow" data-testid="rankings-percentile">
-          <span className="k">Percentil</span>
-          <span className="v"><b style={{ fontSize: 22 }}>{pct != null ? `${pct}º` : '—'}</b></span>
+          <span className="k"><span className="help" data-tip="PERCENTIL_SECTORIAL" tabIndex={0}>Percentil</span></span>
+          <span className="v"><PercentileValue value={pct} /></span>
         </div>
       </div>
       <div className="card" style={{ marginTop: 16 }}>
@@ -1336,13 +1414,13 @@ function Rankings({ analysis }: { analysis: FinancialAnalysis | null }) {
         </div>
       )}
       {/* HARDENING-021 · Fase 3 · Metodología estática (universo comparable). */}
-      <div style={{ marginTop: 16 }}>
+      <RevealCard style={{ marginTop: 16 }} testid="rankings-method-wrap">
         <MethodDetails
           title={METHOD_RANKINGS.title}
           steps={[...METHOD_RANKINGS.steps]}
           testid="method-rankings"
         />
-      </div>
+      </RevealCard>
     </section>
   );
 }
@@ -1459,14 +1537,14 @@ function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/in
         <div className="cs" style={{ marginTop: 6, fontSize: 10.5, color: 'var(--n500)' }}>{conc.hhi_methodology}</div>
       )}
       {/* HARDENING-021 · Fase 3 · Metodología estática HHI (prosa CF · Anexo B). */}
-      <div style={{ marginTop: 12 }}>
+      <RevealCard style={{ marginTop: 12 }} testid="hhi-method-wrap">
         <MethodDetails
           title={METHOD_HHI.title}
           formula={METHOD_HHI.formula}
           steps={[...METHOD_HHI.steps]}
           testid="method-hhi"
         />
-      </div>
+      </RevealCard>
     </div>
   );
 }
@@ -1884,7 +1962,7 @@ function OwnListView({ cg }: { cg: ControlGraphNominal }) {
         return (
           <div key={`ow-${i}`} className="owbar" data-testid={`own-list-item-${i}`} style={isSep ? { marginTop: 8 } : undefined}>
             <span className="obn"><span className="obtag">{it.tag}</span>{it.name}</span>
-            <span className="obt"><i style={{ width: `${w}%` }} data-w={String(w)} /></span>
+            <span className="obt"><OwnBar pct={w} /></span>
             <span className="obp">{fmtPct(it.pct)}</span>
           </div>
         );
