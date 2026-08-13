@@ -1644,3 +1644,73 @@ Sistema Tip funciona con estas 5 keys ausentes (fallback silencioso). Añadir al
 ### Deploy
 
 - **NO desplegado.** Bundle final consolidado para push manual: **HARDENING-021 + 004 + 022 + 022b + 004b + 022c**.
+
+---
+
+## 2026-08-13 · Bundle final pre-push · Glosario + HARDENING-005 · DONE
+
+### 1) Glosario · 5 keys añadidas
+
+`/app/frontend/src/lib/companies/glosario.ts`:
+
+| Key                | label              | Sección Resumen        |
+|:-------------------|:-------------------|:----------------------|
+| FACTURACION        | Facturación        | T2 · KPI              |
+| ACTIVOS_TOTALES    | Activos totales    | T2 · KPI              |
+| QUALITY_SCORE      | Calidad            | T6 · Diagnóstico ring |
+| BUYER_FIT_SCORE    | Encaje comprador   | T6 · Diagnóstico ring |
+| OPPORTUNITY_SCORE  | Oportunidad        | T6 · Diagnóstico ring |
+
+- Copy literal usuario respetando tildes + punto final.
+- Shape idéntico al resto del glosario (`{label, definition}`, sin `why_ma`/`band` porque el usuario no los proporcionó).
+- Verificado con grep: los 5 `<Tip data-tip="{key}">` del layout matchean 1:1.
+- `yarn typecheck` + `yarn build` verdes · First Load JS shared **87.3 kB** (baseline sin regresión) · ruta `/es/empresa-f01/[cif]` **50.7 kB / 162 kB** (+0.3 kB por las 5 entradas).
+
+### 2) REQ-INTEL para `opportunity.*` retirado
+
+Usuario confirma que `opportunity.thesis.narrative` + `opportunity.chips[]` YA están en Prod (auth). Pod dev va por detrás — se verán solos post-push. No hay borrador de REQ pendiente que retirar (ninguno emitido formalmente en 022b/022c). Cerrado.
+
+### 3) HARDENING-005 · `scripts/post_deploy.sh` autorizado
+
+Archivo creado: `/app/scripts/post_deploy.sh` (+7.6 KB · `chmod +x`). Contenido:
+
+- **(a) Purge**: `POST /api/admin/cache/purge` con `X-Admin-Token: $ARROBA_ADMIN_TOKEN` + body `{"engine":"ficha"}`.
+- **(b) Smoke** · 5 checks read-only:
+  1. `/api/health` responde `status:ok`.
+  2. `/api/companies/{CIF}/ficha` anon HTTP 200 + `finances:null` (DPD).
+  3. `identity.legal_name` presente en payload anon.
+  4. `/api/openapi.json` expone `/api/admin/cache/purge` (verifica HARDENING-004 registrado).
+  5. Frontend `/es/empresa-f01/{CIF}` HTTP 200.
+- **(c) Resumen** OK/FAIL colorizado por check.
+- **Exit code**: 0 si todos verdes, 1 si CUALQUIER check falla (`FAILS` accumulator, no `set -e` para ejecutar TODOS antes de reportar).
+- **Idempotente**: purga sobre cache vacío = no-op; checks read-only.
+- **Overrides**: `ARROBA_BASE_URL` (default beta.arroba.com), `SMOKE_CIF` (default B28184687), `SMOKE_TIMEOUT_S` (default 20).
+- **Fail-safe env**: si `ARROBA_ADMIN_TOKEN` no está exportado → exit 2 con mensaje.
+
+Documentado en `/app/scripts/README.md`.
+
+**No ejecutado** en dev pod (spec del usuario): script listo para disparar tras deploy Prod.
+
+### 4) DEPLOY_NOTES.md creado
+
+`/app/DEPLOY_NOTES.md` con:
+- Tabla de bundle contents (021 + 004 + 022 + 022b + 004b + 022c + glosario + 005).
+- Verificaciones pre-push (typecheck, build, pytest, curl smoke).
+- Secuencia de 5 pasos para deploy manual.
+- Prerrequisitos (`ARROBA_ADMIN_TOKEN` en Prod ANTES del deploy).
+- Notas de rollback (aditivo, seguro).
+
+### Verificación final
+
+- **Grep 5 keys glosario vs layout**: 5/5 matchean ✅
+- `yarn typecheck`: verde (1.9 s) ✅
+- `yarn build`: verde (17.3 s) · shared **87.3 kB** ✅
+- `bash -n scripts/post_deploy.sh`: syntax OK ✅
+- `chmod +x scripts/post_deploy.sh`: ✅
+- Frontend restarted: ✅
+
+### Bundle final para push · listo
+
+`HARDENING-021 + 004 + 022 + 022b + 004b + 022c + glosario + 005`
+
+Secuencia de deploy documentada en `/app/DEPLOY_NOTES.md`.

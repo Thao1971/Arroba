@@ -169,6 +169,30 @@ export const GLOSARIO: Record<string, GlosarioEntry> = {
     label: 'Confianza',
     definition: 'Cómo de fiable es la señal según la calidad del dato que la sustenta.',
   },
+
+  // ─── Tamaño y balance (HARDENING-022c · copy usuario 2026-08-13) ───
+  FACTURACION: {
+    label: 'Facturación',
+    definition: 'Ingresos totales por ventas del ejercicio. Es el tamaño del negocio y el punto de partida de casi todo el análisis de una operación.',
+  },
+  ACTIVOS_TOTALES: {
+    label: 'Activos totales',
+    definition: 'Todo lo que la empresa posee (inmovilizado, existencias, tesorería, derechos de cobro). Indica el tamaño del balance.',
+  },
+
+  // ─── Scores de Diagnóstico ARROBA (HARDENING-022c · copy usuario 2026-08-13) ───
+  QUALITY_SCORE: {
+    label: 'Calidad',
+    definition: 'Solidez financiera de la empresa combinando rentabilidad, solvencia, liquidez y crecimiento. Cuanto más alta, más robusto y defendible el negocio.',
+  },
+  BUYER_FIT_SCORE: {
+    label: 'Encaje comprador',
+    definition: 'Grado de encaje entre la compañía y el mejor comprador identificado: cuánto complementan su perfil, tamaño y territorio, y qué sinergias habría.',
+  },
+  OPPORTUNITY_SCORE: {
+    label: 'Oportunidad',
+    definition: 'Atractivo de la empresa como oportunidad de operación, según sus señales recientes y su posición de mercado.',
+  },
 };
 
 /**
