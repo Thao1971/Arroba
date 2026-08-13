@@ -1559,3 +1559,88 @@ Sin las keys, `<Tip>` cae al `data-tip` literal (fallback defensivo). Zero-coupl
 2. Sync `ARROBA_ADMIN_TOKEN` en panel Emergent (env var Prod).
 3. Purga cache Prod: `curl -X POST https://beta.arroba.com/api/admin/cache/purge -H "X-Admin-Token: $TOKEN" -d '{"engine":"ficha"}'` (ya no requiere `mongosh`).
 4. Smoke visual de los 7 bloques en Servier B28184687 (auth y anon).
+
+---
+
+## 2026-08-13 · HARDENING-022c · Cleanup Resumen · DONE
+
+Contexto: post-review del usuario, 5 items quirúrgicos front-only. Regla R15 estricto — `opportunity.thesis.narrative` es la fuente única para toda la Tesis (Intel ya combina sector + posicionamiento + veredicto).
+
+### T1 · Sub-card "Contexto sectorial" retirado
+
+- **Ubicación eliminada**: `<SectorSignalWidget market={market} />` dentro de `TesisOportunidadCard` (línea 949 previa) + componente `SectorSignalWidget` completo (líneas 515-565 previas · 51 líneas) + prop `market` de `TesisOportunidadCard`.
+- **Prosa `opportunity.thesis.narrative` renderiza como bloque único**: sí (una `<p>` continua sin sub-cards).
+
+### T2 · Card "Lectura de posicionamiento" retirado
+
+- **Ubicación eliminada**: `<div data-testid="rankings-explain-card">` con `<h3>Lectura de posicionamiento</h3>` (líneas 772-781 previas · 10 líneas).
+- **Contenido absorbido en `thesis.narrative`**: sí (Intel combina la lectura de ranking sectorial + territorial en la prosa Tesis).
+- La otra card `rankings-explain-bullets` (línea 1736 previa) vive en la pestaña Rankings — NO tocado.
+
+### T3 · IdentidadAmpliada legacy eliminado
+
+- **Componente eliminado**: `IdentidadAmpliada` (34 campos · Item 6.a HARDENING-B-2) + helpers `fmtYesNo` + `IdentityRow` (líneas 1913-2004 previas · 93 líneas totales).
+- **Usos eliminados**: 2 renders (anon línea 629 + auth línea 731).
+- **Campos huérfanos sin sitio nuevo**: 
+  - `Registro mercantil` (`record_status`), `Fecha de constitución` (`incorporation_date`), `Forma jurídica` (ya vive en T5), `Estado mercantil` (ya en badge cabecera), `CNAE secundario` (subgrupo Registro), `Ticker` (subgrupo Cotización, siempre null), `Cotizada` / `Mercado de cotización` (subgrupo Cotización, siempre null), `Comunidad autónoma` (subgrupo Domicilio).
+  - **Ninguno viene poblado con valor real en Servier** (verificado curl `/ficha`). Todos son passthrough Intel actualmente null. No hay pérdida funcional real.
+  - Si alguno se puebla en el futuro y no tiene ubicación en T5 → repórtalo al usuario y añade fila individual con SrcDot.
+
+### T4 · 4 KPIs 2ª fila eliminados
+
+- **Cards eliminados**: Crecimiento anualizado (CAGR 3Y) · Fondos propios · Tendencia global (`TrendPill`) · Percentil por ingresos (líneas 734-770 previas · 37 líneas).
+- **Componente `TrendPill` eliminado** (líneas 391-404 previas · 14 líneas). No se usa en ningún otro lado.
+- **Lógica útil identificada**: 
+  - `evolution.trend` (growth/stable/contraction) sigue disponible en el payload → utilizable en Tesis o en la pestaña Finanzas si Intel emite copy CF. Documentado para retomar si aparece.
+  - `revenue_cagr` sigue disponible en `kpis.revenue_cagr` → la prosa `thesis.narrative` de Intel ya lo menciona ("Ingresos al alza (+11,7% interanual)").
+  - `equity` (`Fondos propios`) sigue en `balance_sheet.equity` → utilizable en Detalles T5 si el usuario decide reintroducirlo.
+  - `sector_revenue_percentile` sigue en `ranking.sector_revenue_percentile` → disponible para la pestaña Rankings.
+- Ninguna pérdida definitiva: los datos están; solo se retira la card visual.
+
+### T5 · Diagnóstico cleanup
+
+- **Marco retirado**: `<div className="card">` wrapper que envolvía los 3 anillos. Reemplazado por `<div>` limpio con `<h3>` inline con estilo mínimo (`border-left rojo 3px` del canon). Los anillos mantienen su borde individual `.ring` (mockup-standard).
+- **Extensión `Ring` component**: nuevo prop `tooltip?: string` que envuelve la label con `<span class="help" data-tip={tooltip} tabIndex={0}>`.
+- **Tooltips cableados**:
+  | Anillo | data-tip |
+  |:--|:--|
+  | Calidad | `QUALITY_SCORE` |
+  | Encaje comprador | `BUYER_FIT_SCORE` |
+  | Oportunidad | `OPPORTUNITY_SCORE` |
+- **Keys presentes en `glosario.ts`**: ❌ ninguna de las 3.
+- **Keys presentes en canon `GLOSARIO_EXPLICABILIDAD_FICHA.md`**: ❌ ninguna de las 3 (verificado con grep).
+- **Comportamiento actual**: `<Tip>` global (Fase 1) renderiza `null` cuando la key no existe, `<span class="help">` mantiene solo el hint visual `cursor: help` + underline. **Sin regresión funcional** — solo falta copy.
+
+### Glosario · Keys pendientes de copy (usuario)
+
+- `FACTURACION` · KPI T2 · Facturación
+- `ACTIVOS_TOTALES` · KPI T2 · Activos totales
+- `QUALITY_SCORE` · Anillo T6 · Calidad ← nuevo en 022c
+- `BUYER_FIT_SCORE` · Anillo T6 · Encaje comprador ← nuevo en 022c
+- `OPPORTUNITY_SCORE` · Anillo T6 · Oportunidad ← nuevo en 022c
+
+Sistema Tip funciona con estas 5 keys ausentes (fallback silencioso). Añadir al `glosario.ts` cuando el usuario redacte copy CF.
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|:--|:--|
+| `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` | -177 líneas netas · retirados: `SectorSignalWidget` (51 L) · `IdentidadAmpliada` + helpers (93 L) · `TrendPill` (14 L) · rankings-explain-card (10 L) · grid KPIs 2ª fila (37 L) · card wrapper Diagnóstico. Añadidos: prop `tooltip?` en `Ring` (5 L) + 3 comentarios de retiro. Net: -177 L. Archivo: 3391 → 3214 líneas. |
+| `/app/memory/PLAN_BETA_status_20260810.md` | Este bloque |
+
+### Verificación
+
+- **Grep post-cleanup**:
+  - `SectorSignalWidget`, `hero-sector-signal-widget`: 0 usos activos ✅
+  - `Lectura de posicionamiento`, `rankings-explain-card`: 0 usos activos en Resumen ✅
+  - `IdentidadAmpliada`, `Identificación registral`: 0 usos activos ✅
+  - `Crecimiento anualizado`, `Tendencia global`, `Percentil por ingresos`, `TrendPill`: 0 usos activos (única mención restante de "Fondos propios" es en el `abbrTitle` de ROE en la tabla de ratios — legítimo) ✅
+- **`yarn typecheck`**: ✅ verde (3.49s)
+- **`yarn build`**: ✅ verde (17.34s) · **First Load JS shared 87.3 kB** (idéntico baseline) · Ruta `/es/empresa-f01/[cif]`: **50.4 kB / 162 kB**
+- **`sudo supervisorctl restart frontend`**: ✅
+- **Backend regression**: purga cache `{engine:"ficha"}` OK · fetch anon HTTP 200 en 7.03s (cold Intel) · payload `identity.activity_es`, `verified`, `auditor`, `description_source='ai'` presentes.
+- **Ring tooltip DOM check**: los 3 rings ahora renderizan con `<span class="help" data-tip="QUALITY_SCORE" tabIndex="0">Calidad</span>` (equiv para BUYER_FIT y OPPORTUNITY).
+
+### Deploy
+
+- **NO desplegado.** Bundle final consolidado para push manual: **HARDENING-021 + 004 + 022 + 022b + 004b + 022c**.

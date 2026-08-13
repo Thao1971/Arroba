@@ -229,7 +229,7 @@ function EvolutionChart({ series, years, masked }: { series: EvoSerie[]; years: 
     </div>
   );
 }
-function Ring({ val, label, color }: { val: number; label: string; color: string }) {
+function Ring({ val, label, color, tooltip }: { val: number; label: string; color: string; tooltip?: string }) {
   /**
    * HARDENING-021 · Fase 1 · Ring anima al aparecer en viewport (no al mount).
    * Respeta `prefers-reduced-motion`. Una única animación por elemento.
@@ -281,7 +281,11 @@ function Ring({ val, label, color }: { val: number; label: string; color: string
   }, [val, c]);
   return (
     <div className="ring" ref={wrapRef}>
-      <div className="lbl">{label}</div>
+      <div className="lbl">
+        {tooltip
+          ? <span className="help" data-tip={tooltip} tabIndex={0}>{label}</span>
+          : label}
+      </div>
       <svg width={92} height={92} viewBox="0 0 92 92">
         <circle cx={46} cy={46} r={r} fill="none" stroke={N2} strokeWidth={8} />
         <circle cx={46} cy={46} r={r} fill="none" stroke={color} strokeWidth={8} strokeLinecap="round"
@@ -383,21 +387,9 @@ function Skeleton() {
   );
 }
 
-/** Pill de tendencia global (B-1.5 · Item 5). Consume evolution.trend de FinancialAnalysis. */
-function TrendPill({ trend }: { trend: string | null | undefined }) {
-  const norm = (trend ?? '').toLowerCase();
-  let color: string, bg: string, label: string;
-  if (norm === 'growth' || norm === 'positive') { color = '#16a34a'; bg = 'var(--ok-tint)'; label = 'Crecimiento'; }
-  else if (norm === 'stable' || norm === 'flat') { color = '#6b7280'; bg = 'var(--n100)'; label = 'Estable'; }
-  else if (norm === 'contraction' || norm === 'decline' || norm === 'deterioration') { color = '#dc2626'; bg = 'var(--red-tint)'; label = 'Contracción'; }
-  else return <div className="kpi"><div className="l">Tendencia global</div><div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div><div className="d inf">sin dato</div></div>;
-  return (
-    <div className="kpi" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start' }}>
-      <div className="l">Tendencia global</div>
-      <div style={{ display: 'inline-block', padding: '6px 14px', borderRadius: 999, background: bg, color, fontSize: 14, fontWeight: 800, marginTop: 8 }}>● {label}</div>
-    </div>
-  );
-}
+/* HARDENING-022c · Componente `TrendPill` (B-1.5 Item 5 legacy) retirado
+   junto con el grid de 4 KPIs 2ª fila del Resumen. La tendencia global vive
+   ahora implícita en la evolución T7 y en la Tesis de oportunidad T4. */
 
 /**
  * HARDENING-022 · Sparkline SVG minimalista para KPIs (T2 Resumen).
@@ -508,57 +500,6 @@ function KpiCard({
 /** Hero + card "Veredicto de ARROBA" — bloque de portada del Resumen (compartido anon/auth).
  *  Cascada de descripción: `identity.description` → `identity.objeto_social` → `financialAnalysis.identity.description` → `financialAnalysis.identity.objeto_social` → <Empty/>.
  *  El fallback a `financialAnalysis.identity` resuelve la descoordinación Intel I-1 en la que `/section/identity` aún devuelve null pero `/financial-analysis` sí puebla el dato. */
-/**
- * HARDENING-022 · Widget "Contexto sectorial" (mini). Extraído del legacy
- * `HeroBlock` para reutilización en la card Tesis de oportunidad (T4).
- * Allowlist estricta: solo renderiza si `market.sector.signal` está en el set
- * de señales fuertes. Passthrough puro, cero traducción.
- */
-function SectorSignalWidget({ market }: { market?: MarketBlock | null }) {
-  const sector = market?.sector ?? null;
-  const strongSignals = new Set(['sector_contraction', 'growth_momentum']);
-  if (!sector || !sector.signal || !strongSignals.has(sector.signal)) return null;
-  return (
-    <div
-      className="card"
-      data-testid="hero-sector-signal-widget"
-      style={{ marginTop: 12, padding: '10px 14px', background: 'var(--n50)', borderLeft: '3px solid var(--n300)' }}
-    >
-      <div style={{ fontSize: 11, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700, marginBottom: 6 }}>
-        Contexto sectorial
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span data-testid="hero-sector-signal-trend">
-          <TrendBadge direction={sector.trend_direction} />
-        </span>
-        {sector.national_yoy_pct != null && (
-          <span
-            data-testid="hero-sector-signal-yoy"
-            style={{ fontSize: 13, color: 'var(--n700)' }}
-          >
-            <b>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</b> interanual
-          </span>
-        )}
-      </div>
-      {(sector.primary_driver_label ?? sector.primary_driver) && (
-        <div
-          data-testid="hero-sector-signal-driver"
-          style={{ marginTop: 6, fontSize: 13, color: 'var(--n800)', lineHeight: 1.5 }}
-        >
-          Impulsor principal · <b>{sector.primary_driver_label ?? sector.primary_driver}</b>
-        </div>
-      )}
-      {sector.cnae_label && (
-        <div
-          data-testid="hero-sector-signal-cnae"
-          style={{ marginTop: 6, fontSize: 10.5, color: 'var(--n500)', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: 0.2 }}
-        >
-          {sector.cnae_label}{sector.cnae_code ? ` · CNAE ${sector.cnae_code}` : ''}
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ============================ RESUMEN ============================ */
 /**
@@ -673,9 +614,9 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
           <div className="idrow"><span className="k">CNAE</span><span className="v">{cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_description ?? ''}` : '—'}</span></div>
           <div className="idrow"><span className="k">Domicilio</span><span className="v">{[loc.municipio, loc.provincia].filter(Boolean).join(' · ') || '—'}</span></div>
         </div>
-        <div style={{ marginTop: 16 }}>
-          <IdentidadAmpliada identity={identity} />
-        </div>
+        {/* HARDENING-022c · Retirado `<IdentidadAmpliada>` (34 campos) tanto en
+            anon como en auth. Toda la identidad registral relevante vive ya en
+            "Detalles de la compañía" (T5). Anti-duplicidad. */}
       </section>
     );
   }
@@ -742,7 +683,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       </div>
 
       {/* ═══════════════════════ T4 · Tesis de oportunidad (rename destacada) ═══════════════════════ */}
-      <TesisOportunidadCard text={thesisText} market={p.market} />
+      <TesisOportunidadCard text={thesisText} />
 
       {/* ═══════════════════════ T5 · Detalles de la compañía (rename + campos movidos) ═══════════════════════ */}
       <div className="card" style={{ marginTop: 18 }} data-testid="detalles-compania">
@@ -773,69 +714,28 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
         )}
       </div>
 
-      {/* Card ampliada de identidad registral (34 campos) · sin cambios funcionales, solo reordenada. */}
-      <div style={{ marginTop: 16 }}>
-        <IdentidadAmpliada identity={identity} />
-      </div>
+      {/* HARDENING-022c · Retirado `<IdentidadAmpliada>` (34 campos legacy).
+          Todos los campos registrales relevantes ya viven en el card
+          "Detalles de la compañía" (T5) arriba. Anti-duplicidad UI. */}
 
-      {/* ═══════════════════════ Rankings + KPIs 2ª fila (contexto post-Detalles) ═══════════════════════ */}
-      {k && (
-        <div className="kgrid" style={{ marginTop: 18 }}>
-          <div className="kpi">
-            <div className="l">
-              <SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'revenue_cagr') as ProvenanceValue | null} />
-              <span className="help" data-tip="CAGR_3Y" tabIndex={0}>Crecimiento anualizado (3 años)</span>
-            </div>
-            <div className="v">{pctF(k.revenue_cagr)}</div>
-            <div className="d inf">tasa acumulada media</div>
-          </div>
-          <div className="kpi">
-            <div className="l">
-              <SrcDot type={provenanceFor(financialAnalysis?.provenance, 'balance_sheet', 'equity') as ProvenanceValue | null} />
-              <span className="help" data-tip="AUTONOMIA_FINANCIERA" tabIndex={0}>Fondos propios</span>
-            </div>
-            <div className="v">{fmtEurCompact(financialAnalysis?.balance_sheet?.equity ?? null)}</div>
-            <div className="d inf">patrimonio neto</div>
-          </div>
-          <TrendPill trend={financialAnalysis?.evolution?.trend ?? null} />
-          {(() => {
-            const rk = financialAnalysis?.ranking ?? null;
-            const sp = rk?.sector_revenue_percentile;
-            return (
-              <div className="kpi" data-testid="kpi-sector-percentile">
-                <div className="l"><span className="help" data-tip="PERCENTIL_SECTORIAL" tabIndex={0}>Percentil por ingresos</span></div>
-                {sp != null ? (
-                  <>
-                    <div className="v">{sp}<span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>º</span></div>
-                    <div className="d inf">en su sector</div>
-                  </>
-                ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
-              </div>
-            );
-          })()}
-        </div>
-      )}
+      {/* HARDENING-022c · Retirado grid con 4 KPIs 2ª fila (CAGR, Fondos
+          propios, Tendencia global, Percentil por ingresos). Su información
+          vive en Finanzas / Rankings / Tesis. Anti-duplicidad UI R15. */}
 
-      {financialAnalysis?.ranking?.explain && financialAnalysis.ranking.explain.length > 0 && (
-        <div className="card" style={{ marginTop: 12 }} data-testid="rankings-explain-card">
-          <h3><span className="k" />Lectura de posicionamiento</h3>
-          <div className="cs">Comparativa contra el universo sectorial y territorial</div>
-          <ul style={{ margin: 0, paddingLeft: 20, paddingTop: 8 }}>
-            {financialAnalysis.ranking.explain.map((line, i) => (
-              <li key={i} style={{ fontSize: 13.5, color: 'var(--n700)', padding: '3px 0', lineHeight: 1.55 }}>{line}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* HARDENING-022c · Retirado card "Lectura de posicionamiento".
+          `opportunity.thesis.narrative` (T4) ya absorbe esa lectura combinada. */}
 
-      {/* ═══════════════════════ T6 · Diagnóstico de ARROBA (sin marco azul) ═══════════════════════ */}
-      <div style={{ marginTop: 18 }}>
+      {/* ═══════════════════════ T6 · Diagnóstico de ARROBA (sin card wrapper) ═══════════════════════ */}
+      {/* HARDENING-022c · Retirado el `<div className="card">` wrapper que
+          creaba el marco perimetral. Los anillos (`Ring`) mantienen su borde
+          individual `.ring` del mockup. Título en el flujo abierto. */}
+      <div style={{ marginTop: 18 }} data-testid="diagnostico-arroba">
         {rings.length > 0 ? (
-          <div className="card" data-testid="diagnostico-arroba">
-            <h3><span className="k" />Diagnóstico de ARROBA</h3>
-            {/* HARDENING-022 T6 · Retirado marco azul + explicaciones detalladas
-                por debajo de cada score. La explicación se accede via tooltip
-                del glosario (`<Tip>`) al hover/tap sobre el label del anillo. */}
+          <>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--n900)', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ width: 3, height: 15, background: 'var(--red)', borderRadius: 2 }} />
+              Diagnóstico de ARROBA
+            </h3>
             <div className="scores" style={{ gridTemplateColumns: `repeat(${rings.length},1fr)` }}>
               {rings.map((r) => (
                 <Ring
@@ -843,10 +743,11 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
                   val={r.v}
                   label={r.label}
                   color={r.color}
+                  tooltip={r.tooltip}
                 />
               ))}
             </div>
-          </div>
+          </>
         ) : <Pending label="Diagnóstico de ARROBA" />}
       </div>
 
@@ -908,15 +809,15 @@ function ResumenProsaCard({ text, showDisclaimer }: { text: string | null; showD
 }
 
 /**
- * HARDENING-022 (b · 2026-08-13) · T4 · Tesis de oportunidad.
+ * HARDENING-022 (c · 2026-08-13) · T4 · Tesis de oportunidad.
  * · Card destacada con acento rojo (borde-izq rojo + fondo rosa muy suave).
  * · Fuente única: `opportunity.thesis.narrative` (bloque `opportunity` de `/ficha`).
  *   Fallback legacy `finances.assessment.verdict` **retirado en 022b**.
+ *   Sub-card "Contexto sectorial" **retirado en 022c** (la prosa Intel ya lo combina).
  * · Si Intel no emite → Empty honesto "En preparación".
- * · Incluye `<SectorSignalWidget>` como contexto subordinado si signal fuerte.
  * · CTA "Explorar oportunidad" (link a la pestaña Oportunidades cuando exista).
  */
-function TesisOportunidadCard({ text, market }: { text: string | null; market?: MarketBlock | null }) {
+function TesisOportunidadCard({ text }: { text: string | null }) {
   return (
     <div
       className="card"
@@ -946,7 +847,9 @@ function TesisOportunidadCard({ text, market }: { text: string | null; market?: 
           <Empty label="Tesis de oportunidad" />
         </div>
       )}
-      <SectorSignalWidget market={market} />
+      {/* HARDENING-022c · Retirado sub-card `SectorSignalWidget`. La prosa
+          `opportunity.thesis.narrative` ya combina sector + posicionamiento +
+          veredicto. Sin sub-cards, sin enums crudos. R15 estricto. */}
       <div style={{ marginTop: 14 }}>
         <button
           className="btn primary"
@@ -1995,98 +1898,9 @@ function Eventos({ events }: { events?: Record<string, unknown> | null }) {
   );
 }
 
-/* ============================ IDENTIFICACIÓN AMPLIADA ============================ */
-/**
- * Item 6.a · Identificación registral y societaria (2026-08-11).
- * Card estructurada en 4 subgrupos: Registro, Domicilio, Capital y plantilla, Cotización.
- * Passthrough puro R15: campo null → `<Empty/>` local sin ocultar la fila (para que el
- * usuario sepa qué falta). Cero derivadas.
- * Público (dato registral).
- */
-function fmtYesNo(v: boolean | null | undefined): string | null {
-  if (v === true) return 'Cotizada';
-  if (v === false) return 'No cotizada';
-  return null;
-}
-function IdentityRow({ label, value, testid }: { label: string; value: string | null | undefined; testid: string }) {
-  const has = value !== null && value !== undefined && String(value).trim().length > 0 && String(value) !== '—';
-  return (
-    <div className="idrow" data-testid={testid}>
-      <span className="k">{label}</span>
-      <span className="v" style={has ? undefined : { color: 'var(--n400)', fontStyle: 'italic' }}>
-        {has ? value : 'En preparación'}
-      </span>
-    </div>
-  );
-}
-function IdentidadAmpliada({ identity }: { identity: IdentitySection }) {
-  // Passthrough desde `identity` (proveniente de adaptIdentityFromFicha) + fallback
-  // a `financialAnalysis.identity` cuando corresponda (mismo criterio que Hero).
-  const cif = identity.cif_normalized ?? null;
-  const legal_name = identity.legal_name ?? null;
-  const registry = identity.registry_status ?? { legal_form: null, mercantile_status: null, activity_status: null, incorporation_date: null, record_status: null, is_listed: null, listed_market: null };
-  const legal_form = registry.legal_form ?? null;
-  const mercantile_status = registry.mercantile_status ?? null;
-  const activity_status = registry.activity_status ?? null;
-  const incorporation_date = fmtDate(registry.incorporation_date ?? null);
-  const record_status = registry.record_status ?? null;
-  const loc = identity.location ?? { provincia: null, municipio: null, codigo_postal: null, pais: null };
-  const address = identity.address ?? null;
-  const postal_code = loc.codigo_postal ?? null;
-  const locality = loc.municipio ?? null;
-  const province = loc.provincia ?? null;
-  const autonomous_community = identity.autonomous_community ?? null;
-  const country = identity.country ?? loc.pais ?? null;
-  const sz = identity.size ?? {};
-  const capital_social = sz.capital_social ?? null;
-  const employees_total = sz.employees_total ?? null;
-  const listed = registry.is_listed ?? null;
-  const listed_market = registry.listed_market ?? null;
-
-  return (
-    <div className="card" data-testid="identity-expanded">
-      <h3><span className="k" />Identificación registral y societaria</h3>
-      <div className="cs">Datos registrales, domicilio, capital y estado de cotización</div>
-
-      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
-        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Registro</h5>
-        <IdentityRow label="Razón social"      value={legal_name}                                testid="identity-expanded-registro-legal_name" />
-        <IdentityRow label="CIF/NIF"           value={cif}                                       testid="identity-expanded-registro-cif" />
-        <IdentityRow label="Forma jurídica"    value={legal_form}                                testid="identity-expanded-registro-legal_form" />
-        <IdentityRow label="Estado mercantil"  value={mercantile_status}                         testid="identity-expanded-registro-mercantile_status" />
-        <IdentityRow label="Situación de actividad" value={activity_status}                      testid="identity-expanded-registro-activity_status" />
-        <IdentityRow label="Fecha de constitución"  value={incorporation_date}                   testid="identity-expanded-registro-incorporation_date" />
-        <IdentityRow label="Estado del registro"    value={record_status}                        testid="identity-expanded-registro-record_status" />
-      </div>
-
-      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
-        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Domicilio</h5>
-        <IdentityRow label="Dirección"         value={address}                                   testid="identity-expanded-domicilio-address" />
-        <IdentityRow label="Código postal"     value={postal_code}                               testid="identity-expanded-domicilio-postal_code" />
-        <IdentityRow label="Municipio"         value={locality}                                  testid="identity-expanded-domicilio-locality" />
-        <IdentityRow label="Provincia"         value={province}                                  testid="identity-expanded-domicilio-province" />
-        <IdentityRow label="Comunidad autónoma" value={autonomous_community}                     testid="identity-expanded-domicilio-autonomous_community" />
-        <IdentityRow label="País"              value={country}                                   testid="identity-expanded-domicilio-country" />
-      </div>
-
-      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
-        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Capital y plantilla</h5>
-        <IdentityRow label="Capital social"    value={capital_social != null ? fmtEUR(capital_social) : null} testid="identity-expanded-capital-capital_social" />
-        <IdentityRow label="Empleados totales" value={employees_total != null ? fmtNum(employees_total) : null} testid="identity-expanded-capital-employees_total" />
-        {/* R15: `employees_range` no lo entrega Intel; no lo derivamos desde `employees_total`. */}
-        <IdentityRow label="Rango de plantilla" value={null}                                     testid="identity-expanded-capital-employees_range" />
-      </div>
-
-      <div style={{ marginTop: 14, borderTop: '1px dashed var(--n200)', paddingTop: 14 }}>
-        <h5 style={{ margin: 0, marginBottom: 8, fontSize: 12, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>Cotización</h5>
-        <IdentityRow label="Estado de cotización" value={registry.is_listed_label_es ?? fmtYesNo(listed)}                       testid="identity-expanded-cotizacion-is_listed" />
-        <IdentityRow label="Mercado"           value={listed_market}                             testid="identity-expanded-cotizacion-listed_market" />
-        {/* R15: `ticker` no lo entrega Intel; siempre `<Empty/>`. */}
-        <IdentityRow label="Ticker"            value={null}                                      testid="identity-expanded-cotizacion-ticker" />
-      </div>
-    </div>
-  );
-}
+/* HARDENING-022c · Componente `IdentidadAmpliada` (Item 6.a legacy)
+   + helpers `fmtYesNo` / `IdentityRow` retirados. Los 34 campos han sido
+   consolidados en el card "Detalles de la compañía" (T5 del Resumen). */
 
 /* ============================ PROPIEDAD (Refactor 1:1 mockup · HARDENING-018 · 2026-08-13) ============================
  * Fuente canónica: `mockup_propiedad.html` (`#ownSeg` + `#ownTree` + `#ownList` + `#ownGraph`).
