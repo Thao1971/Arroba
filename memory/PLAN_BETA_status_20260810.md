@@ -1823,3 +1823,100 @@ const thesisText: string | null = (
 ### Deploy
 
 - **NO desplegado.** Bundle final consolidado: **HARDENING-021 + 004 + 022 + 022b + 004b + 022c + Glosario (5 keys) + 005 + 022d**.
+
+---
+
+## 2026-08-13 · HARDENING-022e · Root cause · Colisión `.ring` con Tailwind · FIX
+
+### Root cause exacta
+
+**Colisión de nombre de clase** entre nuestra `.ring` (canon del mockup, aplicada al wrapper de cada anillo) y la **utility `.ring` de Tailwind CSS** que aplica:
+
+```css
+.ring {
+  --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+  --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(3px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+  box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+}
+```
+
+Con `--tw-ring-color` default `rgba(59, 130, 246, 0.5)` (blue-500 alpha 50%) — inicializado por Tailwind en `*, *::before, *::after` como custom-property inheritable.
+
+**Evidencia** del forensic dump (Chromium + WebKit ANTES del fix):
+```
+boxShadow: 'rgb(255, 255, 255) 0px 0px 0px 0px,
+            rgba(59, 130, 246, 0.5) 0px 0px 0px 3px,
+            rgba(0, 0, 0, 0) 0px 0px 0px 0px'
+```
+
+Persistente sin `:hover`, sin `:focus`, en los 2 engines (Blink + WebKit) → confirmada colisión Tailwind utility.
+
+**Fichero + regla origen del azul**:
+- `/app/frontend/node_modules/tailwindcss/tailwind.css` · reset preflight que inicializa `--tw-ring-color`
+- `/app/frontend/.next/static/css/*.css` (compilado) · regla `.ring{...box-shadow: var(--tw-ring-shadow)...}` aplicada por match del selector con nuestra classname
+
+**No es `outline` de `:focus-visible`** (el fix de 022d no era la causa). El fix de 022d se mantiene por accesibilidad teclado (canon rojo) pero es ortogonal.
+
+### Fix aplicado · rename definitivo
+
+**Renombrar clase `.ring` (canon) → `.aring`** en TODOS los selectores CSS del mockup + en el JSX del componente `Ring`. Rompe la colisión sin `!important` ni overrides frágiles.
+
+Cambios:
+- `/app/frontend/src/components/company/layout/fichaMockupCss.ts`: **10 ocurrencias** de `.ring` renombradas a `.aring`:
+  - `.aring{...}`, `.aring:hover{...}`
+  - `.aring .lbl{...}`, `.aring svg{...}`, `.aring .n{...}`
+  - `.row>.aring`, `.aring [tabindex]:focus`, `.aring [tabindex]:focus-visible`
+  - `.aring .help:focus`, `.aring .help:focus-visible`
+- `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx`: `<div className="ring">` → `<div className="aring">` en el componente `Ring` (línea 283).
+
+Además, el fix del 022e original (retirar caja del `.ring`: `background:transparent; border:0; border-radius:0; padding:8px 0`) se conserva: garantiza que si algún día apareciera otra colisión inesperada, la caja ya está desnuda.
+
+### Verificación forensic cross-browser
+
+Script: `/tmp/verify_rings.py` (Playwright async con `chromium` + `webkit`).
+
+**Chromium (Blink)** post-fix:
+```
+border: '0px none rgb(33, 31, 28)'
+outline: 'rgb(33, 31, 28) none 3px'
+boxShadow: 'none'
+backgroundColor: 'rgba(0, 0, 0, 0)'
+padding: '8px 0px'
+borderRadius: '0px'
+```
+
+**WebKit (Safari)** post-fix:
+```
+border: '0px none rgb(33, 31, 28)'
+outline: '3px none rgb(33, 31, 28)'
+boxShadow: 'none'
+backgroundColor: 'rgba(0, 0, 0, 0)'
+padding: '8px 0px'
+borderRadius: '0px'
+```
+
+Screenshots visuales guardados en `/tmp/diag_chrome.png` y `/tmp/diag_webkit.png`.
+
+**VERDICT**:
+- Chromium: OK · rings sin recuadro
+- WebKit: OK · rings sin recuadro
+
+### Verificación
+
+| Item | Estado |
+|:--|:--:|
+| `yarn typecheck` | ✅ verde (3.56 s) |
+| `yarn build` | ✅ verde (18.13 s) |
+| First Load JS shared | **87.3 kB** (baseline sin regresión) |
+| Grep `.ring` remanentes en canon | 0 (todos renombrados a `.aring`) |
+| Grep `className="ring"` en JSX | 0 |
+| Playwright Chromium DOM check | ✅ `boxShadow: 'none'`, `border: 0px none` |
+| Playwright WebKit DOM check | ✅ `boxShadow: 'none'`, `border: 0px none` |
+
+### Nota sobre el stroke SVG del anillo "Oportunidad"
+
+El stroke SVG del anillo "Oportunidad" mantiene `#2563EB` (constante `INFO` del canon). NO ha sido tocado — la instrucción del usuario refería explícitamente a "recuadros" (border/background/shadow), no al color del arco del ring. El SVG stroke azul es la circunferencia interior del anillo, no un recuadro perimetral.
+
+### Deploy
+
+- **NO desplegado.** Bundle final actualizado: **HARDENING-021 + 004 + 022 + 022b + 004b + 022c + Glosario (5 keys) + 005 + 022d + 022e**.

@@ -280,7 +280,7 @@ function Ring({ val, label, color, tooltip }: { val: number; label: string; colo
     };
   }, [val, c]);
   return (
-    <div className="ring" ref={wrapRef}>
+    <div className="aring" ref={wrapRef}>
       <div className="lbl">
         {tooltip
           ? <span className="help" data-tip={tooltip} tabIndex={0}>{label}</span>
