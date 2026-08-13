@@ -28,6 +28,7 @@ import type {
   ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { Spinner } from '@/components/ds';
+import { TipProvider } from '@/components/company/atoms/Tip';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
 
 import { CompanyFichaLayoutV2 } from './layout/CompanyFichaLayoutV2';
@@ -262,23 +263,25 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   }
 
   return (
-    <CompanyFichaLayoutV2
-      identity={identity}
-      financial={financial ?? null}
-      financialAnalysis={financialAnalysis}
-      financialAnalysisLoading={fichaLoading}
-      valuation={valuation ?? null}
-      valuationLoading={valuationLoading}
-      semantic={semantic ?? null}
-      signal={signal ?? null}
-      buyers={buyers ?? null}
-      opportunities={opportunities ?? null}
-      governance={ficha?.governance ?? null}
-      ownership={ficha?.ownership ?? null}
-      controlGraph={ficha?.control_graph ?? null}
-      events={ficha?.events ?? null}
-      market={ficha?.market ?? null}
-      authenticated={isAuthenticated}
-    />
+    <TipProvider>
+      <CompanyFichaLayoutV2
+        identity={identity}
+        financial={financial ?? null}
+        financialAnalysis={financialAnalysis}
+        financialAnalysisLoading={fichaLoading}
+        valuation={valuation ?? null}
+        valuationLoading={valuationLoading}
+        semantic={semantic ?? null}
+        signal={signal ?? null}
+        buyers={buyers ?? null}
+        opportunities={opportunities ?? null}
+        governance={ficha?.governance ?? null}
+        ownership={ficha?.ownership ?? null}
+        controlGraph={ficha?.control_graph ?? null}
+        events={ficha?.events ?? null}
+        market={ficha?.market ?? null}
+        authenticated={isAuthenticated}
+      />
+    </TipProvider>
   );
 }

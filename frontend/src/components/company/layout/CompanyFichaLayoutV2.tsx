@@ -21,6 +21,7 @@ import type {
   RecommendationSet, SemanticSection, SignalAnalysis, ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
+import { MethodDetails, METHOD_VALORACION, METHOD_HHI, METHOD_RANKINGS } from '@/components/company/atoms/MethodDetails';
 import { PROPIEDAD_MOCKUP_CSS } from './propiedadMockupCss';
 import { notify } from '@/lib/notify';
 
@@ -444,8 +445,8 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       {k ? (
         <div className="kgrid" style={{ marginTop: 16 }}>
           <div className="kpi"><div className="l">Facturación</div><div className="v">{fmtEUR(k.revenue ?? null)}</div>{k.revenue_growth_yoy != null && <div className={`d ${k.revenue_growth_yoy >= 0 ? 'up' : 'down'}`}>{k.revenue_growth_yoy >= 0 ? '▲' : '▼'} {pctF(k.revenue_growth_yoy)} interanual</div>}</div>
-          <div className="kpi"><div className="l"><abbr title="Beneficio antes de intereses, impuestos, depreciación y amortización.">EBITDA</abbr></div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf">margen {pctF(k.ebitda_margin)}</div>}</div>
-          <div className="kpi"><div className="l">Resultado neto</div><div className="v">{fmtEUR(k.net_income ?? null)}</div>{k.net_margin != null && <div className="d inf">margen {pctF(k.net_margin)}</div>}</div>
+          <div className="kpi"><div className="l"><span className="help" data-tip="EBITDA" tabIndex={0}>EBITDA</span></div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf"><span className="help" data-tip="MARGEN_EBITDA" tabIndex={0}>margen</span> {pctF(k.ebitda_margin)}</div>}</div>
+          <div className="kpi"><div className="l"><span className="help" data-tip="RESULTADO_NETO" tabIndex={0}>Resultado neto</span></div><div className="v">{fmtEUR(k.net_income ?? null)}</div>{k.net_margin != null && <div className="d inf">margen {pctF(k.net_margin)}</div>}</div>
           <div className="kpi"><div className="l">Empleados</div><div className="v">{fmtNum(sz.employees_total)}</div><div className="d inf">plantilla</div></div>
         </div>
       ) : <div style={{ marginTop: 16 }}><Pending label="Indicadores financieros" /></div>}
@@ -453,19 +454,19 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       {k && (
         <div className="kgrid" style={{ marginTop: 12 }}>
           <div className="kpi">
-            <div className="l">Crecimiento anualizado (3 años)</div>
+            <div className="l"><span className="help" data-tip="CAGR_3Y" tabIndex={0}>Crecimiento anualizado (3 años)</span></div>
             <div className="v">{pctF(k.revenue_cagr)}</div>
             <div className="d inf">tasa acumulada media</div>
           </div>
           <div className="kpi">
             <div className="l">Crecimiento anual</div>
             <div className="v">{pctF(k.revenue_growth_yoy)}</div>
-            {k.ebitda_growth_yoy != null && <div className="d inf"><abbr title="Beneficio antes de intereses, impuestos, depreciación y amortización.">EBITDA</abbr> {pctF(k.ebitda_growth_yoy)}</div>}
+            {k.ebitda_growth_yoy != null && <div className="d inf"><span className="help" data-tip="EBITDA" tabIndex={0}>EBITDA</span> {pctF(k.ebitda_growth_yoy)}</div>}
           </div>
           <div className="kpi">
             <div className="l">Fondos propios</div>
             <div className="v">{fmtEurCompact(financialAnalysis?.balance_sheet?.equity ?? null)}</div>
-            <div className="d inf">patrimonio neto</div>
+            <div className="d inf"><span className="help" data-tip="AUTONOMIA_FINANCIERA" tabIndex={0}>patrimonio neto</span></div>
           </div>
           <TrendPill trend={financialAnalysis?.evolution?.trend ?? null} />
         </div>
@@ -958,11 +959,21 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
           </div>
         </div>
       )}
+      {/* HARDENING-021 · Fase 3 · Metodología estática canónica (prosa CF redactada por Arroba,
+          no dato de empresa · R15 respetado). Reemplaza el `<details className="method">`
+          genérico que sólo mostraba el string `methodology` del payload. */}
+      <div style={{ marginTop: 16 }}>
+        <MethodDetails
+          title={METHOD_VALORACION.title}
+          formula={METHOD_VALORACION.formula}
+          steps={[...METHOD_VALORACION.steps]}
+          testid="method-valoracion"
+        />
+      </div>
       {methodology && (
-        <details className="method" style={{ marginTop: 16 }}>
-          <summary>Metodología</summary>
-          <div className="mbody">{methodology}</div>
-        </details>
+        <div className="cs" style={{ marginTop: 8, fontSize: 11, color: 'var(--n500)', fontStyle: 'italic' }} data-testid="method-valoracion-source-note">
+          Nota metodológica del motor: {methodology}
+        </div>
       )}
     </section>
   );
@@ -1324,6 +1335,14 @@ function Rankings({ analysis }: { analysis: FinancialAnalysis | null }) {
           </ul>
         </div>
       )}
+      {/* HARDENING-021 · Fase 3 · Metodología estática (universo comparable). */}
+      <div style={{ marginTop: 16 }}>
+        <MethodDetails
+          title={METHOD_RANKINGS.title}
+          steps={[...METHOD_RANKINGS.steps]}
+          testid="method-rankings"
+        />
+      </div>
     </section>
   );
 }
@@ -1422,7 +1441,7 @@ function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/in
       {conc.narrative && (
         <p data-testid="mercado-concentration-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{conc.narrative}</p>
       )}
-      <div className="idrow"><span className="k">Índice de concentración</span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
+      <div className="idrow"><span className="k"><span className="help" data-tip="HHI" tabIndex={0}>Índice de concentración</span></span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
       {/* HARDENING-020 · Canon §2 · "HHI" retirado como etiqueta suelta (acrónimo·metodología). El número se preserva como dato dentro de la fila, con label CF ES neutro. */}
       {classLabel && (
         <div className="idrow" data-testid="mercado-concentration-classification"><span className="k">Clasificación</span><span className="v">{classLabel}</span></div>
@@ -1439,6 +1458,15 @@ function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/in
       {conc.hhi_methodology && (
         <div className="cs" style={{ marginTop: 6, fontSize: 10.5, color: 'var(--n500)' }}>{conc.hhi_methodology}</div>
       )}
+      {/* HARDENING-021 · Fase 3 · Metodología estática HHI (prosa CF · Anexo B). */}
+      <div style={{ marginTop: 12 }}>
+        <MethodDetails
+          title={METHOD_HHI.title}
+          formula={METHOD_HHI.formula}
+          steps={[...METHOD_HHI.steps]}
+          testid="method-hhi"
+        />
+      </div>
     </div>
   );
 }

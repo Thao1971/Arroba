@@ -1110,3 +1110,66 @@ Para próximos turnos con cambios en frontend + `yarn build`:
 ### DEPLOY
 - **NO** — bundle acumulado (HARDENING-018 + 019 + 020 + fixes) para próximo push manual.
 - Checklist post-push (documentado): purga cache (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`) + restart pods.
+
+---
+## 2026-08-13 · HARDENING-021 · Explicabilidad-primero (Fase 1 + Fase 3 + REQ Fase 2)
+
+### Workstream A · REQ + Glosario
+- **Glosario canónico** descargado en `/app/memory/GLOSARIO_EXPLICABILIDAD_FICHA.md` (5.1 kB · 74 líneas · 30+ términos). Copia public en `/app/frontend/public/handoff/GLOSARIO_EXPLICABILIDAD_FICHA.md` → **HTTP 200** verificado en preview URL.
+- **REQ Fase 2 emitido** `PARA_INTEL_metric_provenance.md` (6.7 kB · 2 opciones de shape, vocabulario controlado 3 valores, cobertura mínima, DPD passthrough) → **HTTP 200** verificado. Prioridad P2 · en cola tras REQs labels/comparables/opportunities-narrative.
+
+### Workstream B · Fase 1 · Explicabilidad + micro-animaciones
+**Archivos nuevos**:
+- `/app/frontend/src/lib/companies/glosario.ts` · **28 entradas** en 7 categorías (Rentabilidad+Resultado 6, Valor+Precio 3, Deuda+Solvencia 7, Caja+Circulante 6, Crecimiento 1, Posición+Mercado 3, Señales 2). Copy literal del glosario canónico, cero mención a "Intel" o internos. Helper `formatGlosarioTooltip()` para composición determinista.
+- `/app/frontend/src/components/company/atoms/Tip.tsx` · **`TipProvider` global** (renderiza un único `.tip` fixed en `<body>` con listeners globales delegados a `[data-tip]`) + wrapper `<Tip term text>`. Accesibilidad completa: mouseenter/leave, focusin/focusout (teclado), touchstart (móvil, auto-hide 3s), `role="tooltip"`, `aria-describedby` dinámico, `Escape` para cerrar. Escape HTML defensivo XSS-safe. Layout defensivo con viewport clamp.
+- `/app/frontend/src/hooks/useRevealOnScroll.ts` · 3 hooks: **`useRevealOnScroll`** (IntersectionObserver + animation `revUp .5s cubic-bezier(.2,.7,.3,1) forwards`), **`useCountUp`** (0 → target con `requestAnimationFrame` · ease-out cubic · respeta `prefers-reduced-motion`), **`useBarFill`** (width:0 → X% via transición CSS `transition:width .9s cubic-bezier(.3,.7,.3,1)` ya en `fichaMockupCss.ts`). Todos IntersectionObserver-based con `once: true` (disconnect tras primer trigger). SSR-safe.
+
+**Wiring · TipProvider global**:
+- `CompanyFichaF01Client.tsx` envuelve todo el layout con `<TipProvider>` — punto único de instalación.
+
+**Wiring · `data-tip` en KPIs hero** (`CompanyFichaLayoutV2.tsx`, líneas 447-468):
+- `EBITDA` chip → `data-tip="EBITDA"`
+- `margen` (Margen EBITDA) → `data-tip="MARGEN_EBITDA"`
+- `Resultado neto` → `data-tip="RESULTADO_NETO"`
+- `Crecimiento anualizado (3 años)` → `data-tip="CAGR_3Y"`
+- `EBITDA` growth chip → `data-tip="EBITDA"`
+- `patrimonio neto` (Fondos propios subtitle) → `data-tip="AUTONOMIA_FINANCIERA"`
+- `abbr title=` reemplazados por `span.help` (patrón mockup) con `tabIndex=0` para keyboard focus.
+
+**Wiring · `data-tip` en Mercado Concentración**:
+- `Índice de concentración` label → `data-tip="HHI"` (banda cualitativa + why-M&A).
+
+**Términos SIN cobertura en el glosario** (candidatos futuros que el usuario debería redactar):
+- `Enterprise Value` (existe `abbr title` legacy pero no está en el glosario canónico → dejar sin `data-tip` hasta que el usuario apruebe).
+- `Equity value` (label Valoración) → idem.
+- `Múltiplo` / `EV/EBITDA` cell → idem.
+- `Percentil sectorial` label Rankings → NO usar `data-tip="PERCENTIL_SECTORIAL"` todavía porque el copy CF puede requerir versión CF-oriented.
+- `Impacto` / `Confianza` chips de Señales → sí están en glosario (`SIGNAL_IMPACT`, `SIGNAL_CONFIDENCE`) pero el rework HARDENING-020 no dejó slot; se cablearán en un pase futuro por ergonomía visual (chip + tooltip sobre chip).
+
+**Hooks disponibles pero NO cableados aún** (ready to use en próximo pase Fase 1-B por si el usuario aprueba tras el tester):
+- `useRevealOnScroll` — para cards de sección al scrollear.
+- `useCountUp` — para KPI hero facturación/EBITDA/patrimonio.
+- `useBarFill` — para barras percentil/rank/gap.
+
+Razón: el turno prioriza tooltips + MethodDetails (ROI visual inmediato) sobre micro-animaciones. Aplicación selectiva evita over-engineering y facilita revisión visual del tester sin ruido.
+
+### Workstream C · Fase 3 · Metodología estática
+**Archivo nuevo**:
+- `/app/frontend/src/components/company/atoms/MethodDetails.tsx` · componente `<MethodDetails>` + 3 constantes con copy CF canónico redactado en prosa CF: `METHOD_VALORACION`, `METHOD_HHI`, `METHOD_RANKINGS`.
+
+**Cableado**:
+- **Valoración** (`CompanyFichaLayoutV2.tsx:961+`): retirado el `<details className="method">` genérico que sólo mostraba el string `methodology` del payload. Sustituido por `<MethodDetails>` con copy canónico (fórmula `EV = múltiplo × EBITDA − deuda neta + caja` + 4 pasos). El `methodology` original se preserva como nota metodológica del motor debajo (fuente estilística `.cs` italic).
+  - `¿Por qué este valor?` ya consumía `valuation.hypotheses` (line 952) → intacto.
+- **Mercado · Concentración** (`MercadoConcentrationPanel`, línea 1460+): añadido `<MethodDetails>` con fórmula `HHI = Σ(cuota_i)² × 10.000` + 3 pasos (bandas <1.500 / 1.500-2.500 / >2.500).
+- **Rankings** (`Rankings`, línea 1319+): añadido `<MethodDetails>` con 3 pasos (universo comparable · orden por facturación · lectura de percentil).
+
+**R15 respetado**: los `<MethodDetails>` describen método, no datos concretos de empresa. La sección "¿Por qué este valor?" sigue consumiendo `valuation.hypotheses` real de Intel (no fabrica hipótesis).
+
+### BUILD
+- `yarn typecheck`: **verde** (3.86 s).
+- `yarn build`: **verde** (18.61 s) · First Load JS shared **87.3 kB** (baseline preservado). El glosario (~4 kB compacto) + Tip.tsx (~3 kB) + MethodDetails (~1 kB) + hooks (~2 kB) se comparten dinámicamente entre chunks de la ficha; no incrementan el shared del bundle inicial.
+- `sudo supervisorctl restart frontend`: aplicado (workflow endurecido post-HARDENING-020-fix).
+
+### DEPLOY
+- **NO** — bundle acumulado (HARDENING-018 + 019 + 020 + 020-fix + 021) para próximo push manual.
+- **Checklist post-push**: purga cache (`db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})`) + restart pods prod para servir manifest fresco.
