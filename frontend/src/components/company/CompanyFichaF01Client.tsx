@@ -89,7 +89,11 @@ function adaptIdentityFromFicha(
     contact: {
       web: (get('website') as string | null) ?? null,
       domain: (get('domain') as string | null) ?? null,
-      linkedin: (get('linkedin') as string | null) ?? null,
+      // HARDENING-022b · Intel emite `linkedin_url` (verificado Servier · 2026-08-13).
+      // Fallback tolerante a `linkedin` por si algún endpoint expone la clave corta.
+      linkedin: (get('linkedin_url') as string | null)
+        ?? (get('linkedin') as string | null)
+        ?? null,
     },
     size: {
       employees_total: (get('employees_total') as number | null) ?? null,
@@ -121,18 +125,20 @@ function adaptIdentityFromFicha(
       listed_market: (get('listed_market') as string | null) ?? null,
     },
     data_coverage: (get('data_coverage') as Record<string, boolean> | null) ?? {},
-    // ---- HARDENING-022 · Resumen redistribution · aditivo, passthrough puro ----
-    // Estos campos existen en Intel top-level pero aún no en el shape adaptado.
-    // Consumen `activity_es`, `verified`, `has_financials`, `auditor_name` (via
-    // governance passthrough), `description_source`. Todos null en la mayoría
-    // de CIFs; UI degrada a Empty/placeholder cuando falta el dato (R15).
-    activity_es: (get('activity_es') as string | null)
-      ?? (get('cnae_activity_es') as string | null)
-      ?? (get('cnae_description_es') as string | null)
-      ?? null,
+    // ---- HARDENING-022b · shapes reales confirmados por Intel (Servier · 2026-08-13) ----
+    // `identity.activity_es`     : CNAE ES ("Fabricación de especialidades farmacéuticas")
+    // `identity.verified`        : bool (Servier true)
+    // `identity.auditor`         : string directo con nombre de auditor ("ERNST & YOUNG")
+    // `identity.linkedin_url`    : URL o null (Servier null)
+    // `identity.description_source`: 'official' | 'ai' | 'web' | null (Servier 'ai')
+    // `has_financials` se obtiene del bloque `finances`, no del propio identity;
+    // el layout lo lee directamente y no requiere passthrough aquí.
+    activity_es: (get('activity_es') as string | null) ?? null,
     verified: (get('verified') as boolean | null) ?? null,
     has_financials: (get('has_financials') as boolean | null) ?? null,
-    auditor_name: (get('auditor_name') as string | null) ?? null,
+    auditor_name: (get('auditor') as string | null)
+      ?? (get('auditor_name') as string | null)
+      ?? null,
     description_source: (get('description_source') as 'official' | 'ai' | 'web' | null) ?? null,
   };
   return identity;

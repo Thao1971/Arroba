@@ -26,6 +26,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
   "real_mongo: integration test that hits a real MongoDB at MONGO_URL (skipped by default)",
+  "smoke: fast smoke tests (< 100 ms) — safe to run on every commit (HARDENING-004b, etc.)",
 ]
 addopts = ["-m", "not real_mongo"]
 filterwarnings = [

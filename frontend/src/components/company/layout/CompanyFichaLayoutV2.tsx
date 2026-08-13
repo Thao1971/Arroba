@@ -40,6 +40,17 @@ export interface CompanyFichaLayoutV2Props {
   buyers?: RecommendationSet | null;
   opportunities?: RecommendationSet | null;
   /**
+   * HARDENING-022b · Bloque `opportunity` (singular) del payload `/ficha`
+   * emitido por Intel. Contiene:
+   *   - `thesis.narrative`: prosa CF combinada de sector + posicionamiento + veredicto (T4).
+   *   - `chips[]`: chips de oportunidades activas `{enum, label_es}` para la cabecera T1.
+   * Passthrough puro. `undefined`/`null` → UI degrada a Empty (R15).
+   */
+  opportunity?: {
+    thesis?: { narrative?: string | null } | null;
+    chips?: Array<{ enum?: string | null; label_es?: string | null }> | null;
+  } | null;
+  /**
    * B-2.3 · Bloque `governance` del agregador `/ficha`. Union type discriminado
    * por `available` + presencia de `officers`/`summary`:
    *   - Autenticado con datos → shape nominal (officers[]).
@@ -607,27 +618,32 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const descriptionSource = identity.description_source ?? null;
   const showDisclaimer = descriptionSource === 'ai' || descriptionSource === 'web';
 
-  // HARDENING-022 · T4 · Tesis de oportunidad. Fuente preferida:
-  // `opportunities.thesis_narrative` o `hero.thesis_narrative` (pendientes Intel).
-  // Fallback legacy: `finances.assessment.verdict`.
-  const oppsProp = p.opportunities as unknown as { thesis_narrative?: string | null } | null;
-  const thesisNarrative =
-    (oppsProp?.thesis_narrative && oppsProp.thesis_narrative.trim())
-    || null;
-  const verdictRaw = financialAnalysis?.assessment?.verdict ?? null;
-  const verdictLegacy = typeof verdictRaw === 'string' && verdictRaw.trim().length > 0 ? verdictRaw.trim() : null;
-  const thesisText = thesisNarrative || verdictLegacy;
+  // HARDENING-022b · T4 · Tesis de oportunidad. Fuente única: Intel emite
+  // `opportunity.thesis.narrative` (bloque `opportunity`, no `opportunities`).
+  // Fallback legacy `finances.assessment.verdict` RETIRADO por instrucción del
+  // usuario (turno 022b). Si Intel no emite → Empty honesto "En preparación".
+  const thesisNarrative = p.opportunity?.thesis?.narrative;
+  const thesisText = typeof thesisNarrative === 'string' && thesisNarrative.trim().length > 0
+    ? thesisNarrative.trim()
+    : null;
 
   // T2 · KPIs · DN/EBITDA. R15: solo mostramos si Intel emite el valor.
-  // Intel ratios keys: no incluyen `net_debt_to_ebitda`/`dn_ebitda`; verificar
-  // ambos slots por si Intel los añade en el futuro.
+  // Intel provenance canonical key: `net_debt_ebitda` (verificado Servier 2026-08-13);
+  // legacy tolerancia `net_debt_to_ebitda`. Cascada: ratios → balance_sheet → null.
   const dnEbitdaValue: number | null = (() => {
     const ratios = financialAnalysis?.ratios as unknown as Record<string, unknown> | null;
     const bs = financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null;
-    const directRatio = ratios?.['net_debt_to_ebitda'] ?? ratios?.['dn_ebitda'];
-    if (typeof directRatio === 'number' && isFinite(directRatio)) return directRatio;
-    const directBs = bs?.['net_debt_to_ebitda'] ?? bs?.['dn_ebitda'];
-    if (typeof directBs === 'number' && isFinite(directBs)) return directBs;
+    const candidates = [
+      ratios?.['net_debt_ebitda'],
+      ratios?.['net_debt_to_ebitda'],
+      ratios?.['dn_ebitda'],
+      bs?.['net_debt_ebitda'],
+      bs?.['net_debt_to_ebitda'],
+      bs?.['dn_ebitda'],
+    ];
+    for (const c of candidates) {
+      if (typeof c === 'number' && isFinite(c)) return c;
+    }
     return null;
   })();
 
@@ -706,7 +722,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
             invertColor
             emptyReason="Sin deuda neta"
             testid="kpi-dn-ebitda"
-            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'ratios', 'net_debt_to_ebitda') as ProvenanceValue | null} />}
+            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'net_debt_ebitda') as ProvenanceValue | null} />}
           />
           <KpiCard
             label="Activos totales"
@@ -892,10 +908,11 @@ function ResumenProsaCard({ text, showDisclaimer }: { text: string | null; showD
 }
 
 /**
- * HARDENING-022 · T4 · Tesis de oportunidad (rename "Veredicto de ARROBA").
+ * HARDENING-022 (b · 2026-08-13) · T4 · Tesis de oportunidad.
  * · Card destacada con acento rojo (borde-izq rojo + fondo rosa muy suave).
- * · Fuente preferida: `opportunities.thesis_narrative` (Intel pendiente).
- * · Fallback legacy: `finances.assessment.verdict`.
+ * · Fuente única: `opportunity.thesis.narrative` (bloque `opportunity` de `/ficha`).
+ *   Fallback legacy `finances.assessment.verdict` **retirado en 022b**.
+ * · Si Intel no emite → Empty honesto "En preparación".
  * · Incluye `<SectorSignalWidget>` como contexto subordinado si signal fuerte.
  * · CTA "Explorar oportunidad" (link a la pestaña Oportunidades cuando exista).
  */
@@ -925,12 +942,11 @@ function TesisOportunidadCard({ text, market }: { text: string | null; market?: 
           {text}
         </p>
       ) : (
-        <Empty label="Tesis de oportunidad" />
+        <div data-testid="tesis-oportunidad-empty">
+          <Empty label="Tesis de oportunidad" />
+        </div>
       )}
       <SectorSignalWidget market={market} />
-      {/* CTA · lleva a la pestaña Oportunidades cuando exista dato real. Hoy
-          `notify` en placeholder porque `opportunities.thesis_active[]` aún
-          no está cableado (pendiente REQ Intel). */}
       <div style={{ marginTop: 14 }}>
         <button
           className="btn primary"
@@ -3114,12 +3130,15 @@ function extractAuditorName(governance: GovernanceBlock | null | undefined): str
 
 export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
   const identityRaw = props.identity;
-  // HARDENING-022 · enriquecer identity con `auditor_name` derivado de governance.
-  // Passthrough puro: si governance no lo expone, queda null.
+  // HARDENING-022b · enriquecer identity con:
+  //   • `auditor_name` desde `identity.auditor` (adapter) o fallback governance.
+  //   • `has_financials` desde `financialAnalysis.has_financials` (Intel emite
+  //     `finances.has_financials`; el badge Verificada requiere ambos flags).
   const identity: IdentitySection = useMemo(() => ({
     ...identityRaw,
     auditor_name: identityRaw.auditor_name ?? extractAuditorName(props.governance),
-  }), [identityRaw, props.governance]);
+    has_financials: identityRaw.has_financials ?? props.financialAnalysis?.has_financials ?? null,
+  }), [identityRaw, props.governance, props.financialAnalysis?.has_financials]);
   const anon = props.authenticated === false;
   const [active, setActive] = useState<SectionId>('resumen');
   const [collapsed, setCollapsed] = useState(false);
@@ -3227,12 +3246,11 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
                 );
               })()}
             </div>
-            {/* HARDENING-022 T1 · Chips de oportunidades activas (slot reservado).
-                R15: sólo renderiza si Intel emite `opportunities.thesis_active[]`.
-                Pendiente REQ Intel. Hoy siempre ausente (slot invisible). */}
+            {/* HARDENING-022b T1 · Chips de oportunidades activas · consume
+                `opportunity.chips[]` con shape `{enum, label_es}`. Passthrough
+                puro: si null o vacío → slot invisible (R15). */}
             {(() => {
-              const oppsProp = props.opportunities as unknown as { thesis_active?: Array<{ label?: string; type?: string }> } | null;
-              const chips = oppsProp?.thesis_active;
+              const chips = props.opportunity?.chips;
               if (!Array.isArray(chips) || chips.length === 0) return null;
               return (
                 <div
@@ -3241,15 +3259,19 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
                   style={{ padding: '10px 0 0' }}
                 >
                   <span className="lbl">Oportunidades activas</span>
-                  {chips.map((c, i) => (
-                    <span
-                      key={c.type ?? i}
-                      className="chk"
-                      data-testid={`header-opp-chip-${c.type ?? i}`}
-                    >
-                      <span className="c">✓</span>{c.label ?? c.type ?? '—'}
-                    </span>
-                  ))}
+                  {chips.map((c, i) => {
+                    const label = c.label_es ?? c.enum ?? '—';
+                    return (
+                      <span
+                        key={c.enum ?? i}
+                        className="chk"
+                        data-testid={`header-opp-chip-${c.enum ?? i}`}
+                        data-enum={c.enum ?? undefined}
+                      >
+                        <span className="c">✓</span>{label}
+                      </span>
+                    );
+                  })}
                 </div>
               );
             })()}

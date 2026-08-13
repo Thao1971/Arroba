@@ -1465,3 +1465,97 @@ Sin la entrada glosario, `<Tip>` mostrará el `data-tip` literal (fallback defen
 
 - **NO desplegado.** Cambios acumulados en bundle **HARDENING-021 + 004 + 022** para push manual del usuario.
 - Pendiente: usuario redacta copy glosario `FACTURACION`, `ACTIVOS_TOTALES`, y opcionalmente `QUALITY_SCORE`, `BUYER_FIT_SCORE`, `OPPORTUNITY_SCORE` (5 keys).
+
+---
+
+## 2026-08-13 · HARDENING-022b + HARDENING-004b · cierre pre-push · DONE
+
+### FASE 0 · Shapes verificados contra prod Intel (Servier B28184687)
+
+Payload real (`curl -s /api/companies/B28184687/ficha?authenticated=true` post-purge):
+
+| Campo | Estado | Valor observado |
+|:--|:--|:--|
+| `identity.activity_es` | ✅ presente | `"Fabricación de especialidades farmacéuticas"` |
+| `identity.verified` | ✅ presente | `true` |
+| `identity.auditor` | ✅ presente | `"ERNST & YOUNG"` (string directo, no objeto) |
+| `identity.linkedin_url` | ✅ shape existente | `null` (Servier no tiene LinkedIn público) |
+| `identity.description_source` | ✅ presente | `"ai"` |
+| `identity.description` | ✅ presente | prosa CF real (86 chars leading) |
+| `finances.has_financials` | ✅ presente | `true` |
+| `finances.provenance.kpis` | ✅ presente | 19 métricas con `verified`/`calculated` |
+| **`opportunity.thesis.narrative`** | ❌ **MISSING** | payload `/ficha` no incluye `opportunity` top-level |
+| **`opportunity.chips[]`** | ❌ **MISSING** | idem |
+| **`finances.kpis_prior`** | ❌ **MISSING** | Intel no emite valores año anterior aún |
+
+**Discrepancia con instrucción del usuario**: los shapes `opportunity.thesis.narrative`, `opportunity.chips[]` y `finances.kpis_prior` NO están en el payload prod verificado (Servier B28184687). Cableado tolerante: consume el shape esperado; si Intel aún no lo emite → UI degrada a Empty (R15). No fabrica ni infiere.
+
+### FASE 0 · Glosario refrescado
+
+`GLOSARIO_EXPLICABILIDAD_FICHA.md` (canon `spnieywy_...`): descargado (HTTP 200 · 5.168 KB) · **diff con local vacío** (canon no ha cambiado). Copiado a `/app/frontend/public/handoff/`.
+
+**Keys pendientes en canon** (usuario debe redactar):
+- `FACTURACION` (KPI T2)
+- `ACTIVOS_TOTALES` (KPI T2)
+- `QUALITY_SCORE` (anillo T6)
+- `BUYER_FIT_SCORE` (anillo T6)
+- `OPPORTUNITY_SCORE` (anillo T6)
+- `VERIFIED_BADGE` (tooltip badge Verificada) — inline en el JSX como fallback: `"Cuentas depositadas y verificadas en fuente oficial (registral)."`
+- `AUDITED_BADGE` (tooltip badge Auditada) — inline: `"Cuentas anuales auditadas por el auditor indicado."`
+
+Sin las keys, `<Tip>` cae al `data-tip` literal (fallback defensivo). Zero-coupling: solo se edita `glosario.ts`.
+
+### HARDENING-022b · Wiring shapes reales
+
+| Elemento | Antes 022 | Ahora 022b |
+|:--|:--|:--|
+| T1 · LinkedIn URL | `identity.linkedin` (fallback) | `identity.linkedin_url` (canonical Intel) |
+| T1 · Activity ES | `activity_es → cnae_description (EN) → activity (EN)` | `activity_es → activity` (sin EN inventado) |
+| T1 · Verificada badge | `verified===true AND has_financials===true` (adapter aditivo) | Igual + `has_financials` derivado ahora de `financialAnalysis.has_financials` como fallback |
+| T1 · Auditada badge | `identity.auditor_name` (via governance officers) | `identity.auditor` string directo + fallback governance officers |
+| T1 · Chips oportunidades | `opportunities.thesis_active[]` (shape especulativo) | `opportunity.chips[]` con `{enum,label_es}` (shape spec 022b) · `data-enum` preservado |
+| T4 · Tesis narrative | `opportunities.thesis_narrative → assessment.verdict (fallback legacy)` | `opportunity.thesis.narrative` (**fallback legacy retirado**) → Empty "En preparación" si null |
+| T2 · SrcDot DN/EBITDA | `provenance.kpis.net_debt_to_ebitda` | `provenance.kpis.net_debt_ebitda` (key real Intel) |
+| T2 · DN/EBITDA valor | cascada `ratios.net_debt_to_ebitda → ratios.dn_ebitda → balance_sheet.*` | cascada tolerante `net_debt_ebitda → net_debt_to_ebitda → dn_ebitda` (ratios y balance_sheet) |
+| Tipo `opportunity` | `unknown as {...}` en JSX | prop tipado en `CompanyFichaLayoutV2Props.opportunity` |
+
+### HARDENING-004b · Pytest smoke `/api/admin/cache/purge`
+
+- **Archivo**: `/app/backend/tests/test_admin_cache_purge.py`
+- **8 escenarios**: 6 spec + 2 bonus (body vacío, body con 2 llaves)
+- **Fixture** `seeded_cache`: siembra 5 docs en `intelligence_cache` con combinaciones de engines/CIFs (`ficha` × 2 CIFs · `valuation`, `ranking`, `market`)
+- **Aislamiento**: `monkeypatch.setenv('ARROBA_ADMIN_TOKEN', ...)` + `get_intelligence_settings.cache_clear()` para forzar re-lectura Pydantic Settings en cada test
+- **Marker registrado**: `smoke` en `pyproject.toml` (`markers = [... "smoke: fast smoke tests (< 100 ms)"]`)
+- **Run**: `python -m pytest tests/test_admin_cache_purge.py -v -m smoke`
+- **Resultado**: **8 passed in 0.05s** (0 warnings) ✅
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|:--|:--|
+| `/app/frontend/src/components/company/CompanyFichaF01Client.tsx` | Adapter: `linkedin` → `linkedin_url` (canonical Intel) · retirado fallback `cnae_activity_es`/`cnae_description_es` · `auditor` string directo · comentario actualizado |
+| `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` | Prop tipado `opportunity?` · enrichment `has_financials` desde `financialAnalysis` · chead consume `opportunity.chips[]` con shape `{enum,label_es}` · T4 fallback verdict retirado · `dnEbitdaValue` cascada tolerante · SrcDot DN/EBITDA usa `net_debt_ebitda` |
+| `/app/backend/tests/test_admin_cache_purge.py` | **NUEVO** · 8 escenarios pytest smoke |
+| `/app/backend/pyproject.toml` | Registrado marker `smoke` |
+| `/app/memory/GLOSARIO_EXPLICABILIDAD_FICHA.md` | Refrescado (diff vacío · canon no ha cambiado) |
+| `/app/frontend/public/handoff/GLOSARIO_EXPLICABILIDAD_FICHA.md` | Copiado del canon |
+
+### Verificación
+
+- **`yarn typecheck`**: ✅ verde (3.79s)
+- **`yarn build`**: ✅ verde (18.06s) · First Load JS shared **87.3 kB** (idéntico baseline, sin regresión)
+- **`pytest tests/test_admin_cache_purge.py -v -m smoke`**: ✅ **8/8 passed in 0.05s**
+- **Frontend restarted**: sí
+- **Curl smoke `/ficha` autenticado**: los 5 campos identity nuevos + `has_financials` + `provenance.kpis` retornan con shape esperado.
+- **Curl smoke `/ficha` anónimo**: los campos identity NO gated (activity_es/verified/auditor/description_source son públicos) — `finances`/`opportunity` sí gated (correcto DPD).
+
+### Deploy
+
+- **NO desplegado.** Bundle final consolidado para push manual: **HARDENING-021 (Fase 1+2+3) + HARDENING-004 (cache admin endpoint) + HARDENING-022 (Resumen redistribution) + HARDENING-022b (shapes reales) + HARDENING-004b (pytest smoke)**.
+
+### Secuencia recomendada del push manual
+
+1. Push del bundle a Prod.
+2. Sync `ARROBA_ADMIN_TOKEN` en panel Emergent (env var Prod).
+3. Purga cache Prod: `curl -X POST https://beta.arroba.com/api/admin/cache/purge -H "X-Admin-Token: $TOKEN" -d '{"engine":"ficha"}'` (ya no requiere `mongosh`).
+4. Smoke visual de los 7 bloques en Servier B28184687 (auth y anon).
