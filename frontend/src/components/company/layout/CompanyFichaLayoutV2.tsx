@@ -10,8 +10,8 @@
 import React, { Component, Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Activity, BarChart3, Bell, Bookmark, Coins, Euro, ExternalLink, FileText, Files, GitCompare,
-  Hourglass, LayoutGrid, Lock, type LucideIcon, Network, PieChart, Scale, Share2,
-  Target, Users, Zap,
+  Hourglass, LayoutGrid, Linkedin, Lock, type LucideIcon, Network, PieChart, Scale, Share2,
+  Sparkles, Target, Users, Zap,
 } from 'lucide-react';
 
 import type {
@@ -23,6 +23,8 @@ import type {
 import { FICHA_MOCKUP_CSS } from './fichaMockupCss';
 import { MethodDetails, METHOD_VALORACION, METHOD_HHI, METHOD_RANKINGS } from '@/components/company/atoms/MethodDetails';
 import { useRevealOnScroll, useCountUp, useBarFill } from '@/hooks/useRevealOnScroll';
+import { SrcDot } from '@/components/company/atoms/SrcDot';
+import { provenanceFor, type ProvenanceValue } from '@/lib/companies/provenance';
 import { PROPIEDAD_MOCKUP_CSS } from './propiedadMockupCss';
 import { notify } from '@/lib/notify';
 
@@ -386,82 +388,180 @@ function TrendPill({ trend }: { trend: string | null | undefined }) {
   );
 }
 
+/**
+ * HARDENING-022 · Sparkline SVG minimalista para KPIs (T2 Resumen).
+ * · Consume `points[]` (2-5 valores). Requiere al menos 2 puntos válidos.
+ * · Cero ejes. Cero labels. Cero animación si `prefers-reduced-motion`.
+ * · Si menos de 2 puntos → no renderiza nada (R15).
+ * · Color pasado como prop (verde/rojo según YoY, gris si neutro).
+ */
+function Sparkline({ points, color = 'var(--n400)', width = 60, height = 20 }: {
+  points: Array<number | null | undefined>;
+  color?: string;
+  width?: number;
+  height?: number;
+}) {
+  const clean = points.filter((v): v is number => typeof v === 'number' && isFinite(v));
+  if (clean.length < 2) return null;
+  const min = Math.min(...clean);
+  const max = Math.max(...clean);
+  const range = max - min || 1;
+  const stepX = width / (clean.length - 1);
+  const d = clean
+    .map((v, i) => {
+      const x = i * stepX;
+      const y = height - ((v - min) / range) * (height - 2) - 1;
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden="true"
+      style={{ display: 'inline-block', verticalAlign: 'middle' }}
+    >
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * HARDENING-022 · T2 · KPI card con sparkline + YoY. Passthrough puro R15:
+ * · `value` null → renderiza "—" en gris.
+ * · `deltaPct` null → no renderiza flecha.
+ * · `points` null/<2 → no renderiza sparkline.
+ * · `invertColor` = true (para DN/EBITDA): ▲ rojo (peor), ▼ verde (mejor).
+ */
+function KpiCard({
+  label,
+  tooltip,
+  value,
+  valueFormatter,
+  deltaPct,
+  points,
+  invertColor = false,
+  emptyReason,
+  testid,
+  srcDot,
+}: {
+  label: string;
+  tooltip?: string;
+  value: number | null | undefined;
+  valueFormatter: (v: number) => string;
+  deltaPct?: number | null | undefined;
+  points?: Array<number | null | undefined> | null;
+  invertColor?: boolean;
+  emptyReason?: string;
+  testid?: string;
+  srcDot?: React.ReactNode;
+}) {
+  const hasValue = typeof value === 'number' && isFinite(value);
+  const isUp = typeof deltaPct === 'number' && deltaPct > 0;
+  const isDown = typeof deltaPct === 'number' && deltaPct < 0;
+  const positive = invertColor ? isDown : isUp;
+  const negative = invertColor ? isUp : isDown;
+  const arrowColor = positive ? 'var(--ok)' : negative ? 'var(--red-hover)' : 'var(--n400)';
+  return (
+    <div className="kpi" data-testid={testid}>
+      <div className="l" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {srcDot}
+        {tooltip
+          ? <span className="help" data-tip={tooltip} tabIndex={0}>{label}</span>
+          : <span>{label}</span>}
+      </div>
+      {hasValue ? (
+        <>
+          <div className="v" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span>{valueFormatter(value!)}</span>
+            {points && points.length >= 2 && (
+              <Sparkline points={points} color={arrowColor} />
+            )}
+          </div>
+          {typeof deltaPct === 'number' && (
+            <div className={`d ${positive ? 'up' : negative ? 'down' : 'inf'}`}>
+              {positive ? '▲' : negative ? '▼' : '●'} {Math.abs(deltaPct * 100).toLocaleString('es-ES', { maximumFractionDigits: 1 })}% interanual
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="v" style={{ color: 'var(--n400)', fontSize: 16, fontWeight: 600 }}>
+          — <small style={{ fontSize: 11, color: 'var(--n400)', fontWeight: 500, marginLeft: 4 }}>{emptyReason ?? 'sin dato'}</small>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Hero + card "Veredicto de ARROBA" — bloque de portada del Resumen (compartido anon/auth).
  *  Cascada de descripción: `identity.description` → `identity.objeto_social` → `financialAnalysis.identity.description` → `financialAnalysis.identity.objeto_social` → <Empty/>.
  *  El fallback a `financialAnalysis.identity` resuelve la descoordinación Intel I-1 en la que `/section/identity` aún devuelve null pero `/financial-analysis` sí puebla el dato. */
-function HeroBlock({ identity, semantic, financialAnalysis, market }: { identity: IdentitySection; semantic: SemanticSection | null; financialAnalysis: FinancialAnalysis | null; market?: MarketBlock | null }) {
-  const fallbackDescription =
-    identity.description
-    || identity.objeto_social
-    || financialAnalysis?.identity?.description
-    || financialAnalysis?.identity?.objeto_social
-    || null;
-  // Hero "Veredicto de ARROBA" · fuente Intel `finances.assessment.verdict` (2026-08-11).
-  const verdictRaw = financialAnalysis?.assessment?.verdict ?? null;
-  const verdict = typeof verdictRaw === 'string' && verdictRaw.trim().length > 0 ? verdictRaw.trim() : null;
-  // Hero "Contexto sectorial" mini-widget (2026-08-12) · allowlist estricta de
-  // signals fuertes. Cero cálculo derivado, cero traducción, cero fabricación.
+/**
+ * HARDENING-022 · Widget "Contexto sectorial" (mini). Extraído del legacy
+ * `HeroBlock` para reutilización en la card Tesis de oportunidad (T4).
+ * Allowlist estricta: solo renderiza si `market.sector.signal` está en el set
+ * de señales fuertes. Passthrough puro, cero traducción.
+ */
+function SectorSignalWidget({ market }: { market?: MarketBlock | null }) {
   const sector = market?.sector ?? null;
   const strongSignals = new Set(['sector_contraction', 'growth_momentum']);
-  const showSectorWidget = !!sector && !!sector.signal && strongSignals.has(sector.signal);
+  if (!sector || !sector.signal || !strongSignals.has(sector.signal)) return null;
   return (
-    <>
-      <div className="hero">
-        <div className="t">Resumen de compañía</div>
-        {fallbackDescription ? <p>{fallbackDescription}</p> : <Empty />}
-        {semantic?.value_proposition && <p style={{ marginTop: 10 }}>{semantic.value_proposition}</p>}
+    <div
+      className="card"
+      data-testid="hero-sector-signal-widget"
+      style={{ marginTop: 12, padding: '10px 14px', background: 'var(--n50)', borderLeft: '3px solid var(--n300)' }}
+    >
+      <div style={{ fontSize: 11, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700, marginBottom: 6 }}>
+        Contexto sectorial
       </div>
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3><span className="k" />Veredicto de ARROBA</h3>
-        {verdict
-          ? <p data-testid="hero-verdict-value" style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'var(--n800)' }}>{verdict}</p>
-          : <Empty />}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span data-testid="hero-sector-signal-trend">
+          <TrendBadge direction={sector.trend_direction} />
+        </span>
+        {sector.national_yoy_pct != null && (
+          <span
+            data-testid="hero-sector-signal-yoy"
+            style={{ fontSize: 13, color: 'var(--n700)' }}
+          >
+            <b>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</b> interanual
+          </span>
+        )}
       </div>
-      {showSectorWidget && sector && (
+      {(sector.primary_driver_label ?? sector.primary_driver) && (
         <div
-          className="card"
-          data-testid="hero-sector-signal-widget"
-          style={{ marginTop: 12, padding: '10px 14px', background: 'var(--n50)', borderLeft: '3px solid var(--n300)' }}
+          data-testid="hero-sector-signal-driver"
+          style={{ marginTop: 6, fontSize: 13, color: 'var(--n800)', lineHeight: 1.5 }}
         >
-          <div style={{ fontSize: 11, color: 'var(--n600)', textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700, marginBottom: 6 }}>
-            Contexto sectorial
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span data-testid="hero-sector-signal-trend">
-              <TrendBadge direction={sector.trend_direction} />
-            </span>
-            {sector.national_yoy_pct != null && (
-              <span
-                data-testid="hero-sector-signal-yoy"
-                style={{ fontSize: 13, color: 'var(--n700)' }}
-              >
-                <b>{sector.national_yoy_pct > 0 ? '+' : ''}{sector.national_yoy_pct.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%</b> interanual
-              </span>
-            )}
-          </div>
-          {(sector.primary_driver_label ?? sector.primary_driver) && (
-            <div
-              data-testid="hero-sector-signal-driver"
-              style={{ marginTop: 6, fontSize: 13, color: 'var(--n800)', lineHeight: 1.5 }}
-            >
-              Impulsor principal · <b>{sector.primary_driver_label ?? sector.primary_driver}</b>
-            </div>
-          )}
-          {sector.cnae_label && (
-            <div
-              data-testid="hero-sector-signal-cnae"
-              style={{ marginTop: 6, fontSize: 10.5, color: 'var(--n500)', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: 0.2 }}
-            >
-              {sector.cnae_label}{sector.cnae_code ? ` · CNAE ${sector.cnae_code}` : ''}
-            </div>
-          )}
+          Impulsor principal · <b>{sector.primary_driver_label ?? sector.primary_driver}</b>
         </div>
       )}
-    </>
+      {sector.cnae_label && (
+        <div
+          data-testid="hero-sector-signal-cnae"
+          style={{ marginTop: 6, fontSize: 10.5, color: 'var(--n500)', fontFamily: 'ui-monospace,SFMono-Regular,Menlo,monospace', letterSpacing: 0.2 }}
+        >
+          {sector.cnae_label}{sector.cnae_code ? ` · CNAE ${sector.cnae_code}` : ''}
+        </div>
+      )}
+    </div>
   );
 }
 
 /* ============================ RESUMEN ============================ */
+/**
+ * HARDENING-022 · Redistribución completa (2026-08-13). Orden estricto:
+ *   T2 KPIs (4 nuevos + sparklines + YoY)
+ *   T3 Resumen de compañía (prosa · card oscura + disclaimer condicional)
+ *   T4 Tesis de oportunidad (rename Veredicto · card destacada)
+ *   T5 Detalles de la compañía (rename Identificación + Resultado neto + Empleados)
+ *   T6 Diagnóstico de ARROBA (scores sin marco azul)
+ *   T7 Evolución financiera (al final)
+ *
+ * T1 (Cabecera) NO vive dentro de Resumen · vive en `chead` top-level (aplica
+ * a todas las pestañas). Ver componente `CompanyFichaLayoutV2` raíz.
+ */
 function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const { identity, financial, financialAnalysis, semantic, signal, buyers } = p;
   const cls = identity.classification, loc = identity.location, sz = identity.size;
@@ -480,13 +580,77 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   }, [evo]);
   const hasChart = evo != null && evoSeries.length > 0;
 
+  // HARDENING-022 · T2 · Series históricas para sparklines (2-5 puntos).
+  // `finances.evolution.points[]` ordenados año descendente por Intel; los
+  // invertimos para renderizar cronológicamente (izq→der).
+  const evoPoints = useMemo(() => {
+    const anyEvo = (financialAnalysis?.evolution as unknown as { points?: Array<Record<string, unknown>> } | null) ?? null;
+    const pts = Array.isArray(anyEvo?.points) ? [...(anyEvo!.points as Array<Record<string, unknown>>)] : [];
+    // Orden cronológico ascendente (año más antiguo → más reciente).
+    pts.sort((a, b) => (Number(a['year']) || 0) - (Number(b['year']) || 0));
+    return pts;
+  }, [financialAnalysis?.evolution]);
+  const revenuePoints = useMemo(() => evoPoints.map((p) => p['revenue'] as number | null | undefined), [evoPoints]);
+  const ebitdaPoints = useMemo(() => evoPoints.map((p) => p['ebitda'] as number | null | undefined), [evoPoints]);
+  // DN/EBITDA histórico: Intel no emite (verificado Fase 0 Servier). Sparkline ausente.
+  const dnEbitdaPoints: Array<number | null | undefined> = [];
+  // Activos totales: no en `points[]` · Intel no emite serie. Sparkline ausente.
+  const totalAssetsPoints: Array<number | null | undefined> = [];
+
+  // HARDENING-022 · T3 · Descripción prosa + flag de origen (cascada canon CF).
+  const descriptionText =
+    identity.description
+    || identity.objeto_social
+    || financialAnalysis?.identity?.description
+    || financialAnalysis?.identity?.objeto_social
+    || null;
+  const descriptionSource = identity.description_source ?? null;
+  const showDisclaimer = descriptionSource === 'ai' || descriptionSource === 'web';
+
+  // HARDENING-022 · T4 · Tesis de oportunidad. Fuente preferida:
+  // `opportunities.thesis_narrative` o `hero.thesis_narrative` (pendientes Intel).
+  // Fallback legacy: `finances.assessment.verdict`.
+  const oppsProp = p.opportunities as unknown as { thesis_narrative?: string | null } | null;
+  const thesisNarrative =
+    (oppsProp?.thesis_narrative && oppsProp.thesis_narrative.trim())
+    || null;
+  const verdictRaw = financialAnalysis?.assessment?.verdict ?? null;
+  const verdictLegacy = typeof verdictRaw === 'string' && verdictRaw.trim().length > 0 ? verdictRaw.trim() : null;
+  const thesisText = thesisNarrative || verdictLegacy;
+
+  // T2 · KPIs · DN/EBITDA. R15: solo mostramos si Intel emite el valor.
+  // Intel ratios keys: no incluyen `net_debt_to_ebitda`/`dn_ebitda`; verificar
+  // ambos slots por si Intel los añade en el futuro.
+  const dnEbitdaValue: number | null = (() => {
+    const ratios = financialAnalysis?.ratios as unknown as Record<string, unknown> | null;
+    const bs = financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null;
+    const directRatio = ratios?.['net_debt_to_ebitda'] ?? ratios?.['dn_ebitda'];
+    if (typeof directRatio === 'number' && isFinite(directRatio)) return directRatio;
+    const directBs = bs?.['net_debt_to_ebitda'] ?? bs?.['dn_ebitda'];
+    if (typeof directBs === 'number' && isFinite(directBs)) return directBs;
+    return null;
+  })();
+
+  // T2 · Activos totales · passthrough puro desde balance_sheet.
+  const totalAssets: number | null = (() => {
+    const bs = financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null;
+    const v = bs?.['total_assets'];
+    return (typeof v === 'number' && isFinite(v)) ? v : null;
+  })();
+
   if (p.anon) {
+    // Vista anónima simplificada: descripción pública + Gate + Detalles registrales.
     return (
       <section className="panel on">
-        <HeroBlock identity={identity} semantic={semantic} financialAnalysis={financialAnalysis} market={p.market} />
+        {/* T3 · Resumen de compañía (público, sin cifras). */}
+        <ResumenProsaCard
+          text={descriptionText}
+          showDisclaimer={showDisclaimer}
+        />
         <div style={{ marginTop: 16 }}><Gate what="el análisis financiero, la valoración y los compradores" /></div>
-        <div className="card" style={{ marginTop: 16 }}>
-          <h3><span className="k" />Identificación</h3>
+        {/* T5 · Detalles de la compañía (rename anon). */}
+        <div className="card" style={{ marginTop: 16 }} data-testid="detalles-compania-anon">
+          <h3><span className="k" />Detalles de la compañía</h3>
           <div className="cs">Datos registrales y de registros públicos</div>
           <div className="idrow"><span className="k">Razón social</span><span className="v">{identity.legal_name ?? '—'}</span></div>
           <div className="idrow"><span className="k">CIF</span><span className="v">{identity.cif_normalized ?? '—'}</span></div>
@@ -503,81 +667,127 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const quality = clamp100(financialAnalysis?.financial_quality?.score ?? null);
   const opp = clamp100(signal?.score?.signal_score ?? null);
   const topFit = clamp100(buyers?.recommendations?.[0]?.score ?? null);
-  const rings: { v: number; label: string; color: string }[] = [];
-  if (quality != null) rings.push({ v: quality, label: 'Calidad', color: OK });
-  if (topFit != null) rings.push({ v: topFit, label: 'Encaje comprador', color: RED });
-  if (opp != null) rings.push({ v: opp, label: 'Oportunidad', color: INFO });
+  const rings: { v: number; label: string; color: string; tooltip?: string }[] = [];
+  if (quality != null) rings.push({ v: quality, label: 'Calidad', color: OK, tooltip: 'QUALITY_SCORE' });
+  if (topFit != null) rings.push({ v: topFit, label: 'Encaje comprador', color: RED, tooltip: 'BUYER_FIT_SCORE' });
+  if (opp != null) rings.push({ v: opp, label: 'Oportunidad', color: INFO, tooltip: 'OPPORTUNITY_SCORE' });
 
   return (
     <section className="panel on">
-      <HeroBlock identity={identity} semantic={semantic} financialAnalysis={financialAnalysis} market={p.market} />
-
-      {hasChart ? (
-        <div className="card" style={{ marginTop: 16 }}>
-          <h3><span className="k" />Evolución financiera</h3>
-          <div className="cs">Facturación y <abbr title="Beneficio antes de intereses, impuestos, depreciación y amortización.">EBITDA</abbr> · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
-          <EvolutionChart series={evoSeries} years={evo!.years.map(String)} />
-        </div>
-      ) : <div style={{ marginTop: 16 }}><Pending label="Evolución financiera" /></div>}
-
+      {/* ═══════════════════════ T2 · KPIs (4 principales) ═══════════════════════ */}
       {k ? (
-        <div className="kgrid" style={{ marginTop: 16 }}>
-          <div className="kpi"><div className="l">Facturación</div><div className="v">{fmtEUR(k.revenue ?? null)}</div>{k.revenue_growth_yoy != null && <div className={`d ${k.revenue_growth_yoy >= 0 ? 'up' : 'down'}`}>{k.revenue_growth_yoy >= 0 ? '▲' : '▼'} {pctF(k.revenue_growth_yoy)} interanual</div>}</div>
-          <div className="kpi"><div className="l"><span className="help" data-tip="EBITDA" tabIndex={0}>EBITDA</span></div><div className="v">{fmtEUR(k.ebitda ?? null)}</div>{k.ebitda_margin != null && <div className="d inf"><span className="help" data-tip="MARGEN_EBITDA" tabIndex={0}>margen</span> {pctF(k.ebitda_margin)}</div>}</div>
-          <div className="kpi"><div className="l"><span className="help" data-tip="RESULTADO_NETO" tabIndex={0}>Resultado neto</span></div><div className="v">{fmtEUR(k.net_income ?? null)}</div>{k.net_margin != null && <div className="d inf">margen {pctF(k.net_margin)}</div>}</div>
-          <div className="kpi"><div className="l">Empleados</div><div className="v">{fmtNum(sz.employees_total)}</div><div className="d inf">plantilla</div></div>
+        <div className="kgrid" data-testid="t2-kpis-grid">
+          <KpiCard
+            label="Facturación"
+            tooltip="FACTURACION"
+            value={k.revenue ?? null}
+            valueFormatter={fmtEUR}
+            deltaPct={k.revenue_growth_yoy ?? null}
+            points={revenuePoints}
+            testid="kpi-facturacion"
+            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'revenue') as ProvenanceValue | null} />}
+          />
+          <KpiCard
+            label="EBITDA"
+            tooltip="EBITDA"
+            value={k.ebitda ?? null}
+            valueFormatter={fmtEUR}
+            deltaPct={k.ebitda_growth_yoy ?? null}
+            points={ebitdaPoints}
+            testid="kpi-ebitda"
+            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'ebitda') as ProvenanceValue | null} />}
+          />
+          <KpiCard
+            label="DN / EBITDA"
+            tooltip="DN_EBITDA"
+            value={dnEbitdaValue}
+            valueFormatter={(v) => `${v.toLocaleString('es-ES', { maximumFractionDigits: 1 })}×`}
+            points={dnEbitdaPoints}
+            invertColor
+            emptyReason="Sin deuda neta"
+            testid="kpi-dn-ebitda"
+            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'ratios', 'net_debt_to_ebitda') as ProvenanceValue | null} />}
+          />
+          <KpiCard
+            label="Activos totales"
+            tooltip="ACTIVOS_TOTALES"
+            value={totalAssets}
+            valueFormatter={fmtEUR}
+            points={totalAssetsPoints}
+            testid="kpi-activos-totales"
+            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'balance_sheet', 'total_assets') as ProvenanceValue | null} />}
+          />
         </div>
-      ) : <div style={{ marginTop: 16 }}><Pending label="Indicadores financieros" /></div>}
+      ) : <Pending label="Indicadores financieros" />}
 
+      {/* ═══════════════════════ T3 · Resumen de compañía (prosa) ═══════════════════════ */}
+      <div style={{ marginTop: 18 }}>
+        <ResumenProsaCard text={descriptionText} showDisclaimer={showDisclaimer} />
+      </div>
+
+      {/* ═══════════════════════ T4 · Tesis de oportunidad (rename destacada) ═══════════════════════ */}
+      <TesisOportunidadCard text={thesisText} market={p.market} />
+
+      {/* ═══════════════════════ T5 · Detalles de la compañía (rename + campos movidos) ═══════════════════════ */}
+      <div className="card" style={{ marginTop: 18 }} data-testid="detalles-compania">
+        <h3><span className="k" />Detalles de la compañía</h3>
+        <div className="cs">Datos registrales y de registros públicos</div>
+        <div className="idrow"><span className="k">Razón social</span><span className="v">{identity.legal_name ?? '—'}</span></div>
+        <div className="idrow"><span className="k">CIF</span><span className="v">{identity.cif_normalized ?? '—'}</span></div>
+        {identity.registry_status?.legal_form && <div className="idrow"><span className="k">Forma jurídica</span><span className="v">{identity.registry_status.legal_form}</span></div>}
+        <div className="idrow"><span className="k">CNAE</span><span className="v">{cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_description ?? ''}` : '—'}</span></div>
+        <div className="idrow"><span className="k">Domicilio</span><span className="v">{[loc.municipio, loc.provincia].filter(Boolean).join(' · ') || '—'}</span></div>
+        <div className="idrow"><span className="k">Capital social</span><span className="v">{fmtEUR(sz.capital_social)}</span></div>
+        {identity.contact.web && <div className="idrow"><span className="k">Web</span><span className="v">{identity.contact.web}</span></div>}
+        {/* Movidos del hero: Resultado neto + Empleados (canon CF: bajan de jerarquía). */}
+        {k?.net_income != null && (
+          <div className="idrow" data-testid="detalles-net-income">
+            <span className="k">
+              <SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'net_income') as ProvenanceValue | null} />
+              <span className="help" data-tip="RESULTADO_NETO" tabIndex={0} style={{ marginLeft: 4 }}>Resultado neto</span>
+            </span>
+            <span className="v">{fmtEUR(k.net_income)}{k.net_margin != null && <small style={{ color: 'var(--n500)', fontWeight: 500, marginLeft: 6 }}>margen {pctF(k.net_margin)}</small>}</span>
+          </div>
+        )}
+        {sz.employees_total != null && (
+          <div className="idrow" data-testid="detalles-employees">
+            <span className="k">Empleados</span>
+            <span className="v">{fmtNum(sz.employees_total)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Card ampliada de identidad registral (34 campos) · sin cambios funcionales, solo reordenada. */}
+      <div style={{ marginTop: 16 }}>
+        <IdentidadAmpliada identity={identity} />
+      </div>
+
+      {/* ═══════════════════════ Rankings + KPIs 2ª fila (contexto post-Detalles) ═══════════════════════ */}
       {k && (
-        <div className="kgrid" style={{ marginTop: 12 }}>
+        <div className="kgrid" style={{ marginTop: 18 }}>
           <div className="kpi">
-            <div className="l"><span className="help" data-tip="CAGR_3Y" tabIndex={0}>Crecimiento anualizado (3 años)</span></div>
+            <div className="l">
+              <SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'revenue_cagr') as ProvenanceValue | null} />
+              <span className="help" data-tip="CAGR_3Y" tabIndex={0}>Crecimiento anualizado (3 años)</span>
+            </div>
             <div className="v">{pctF(k.revenue_cagr)}</div>
             <div className="d inf">tasa acumulada media</div>
           </div>
           <div className="kpi">
-            <div className="l">Crecimiento anual</div>
-            <div className="v">{pctF(k.revenue_growth_yoy)}</div>
-            {k.ebitda_growth_yoy != null && <div className="d inf"><span className="help" data-tip="EBITDA" tabIndex={0}>EBITDA</span> {pctF(k.ebitda_growth_yoy)}</div>}
-          </div>
-          <div className="kpi">
-            <div className="l">Fondos propios</div>
+            <div className="l">
+              <SrcDot type={provenanceFor(financialAnalysis?.provenance, 'balance_sheet', 'equity') as ProvenanceValue | null} />
+              <span className="help" data-tip="AUTONOMIA_FINANCIERA" tabIndex={0}>Fondos propios</span>
+            </div>
             <div className="v">{fmtEurCompact(financialAnalysis?.balance_sheet?.equity ?? null)}</div>
-            <div className="d inf"><span className="help" data-tip="AUTONOMIA_FINANCIERA" tabIndex={0}>patrimonio neto</span></div>
+            <div className="d inf">patrimonio neto</div>
           </div>
           <TrendPill trend={financialAnalysis?.evolution?.trend ?? null} />
-        </div>
-      )}
-
-      <div className="kgrid" style={{ marginTop: 12 }}>
-        {(() => {
-          const rk = financialAnalysis?.ranking ?? null;
-          const mp = rk?.market_position;
-          const lp = rk?.locality_position;
-          const sp = rk?.sector_revenue_percentile;
-          return (
-            <>
-              <div className="kpi" data-testid="kpi-market-position">
-                <div className="l">Posición sectorial</div>
-                {mp && mp.rank != null && mp.total != null ? (
-                  <>
-                    <div className="v">#{mp.rank} <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>de {mp.total}</span></div>
-                    <div className="d inf">{mp.scope}</div>
-                  </>
-                ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
-              </div>
-              <div className="kpi" data-testid="kpi-locality-position">
-                <div className="l">Posición local</div>
-                {lp && lp.rank != null && lp.total != null ? (
-                  <>
-                    <div className="v">#{lp.rank} <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>de {lp.total}</span></div>
-                    <div className="d inf">{lp.scope}</div>
-                  </>
-                ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
-              </div>
+          {(() => {
+            const rk = financialAnalysis?.ranking ?? null;
+            const sp = rk?.sector_revenue_percentile;
+            return (
               <div className="kpi" data-testid="kpi-sector-percentile">
-                <div className="l">Percentil por ingresos</div>
+                <div className="l"><span className="help" data-tip="PERCENTIL_SECTORIAL" tabIndex={0}>Percentil por ingresos</span></div>
                 {sp != null ? (
                   <>
                     <div className="v">{sp}<span style={{ fontSize: 14, fontWeight: 600, color: 'var(--n500)' }}>º</span></div>
@@ -585,11 +795,10 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
                   </>
                 ) : <div className="v" style={{ color: 'var(--n400)', fontSize: 16 }}>—</div>}
               </div>
-              {/* CANON CF · KPI "Innovación · inferido" eliminado (Anexo A) mientras no exista dato real. */}
-            </>
-          );
-        })()}
-      </div>
+            );
+          })()}
+        </div>
+      )}
 
       {financialAnalysis?.ranking?.explain && financialAnalysis.ranking.explain.length > 0 && (
         <div className="card" style={{ marginTop: 12 }} data-testid="rankings-explain-card">
@@ -603,32 +812,136 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
         </div>
       )}
 
-      <div className="row r2" style={{ marginTop: 16 }}>
+      {/* ═══════════════════════ T6 · Diagnóstico de ARROBA (sin marco azul) ═══════════════════════ */}
+      <div style={{ marginTop: 18 }}>
         {rings.length > 0 ? (
-          <div className="card">
+          <div className="card" data-testid="diagnostico-arroba">
             <h3><span className="k" />Diagnóstico de ARROBA</h3>
-            <div className="cs">Valoración cualitativa de ARROBA</div>
+            {/* HARDENING-022 T6 · Retirado marco azul + explicaciones detalladas
+                por debajo de cada score. La explicación se accede via tooltip
+                del glosario (`<Tip>`) al hover/tap sobre el label del anillo. */}
             <div className="scores" style={{ gridTemplateColumns: `repeat(${rings.length},1fr)` }}>
-              {rings.map((r) => <Ring key={r.label} val={r.v} label={r.label} color={r.color} />)}
+              {rings.map((r) => (
+                <Ring
+                  key={r.label}
+                  val={r.v}
+                  label={r.label}
+                  color={r.color}
+                />
+              ))}
             </div>
           </div>
         ) : <Pending label="Diagnóstico de ARROBA" />}
-        <div className="card">
-          <h3><span className="k" />Identificación</h3>
-          <div className="cs">Datos registrales y de registros públicos</div>
-          <div className="idrow"><span className="k">Razón social</span><span className="v">{identity.legal_name ?? '—'}</span></div>
-          <div className="idrow"><span className="k">CIF</span><span className="v">{identity.cif_normalized ?? '—'}</span></div>
-          {identity.registry_status?.legal_form && <div className="idrow"><span className="k">Forma jurídica</span><span className="v">{identity.registry_status.legal_form}</span></div>}
-          <div className="idrow"><span className="k">CNAE</span><span className="v">{cls.cnae_code ? `${cls.cnae_code} · ${cls.cnae_description ?? ''}` : '—'}</span></div>
-          <div className="idrow"><span className="k">Domicilio</span><span className="v">{[loc.municipio, loc.provincia].filter(Boolean).join(' · ') || '—'}</span></div>
-          <div className="idrow"><span className="k">Capital social</span><span className="v">{fmtEUR(sz.capital_social)}</span></div>
-          {identity.contact.web && <div className="idrow"><span className="k">Web</span><span className="v">{identity.contact.web}</span></div>}
-        </div>
       </div>
-      <div style={{ marginTop: 16 }}>
-        <IdentidadAmpliada identity={identity} />
+
+      {/* ═══════════════════════ T7 · Evolución financiera (al final) ═══════════════════════ */}
+      <div style={{ marginTop: 18 }}>
+        {hasChart ? (
+          <div className="card" data-testid="evolucion-financiera">
+            <h3><span className="k" />Evolución financiera</h3>
+            <div className="cs">Facturación y <span className="help" data-tip="EBITDA" tabIndex={0}>EBITDA</span> · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
+            <EvolutionChart series={evoSeries} years={evo!.years.map(String)} />
+          </div>
+        ) : <Pending label="Evolución financiera" />}
       </div>
     </section>
+  );
+}
+
+/**
+ * HARDENING-022 · T3 · Card de prosa con estilo oscuro + disclaimer condicional.
+ * · Card oscura tipo `.ctadark` (gradiente `#1c1a18 → #34302b`).
+ * · Disclaimer sólo si `description_source === 'ai' | 'web'`. R15 estricto.
+ * · Sin texto → `<Empty label="Descripción de la compañía"/>`.
+ */
+function ResumenProsaCard({ text, showDisclaimer }: { text: string | null; showDisclaimer: boolean }) {
+  if (!text || !text.trim()) return <Empty label="Descripción de la compañía" />;
+  return (
+    <div
+      data-testid="resumen-prosa-card"
+      style={{
+        background: 'linear-gradient(135deg, #1c1a18, #34302b)',
+        color: '#EDEBE8',
+        borderRadius: 12,
+        padding: '22px 24px',
+        boxShadow: '0 1px 2px rgba(20,18,16,.04),0 6px 20px rgba(20,18,16,.05)',
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#9C948C', marginBottom: 10 }}>
+        Resumen de compañía
+      </div>
+      <p style={{ fontSize: 14.5, lineHeight: 1.65, color: '#DED9D3', margin: 0 }}>{text.trim()}</p>
+      {showDisclaimer && (
+        <div
+          data-testid="resumen-prosa-disclaimer"
+          style={{
+            marginTop: 14,
+            paddingTop: 12,
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            fontSize: 11.5,
+            color: '#9C948C',
+            fontStyle: 'italic',
+            lineHeight: 1.55,
+          }}
+        >
+          Descripción generada/recopilada por IA a partir de fuentes públicas; puede contener imprecisiones sobre personas, lugares, hechos o cifras. Tómala como orientativa.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * HARDENING-022 · T4 · Tesis de oportunidad (rename "Veredicto de ARROBA").
+ * · Card destacada con acento rojo (borde-izq rojo + fondo rosa muy suave).
+ * · Fuente preferida: `opportunities.thesis_narrative` (Intel pendiente).
+ * · Fallback legacy: `finances.assessment.verdict`.
+ * · Incluye `<SectorSignalWidget>` como contexto subordinado si signal fuerte.
+ * · CTA "Explorar oportunidad" (link a la pestaña Oportunidades cuando exista).
+ */
+function TesisOportunidadCard({ text, market }: { text: string | null; market?: MarketBlock | null }) {
+  return (
+    <div
+      className="card"
+      data-testid="tesis-oportunidad-card"
+      style={{
+        marginTop: 18,
+        borderLeft: '3px solid var(--red)',
+        background: 'linear-gradient(180deg, var(--red-tint), #fff)',
+        borderColor: 'var(--red-tint2)',
+      }}
+    >
+      <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="k" />
+        Tesis de oportunidad
+        <Sparkles size={13} style={{ color: 'var(--red-hover)', marginLeft: 4 }} />
+      </h3>
+      <div className="cs">Por qué esta compañía puede constituir una oportunidad</div>
+      {text ? (
+        <p
+          data-testid="tesis-oportunidad-text"
+          style={{ margin: 0, fontSize: 14.5, lineHeight: 1.65, color: 'var(--n800)' }}
+        >
+          {text}
+        </p>
+      ) : (
+        <Empty label="Tesis de oportunidad" />
+      )}
+      <SectorSignalWidget market={market} />
+      {/* CTA · lleva a la pestaña Oportunidades cuando exista dato real. Hoy
+          `notify` en placeholder porque `opportunities.thesis_active[]` aún
+          no está cableado (pendiente REQ Intel). */}
+      <div style={{ marginTop: 14 }}>
+        <button
+          className="btn primary"
+          data-testid="tesis-oportunidad-cta"
+          onClick={() => notify({ kind: 'info', text: 'Exploración de oportunidad disponible próximamente.' })}
+          style={{ fontSize: 13, fontWeight: 700 }}
+        >
+          Explorar oportunidad
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -1375,7 +1688,7 @@ function Rankings({ analysis }: { analysis: FinancialAnalysis | null }) {
         <h3><span className="k" />Percentil sectorial</h3>
         <div className="cs">Posición relativa por ingresos dentro del sector CNAE</div>
         <div className="idrow" data-testid="rankings-percentile">
-          <span className="k"><span className="help" data-tip="PERCENTIL_SECTORIAL" tabIndex={0}>Percentil</span></span>
+          <span className="k"><SrcDot type={provenanceFor(analysis?.provenance, 'ranking', 'sector_revenue_percentile') as ProvenanceValue | null} /> <span className="help" data-tip="PERCENTIL_SECTORIAL" tabIndex={0}>Percentil</span></span>
           <span className="v"><PercentileValue value={pct} /></span>
         </div>
       </div>
@@ -1501,7 +1814,10 @@ function MercadoGeoPanel({ geo }: { geo?: import('@/lib/companies/intelligence-t
     </div>
   );
 }
-function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/intelligence-types').MarketConcentration | null }) {
+function MercadoConcentrationPanel({ conc, marketProvenance }: {
+  conc?: import('@/lib/companies/intelligence-types').MarketConcentration | null;
+  marketProvenance?: unknown;
+}) {
   if (!conc || conc.available === false) return <Empty label="Concentración de mercado" />;
   // HARDENING-019 · Fase B canon CF · consume `concentration.narrative` + `concentration_label_es` de Intel.
   const degradationCaveat = conc.degraded_reason ?? conc.caveat ?? null;
@@ -1519,7 +1835,7 @@ function MercadoConcentrationPanel({ conc }: { conc?: import('@/lib/companies/in
       {conc.narrative && (
         <p data-testid="mercado-concentration-narrative" style={{ fontSize: 13.5, color: 'var(--n700)', lineHeight: 1.6, margin: '10px 0 12px' }}>{conc.narrative}</p>
       )}
-      <div className="idrow"><span className="k"><span className="help" data-tip="HHI" tabIndex={0}>Índice de concentración</span></span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
+      <div className="idrow"><span className="k"><SrcDot type={provenanceFor(marketProvenance, 'concentration', 'hhi') as ProvenanceValue | null} /> <span className="help" data-tip="HHI" tabIndex={0}>Índice de concentración</span></span><span className="v"><b style={{ fontSize: 18 }}>{conc.hhi != null ? fmtNum(conc.hhi) : '—'}</b></span></div>
       {/* HARDENING-020 · Canon §2 · "HHI" retirado como etiqueta suelta (acrónimo·metodología). El número se preserva como dato dentro de la fila, con label CF ES neutro. */}
       {classLabel && (
         <div className="idrow" data-testid="mercado-concentration-classification"><span className="k">Clasificación</span><span className="v">{classLabel}</span></div>
@@ -1596,7 +1912,7 @@ function Mercado({ market, anon }: { market?: MarketBlock | null; anon: boolean 
       <div className="sec-s">Sector CNAE, territorio, concentración de mercado y posición competitiva.</div>
       <MercadoSectorPanel sector={market.sector} />
       <MercadoGeoPanel geo={market.geo} />
-      <MercadoConcentrationPanel conc={market.concentration} />
+      <MercadoConcentrationPanel conc={market.concentration} marketProvenance={(market as { provenance?: unknown } | null)?.provenance} />
       <MercadoPositionPanel pos={market.position} anon={anon} />
     </section>
   );
@@ -2769,8 +3085,41 @@ function Copilot({ name }: { name: string }) {
 }
 
 /* ============================ LAYOUT ============================ */
+/**
+ * HARDENING-022 · Extrae el nombre del auditor desde `governance` (union type
+ * nominal). Regla R15: retorna null si no consta o si el shape no expone
+ * `officers[]` con rol de tipo auditor. Cero fabricación.
+ */
+function extractAuditorName(governance: GovernanceBlock | null | undefined): string | null {
+  if (!governance) return null;
+  const gov = governance as unknown as { officers?: Array<Record<string, unknown>> };
+  const officers = gov?.officers;
+  if (!Array.isArray(officers)) return null;
+  const AUDITOR_KEYWORDS = ['auditor', 'auditor de cuentas', 'auditoría', 'auditoria'];
+  for (const off of officers) {
+    const role = String(
+      (off?.['role_label_es'] as string | undefined)
+      ?? (off?.['role_label'] as string | undefined)
+      ?? (off?.['role'] as string | undefined)
+      ?? '',
+    ).toLowerCase();
+    if (!role) continue;
+    if (AUDITOR_KEYWORDS.some((k) => role.includes(k))) {
+      const name = (off?.['name'] as string | undefined) ?? null;
+      if (name && name.trim()) return name.trim();
+    }
+  }
+  return null;
+}
+
 export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
-  const { identity } = props;
+  const identityRaw = props.identity;
+  // HARDENING-022 · enriquecer identity con `auditor_name` derivado de governance.
+  // Passthrough puro: si governance no lo expone, queda null.
+  const identity: IdentitySection = useMemo(() => ({
+    ...identityRaw,
+    auditor_name: identityRaw.auditor_name ?? extractAuditorName(props.governance),
+  }), [identityRaw, props.governance]);
   const anon = props.authenticated === false;
   const [active, setActive] = useState<SectionId>('resumen');
   const [collapsed, setCollapsed] = useState(false);
@@ -2787,13 +3136,123 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
       <style>{`@keyframes cg-fade-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@keyframes cg-scale-in{from{opacity:0;transform:scale(.75)}to{opacity:1;transform:scale(1)}}`}</style>
       <div className="wrap">
         <div className="crumb">Analizar / Empresas / <b>{name}</b></div>
-        <div className="chead">
+        <div className="chead" data-testid="company-header">
           <div className="clogo">{name.slice(0, 2).toUpperCase()}</div>
-          <div>
-            <h1>{name}
-              {identity.registry_status?.mercantile_status && <span className="vbadge v">● {identity.registry_status.mercantile_status}</span>}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* HARDENING-022 T1 · Nombre + badges (mercantil, Verificada, Auditada) */}
+            <h1>
+              {name}
+              {identity.registry_status?.mercantile_status && (
+                <span className="vbadge v" data-testid="header-badge-mercantile">● {identity.registry_status.mercantile_status}</span>
+              )}
+              {/* Badge Verificada: cuentas depositadas y verificadas en fuente oficial.
+                  R15: sólo si Intel emite ambos flags `verified=true` AND `has_financials=true`. */}
+              {identity.verified === true && identity.has_financials === true && (
+                <span
+                  className="vbadge v"
+                  data-testid="header-badge-verified"
+                  data-tip="Cuentas depositadas y verificadas en fuente oficial (registral)."
+                  tabIndex={0}
+                >
+                  ● Verificada
+                </span>
+              )}
+              {/* Badge Auditada · {auditor}: nombre del auditor cuando conste. */}
+              {identity.auditor_name && identity.auditor_name.trim() && (
+                <span
+                  className="vbadge a"
+                  data-testid="header-badge-audited"
+                  data-tip="Cuentas anuales auditadas por el auditor indicado."
+                  tabIndex={0}
+                >
+                  ● Auditada · {identity.auditor_name}
+                </span>
+              )}
             </h1>
-            <div className="csub">{[identity.legal_name, identity.cif_normalized ? `CIF ${identity.cif_normalized}` : null, cls.cnae_description, identity.location.provincia].filter(Boolean).join(' · ')}{identity.contact.web && <> · <a>{identity.contact.web} ↗</a></>}</div>
+            {/* HARDENING-022 T1 · Subtítulo:
+                Razón social · CIF · [actividad ES] · Localidad (Provincia) · URL clicable ↗ · [icono LinkedIn] */}
+            <div className="csub" data-testid="company-header-subtitle">
+              {(() => {
+                const activityEs = identity.activity_es
+                  ?? cls.cnae_description
+                  ?? identity.activity
+                  ?? null;
+                const localidad = identity.location.municipio;
+                const provincia = identity.location.provincia;
+                const localidadProvincia = localidad && provincia && localidad !== provincia
+                  ? `${localidad} (${provincia})`
+                  : (localidad ?? provincia ?? null);
+                const parts: Array<string | null> = [
+                  identity.legal_name,
+                  identity.cif_normalized ? `CIF ${identity.cif_normalized}` : null,
+                  activityEs,
+                  localidadProvincia,
+                ];
+                const web = identity.contact.web;
+                const linkedin = identity.contact.linkedin;
+                return (
+                  <>
+                    {parts.filter(Boolean).join(' · ')}
+                    {web && (
+                      <>
+                        {' · '}
+                        <a
+                          href={web}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="company-header-website"
+                          aria-label={`Sitio web: ${web}`}
+                        >
+                          {web.replace(/^https?:\/\//i, '')} <ExternalLink size={11} style={{ display: 'inline-block', verticalAlign: '-1px' }} />
+                        </a>
+                      </>
+                    )}
+                    {linkedin && (
+                      <>
+                        {' · '}
+                        <a
+                          href={linkedin}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          data-testid="company-header-linkedin"
+                          aria-label="Perfil de LinkedIn"
+                          title="LinkedIn"
+                          style={{ display: 'inline-flex', verticalAlign: 'middle' }}
+                        >
+                          <Linkedin size={13} />
+                        </a>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+            {/* HARDENING-022 T1 · Chips de oportunidades activas (slot reservado).
+                R15: sólo renderiza si Intel emite `opportunities.thesis_active[]`.
+                Pendiente REQ Intel. Hoy siempre ausente (slot invisible). */}
+            {(() => {
+              const oppsProp = props.opportunities as unknown as { thesis_active?: Array<{ label?: string; type?: string }> } | null;
+              const chips = oppsProp?.thesis_active;
+              if (!Array.isArray(chips) || chips.length === 0) return null;
+              return (
+                <div
+                  className="opps"
+                  data-testid="company-header-opportunities"
+                  style={{ padding: '10px 0 0' }}
+                >
+                  <span className="lbl">Oportunidades activas</span>
+                  {chips.map((c, i) => (
+                    <span
+                      key={c.type ?? i}
+                      className="chk"
+                      data-testid={`header-opp-chip-${c.type ?? i}`}
+                    >
+                      <span className="c">✓</span>{c.label ?? c.type ?? '—'}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
           {/* TODO: cablear a seguimiento/alertas cuando arroba.v2 lo exponga (Plan Intel I-2). */}
           <div className="actions">
@@ -2855,7 +3314,7 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
           </aside>
 
           <main className="main">
-            {active === 'resumen' && <Resumen {...props} anon={anon} />}
+            {active === 'resumen' && <Resumen {...props} identity={identity} anon={anon} />}
             {active === 'finanzas' && (anon
               ? <section className="panel on"><div className="sec-h">Finanzas</div><Gate what="las finanzas" /></section>
               : <Finanzas financial={props.financial} analysis={props.financialAnalysis} />)}

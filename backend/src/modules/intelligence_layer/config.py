@@ -71,6 +71,11 @@ class IntelligenceSettings(BaseSettings):
     # ---------- Observabilidad (Decisión 0.1.3) ----------
     internal_metrics_token: str = ""  # vacío = endpoint abierto
 
+    # ---------- Admin ops (HARDENING-004) ----------
+    # Token requerido para POST /api/admin/cache/purge. Fail-safe: si vacío,
+    # el endpoint responde 503 (nunca puede ejecutarse sin token configurado).
+    arroba_admin_token: str = ""
+
     def ttl_for(self, engine: Engine) -> int:
         """Devuelve TTL efectivo para el motor. Override por motor > global."""
         attr = f"intelligence_cache_ttl_{engine}_seconds"

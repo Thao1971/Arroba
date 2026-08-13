@@ -384,6 +384,16 @@ export interface FinancialAnalysis {
   assessment: FinancialAnalysisAssessment | null;
   valuation: Record<string, unknown> | null;
   ranking: FinancialAnalysisRanking | null;
+  /**
+   * HARDENING-021 · Fase 2 (2026-08-13) · Procedencia por métrica.
+   * Intel emite dict abierto `{block: {metric_key: "verified"|"calculated"|"inferred"}}`
+   * cubriendo `kpis`, `income_statement`, `balance_sheet`, `cashflow`,
+   * `ratios`, `ranking`. Consumido por `<SrcDot>` vía `provenanceFor()`.
+   * Zero coupling · no enumeramos metric_keys, se lee del payload literal.
+   * En anónimo el bloque `finances` completo se nulifica (HARDENING-016) →
+   * el frontend anónimo nunca ve `provenance`.
+   */
+  provenance?: Record<string, Record<string, string>> | null;
   explainability: FinancialAnalysisExplainability | null;
   engine_version: string | null;
   generated_at: string | null;
@@ -467,6 +477,8 @@ export interface IdentityLocation {
 export interface IdentityContact {
   web: string | null;
   domain: string | null;
+  /** HARDENING-022 · URL LinkedIn de empresa (enrichment). NUNCA se construye. */
+  linkedin?: string | null;
 }
 
 export interface IdentitySize {
@@ -520,6 +532,17 @@ export interface IdentitySection {
   registry_status?: IdentityRegistryStatus | null;
   /** `{field: bool}` mapa de presencia (Explainability P1). */
   data_coverage?: Record<string, boolean>;
+  // ---- HARDENING-022 · campos ampliados de Resumen ----
+  /** Etiqueta CNAE en español (Intel: `activity_es` / `cnae_description_es`). Fallback: `activity` (EN). */
+  activity_es?: string | null;
+  /** Flag Intel: cuentas depositadas y verificadas en fuente oficial. */
+  verified?: boolean | null;
+  /** Flag Intel: existencia de financials en registro. */
+  has_financials?: boolean | null;
+  /** Nombre del auditor (desde `governance.auditors[0]` o `identity.auditor`). */
+  auditor_name?: string | null;
+  /** Origen del texto `description`: `official` (Iberinform/objeto social) · `ai` (Nvidia reformula) · `web` (scraping). */
+  description_source?: 'official' | 'ai' | 'web' | null;
 }
 
 /* ============================================================

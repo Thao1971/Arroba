@@ -29,6 +29,7 @@ from src.modules.intelligence_layer.endpoints import (
     intelligence_router as intelligence_layer_router,
     internal_router as intelligence_internal_router,
 )
+from src.modules.intelligence_layer.admin import admin_router as intelligence_admin_router
 from src.modules.platform.router import router as platform_router
 from src.modules.workspaces.router import router as workspaces_router
 from src.modules.auth.router import router as auth_router
@@ -69,6 +70,13 @@ OPENAPI_TAGS = [
             "Entity-first company pages (E1.5-REWORK). GET /api/companies/{cif} "
             "is mixed-access (anonymous gets sections 1-3 + locked_sections). "
             "Auth endpoints persist conversation + watchlist + share."
+        ),
+    },
+    {
+        "name": "admin",
+        "description": (
+            "Ops endpoints protected by X-Admin-Token header (env ARROBA_ADMIN_TOKEN). "
+            "Currently exposes intelligence_cache purge (HARDENING-004)."
         ),
     },
 ]
@@ -143,6 +151,7 @@ app.include_router(entities_router)
 app.include_router(platform_router, prefix="/api")
 app.include_router(workspaces_router, prefix="/api")
 app.include_router(intelligence_internal_router)
+app.include_router(intelligence_admin_router)
 
 
 @app.get("/api/health", tags=["health"])

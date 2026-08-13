@@ -305,6 +305,9 @@ class AgencyToolFinancialProvider(FinancialProvider):
             cash_flow=statements.get("cash_flow") if isinstance(statements.get("cash_flow"), dict) else None,
             size_band=doc.get("size_band"),
             explainability=explainability_raw,
+            # HARDENING-021 · Fase 2 (2026-08-13) · passthrough procedencia por métrica.
+            # Fix del silent drop análogo al de `comparables` (HARDENING-020).
+            provenance=doc.get("provenance") if isinstance(doc.get("provenance"), dict) else None,
             engine_version=INTERNAL_ENGINE_VERSION,
             generated_at=datetime.now(UTC),
         )

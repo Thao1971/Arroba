@@ -1240,4 +1240,228 @@ Envueltas con nuevo helper `<RevealCard>` (línea 306) que aplica `useRevealOnSc
 - ⏸️ Fase 2 (procedencia por métrica `.srcdot`) · aparcada · REQ P2 emitido
 - ⏸️ Comparativa peers T5-T10 · congelada `/tmp/wip_comparativa_20260813/`
 - ⏸️ `/connections` grafo Propiedad · aparcado (3 respuestas Intel pendientes)
-- ❌ HARDENING-004 automated cache invalidation · sin implementar
+- ✅ HARDENING-004 automated cache invalidation · implementado (ver bloque abajo)
+- ✅ HARDENING-022 redistribución Resumen (7 bloques + T1 cabecera renovada) · implementado (ver bloque abajo)
+
+---
+
+## 2026-08-13 · HARDENING-004 · Endpoint admin de purga de caché · DONE
+
+Reemplaza el workflow manual `mongosh deleteMany({_id: /:financial:ficha:/})` que se ejecutaba post-deploy para invalidar `intelligence_cache` (capa Mongo persistente).
+
+### Contrato
+
+- **Ruta**: `POST /api/admin/cache/purge`
+- **Auth**: header `X-Admin-Token` (env `ARROBA_ADMIN_TOKEN`). Fail-safe: si el env está vacío el endpoint responde 503; fail-closed: token ausente/incorrecto responde 401 con `{"error": "invalid admin token"}`.
+- **Body** (exclusivo · exactamente una llave):
+  - `{"cif": "B28184687"}` → regex `:{cif}:` sobre `_id` (borra todas las entries del CIF, cualquier motor)
+  - `{"engine": "ficha"}` → regex `^[^:]+:{engine}:` sobre `_id` (restringe al 2º segmento canónico `provider:engine:...`)
+  - `{"force": true}` → borrado total (requiere flag explícito · `false` no vale)
+- **Response 200**: `{ok, mode, filter, before, deleted, after, duration_ms}`.
+- **Errores**: 400 (body inválido), 401 (auth), 500 (Mongo), 503 (token no configurado).
+- **Doble capa**: purga Mongo (`intelligence_cache` colección) + memoria LRU del pod (`MemoryCache._store`). El pod que atiende la request limpia SU capa 1; los otros pods del cluster limpian por TTL en el próximo hit.
+
+### Archivos
+
+- **Nuevo**: `/app/backend/src/modules/intelligence_layer/admin.py` (~220 líneas · `admin_router` + `PurgeRequest` + `PurgeResponse` + `purge_cache`).
+- **Modificado**: `/app/backend/src/modules/intelligence_layer/config.py` (+7 líneas · `arroba_admin_token: str = ""`).
+- **Modificado**: `/app/backend/src/main.py` (+2 líneas · import + `include_router` + tag OpenAPI `admin`).
+- **Modificado**: `/app/backend/.env` (+1 línea · `ARROBA_ADMIN_TOKEN=<64-char urlsafe token>`).
+
+### Verificación (6 curls · Servier B28184687 · localhost:8001)
+
+| # | Escenario | HTTP | Body |
+|---|-----------|-----:|------|
+| 1 | sin header | 401 | `{"error":"invalid admin token"}` |
+| 2 | token incorrecto | 401 | `{"error":"invalid admin token"}` |
+| 3 | modo `cif` B28184687 | 200 | `{"ok":true,"mode":"cif","filter":"B28184687","before":1,"deleted":1,"after":0,"duration_ms":1}` |
+| 3b | modo `cif` B59022921 | 200 | `{"ok":true,"mode":"cif","filter":"B59022921","before":3,"deleted":3,"after":0,"duration_ms":1}` |
+| 4 | modo `engine` valuation | 200 | `{"ok":true,"mode":"engine","filter":"valuation","before":8,"deleted":8,"after":0,"duration_ms":2}` |
+| 5 | modo `force` | 200 | `{"ok":true,"mode":"force","filter":null,"before":29,"deleted":29,"after":0,"duration_ms":5}` |
+| 6 | body vacío `{}` | 400 | `{"error":"Value error, Body must contain exactly one of: cif, engine, force. Received: none"}` |
+| 6b | dos llaves | 400 | `{"error":"Value error, Body must contain exactly one of: cif, engine, force. Received: ['cif', 'force']"}` |
+
+Total colección tras `force`: 0 docs (verificado con `count_documents`).
+
+### OpenAPI
+
+- Endpoint expuesto en `/api/openapi.json`: `/api/admin/cache/purge` con tag `admin`, responses 200/400/401/422/500/503.
+
+### Audit log
+
+Cada request produce entrada estructurada en `intelligence_layer.admin`:
+- Éxito: `admin.cache_purge.ok mode=... filter=... before=... deleted=... after=... memory_dropped=... duration_ms=... caller_ip=...`
+- Auth failure: `admin.cache_purge.unauthorized caller_ip=... had_header=...`
+- Config missing: `admin.cache_purge.no_token_configured caller_ip=...`
+
+### Uso post-deploy
+
+Reemplaza el `mongosh` manual:
+
+```bash
+# ANTES (manual):
+mongosh "$PROD_MONGO_URI" --eval 'db.intelligence_cache.deleteMany({_id: /:financial:ficha:/})'
+
+# DESPUÉS (HARDENING-004):
+curl -X POST "https://beta.arroba.com/api/admin/cache/purge" \
+  -H "X-Admin-Token: $ARROBA_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"engine":"ficha"}'
+```
+
+### Deploy
+
+- **NO desplegado** · cambio backend acumulado en bundle HARDENING-021 + HARDENING-004 para push manual del usuario.
+- Requiere sync de `ARROBA_ADMIN_TOKEN` en el panel Prod antes de que el endpoint sea utilizable en producción (si el env prod no lo lleva, el endpoint responde 503).
+
+---
+
+## 2026-08-13 · HARDENING-022 · Redistribución pestaña Resumen · DONE
+
+Spec canónica: `/app/memory/PARA_RESUMEN_REDISTRIBUCION.md` (6.6 KB · descargable en `/handoff/PARA_RESUMEN_REDISTRIBUCION.md`).
+
+### Orden previo → nuevo
+
+**Antes** (JSX top-to-bottom):
+1. HeroBlock (prosa + "Veredicto de ARROBA" + hero-sector-widget)
+2. Evolución financiera
+3. KPIs 1ª fila (Facturación, EBITDA, Resultado neto, Empleados)
+4. KPIs 2ª fila (CAGR, Crecimiento anual, Fondos propios, TrendPill)
+5. KPIs 3ª fila (Rankings)
+6. Diagnóstico + Identificación (marco azul + row r2)
+7. IdentidadAmpliada
+
+**Después** (spec 1:1):
+1. **T1 Cabecera** (top-level `chead`, aplica a todas las pestañas)
+2. **T2 KPIs** · 4 KPIs nuevos (Facturación · EBITDA · DN/EBITDA · Activos totales) + sparklines + YoY
+3. **T3 Resumen de compañía** (prosa · card oscura + disclaimer condicional)
+4. **T4 Tesis de oportunidad** (rename "Veredicto de ARROBA" · card destacada roja)
+5. **T5 Detalles de la compañía** (rename "Identificación" + Resultado neto + Empleados movidos)
+6. **T6 Diagnóstico de ARROBA** (scores sin marco azul · explicación via tooltip)
+7. **T7 Evolución financiera** (al final)
+
+### T1 · Cabecera (`chead` top-level)
+
+| Elemento | Estado | Campo payload | Nota |
+|:--|:--|:--|:--|
+| Título (razón social) | ✅ existente | `identity.legal_name` | intacto |
+| URL clicable ↗ | ✅ cableado | `identity.contact.web` | `<a href target=_blank rel=noopener>` con `<ExternalLink size=11>` |
+| Icono LinkedIn | ✅ cableado condicional | `identity.contact.linkedin` | NUNCA construida (regla spec) · Servier: null → icono ausente |
+| Actividad ES | 🟡 fallback | `identity.activity_es → cnae_description → activity` (EN) | Intel no emite `activity_es` aún · fallback muestra EN literal |
+| Subtítulo formato spec | ✅ | `RS · CIF · [actividad] · Localidad (Provincia) · URL ↗ · [LI]` | |
+| Badge Verificada | ✅ condicional | `identity.verified === true AND has_financials === true` | Servier: ambos null → ausente (R15) |
+| Badge Auditada · {nombre} | ✅ condicional | extraído de `governance.officers[]` con rol Auditor · fallback `identity.auditor_name` | Servier: sin rol auditor → ausente |
+| Chips oportunidades | ✅ slot reservado | `opportunities.thesis_active[]` | Pendiente Intel · slot invisible si vacío |
+
+### T2 · KPIs (4 nuevos con sparklines + YoY)
+
+| KPI | Campo Intel | YoY | Sparkline | Nota |
+|:--|:--|:--:|:--:|:--|
+| Facturación | `finances.kpis.revenue` | `revenue_growth_yoy` (0.1173) | ✅ 3 puntos `evolution.points[i].revenue` | tooltip `FACTURACION` (TODO glosario) |
+| EBITDA | `finances.kpis.ebitda` | `ebitda_growth_yoy` (0.2438) | ✅ 3 puntos `evolution.points[i].ebitda` | tooltip `EBITDA` (existe) |
+| DN / EBITDA | `finances.ratios.net_debt_to_ebitda` (Intel no emite) | — | ausente | **Empty honesto** "Sin deuda neta" (R15) |
+| Activos totales | `finances.balance_sheet.total_assets` (97.4 M€) | — | ausente | Intel no emite serie histórica · tooltip `ACTIVOS_TOTALES` (TODO glosario) |
+| Empleados/Resultado neto | movidos a T5 | | | |
+
+Sparkline: SVG minimalista, cero ejes, cero labels, color según YoY (verde `up` · rojo `down`). `prefers-reduced-motion` respetado (path estático, sin animación).
+
+### T3 · Resumen de compañía (prosa · card oscura)
+
+- Card con `background: linear-gradient(135deg, #1c1a18, #34302b)` (patrón del nodo central Propiedad).
+- Fuente cascada: `identity.description → identity.objeto_social → financialAnalysis.identity.description → objeto_social`.
+- Disclaimer condicional: sólo si `identity.description_source ∈ {'ai','web'}`. Servier: null → **no disclaimer** (R15).
+
+### T4 · Tesis de oportunidad (rename Veredicto)
+
+- Card `card` con `border-left: 3px solid var(--red)` + `background: linear-gradient(180deg, var(--red-tint), #fff)` · icono `<Sparkles size=13>` en h3.
+- Fuente preferida: `opportunities.thesis_narrative` (Intel pendiente · REQ implícito).
+- Fallback legacy: `finances.assessment.verdict` (Servier: "Perfil financiero sólido y consistente...").
+- Contiene `<SectorSignalWidget>` (reutilizado del legacy HeroBlock) como contexto sectorial subordinado.
+- CTA "Explorar oportunidad" · placeholder `notify.info` (bloqueado hasta que Intel exponga `opportunities.thesis_active[]`).
+
+### T5 · Detalles de la compañía (rename + campos movidos)
+
+- Rename "Identificación" → "Detalles de la compañía".
+- Añadido: `Resultado neto` (con SrcDot + tooltip `RESULTADO_NETO` + margen) · `Empleados` movidos del hero.
+- `<IdentidadAmpliada>` (34 campos) intacto abajo.
+- Testids: `detalles-compania` (auth) · `detalles-compania-anon` · `detalles-net-income` · `detalles-employees`.
+
+### T6 · Diagnóstico de ARROBA (sin marco azul)
+
+- Retirado `<div className="cs">Valoración cualitativa de ARROBA</div>` (explicación via tooltip).
+- Retirado `<div className="row r2">` (que agrupaba con Identificación) → ahora `<div>` simple.
+- Anillos (Ring) intactos con `useCountUp` respetando `prefers-reduced-motion`.
+- Testid: `diagnostico-arroba`.
+
+### T7 · Evolución financiera (al final)
+
+- `<div>` movido al final del JSX de Resumen.
+- Testid: `evolucion-financiera`.
+- `<abbr title="…">EBITDA` reemplazado por `<span className="help" data-tip="EBITDA" tabIndex={0}>` para consistencia con sistema `<Tip>` de Fase 1.
+
+### Tipos extendidos (aditivos · zero breaking change)
+
+- `IdentityContact.linkedin?: string | null` (nuevo)
+- `IdentitySection.activity_es?: string | null`
+- `IdentitySection.verified?: boolean | null`
+- `IdentitySection.has_financials?: boolean | null`
+- `IdentitySection.auditor_name?: string | null`
+- `IdentitySection.description_source?: 'official' | 'ai' | 'web' | null`
+
+Adapter `adaptIdentityFromFicha` en `CompanyFichaF01Client.tsx` mapea desde el shape crudo Intel (top-level: `linkedin`, `activity_es`/`cnae_activity_es`/`cnae_description_es`, `verified`, `has_financials`, `auditor_name`, `description_source`). Passthrough puro.
+
+### Auditor extraction helper
+
+`extractAuditorName(governance)` en `CompanyFichaLayoutV2`: escanea `governance.officers[]` con matching acento-insensitive de keywords (`auditor`, `auditoría`, etc.) sobre `role_label_es / role_label / role`. Cero fabricación. Servier: sin match → null.
+
+### Glosario · TODO copy pendiente al usuario
+
+| Key | Estado | Acción usuario |
+|:--|:--|:--|
+| `EBITDA` | ✅ existe | — |
+| `DN_EBITDA` | ✅ existe | — |
+| `RESULTADO_NETO` | ✅ existe | — |
+| `PERCENTIL_SECTORIAL` | ✅ existe | — |
+| `AUTONOMIA_FINANCIERA` | ✅ existe | — |
+| `FACTURACION` | ❌ **falta** | Redactar copy CF (llano · 1-2 frases). Sugerencia estructura: definition + why_ma. |
+| `ACTIVOS_TOTALES` | ❌ **falta** | Idem. |
+| `QUALITY_SCORE` | ❌ falta | Copy anillo T6 Diagnóstico "Calidad" |
+| `BUYER_FIT_SCORE` | ❌ falta | Copy anillo "Encaje comprador" |
+| `OPPORTUNITY_SCORE` | ❌ falta | Copy anillo "Oportunidad" |
+
+Sin la entrada glosario, `<Tip>` mostrará el `data-tip` literal (fallback defensivo). Zero-coupling: usuario sólo edita `glosario.ts`.
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|:--|:--|
+| `/app/frontend/src/lib/companies/intelligence-types.ts` | +7 líneas · campos aditivos `IdentityContact.linkedin` + `IdentitySection.{activity_es,verified,has_financials,auditor_name,description_source}` |
+| `/app/frontend/src/components/company/CompanyFichaF01Client.tsx` | +12 líneas · adapter passthrough de nuevos campos |
+| `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` | Refactor completo: +Sparkline (~40 L) · +KpiCard (~90 L) · +ResumenProsaCard (~40 L) · +TesisOportunidadCard (~45 L) · +SectorSignalWidget extraído (~55 L) · +extractAuditorName helper (~24 L) · reescritura chead (T1, ~145 L) · reescritura Resumen (T2..T7, ~200 L) · retirado `HeroBlock` legacy. Net delta ≈ +550 L, -75 L. Import Linkedin + Sparkles añadidos. |
+| `/app/memory/PARA_RESUMEN_REDISTRIBUCION.md` | Descargado spec canónica |
+| `/app/frontend/public/handoff/PARA_RESUMEN_REDISTRIBUCION.md` | Copiado para URL descargable |
+| `/app/memory/PLAN_BETA_status_20260810.md` | Este bloque |
+
+### Verificación
+
+- **`yarn typecheck`**: ✅ verde (3.65s)
+- **`yarn build`**: ✅ verde (17.93s) · First Load JS shared **87.3 kB** (idéntico baseline · sin regresión)
+- **Grep `Veredicto de ARROBA` en JSX**: 0 hits (solo JSDoc `T4 · Tesis de oportunidad (rename "Veredicto de ARROBA")`)
+- **Grep `>Identificación<` legacy JSX**: 0 hits (rename aplicado)
+- **Grep `Detalles de la compañía` JSX**: 2 hits (anon + auth)
+- **Grep `Tesis de oportunidad` JSX**: 2 hits (h3 + Empty fallback)
+- **Smoke visual anon Servier**: cabecera nueva renderiza correctamente con URL clicable "www.servier.es ↗" (sin badge Verificada · sin LinkedIn · R15 correcto) + card prosa oscura visible + "Detalles de la compañía" visible + `<IdentidadAmpliada>` ampliada abajo
+- **Backend auth Servier**: `finances.kpis.revenue=164.2 M€ YoY+11.7%` · `ebitda=18.5 M€ YoY+24.4%` · `net_debt=null → Empty honesto` · `total_assets=97.4 M€` · `net_income=10.1 M€ (movido a T5)` · `assessment.verdict populated (fallback T4)`
+- **Frontend restarted**: sí (`sudo supervisorctl restart frontend`)
+
+### Regressions preservadas
+
+- SrcDot de HARDENING-021 Fase 2 mantenido en cada KPI (T2) + Resultado neto (T5).
+- Tooltips glosario (HARDENING-021 Fase 1) cableados en 6 puntos del nuevo layout.
+- DPD + fail-closed opt-in auth (HARDENING-015) intactos.
+- ChunkLoadError mitigation: `sudo supervisorctl restart frontend` ejecutado post-build.
+
+### Deploy
+
+- **NO desplegado.** Cambios acumulados en bundle **HARDENING-021 + 004 + 022** para push manual del usuario.
+- Pendiente: usuario redacta copy glosario `FACTURACION`, `ACTIVOS_TOTALES`, y opcionalmente `QUALITY_SCORE`, `BUYER_FIT_SCORE`, `OPPORTUNITY_SCORE` (5 keys).
