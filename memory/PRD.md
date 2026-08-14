@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-08-14 — **🟢 HARDENING-024 CERRADO** (BFF relay + DPD del bloque `opportunity`). Bug root cause identificado en dos capas: (1) `CompanyFicha` no declaraba el campo → Pydantic `extra="ignore"` lo descartaba silenciosamente, (2) `AgencyToolFinancialProvider.fetch_ficha` no lo pasaba al constructor. Fix pasa el bloque completo (`thesis.narrative` + `chips`) en auth y lo nulifica en anon. Pytest 3/3 nuevo · cache_purge 8/8 verde · cero fugas confirmadas por curl auth/anon sobre Servier B28184687.
+> **Última actualización**: 2026-08-14 — **🟢 HARDENING-025 CERRADO** (frontend cableado `opportunity` + Copilot dispatch de chips + re-verificación DN/EBITDA). El bloque `opportunity` viaja ya del BFF al layout (Item 1 tenía un bug oculto: el cliente `CompanyFichaF01Client.tsx` no pasaba `opportunity` al layout). Chips clicables → `prefillComposer()` abre el dock del Copilot y precarga el prompt. DN/EBITDA lógica extraída a `@/lib/companies/dn-ebitda` con 13 unit tests cubriendo los 4 estados + el escenario crítico del report del usuario. E2E verificado por Playwright sobre Servier B28184687. Pytest 3/3 backend + Vitest 22/22 nuevos.
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 

@@ -31,13 +31,34 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   { chips, placeholder = 'Pregunta a Arroba Copilot…', showChips = true, testId = 'copilot-composer' },
   ref
 ) {
-  const { send, loading } = useCopilot();
+  const { send, loading, pendingComposerText, dispatch } = useCopilot();
   const [draft, setDraft] = useState('');
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
   useImperativeHandle(ref, () => ({
     focus: () => taRef.current?.focus(),
   }));
+
+  // HARDENING-025 · Item 3 · consume el prefill emitido por `prefillComposer()`
+  // (p.ej. click en un chip de `opportunity.chips[]`). Deja el texto en el
+  // draft, enfoca el textarea y limpia el estado pendiente para que un
+  // segundo prefill idéntico pueda dispararse otra vez sin edge cases.
+  useEffect(() => {
+    if (pendingComposerText != null) {
+      setDraft(pendingComposerText);
+      // Consumido. Reset para no reinyectar en próximas renders.
+      dispatch({ type: 'set_pending_composer', text: null });
+      // Enfoque diferido para dar tiempo al dock a abrirse (transición CSS).
+      requestAnimationFrame(() => {
+        taRef.current?.focus();
+        const el = taRef.current;
+        if (el) {
+          const end = el.value.length;
+          el.setSelectionRange(end, end);
+        }
+      });
+    }
+  }, [pendingComposerText, dispatch]);
 
   // auto-grow up to 8 rows.
   useEffect(() => {

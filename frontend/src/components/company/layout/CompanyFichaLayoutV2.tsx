@@ -27,6 +27,9 @@ import { SrcDot } from '@/components/company/atoms/SrcDot';
 import { provenanceFor, type ProvenanceValue } from '@/lib/companies/provenance';
 import { PROPIEDAD_MOCKUP_CSS } from './propiedadMockupCss';
 import { notify } from '@/lib/notify';
+import { useCopilot } from '@/components/copilot/CopilotProvider';
+import { buildChipPrompt, hasPromptForChip } from '@/lib/copilot/prompts';
+import { computeDnEbitdaState, type DnEbitdaState } from '@/lib/companies/dn-ebitda';
 
 export interface CompanyFichaLayoutV2Props {
   identity: IdentitySection;
@@ -576,42 +579,15 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // T2 · KPI DN/EBITDA · 3 estados (HARDENING-023 · 2026-08-13)
+  // T2 · KPI DN/EBITDA · 4 estados (HARDENING-023 · HARDENING-025 Item 4)
   //
-  // Fuente CANONICAL (spec usuario): `kpis.net_debt` + `kpis.ebitda` del payload
-  // `/ficha`. Fallback tolerante a `balance_sheet.net_debt` cuando Intel lo pone
-  // en el balance en vez de en kpis (verificado tras HARDENING-020).
-  //
-  // Estados:
-  //   1. Falta dato base           → { kind: 'empty' }        → "— · Sin dato"
-  //   2. net_debt <= 0             → { kind: 'no_debt' }      → "— · Sin deuda neta"
-  //   3. ebitda   <= 0 (con deuda) → { kind: 'ebitda_neg' }   → "— · EBITDA negativo"
-  //   4. Ambos positivos           → { kind: 'ratio', value } → "N,N×"
-  //
-  // R15: NO derivar `net_debt` local desde `financial_debt - cash` si Intel no
-  // lo emite. Cuando falta el dato base → estado 1 (Empty honesto).
+  // Lógica extraída a `@/lib/companies/dn-ebitda` para cobertura unitaria.
+  // Ver `dn-ebitda.test.ts` (13 tests) para todos los estados y regresiones.
   // ─────────────────────────────────────────────────────────────────────────
-  type DnEbitdaState =
-    | { kind: 'empty' }
-    | { kind: 'no_debt' }
-    | { kind: 'ebitda_neg' }
-    | { kind: 'ratio'; value: number };
-
-  const dnEbitdaState: DnEbitdaState = (() => {
-    const kpis = financialAnalysis?.kpis as unknown as Record<string, unknown> | null;
-    const bs = financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null;
-    const readNum = (source: Record<string, unknown> | null | undefined, key: string): number | null => {
-      const v = source?.[key];
-      return (typeof v === 'number' && isFinite(v)) ? v : null;
-    };
-    // Cascada `net_debt`: kpis (canonical) → balance_sheet (fallback verificado).
-    const netDebt: number | null = readNum(kpis, 'net_debt') ?? readNum(bs, 'net_debt');
-    const ebitda: number | null = readNum(kpis, 'ebitda');
-    if (netDebt == null || ebitda == null) return { kind: 'empty' };
-    if (netDebt <= 0) return { kind: 'no_debt' };
-    if (ebitda <= 0) return { kind: 'ebitda_neg' };
-    return { kind: 'ratio', value: netDebt / ebitda };
-  })();
+  const dnEbitdaState: DnEbitdaState = computeDnEbitdaState(
+    financialAnalysis?.kpis as unknown as Record<string, unknown> | null,
+    financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null,
+  );
 
   // T2 · Activos totales · passthrough puro desde balance_sheet.
   const totalAssets: number | null = (() => {
@@ -2976,6 +2952,8 @@ function extractAuditorName(governance: GovernanceBlock | null | undefined): str
 
 export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
   const identityRaw = props.identity;
+  // HARDENING-025 · Item 3 · handle imperativo para dispatch de chips al Copilot.
+  const { prefillComposer } = useCopilot();
   // HARDENING-022b · enriquecer identity con:
   //   • `auditor_name` desde `identity.auditor` (adapter) o fallback governance.
   //   • `has_financials` desde `financialAnalysis.has_financials` (Intel emite
@@ -3094,10 +3072,18 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             </div>
             {/* HARDENING-022b T1 · Chips de oportunidades activas · consume
                 `opportunity.chips[]` con shape `{enum, label_es}`. Passthrough
-                puro: si null o vacío → slot invisible (R15). */}
+                puro: si null o vacío → slot invisible (R15).
+                HARDENING-025 · Item 2/3 · guard DPD defensivo (además del backend)
+                y dispatch al Copilot: chips con plantilla en `@/lib/copilot/prompts`
+                son clicables → `prefillComposer(...)` abre el dock + precarga el
+                composer. Chips sin plantilla renderizan como span estático. */}
             {(() => {
+              // Guard DPD defensivo (además del backend HARDENING-024): no
+              // renderizar chips si visitante anónimo.
+              if (anon) return null;
               const chips = props.opportunity?.chips;
               if (!Array.isArray(chips) || chips.length === 0) return null;
+              const empresaName = identity.legal_name ?? identity.cif_normalized ?? null;
               return (
                 <div
                   className="opps"
@@ -3107,12 +3093,41 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
                   <span className="lbl">Oportunidades activas</span>
                   {chips.map((c, i) => {
                     const label = c.label_es ?? c.enum ?? '—';
+                    const chipEnum = c.enum ?? null;
+                    const clickable = hasPromptForChip(chipEnum);
+                    if (clickable) {
+                      return (
+                        <button
+                          key={chipEnum ?? i}
+                          type="button"
+                          className="chk"
+                          data-testid={`header-opp-chip-${chipEnum ?? i}`}
+                          data-enum={chipEnum ?? undefined}
+                          onClick={() => {
+                            const prompt = buildChipPrompt(chipEnum, empresaName);
+                            if (prompt) prefillComposer(prompt);
+                          }}
+                          title="Preguntar al Copilot"
+                          style={{
+                            font: 'inherit',
+                            color: 'inherit',
+                            background: 'transparent',
+                            border: 0,
+                            padding: 0,
+                            margin: 0,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <span className="c">✓</span>{label}
+                        </button>
+                      );
+                    }
                     return (
                       <span
-                        key={c.enum ?? i}
+                        key={chipEnum ?? i}
                         className="chk"
-                        data-testid={`header-opp-chip-${c.enum ?? i}`}
-                        data-enum={c.enum ?? undefined}
+                        data-testid={`header-opp-chip-${chipEnum ?? i}`}
+                        data-enum={chipEnum ?? undefined}
                       >
                         <span className="c">✓</span>{label}
                       </span>

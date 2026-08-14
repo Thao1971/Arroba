@@ -84,6 +84,13 @@ interface CopilotState {
   lastQuery: string | null;
   currentWorkspaceId: string | null;
   currentEntity: EntityContext | null;
+  /**
+   * HARDENING-025 · Item 3 · Prefill del Composer desde entidades externas.
+   * Cuando un chip de oportunidad (u otro origen) inyecta texto al composer,
+   * se guarda aquí y el Composer lo consume (setDraft + focus + limpia). NULL
+   * cuando no hay prefill pendiente. Evita props drilling.
+   */
+  pendingComposerText: string | null;
 }
 
 type Action =
@@ -110,7 +117,8 @@ type Action =
       type: 'hydrate_entity_conversation';
       messages: CopilotMessage[];
     }
-  | { type: 'hydrate'; state: Partial<CopilotState> };
+  | { type: 'hydrate'; state: Partial<CopilotState> }
+  | { type: 'set_pending_composer'; text: string | null };
 
 const INITIAL: CopilotState = {
   open: false,
@@ -120,6 +128,7 @@ const INITIAL: CopilotState = {
   lastQuery: null,
   currentWorkspaceId: null,
   currentEntity: null,
+  pendingComposerText: null,
 };
 
 const STORAGE_KEY = 'arroba.copilot.session.v1';
@@ -220,6 +229,10 @@ function reducer(state: CopilotState, action: Action): CopilotState {
     }
     case 'hydrate':
       return { ...state, ...action.state };
+    case 'set_pending_composer':
+      // HARDENING-025 · Item 3 · prefill Composer. El Composer consume el
+      // valor (setDraft + focus) y a continuación limpia con text=null.
+      return { ...state, pendingComposerText: action.text };
     default:
       return state;
   }
@@ -253,6 +266,14 @@ interface CopilotContextValue extends CopilotState {
   setEntityContext: (entity: EntityContext | null) => void;
   /** Alias explícito para limpiar el contexto en el unmount de la página. */
   clearEntityContext: () => void;
+  /**
+   * HARDENING-025 · Item 3 · Precarga el composer con `text`, abre el dock
+   * si estaba cerrado y deja el foco en el textarea. Uso canónico:
+   * chips de `opportunity.chips[]` que dispatchan un prompt al Copilot.
+   * Fallback graceful: aunque el backend Copilot no responda, el composer
+   * queda precargado (requisito explícito HARDENING-025).
+   */
+  prefillComposer: (text: string) => void;
   dispatch: Dispatch<Action>;
 }
 
@@ -560,6 +581,14 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'set_entity_context', entity: null });
   }, []);
 
+  const prefillComposer = useCallback<CopilotContextValue['prefillComposer']>((text) => {
+    // HARDENING-025 · Item 3. Abre el dock + inyecta texto pendiente. El
+    // Composer sincroniza su `draft` con `pendingComposerText` vía effect y
+    // reset a null cuando termina de consumirlo.
+    dispatch({ type: 'open' });
+    dispatch({ type: 'set_pending_composer', text });
+  }, []);
+
   const value = useMemo<CopilotContextValue>(
     () => ({
       ...state,
@@ -574,6 +603,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       hydrateEntityConversation,
       setEntityContext,
       clearEntityContext,
+      prefillComposer,
       dispatch,
     }),
     [
@@ -585,6 +615,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
       hydrateEntityConversation,
       setEntityContext,
       clearEntityContext,
+      prefillComposer,
     ],
   );
 

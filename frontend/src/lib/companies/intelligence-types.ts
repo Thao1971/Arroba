@@ -926,6 +926,15 @@ export interface CompanyFicha {
   market: MarketBlock | null;
   /** HARDENING-014 · bloque `control_graph` top-level Intel. Union discriminado. */
   control_graph: ControlGraphBlock | null;
+  /**
+   * HARDENING-024 · bloque `opportunity` top-level Intel. Passthrough.
+   * Contiene `thesis.narrative` (prosa CF) + `chips[]` `{enum, label_es}`.
+   * Gateado: `null` para visitante anónimo (nulificado en el endpoint).
+   */
+  opportunity: {
+    thesis?: { narrative?: string | null; components?: Record<string, string | null> | null } | null;
+    chips?: Array<{ enum?: string | null; label_es?: string | null }> | null;
+  } | null;
   engine_version: string;
 }
 

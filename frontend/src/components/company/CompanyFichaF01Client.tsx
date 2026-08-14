@@ -300,6 +300,7 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
         controlGraph={ficha?.control_graph ?? null}
         events={ficha?.events ?? null}
         market={ficha?.market ?? null}
+        opportunity={ficha?.opportunity ?? null}
         authenticated={isAuthenticated}
       />
     </TipProvider>
