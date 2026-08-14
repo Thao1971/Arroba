@@ -3,17 +3,20 @@ import Link from 'next/link';
 import { ThemeSwitcher } from '@/components/ds';
 import { useTranslations } from 'next-intl';
 import { LocaleSwitcher } from './_components/LocaleSwitcher';
-import { CopilotProvider, CopilotDock } from '@/components/copilot';
+
+// HARDENING-REQ002 · fix mount duplicado del Copilot (2026-08-14).
+// El root layout `[locale]/layout.tsx` ya provee `<CopilotProvider>` +
+// `<CopilotDock/>` globalmente. Volver a montarlos aquí creaba dos
+// contextos anidados y dos `data-testid="composer"` en el DOM. El route
+// group `(public)` NO debe volver a montar Copilot — sólo el chrome
+// (`PublicHeader`) es exclusivo de estas rutas.
 
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
-    <CopilotProvider>
-      <div className="min-h-screen flex flex-col bg-bg text-text">
-        <PublicHeader />
-        <main className="flex-1">{children}</main>
-        <CopilotDock />
-      </div>
-    </CopilotProvider>
+    <div className="min-h-screen flex flex-col bg-bg text-text">
+      <PublicHeader />
+      <main className="flex-1">{children}</main>
+    </div>
   );
 }
 

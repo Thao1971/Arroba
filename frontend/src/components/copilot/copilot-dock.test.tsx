@@ -10,15 +10,23 @@
  *     ampliada, contrato preservado).
  *   - El panel + botón "Limpiar" sólo son visibles cuando hay history
  *     (auto-open al hacer submit gracias a `CopilotProvider.submit`).
+ *
+ * HARDENING-REQ002 · Búsqueda exploratoria / NL ya no pinta `search_results`
+ * en el dock — el orchestrator emite `navigate_to: /resultados?q=...` y el
+ * `CopilotProvider.send` hace `router.push`. En el dock queda sólo el mensaje
+ * del assistant ("Te muestro los resultados para «…»").
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CopilotProvider, CopilotDock } from './index';
 
+// HARDENING-REQ002 · router.push mock accesible en asserts (verificamos que
+// el orchestrator emitió `navigate_to` y `CopilotProvider.send` lo consumió).
+const routerPushMock = vi.fn();
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: routerPushMock, replace: vi.fn() }),
 }));
 vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => ({
@@ -82,6 +90,7 @@ describe('CopilotDock reskinneado + Composer (E2E · HARDENING-026)', () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.resetAllMocks();
+    routerPushMock.mockClear();
   });
 
   it('emite data-testid="composer" persistente + barra siempre visible sin FAB', () => {
@@ -108,7 +117,7 @@ describe('CopilotDock reskinneado + Composer (E2E · HARDENING-026)', () => {
     expect(composer?.querySelector('[data-testid="copilot-dock-fab"]')).toBeNull();
   });
 
-  it('envío auto-expande el panel del thread + renderiza SearchResultsBlock', async () => {
+  it('envío exploratorio muestra assistant msg + navega a /resultados (REQ002)', async () => {
     const user = userEvent.setup();
     mockSearchOnce(3);
     const { container } = render(
@@ -119,14 +128,17 @@ describe('CopilotDock reskinneado + Composer (E2E · HARDENING-026)', () => {
     // Composer visible directamente, sin FAB previo.
     await user.type(screen.getByTestId('copilot-composer-textarea'), 'kitchen{enter}');
     await waitFor(() =>
-      expect(screen.getByTestId('block-search-results')).toBeInTheDocument(),
+      expect(screen.getByText(/Te muestro los resultados/)).toBeInTheDocument(),
     );
     // Panel del thread ahora sí existe (auto-open on submit).
     expect(container.querySelector('[data-testid="copilot-dock-panel"]')).not.toBeNull();
-    expect(screen.getByTestId('copilot-workspace')).toBeInTheDocument();
-    expect(screen.getByTestId('block-search-results-row-mc_0')).toBeInTheDocument();
-    expect(screen.getByTestId('block-search-results-row-mc_1')).toBeInTheDocument();
-    expect(screen.getByTestId('block-search-results-row-mc_2')).toBeInTheDocument();
+    // REQ002 · El orchestrator emitió `navigate_to: /resultados?q=kitchen` y
+    // `CopilotProvider.send` lo consumió con `router.push`. Los resultados NO
+    // se pintan dentro del dock (viven en la página `/resultados`).
+    await waitFor(() => {
+      expect(routerPushMock).toHaveBeenCalledWith('/resultados?q=kitchen');
+    });
+    expect(screen.queryByTestId('block-search-results')).not.toBeInTheDocument();
   });
 
   it('Limpiar button (dentro del panel abierto) vacía la history', async () => {
@@ -138,10 +150,10 @@ describe('CopilotDock reskinneado + Composer (E2E · HARDENING-026)', () => {
       </CopilotProvider>
     );
     await user.type(screen.getByTestId('copilot-composer-textarea'), 'kitchen{enter}');
-    await waitFor(() => expect(screen.getByTestId('block-search-results')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Te muestro los resultados/)).toBeInTheDocument());
     // El botón Limpiar sólo existe cuando el panel del thread está visible.
     await user.click(screen.getByTestId('copilot-dock-clear'));
-    expect(screen.queryByTestId('block-search-results')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Te muestro los resultados/)).not.toBeInTheDocument();
   });
 
   it('renders chips en la barra al inicio y submit del chip envía la query', async () => {
@@ -156,7 +168,7 @@ describe('CopilotDock reskinneado + Composer (E2E · HARDENING-026)', () => {
     expect(screen.getByTestId('copilot-composer-chips')).toBeInTheDocument();
     await user.click(screen.getByTestId('copilot-composer-chip-0'));
     await waitFor(() => {
-      expect(screen.getByTestId('block-search-results')).toBeInTheDocument();
+      expect(screen.getByText(/Te muestro los resultados/)).toBeInTheDocument();
     });
   });
 });

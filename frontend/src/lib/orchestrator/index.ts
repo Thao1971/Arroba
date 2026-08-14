@@ -129,6 +129,21 @@ export async function dispatch(
         };
       }
       const ws = res.workspace;
+      // HARDENING-REQ002 · 2026-08-14 · Búsqueda exploratoria / NL que
+      // devuelve lista → llevamos al usuario a `/resultados` en vez de pintar
+      // el `search_results` block dentro del dock. Mantiene la conversación
+      // limpia y la tabla rica vive en su superficie propia. Semántica de
+      // rutas: nombre único → ficha directa · 2-5 → desambiguación en barra
+      // · lista exploratoria → `/resultados`.
+      const hasResults = ws?.blocks?.some((b) => b.type === 'search_results');
+      if (hasResults) {
+        return {
+          intent,
+          workspace: null,
+          assistantMessage: `Te muestro los resultados para «${intent.query}».`,
+          navigate_to: `/resultados?q=${encodeURIComponent(intent.query)}`,
+        };
+      }
       return {
         intent,
         workspace: ws,
