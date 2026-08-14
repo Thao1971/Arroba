@@ -69,6 +69,7 @@ Detalle completo por bloque: `/app/memory/PLAN_BETA_status_20260810.md`.
 
 - `yarn typecheck` verde (1.9 s).
 - `yarn build` verde (17.3 s) · First Load JS shared **87.3 kB** (baseline, sin regresión).
+- **⚠️ Regla operativa preview dev**: tras cada `yarn build`, ejecutar `sudo supervisorctl restart frontend`. Next.js con `next start` cachea el manifest en memoria del proceso Node y no hot-reloadea con nuevos builds — sin restart el pod sigue sirviendo la build anterior. Verificar con `ls -la /app/frontend/.next/BUILD_ID` (mtime) vs `supervisorctl status frontend` (uptime): si el uptime es anterior al mtime, restart obligatorio.
 - `pytest tests/test_admin_cache_purge.py -m smoke` · **8/8 passed in 0.05 s**.
 - Curl `/api/companies/B28184687/ficha?authenticated=true` responde con los shapes 022b (`identity.activity_es`, `verified`, `auditor`, `linkedin_url`, `description_source`, `finances.has_financials`, `finances.provenance.kpis.net_debt_ebitda`).
 
