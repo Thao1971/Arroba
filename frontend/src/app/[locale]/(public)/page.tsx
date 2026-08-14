@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -27,6 +27,7 @@ import {
   MetricsBlock,
   FeatureCardBlock,
 } from '@/components/blocks';
+import { useCopilot } from '@/components/copilot';
 import { PublicFooter } from '@/components/home/PublicFooter';
 import { CopilotDemoTeaser } from '@/components/home/CopilotDemoTeaser';
 
@@ -172,7 +173,7 @@ export default function HomePage() {
             testId="home-metrics"
           />
           <p className="text-center text-xs text-text-subtle mt-6">
-            Datos agregados de arroba.com · Origen actual: datos demo · Confianza 1.0
+            Datos agregados en tiempo real desde arroba.com
           </p>
         </div>
       </section>
@@ -322,24 +323,62 @@ function SectionHeader({
   );
 }
 
-/** Buscador decorativo — estático, no funcional. El Search Skill real llega en E1.4. */
+/**
+ * Buscador del hero — funcional. Cablea al Copilot canónico (mismo flujo que el
+ * dock/barra inferior): `useCopilot().send()` resuelve un CIF puro a su ficha,
+ * resuelve una entidad por nombre → navega a `/empresa/{cif}`, o pinta los
+ * resultados de la búsqueda en la barra. Sin lógica paralela: reutiliza el
+ * orquestador cliente y el skill público `/api/copilot/skills/search`.
+ */
 function HeroSearchTeaser() {
+  const { openDock, send, loading } = useCopilot();
+  const [query, setQuery] = useState('');
+  const [phIdx, setPhIdx] = useState(0);
+
+  // Placeholder rotativo: da vida y sugiere los tipos de consulta soportados.
+  useEffect(() => {
+    const id = setInterval(
+      () => setPhIdx((i) => (i + 1) % HERO_PLACEHOLDERS.length),
+      3200,
+    );
+    return () => clearInterval(id);
+  }, []);
+
+  function submit() {
+    const q = query.trim();
+    if (!q) return;
+    openDock();
+    void send(q);
+  }
+
   return (
-    <div
+    <form
       data-testid="home-hero-search-teaser"
-      className="mx-auto max-w-xl flex items-center gap-2 px-4 h-14 rounded-[14px] border-[1.5px] border-border-strong bg-surface shadow-sm"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      className="mx-auto max-w-xl flex items-center gap-2 px-4 h-14 rounded-[14px] border-[1.5px] border-border-strong bg-surface shadow-sm transition-colors focus-within:border-primary"
     >
       <Compass size={18} strokeWidth={1.6} className="text-text-subtle shrink-0" />
       <input
         type="text"
-        readOnly
-        placeholder={HERO_PLACEHOLDERS[0]}
-        aria-label="Buscador del Copilot (próximamente)"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={HERO_PLACEHOLDERS[phIdx]}
+        aria-label="Buscar empresas, sectores o territorios"
+        data-testid="home-hero-search-input"
         className="flex-1 h-full bg-transparent border-none outline-none text-[15px] text-text font-body placeholder:text-text-subtle"
       />
-      <span className="hidden md:inline-flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-text-subtle px-2 py-1 rounded-md border border-border">
-        Próximamente
-      </span>
-    </div>
+      <button
+        type="submit"
+        disabled={loading || !query.trim()}
+        data-testid="home-hero-search-submit"
+        aria-label="Buscar"
+        className="inline-flex items-center justify-center h-9 w-9 rounded-[10px] bg-primary text-white hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0"
+      >
+        <ArrowRight size={16} strokeWidth={1.8} />
+      </button>
+    </form>
   );
 }

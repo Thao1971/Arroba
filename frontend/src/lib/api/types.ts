@@ -103,18 +103,16 @@ export interface CreateOrgResponse {
 export type Lineage = 'raw' | 'normalized' | 'inferred' | 'ai_generated';
 
 export interface PlatformStats {
-  companies_with_intelligence: number;
-  companies_with_financials: number;
-  economic_metrics_total: number;
-  corporate_movements: number;
-  investors_and_funds: number;
-  sectors_analyzed: number;
-  companies_with_public_contracts: number;
-  cross_sectors: number;
+  companies_analyzed: number;
+  active_opportunities: number;
+  market_movements: number;
+  signals_detected: number;
   last_updated: string;
   confidence: number;
   lineage: Lineage;
   valid_until: string | null;
+  /** legacy `source` (`mock | real`) — el canónico es `provenance`. */
+  source?: string;
   /** Nomenclatura canónica: `demo` (dataset de demostración local) o
    *  `live` (proveedor real en producción). */
   provenance: 'demo' | 'live';

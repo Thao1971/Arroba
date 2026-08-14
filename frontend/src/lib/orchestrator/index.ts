@@ -167,7 +167,7 @@ export async function dispatch(
 }
 
 function entityLabelFromPath(path: string): string {
-  const m = path.match(/^\/empresa\/([A-Z]\d{8})/i);
+  const m = path.match(/^\/empresa(?:-f01)?\/([A-Z]\d{8})/i);
   if (m && m[1]) return `la empresa ${m[1].toUpperCase()}`;
   return path;
 }

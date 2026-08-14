@@ -19,6 +19,14 @@ from typing import Any
 
 from src.core.database import get_db
 from src.core.logging import get_logger
+# REQ-001 · REFACTOR (2026-08-14): cliente S2S canónico del `intelligence_layer`
+# (retry + dual-key + semáforo + circuit breaker) en vez de un `intel_client.py`
+# paralelo. Toggle canónico: `IntelligenceSettings.agency_tool_mode`.
+from src.modules.intelligence_layer.config import get_intelligence_settings
+from src.modules.intelligence_layer.providers.agency_tool.client import (
+    AgencyToolHTTPError,
+    get_agency_tool_client,
+)
 from src.modules.copilot.models import (
     DisambiguationItem,
     EmptyStateBlock,
@@ -121,6 +129,19 @@ async def execute_search(
     """
     q = request.query.strip()
     q_norm = _normalize(q)
+
+    # Real mode (REQ-001): resolve against Intel arroba.v2. On any failure we
+    # fall through to the deterministic mock path so search never hard-fails.
+    if get_intelligence_settings().agency_tool_mode == "real":
+        try:
+            return await _execute_search_real(request, q, q_norm)
+        except AgencyToolHTTPError as exc:
+            log.warning(
+                "copilot.search.real_failed_fallback_mock",
+                error=str(exc),
+                status=getattr(exc, "status_code", None),
+            )
+
     log.info(
         "[MOCK] copilot.search",
         query=q,
@@ -142,7 +163,7 @@ async def execute_search(
                     workspace=None,
                     source=ADAPTER_MODE,
                     query=q,
-                    navigate_to=f"/empresa/{cif_upper}",
+                    navigate_to=f"/empresa-f01/{cif_upper}",
                     entity_type="company",
                 )
         # Valid-shape CIF but unknown → empty.
@@ -175,7 +196,7 @@ async def execute_search(
                     workspace=None,
                     source=ADAPTER_MODE,
                     query=q,
-                    navigate_to=f"/empresa/{cif}",
+                    navigate_to=f"/empresa-f01/{cif}",
                     entity_type="company",
                 )
         # 2-5 candidates → disambiguation (also when 1 candidate but query <4 chars).
@@ -230,6 +251,116 @@ async def execute_search(
         workspace=Workspace(workspace_id=workspace_id, intent="search", blocks=[block]),
         source=ADAPTER_MODE,
         query=q,
+    )
+
+
+async def _execute_search_real(
+    request: SearchSkillRequest, q: str, q_norm: str
+) -> SearchSkillResponse:
+    """Real path (REQ-001): resolve the query against Intel's arroba.v2
+    `company-intelligence/resolve` (exact CIF/name). Reuses the same decision
+    tree and response shapes as the mock path — only the data source changes.
+    Raises AgencyToolHTTPError on failure so the caller falls back to mock.
+
+    REQ-001 REFACTOR: usa el `AgencyToolClient` canónico (retry + dual-key +
+    semáforo + circuit breaker) del `intelligence_layer`.
+    """
+    pathname = request.context.pathname
+    locale = request.context.locale
+    resolve_path = "/api/v2/company-intelligence/resolve"
+
+    async def _resolve(payload: dict[str, Any]) -> dict[str, Any]:
+        resp = await get_agency_tool_client().request("POST", resolve_path, json=payload)
+        if resp.status_code >= 400:
+            raise AgencyToolHTTPError(
+                status_code=resp.status_code,
+                error_class="client_4xx" if resp.status_code < 500 else "server_5xx",
+                message=f"resolve http_{resp.status_code}",
+            )
+        return resp.json()
+
+    def _cif_of(m: dict[str, Any]) -> str | None:
+        c = m.get("cif")
+        return re.sub(r"[\s.\-]", "", str(c).upper()) if c else None
+
+    # ---- Path A: CIF (highest precedence) -------------------------------
+    cif_upper = re.sub(r"[\s.\-]", "", q.upper())
+    if _CIF_RE.match(cif_upper):
+        resp = await _resolve({"cif": cif_upper, "limit": 1})
+        matches = resp.get("matches") or []
+        if matches:
+            cif = _cif_of(matches[0]) or cif_upper
+            return SearchSkillResponse(
+                workspace=None, source="real", query=q,
+                navigate_to=f"/empresa-f01/{cif}", entity_type="company",
+            )
+        return _empty_response(q, pathname, locale)
+
+    # ---- Path B/C: resolve by name --------------------------------------
+    resp = await _resolve({"name": q, "limit": MAX_RESULTS})
+    matches: list[dict[str, Any]] = resp.get("matches") or []
+    matches.sort(key=lambda m: -float(m.get("score") or 0.0))
+
+    tokens = [t for t in re.split(r"\s+", q_norm) if t]
+    is_concrete = (
+        bool(tokens)
+        and len(tokens) <= 3
+        and all(re.match(r"^[a-z0-9]+$", t) for t in tokens)
+        and not any(t in _EXPLORATORY_TOKENS for t in tokens)
+    )
+
+    if is_concrete:
+        strong = [m for m in matches if float(m.get("score") or 0.0) >= 0.85]
+        if len(strong) == 1 and len(q_norm) >= 4:
+            cif = _cif_of(strong[0])
+            if cif and _CIF_RE.match(cif):
+                return SearchSkillResponse(
+                    workspace=None, source="real", query=q,
+                    navigate_to=f"/empresa-f01/{cif}", entity_type="company",
+                )
+        candidates = matches[:5]
+        if 1 <= len(candidates) <= 5:
+            items = [
+                DisambiguationItem(
+                    master_company_id=str(m.get("master_id") or ""),
+                    cif=_cif_of(m),
+                    name=str(m.get("legal_name") or "—"),
+                    sector=m.get("cnae_section"),
+                    region=m.get("province"),
+                )
+                for m in candidates
+            ]
+            return SearchSkillResponse(
+                workspace=None, source="real", query=q, disambiguation=items,
+            )
+        if not matches:
+            return _empty_response(q, pathname, locale)
+
+    # ---- exploratory / results list -------------------------------------
+    top = matches[:MAX_RESULTS]
+    if not top:
+        return _empty_response(q, pathname, locale)
+    items = [
+        SearchResultItem(
+            master_company_id=str(m.get("master_id") or ""),
+            name=str(m.get("legal_name") or "—"),
+            legal_name=m.get("legal_name"),
+            cif=_cif_of(m),
+            sector=m.get("cnae_section"),
+            city=m.get("province"),
+            score=round(float(m.get("score") or 0.0), 3),
+        )
+        for m in top
+    ]
+    block = SearchResultsBlock(
+        id="blk_results_" + uuid.uuid4().hex[:8],
+        props=SearchResultsBlockProps(query=q, total=len(matches), results=items),
+    )
+    return SearchSkillResponse(
+        workspace=Workspace(
+            workspace_id="wsp_" + uuid.uuid4().hex[:12], intent="search", blocks=[block]
+        ),
+        source="real", query=q,
     )
 
 

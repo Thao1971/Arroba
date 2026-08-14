@@ -20,6 +20,17 @@ from typing import Any
 from src.core.database import get_db
 from src.core.exceptions import ConflictError, NotFoundError
 from src.core.logging import get_logger
+# REQ-001 · REFACTOR (2026-08-14): en vez de un cliente S2S paralelo
+# (`intel_client.py`) reutilizamos el `AgencyToolClient` canónico del
+# `intelligence_layer` (retry / dual-key / semáforo global / circuit breaker).
+# Env vars compartidas: `ARROBA_SERVICE_API_KEY_PRIMARY` + `_SECONDARY`,
+# `AGENCY_TOOL_BASE_URL`. El toggle real/mock canónico es
+# `IntelligenceSettings.agency_tool_mode` (no `adapter_mode`).
+from src.modules.intelligence_layer.config import get_intelligence_settings
+from src.modules.intelligence_layer.providers.agency_tool.client import (
+    AgencyToolHTTPError,
+    get_agency_tool_client,
+)
 
 try:
     from pymongo.errors import DuplicateKeyError
@@ -119,25 +130,68 @@ PLATFORM_STATS_NAME = "platform_stats"
 PLATFORM_STATS_KEY = "singleton"  # only ONE document per arroba.com deployment
 
 
+def _to_lineage(value: Any) -> Lineage:
+    """Intel returns lineage as {"source": "..."}; the mock stores a plain
+    string. Fall back to `raw` on any unknown value."""
+    src = value.get("source") if isinstance(value, dict) else value
+    try:
+        return Lineage(str(src))
+    except ValueError:
+        return Lineage.raw
+
+
 async def get_platform_stats() -> PlatformStats:
-    """PUBLIC read. Anonymous visitors see this on the home page."""
+    """PUBLIC read served on the home page. In real mode it reads Intel's
+    public `platform_stats` via the canonical `AgencyToolClient` (retry +
+    circuit breaker); otherwise (or on failure) it maps the local mock."""
+    settings = get_intelligence_settings()
+    if settings.agency_tool_mode == "real":
+        try:
+            resp = await get_agency_tool_client().request(
+                "GET", "/api/v1/platform_stats"
+            )
+            if resp.status_code >= 400:
+                raise AgencyToolHTTPError(
+                    status_code=resp.status_code,
+                    error_class="client_4xx" if resp.status_code < 500 else "server_5xx",
+                    message=f"platform_stats http_{resp.status_code}",
+                )
+            raw = resp.json()
+            log.info("[REAL] agency_tool.get_platform_stats", source="real")
+            return PlatformStats(
+                companies_analyzed=int(raw.get("companies_analyzed", 0)),
+                active_opportunities=int(raw.get("active_opportunities", 0)),
+                market_movements=int(raw.get("market_movements", 0)),
+                signals_detected=int(raw.get("signals_detected", 0)),
+                last_updated=_as_dt(raw.get("generated_at") or datetime.now(UTC).isoformat()),
+                confidence=float(raw.get("confidence", 1.0)),
+                lineage=_to_lineage(raw.get("lineage")),
+                valid_until=_as_dt(raw["valid_until"]) if raw.get("valid_until") else None,
+                source="real",
+            )
+        except AgencyToolHTTPError as exc:
+            # Fallback silencioso al mock. Beta nunca debe hard-fallar el home
+            # público por indisponibilidad de Intel (Regla: home siempre sirve
+            # algo, con o sin datos reales).
+            log.warning(
+                "agency_tool.platform_stats.real_failed_fallback_mock",
+                error=str(exc),
+                status=getattr(exc, "status_code", None),
+            )
+
     db = get_db()
     doc = await db.platform_stats_mock.find_one({"_key": PLATFORM_STATS_KEY}, {"_id": 0})
     if not doc:
         raise NotFoundError("platform_stats_not_seeded", code="platform_stats_not_seeded")
     log.info("[MOCK] agency_tool.get_platform_stats", source=ADAPTER_MODE)
     return PlatformStats(
-        companies_with_intelligence=int(doc["companies_with_intelligence"]),
-        companies_with_financials=int(doc["companies_with_financials"]),
-        economic_metrics_total=int(doc["economic_metrics_total"]),
-        corporate_movements=int(doc["corporate_movements"]),
-        investors_and_funds=int(doc["investors_and_funds"]),
-        sectors_analyzed=int(doc["sectors_analyzed"]),
-        companies_with_public_contracts=int(doc["companies_with_public_contracts"]),
-        cross_sectors=int(doc["cross_sectors"]),
+        companies_analyzed=int(doc["companies_analyzed"]),
+        active_opportunities=int(doc["active_opportunities"]),
+        market_movements=int(doc["market_movements"]),
+        signals_detected=int(doc["signals_detected"]),
         last_updated=_as_dt(doc["last_updated"]),
         confidence=float(doc.get("confidence", 1.0)),
-        lineage=Lineage(doc.get("lineage", "raw")),
+        lineage=_to_lineage(doc.get("lineage", "raw")),
         valid_until=_as_dt(doc.get("valid_until")) if doc.get("valid_until") else None,
         source=ADAPTER_MODE,
     )

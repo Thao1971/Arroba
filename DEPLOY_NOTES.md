@@ -18,6 +18,50 @@ cambios validados en dev pod contra Servier `B28184687` (auth + anon).
 | HARDENING-022d  | Bundle correctivo · tooltips + rings sin focus azul + fallback verdict restaurado | ✅ |
 | HARDENING-022e  | Root cause: colisión `.ring` con Tailwind utility · rename a `.aring` · verificado Blink+WebKit | ✅ |
 | HARDENING-023   | DN/EBITDA display 3 estados (empty / no_debt / ebitda_neg / ratio) · unit test 11/11 PASS | ✅ |
+| HARDENING-024   | BFF relay + DPD del bloque `opportunity` (Pydantic + provider + endpoint) · pytest 3/3 | ✅ |
+| HARDENING-025   | Frontend cableado `opportunity` + Copilot dispatch chips + DN/EBITDA extraído a `@/lib/companies/dn-ebitda` · vitest 22/22 nuevos | ✅ |
+| HARDENING-026   | Reskin `CopilotDock` (barra inferior anclada + panel colapsable) · elimina composer muerto y 3 chips R15 · vitest 36/36 Copilot | ✅ |
+| HARDENING-REQ001| Intel real + hero search funcional + PlatformStats reshape (4 métricas) · reutiliza `AgencyToolClient` canónico (retry / dual-key / circuit breaker) · **NO añade nuevo cliente S2S** · pytest 12/12 platform_stats + vitest 104/104 · rewrite `/empresa/` → `/empresa-f01/` en 6 sitios | ✅ |
+
+## Env vars en Prod (post-REQ-001)
+
+**Imprescindible para salir del modo mock**:
+- `AGENCY_TOOL_MODE=real` (canónico, ya existía en `IntelligenceSettings`). Toggle único global. No hay `ADAPTER_MODE` separado — se descartó del zip REQ-001.
+
+**Ya existentes (NO tocar en Prod, ya funcionan para el `/ficha`)**:
+- `AGENCY_TOOL_BASE_URL=https://intel.arroba.com`
+- `ARROBA_SERVICE_API_KEY_PRIMARY=<clave>` (reutilizada por REQ-001 sin duplicar)
+- `ARROBA_SERVICE_API_KEY_SECONDARY=<clave>` (fallback rotación, opcional)
+- `ARROBA_ADMIN_TOKEN=<token>` (para `/api/admin/*`)
+
+## Paso post-deploy · re-seed de `platform_stats_mock`
+
+El shape público de `PlatformStats` cambió a las 4 métricas canónicas REQ-001. La colección `platform_stats_mock` de Prod contiene el shape legacy (8 métricas) → hay que sobrescribir el singleton. El usuario ejecuta:
+
+```bash
+curl -X POST "https://beta.arroba.com/api/admin/agency-tool/platform-stats-mock" \
+  -H "X-Admin-Token: $ARROBA_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "companies_analyzed": 24992,
+    "active_opportunities": 672190,
+    "market_movements": 28458,
+    "signals_detected": 6159,
+    "confidence": 1.0,
+    "lineage": "raw"
+  }'
+```
+
+Verificación:
+```bash
+curl -s "https://beta.arroba.com/api/platform/stats" | jq '{companies_analyzed, active_opportunities, market_movements, signals_detected, provenance}'
+```
+Con `AGENCY_TOOL_MODE=real` el body debería venir de Intel directamente (`provenance: live`, sin necesidad del re-seed anterior). Si el re-seed se aplica primero, sirve de fallback offline.
+
+## Smoke home post-push
+- Home pública (anon): las 4 tarjetas de métricas cargan con números reales (grid `md:grid-cols-4`, sin la 8ª "cross_sectors").
+- Buscador hero: escribir un CIF (`B28184687`) → navega a `/es/empresa-f01/B28184687`. Escribir una razón social → resultados/desambiguación.
+- Chrome + Safari.
 
 Detalle completo por bloque: `/app/memory/PLAN_BETA_status_20260810.md`.
 

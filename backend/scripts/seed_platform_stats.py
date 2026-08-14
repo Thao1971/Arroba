@@ -19,14 +19,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.core.database import get_db  # noqa: E402
 
 SEED = {
-    "companies_with_intelligence": 5189,
-    "companies_with_financials": 5227,
-    "economic_metrics_total": 4197,
-    "corporate_movements": 39436,
-    "investors_and_funds": 2075,
-    "sectors_analyzed": 87,
-    "companies_with_public_contracts": 61264,
-    "cross_sectors": 88,
+    # REQ-001 · shape canónico (2026-08-14): 4 métricas top-level.
+    # Ver `PlatformStats` en `src/modules/agency_tool_adapter/models.py`.
+    "companies_analyzed": 24992,
+    "active_opportunities": 672190,
+    "market_movements": 28458,
+    "signals_detected": 6159,
     "confidence": 1.0,
     "lineage": "raw",
 }
@@ -49,7 +47,7 @@ async def seed_platform_stats() -> dict:
     return {
         "action": "inserted" if result.upserted_id else "updated",
         "updated_at": now.isoformat(),
-        "companies_with_intelligence": SEED["companies_with_intelligence"],
+        "companies_analyzed": SEED["companies_analyzed"],
     }
 
 

@@ -461,7 +461,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
           assistant: `Te llevo a la empresa ${cif}.`,
           workspace: null,
         });
-        router.push(`/empresa/${cif}`);
+        router.push(`/empresa-f01/${cif}`);
         return;
       }
 

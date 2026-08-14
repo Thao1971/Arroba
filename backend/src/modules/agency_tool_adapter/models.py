@@ -121,14 +121,10 @@ class PlatformStats(BaseModel):
     auth so anonymous visitors see the value proposition. The contract is fixed
     so the real Agency Tool (REQ-002) can swap in without frontend changes."""
     model_config = ConfigDict(extra="forbid")
-    companies_with_intelligence: int
-    companies_with_financials: int
-    economic_metrics_total: int
-    corporate_movements: int
-    investors_and_funds: int
-    sectors_analyzed: int
-    companies_with_public_contracts: int
-    cross_sectors: int
+    companies_analyzed: int
+    active_opportunities: int
+    market_movements: int
+    signals_detected: int
     last_updated: datetime
     confidence: float = Field(ge=0.0, le=1.0)
     lineage: Lineage
@@ -138,14 +134,10 @@ class PlatformStats(BaseModel):
 
 class CreatePlatformStatsMockPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    companies_with_intelligence: int = Field(ge=0)
-    companies_with_financials: int = Field(ge=0)
-    economic_metrics_total: int = Field(ge=0)
-    corporate_movements: int = Field(ge=0)
-    investors_and_funds: int = Field(ge=0)
-    sectors_analyzed: int = Field(ge=0)
-    companies_with_public_contracts: int = Field(ge=0)
-    cross_sectors: int = Field(ge=0)
+    companies_analyzed: int = Field(ge=0)
+    active_opportunities: int = Field(ge=0)
+    market_movements: int = Field(ge=0)
+    signals_detected: int = Field(ge=0)
     last_updated: datetime | None = None
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     lineage: Lineage = Lineage.raw
@@ -154,14 +146,10 @@ class CreatePlatformStatsMockPayload(BaseModel):
 
 class UpdatePlatformStatsMockPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    companies_with_intelligence: int | None = Field(default=None, ge=0)
-    companies_with_financials: int | None = Field(default=None, ge=0)
-    economic_metrics_total: int | None = Field(default=None, ge=0)
-    corporate_movements: int | None = Field(default=None, ge=0)
-    investors_and_funds: int | None = Field(default=None, ge=0)
-    sectors_analyzed: int | None = Field(default=None, ge=0)
-    companies_with_public_contracts: int | None = Field(default=None, ge=0)
-    cross_sectors: int | None = Field(default=None, ge=0)
+    companies_analyzed: int | None = Field(default=None, ge=0)
+    active_opportunities: int | None = Field(default=None, ge=0)
+    market_movements: int | None = Field(default=None, ge=0)
+    signals_detected: int | None = Field(default=None, ge=0)
     last_updated: datetime | None = None
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     lineage: Lineage | None = None

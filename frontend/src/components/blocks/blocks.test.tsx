@@ -132,19 +132,16 @@ describe('MetricsBlock — data mode (SWR)', () => {
               resolve(
                 new Response(
                   JSON.stringify({
-                    companies_with_intelligence: 5189,
-                    companies_with_financials: 5227,
-                    economic_metrics_total: 4197,
-                    corporate_movements: 39436,
-                    investors_and_funds: 2075,
-                    sectors_analyzed: 87,
-                    companies_with_public_contracts: 61264,
-                    cross_sectors: 88,
+                    companies_analyzed: 24992,
+                    active_opportunities: 672190,
+                    market_movements: 28458,
+                    signals_detected: 6159,
                     last_updated: '2026-06-24T09:00:00Z',
                     confidence: 1.0,
                     lineage: 'raw',
                     valid_until: null,
                     source: 'mock',
+                    provenance: 'demo',
                   }),
                   { status: 200, headers: { 'Content-Type': 'application/json' } }
                 )
@@ -157,7 +154,7 @@ describe('MetricsBlock — data mode (SWR)', () => {
     renderWithSWR(<MetricsBlock mode="data" testId="b-m" />);
     expect(screen.getByTestId('b-m-loading')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByTestId('block-metrics-tile-companies-intelligence')).toBeInTheDocument();
+      expect(screen.getByTestId('block-metrics-tile-companies-analyzed')).toBeInTheDocument();
     });
   });
 

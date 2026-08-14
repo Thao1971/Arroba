@@ -87,9 +87,9 @@ function DataModeInner({ testId }: { testId: string }) {
     return (
       <div
         data-testid={`${testId}-loading`}
-        className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3"
+        className="grid grid-cols-2 md:grid-cols-4 gap-3"
       >
-        {Array.from({ length: 7 }).map((_, i) => (
+        {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
             className="h-28 rounded-xl bg-surface border border-border animate-pulse"
@@ -227,13 +227,10 @@ function MetricTile({ metric }: { metric: Metric }) {
 
 function mapPlatformStats(stats: PlatformStats): Metric[] {
   return [
-    { id: 'companies-intelligence', label: 'Empresas con inteligencia', value: formatNumber(stats.companies_with_intelligence) },
-    { id: 'companies-financials', label: 'Empresas con datos financieros', value: formatNumber(stats.companies_with_financials) },
-    { id: 'economic-metrics', label: 'Métricas económicas', value: formatNumber(stats.economic_metrics_total) },
-    { id: 'corporate-movements', label: 'Movimientos societarios', value: formatNumber(stats.corporate_movements) },
-    { id: 'investors-funds', label: 'Inversores y fondos', value: formatNumber(stats.investors_and_funds) },
-    { id: 'sectors-analyzed', label: 'Sectores analizados', value: formatNumber(stats.sectors_analyzed) },
-    { id: 'public-contracts', label: 'Empresas con contratos públicos', value: formatNumber(stats.companies_with_public_contracts) },
+    { id: 'companies-analyzed', label: 'Empresas analizadas', value: formatNumber(stats.companies_analyzed) },
+    { id: 'active-opportunities', label: 'Oportunidades activas', value: formatNumber(stats.active_opportunities) },
+    { id: 'market-movements', label: 'Movimientos de mercado', value: formatNumber(stats.market_movements) },
+    { id: 'signals-detected', label: 'Señales detectadas', value: formatNumber(stats.signals_detected) },
   ];
 }
 

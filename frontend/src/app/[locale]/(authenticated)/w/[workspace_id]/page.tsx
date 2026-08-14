@@ -513,7 +513,7 @@ function CompanyBackrefBanner({ blocks }: { blocks: WorkspaceBlock[] }) {
       </span>
       <span className="text-text-muted">·</span>
       <Link
-        href={`/empresa/${inferred.cif}`}
+        href={`/empresa-f01/${inferred.cif}`}
         data-testid="workspace-company-backref-link"
         className="ml-auto text-primary font-semibold hover:underline"
       >
