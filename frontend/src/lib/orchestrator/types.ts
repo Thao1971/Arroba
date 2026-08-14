@@ -168,6 +168,8 @@ export interface SkillContext {
 export interface SearchSkillRequest {
   query: string;
   context: SkillContext;
+  // HARDENING-REQ003 · server-side pagination
+  offset?: number;
 }
 
 export interface DisambiguationItem {

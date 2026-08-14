@@ -13,9 +13,11 @@ No LLM, no ranking magic — just deterministic scoring against
 """
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from typing import Any
+from urllib.parse import quote
 
 from src.core.database import get_db
 from src.core.logging import get_logger
@@ -46,6 +48,36 @@ ADAPTER_MODE = "mock"
 # Max items returned in one Workspace. UI typically shows top 6, the rest stay
 # in the response so the frontend can paginate locally if it wants.
 MAX_RESULTS = 12
+
+# HARDENING-REQ003 · 2026-08-14 · Search-path constants
+# ─────────────────────────────────────────────────────────────────────────
+# `_SEARCH_TIMEOUT_S`: fail-fast cap para llamadas Intel del path search.
+# El `AgencyToolClient` canónico tiene timeout global 30s + retry exponencial;
+# aquí lo tapamos en 8s puntual para que un motor lento no cuelgue el request.
+# `_RESULTS_PAGE`: tamaño de página que emitimos al frontend `/resultados`
+# (`PAGE_SIZE=12` cuadrado con `resultados/page.tsx`).
+# `_SEARCH_PAGE_LIMIT`: tamaño del top-pool que pedimos a Intel semantic (que
+# no soporta offset server-side; ver DEPLOY_NOTES Backlog Intel). Slicing
+# local sobre este pool.
+_SEARCH_TIMEOUT_S: float = 8.0
+_RESULTS_PAGE: int = 12
+_SEARCH_PAGE_LIMIT: int = 50
+
+
+async def _intel_call_ff(coro: Any) -> Any:
+    """HARDENING-REQ003 · Fail-fast wrapper para el path search. Envuelve una
+    coroutine del `AgencyToolClient` canónico con `asyncio.wait_for(8s)`.
+    Cancela retry/backoff del cliente si el motor tarda: preserva el
+    circuit-breaker/dual-key **dentro** de esos 8s. Si el cap expira, propaga
+    `AgencyToolHTTPError` como cualquier otro fallo → caller degrada a
+    `_empty_response` honesto (Regla R15: nunca pilotos)."""
+    try:
+        return await asyncio.wait_for(coro, timeout=_SEARCH_TIMEOUT_S)
+    except asyncio.TimeoutError as exc:
+        raise AgencyToolHTTPError(
+            status_code=0, error_class="timeout",
+            message=f"search_timeout_{int(_SEARCH_TIMEOUT_S)}s",
+        ) from exc
 
 # Tokens that mark a query as exploratory (sector/geo/intent). If any of
 # these appears, we do NOT attempt entity resolution.
@@ -130,17 +162,23 @@ async def execute_search(
     q = request.query.strip()
     q_norm = _normalize(q)
 
-    # Real mode (REQ-001): resolve against Intel arroba.v2. On any failure we
-    # fall through to the deterministic mock path so search never hard-fails.
+    # Real mode: resolve against Intel arroba.v2. HARDENING-REQ003 (2026-08-14):
+    # POLÍTICA DE FALLBACK · en modo real, cualquier fallo Intel → `_empty_response`
+    # honesto. NO caemos al mock. Regla R15 del usuario ("nunca pilotos"): el mock
+    # sólo existe cuando `agency_tool_mode='mock'`, no como red silenciosa que
+    # invente datos si Intel se cae.
     if get_intelligence_settings().agency_tool_mode == "real":
         try:
             return await _execute_search_real(request, q, q_norm)
         except AgencyToolHTTPError as exc:
             log.warning(
-                "copilot.search.real_failed_fallback_mock",
+                "copilot.search.real_failed_empty_response",
                 error=str(exc),
                 status=getattr(exc, "status_code", None),
+                error_class=getattr(exc, "error_class", None),
+                query=q,
             )
+            return _empty_response(q, request.context.pathname, request.context.locale)
 
     log.info(
         "[MOCK] copilot.search",
@@ -257,20 +295,30 @@ async def execute_search(
 async def _execute_search_real(
     request: SearchSkillRequest, q: str, q_norm: str
 ) -> SearchSkillResponse:
-    """Real path (REQ-001): resolve the query against Intel's arroba.v2
-    `company-intelligence/resolve` (exact CIF/name). Reuses the same decision
-    tree and response shapes as the mock path — only the data source changes.
-    Raises AgencyToolHTTPError on failure so the caller falls back to mock.
+    """Real path (REQ-001 + REQ001b + REQ003): 4 branches ordered by precedence:
 
-    REQ-001 REFACTOR: usa el `AgencyToolClient` canónico (retry + dual-key +
-    semáforo + circuit breaker) del `intelligence_layer`.
+      #1  CIF detected → resolve → navigate `/empresa-f01/{cif}`.
+      #2  Categorical / exploratory sector query → `company-taxonomy/search`
+          (full paginated set) → `/resultados` with server-side pagination.
+      #3  Concrete-name query → resolve (single match or 2-5 disambiguation).
+      #4  Natural-language exploratory → `semantic-intelligence/search` with
+          local slicing → `/resultados` (offset applied locally over top-K).
+
+    HARDENING-REQ003: all Intel calls wrapped with `_intel_call_ff` (8s
+    fail-fast). Failure → propagates `AgencyToolHTTPError` so the caller
+    turns it into `_empty_response` honestly (no mock fallback).
+    Uses the canonical `AgencyToolClient` (retry + dual-key + semaphore +
+    circuit breaker) — do NOT reintroduce `intel_client.py`.
     """
     pathname = request.context.pathname
     locale = request.context.locale
+    offset = int(getattr(request, "offset", 0) or 0)
     resolve_path = "/api/v2/company-intelligence/resolve"
 
     async def _resolve(payload: dict[str, Any]) -> dict[str, Any]:
-        resp = await get_agency_tool_client().request("POST", resolve_path, json=payload)
+        resp = await _intel_call_ff(
+            get_agency_tool_client().request("POST", resolve_path, json=payload)
+        )
         if resp.status_code >= 400:
             raise AgencyToolHTTPError(
                 status_code=resp.status_code,
@@ -283,7 +331,7 @@ async def _execute_search_real(
         c = m.get("cif")
         return re.sub(r"[\s.\-]", "", str(c).upper()) if c else None
 
-    # ---- Path A: CIF (highest precedence) -------------------------------
+    # ---- #1 · CIF (highest precedence) ----------------------------------
     cif_upper = re.sub(r"[\s.\-]", "", q.upper())
     if _CIF_RE.match(cif_upper):
         resp = await _resolve({"cif": cif_upper, "limit": 1})
@@ -296,11 +344,6 @@ async def _execute_search_real(
             )
         return _empty_response(q, pathname, locale)
 
-    # ---- Path B/C: resolve by name --------------------------------------
-    resp = await _resolve({"name": q, "limit": MAX_RESULTS})
-    matches: list[dict[str, Any]] = resp.get("matches") or []
-    matches.sort(key=lambda m: -float(m.get("score") or 0.0))
-
     tokens = [t for t in re.split(r"\s+", q_norm) if t]
     is_concrete = (
         bool(tokens)
@@ -309,43 +352,68 @@ async def _execute_search_real(
         and not any(t in _EXPLORATORY_TOKENS for t in tokens)
     )
 
-    if is_concrete:
-        strong = [m for m in matches if float(m.get("score") or 0.0) >= 0.85]
-        if len(strong) == 1 and len(q_norm) >= 4:
-            cif = _cif_of(strong[0])
-            if cif and _CIF_RE.match(cif):
-                return SearchSkillResponse(
-                    workspace=None, source="real", query=q,
-                    navigate_to=f"/empresa-f01/{cif}", entity_type="company",
-                )
-        candidates = matches[:5]
-        if 1 <= len(candidates) <= 5:
-            items = [
-                DisambiguationItem(
-                    master_company_id=str(m.get("master_id") or ""),
-                    cif=_cif_of(m),
-                    name=str(m.get("legal_name") or "—"),
-                    sector=m.get("cnae_section"),
-                    region=m.get("province"),
-                )
-                for m in candidates
-            ]
-            return SearchSkillResponse(
-                workspace=None, source="real", query=q, disambiguation=items,
-            )
-        if not matches:
-            return _empty_response(q, pathname, locale)
-
-    # HARDENING-REQ001b · 2026-08-14 · Exploratory / natural-language query
-    # ("clínicas dentales en Valencia") → semantic search vía Intel embeddings.
-    # `resolve` es para CIF/nombre exacto; `semantic` es para texto libre.
+    # ---- #2 · CATEGORICAL (sector/geo/intent tokens) --------------------
+    # HARDENING-REQ003 · Intel `/api/v1/company-taxonomy/search` returns the
+    # full paginated set for queries like "agencias de marketing", "todas las
+    # asesorías fiscales", "clínicas en Madrid". Server-side offset/total.
+    # Latent until Intel enables the endpoint with enriched rows (see
+    # DEPLOY_NOTES `HARDENING-REQ003 Gate Intel`).
     if not is_concrete:
-        return await _semantic_search_results(q, pathname, locale)
+        tax = await _taxonomy_search(q, offset=offset, limit=_RESULTS_PAGE)
+        if tax is not None:
+            rows: list[dict[str, Any]] = tax.get("results") or []
+            total = int(tax.get("total") or tax.get("count") or len(rows))
+            if rows:
+                items = [_row_to_item(r) for r in rows]
+                block = SearchResultsBlock(
+                    id="blk_results_" + uuid.uuid4().hex[:8],
+                    props=SearchResultsBlockProps(query=q, total=total, results=items),
+                )
+                return SearchSkillResponse(
+                    workspace=Workspace(
+                        workspace_id="wsp_" + uuid.uuid4().hex[:12],
+                        intent="search", blocks=[block],
+                    ),
+                    source="real", query=q,
+                )
+        # Taxonomy returned no rows or endpoint unavailable → fall through to
+        # semantic search (#4). Preserves REQ001b behaviour when categorical
+        # gate is still latent.
+        return await _semantic_search_results(q, pathname, locale, offset=offset)
+
+    # ---- #3 · resolve by name (concrete → single/disambiguation) --------
+    resp = await _resolve({"name": q, "limit": MAX_RESULTS})
+    matches: list[dict[str, Any]] = resp.get("matches") or []
+    matches.sort(key=lambda m: -float(m.get("score") or 0.0))
+
+    strong = [m for m in matches if float(m.get("score") or 0.0) >= 0.85]
+    if len(strong) == 1 and len(q_norm) >= 4:
+        cif = _cif_of(strong[0])
+        if cif and _CIF_RE.match(cif):
+            return SearchSkillResponse(
+                workspace=None, source="real", query=q,
+                navigate_to=f"/empresa-f01/{cif}", entity_type="company",
+            )
+    candidates = matches[:5]
+    if 1 <= len(candidates) <= 5:
+        items = [
+            DisambiguationItem(
+                master_company_id=str(m.get("master_id") or ""),
+                cif=_cif_of(m),
+                name=str(m.get("legal_name") or "—"),
+                sector=m.get("cnae_section"),
+                region=m.get("province"),
+            )
+            for m in candidates
+        ]
+        return SearchSkillResponse(
+            workspace=None, source="real", query=q, disambiguation=items,
+        )
+    if not matches:
+        return _empty_response(q, pathname, locale)
 
     # ---- concrete fall-through → resolve matches as a results list ------
     top = matches[:MAX_RESULTS]
-    if not top:
-        return _empty_response(q, pathname, locale)
     items = [
         SearchResultItem(
             master_company_id=str(m.get("master_id") or ""),
@@ -371,26 +439,26 @@ async def _execute_search_real(
 
 
 async def _semantic_search_results(
-    q: str, pathname: str | None, locale: str
+    q: str, pathname: str | None, locale: str, offset: int = 0
 ) -> SearchSkillResponse:
-    """HARDENING-REQ001b · natural-language search vía Intel
+    """HARDENING-REQ001b + REQ003 · natural-language search vía Intel
     `POST /api/v1/semantic-intelligence/search`.
+
+    Semantic no soporta `offset` server-side (top-K pool). Aplicamos slicing
+    LOCAL sobre el top pool devuelto por Intel. Ver `DEPLOY_NOTES.md → Backlog
+    Intel · REQ-INTEL semantic offset/total`.
 
     Cada `SearchHit` trae un `cif` navegable a la ficha (`/empresa-f01/{cif}`).
     Usa el `AgencyToolClient` canónico (retry + dual-key + semáforo + circuit
-    breaker). En caso de error del cliente propaga `AgencyToolHTTPError` para
-    que el caller (`_execute_search_real`) haga fallback silencioso al path
-    mock — mismo patrón que `_resolve` y `get_platform_stats`.
-
-    NOTA: la búsqueda semántica requiere que Intel tenga los embeddings
-    generados (`reembed_semantic_openai.py`). Sin re-embed el endpoint
-    responde `results=[]` y devolvemos `empty_response` — feature inerte
-    hasta que Intel ejecute el proceso.
+    breaker) envuelto con `_intel_call_ff` (fail-fast 8s). En caso de fallo,
+    propaga `AgencyToolHTTPError` para que el caller devuelva `_empty_response`.
     """
-    resp = await get_agency_tool_client().request(
-        "POST",
-        "/api/v1/semantic-intelligence/search",
-        json={"query": q, "limit": MAX_RESULTS, "cnae_section": None},
+    resp = await _intel_call_ff(
+        get_agency_tool_client().request(
+            "POST",
+            "/api/v1/semantic-intelligence/search",
+            json={"query": q, "limit": _SEARCH_PAGE_LIMIT, "cnae_section": None},
+        )
     )
     if resp.status_code >= 400:
         raise AgencyToolHTTPError(
@@ -400,25 +468,15 @@ async def _semantic_search_results(
         )
     payload: dict[str, Any] = resp.json()
     hits: list[dict[str, Any]] = payload.get("results") or []
-    if not hits:
+    total = len(hits)
+    # Local slicing (semantic doesn't paginate server-side yet).
+    page_slice = hits[offset : offset + _RESULTS_PAGE]
+    if not page_slice:
         return _empty_response(q, pathname, locale)
-    items = [
-        SearchResultItem(
-            master_company_id=str(h.get("master_id") or ""),
-            name=str(h.get("name") or "—"),
-            legal_name=h.get("name"),
-            cif=(
-                re.sub(r"[\s.\-]", "", str(h["cif"]).upper()) if h.get("cif") else None
-            ),
-            sector=h.get("cnae_section"),
-            city=None,
-            score=round(float(h.get("score") or 0.0), 3),
-        )
-        for h in hits
-    ]
+    items = [_row_to_item(h) for h in page_slice]
     block = SearchResultsBlock(
         id="blk_results_" + uuid.uuid4().hex[:8],
-        props=SearchResultsBlockProps(query=q, total=len(hits), results=items),
+        props=SearchResultsBlockProps(query=q, total=total, results=items),
     )
     return SearchSkillResponse(
         workspace=Workspace(
@@ -426,6 +484,62 @@ async def _semantic_search_results(
         ),
         source="real", query=q,
     )
+
+
+def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
+    """HARDENING-REQ003 · maps an Intel enriched row → `SearchResultItem`.
+
+    Único punto donde el shape Intel (taxonomy/semantic) se aplana al contrato
+    que consumen la home (`SearchResultsBlock`) y `/resultados/page.tsx`. Si
+    Intel evoluciona (rename de `master_id`, campos nuevos, etc.), este helper
+    es el único sitio a tocar.
+
+    Defensivo con `summary` (aún no siempre presente; ver DEPLOY_NOTES gate
+    Intel). Cuando falta, la tabla renderiza «—» en las columnas financieras.
+    """
+    cif_raw = r.get("cif")
+    cif = re.sub(r"[\s.\-]", "", str(cif_raw).upper()) if cif_raw else None
+    summ = r.get("summary") if isinstance(r.get("summary"), dict) else None
+    return SearchResultItem(
+        master_company_id=str(r.get("master_id") or ""),
+        name=str(r.get("name") or r.get("legal_name") or "—"),
+        legal_name=r.get("legal_name") or r.get("name"),
+        cif=cif,
+        sector=r.get("cnae_section") or r.get("sector"),
+        city=r.get("city") or r.get("province"),
+        # Semantic emits similarity `score`; taxonomy emits categorical membership
+        # (1.0). We normalize to a [0,1] float either way.
+        score=round(float(r.get("score") or 1.0), 3),
+        summary=summ,
+    )
+
+
+async def _taxonomy_search(
+    q: str, offset: int = 0, limit: int = _RESULTS_PAGE
+) -> dict[str, Any] | None:
+    """HARDENING-REQ003 · Intel `GET /api/v1/company-taxonomy/search`.
+
+    Full paginated set for categorical queries ("agencias de marketing",
+    "todas las asesorías fiscales"). Returns `{results: [...], total: N}` or
+    None if the endpoint is not enabled / gate-blocked. On 4xx/5xx we propagate
+    `AgencyToolHTTPError` so the caller degrades to `_empty_response`.
+    """
+    url = (
+        f"/api/v1/company-taxonomy/search"
+        f"?q={quote(q)}&primary_only=true&limit={limit}&offset={offset}"
+    )
+    resp = await _intel_call_ff(get_agency_tool_client().request("GET", url))
+    if resp.status_code == 404:
+        # Endpoint not enabled yet on Intel side. Latent gate — signal caller
+        # to fall through (semantic path).
+        return None
+    if resp.status_code >= 400:
+        raise AgencyToolHTTPError(
+            status_code=resp.status_code,
+            error_class="client_4xx" if resp.status_code < 500 else "server_5xx",
+            message=f"taxonomy-search http_{resp.status_code}",
+        )
+    return resp.json()
 
 
 def _empty_response(q: str, pathname: str | None, locale: str) -> SearchSkillResponse:

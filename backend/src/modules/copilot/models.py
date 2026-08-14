@@ -47,6 +47,10 @@ class SearchSkillRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str = Field(min_length=1, max_length=200)
     context: SkillContext = Field(default_factory=SkillContext)
+    # HARDENING-REQ003 · Server-side pagination for the results page
+    # (categorical/taxonomy + semantic modes). `/resultados` re-pide cada
+    # página con `offset = page * _RESULTS_PAGE`.
+    offset: int = Field(default=0, ge=0)
 
 
 class AnalyzeSkillRequest(BaseModel):
@@ -79,6 +83,11 @@ class SearchResultItem(BaseModel):
     sector: str | None = None
     city: str | None = None
     score: float = Field(ge=0.0, le=1.0)
+    # HARDENING-REQ003 · Intel row enrichment (revenue, ebitda, ebitda_margin,
+    # growth_pct, signal_score, signal_badge, valuation{low,mid,high}, employees,
+    # arroba_score, city, activity_label, updated_at). Present when Intel emits
+    # `summary` in the SearchHit; None otherwise (table shows «—»).
+    summary: dict | None = None
 
 
 class SearchResultsBlockProps(BaseModel):

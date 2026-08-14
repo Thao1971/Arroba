@@ -1,27 +1,32 @@
 # DEPLOY_NOTES · bundle 2026-08-13
 
-> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b + HARDENING-REQ002)
+> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b + HARDENING-REQ002 + HARDENING-REQ003)
 >
-> El push que incluya **HARDENING-REQ001b** (búsqueda semántica en lenguaje
-> natural) y **HARDENING-REQ002** (página `/resultados`) debe salir **en la
-> misma ventana** en la que Intel ejecute:
+> El push que incluya **HARDENING-REQ001b** (búsqueda semántica NL),
+> **HARDENING-REQ002** (página `/resultados`) y **HARDENING-REQ003** (4
+> modos + paginación server-side) debe salir **en la misma ventana** en la
+> que Intel ejecute:
 >   - Intel redeploy en Prod.
 >   - Ejecución de `reembed_semantic_openai.py` contra el Atlas de Prod.
->   - (Pendiente) Intel añade el campo `summary` en cada `SearchHit` del
->     endpoint `semantic-intelligence/search` (REQ ya enviado por Daniel).
->     Shape esperado: `{revenue, ebitda, ebitda_margin, growth_pct,
->     signal_score, signal_badge, valuation, employees, arroba_score, city,
->     activity_label, updated_at}`.
+>   - Endpoint `GET /api/v1/company-taxonomy/search` habilitado (rama
+>     categórica REQ003). En dev pod ya responde con 898 hits para
+>     "agencias de marketing".
+>   - Emisión de `summary` enriquecido en cada `SearchHit` (revenue, ebitda,
+>     ebitda_margin, growth_pct, signal_score, signal_badge, valuation, etc.).
+>     En dev pod ya vienen poblados; verificar en Prod tras el push.
 >
-> Sin ese re-embed, la búsqueda semántica en Prod devuelve `empty_response`
-> (no es regresión — mismo comportamiento que hoy — pero la feature no se
-> enciende hasta que Intel corra el re-embed).
+> Sin ese re-embed la búsqueda semántica devuelve `empty_response` honesto.
+> Sin el endpoint categórico habilitado la rama #2 devuelve 404 y cae al
+> path semántico (fallback documentado). Sin `summary` la tabla renderiza
+> «—» en columnas financieras (degrade gracefully verificado).
 >
-> Sin el `summary` en `SearchHit`, la página `/resultados` renderiza las
-> columnas financieras con «—» (degrade gracefully verificado en dev pod).
-> No es blocker de push.
+> **Push aislado de REQ001b/REQ002/REQ003 antes del re-embed = feature inerte, inofensivo.**
 >
-> **Push aislado de REQ001b/REQ002 antes del re-embed = feature inerte, inofensivo.**
+> ### Backlog Intel
+> - **REQ-INTEL** soporte de `offset`/`total` en `semantic-intelligence/search`
+>   para paginación server-side (hoy slicing local sobre top-K).
+> - **REQ-INTEL** `shareholder.type` para DPD granular en ownership.
+> - **REQ-INTEL** `finances.provenance` / `market.provenance` consistencia.
 
 Bundle acumulado listo para push manual a Prod (`beta.arroba.com`). Todos los
 cambios validados en dev pod contra Servier `B28184687` (auth + anon).
@@ -47,6 +52,7 @@ cambios validados en dev pod contra Servier `B28184687` (auth + anon).
 | HARDENING-REQ001| Intel real + hero search funcional + PlatformStats reshape (4 métricas) · reutiliza `AgencyToolClient` canónico (retry / dual-key / circuit breaker) · **NO añade nuevo cliente S2S** · pytest 12/12 platform_stats + vitest 104/104 · rewrite `/empresa/` → `/empresa-f01/` en 6 sitios | ✅ |
 | HARDENING-REQ001b| Búsqueda semántica NL vía Intel `/api/v1/semantic-intelligence/search` · reutiliza `AgencyToolClient` canónico · `WorkspaceArea` navega a `/empresa-f01/{cif}` al hacer click en un resultado · **inerte hasta re-embed Intel** | ✅ |
 | HARDENING-REQ002| Página pública `/resultados?q=...` con tabla rica (ingresos, EBITDA, crecim., score señales, actualizado) · Exportar CSV activo · Comparar/Columnas "Próximamente" · Orchestrator redirige search NL a `/resultados` en vez de pintar dentro del dock · **columnas financieras en «—» hasta que Intel emita `summary` en `SearchHit`** | ✅ |
+| HARDENING-REQ003| Buscador 4 modos (CIF · categórico · nombre · NL) + paginación server-side (`offset`/`total`) + fail-fast 8s + política empty honesto en modo real (sin fallback a mock, R15) · `_row_to_item` helper único · nueva rama categórica llama `company-taxonomy/search` · smoke dev pod: CIF `B28184687` → ficha · "agencias de marketing" → 898 hits paginadas · "Servier" → disambiguation · "clínicas dentales en Valencia" → 49 hits semantic | ✅ |
 | HARDENING-028   | `post_deploy.sh` blindado · Paso 0 rebuild+restart local · Paso 6 smoke retry backoff (~5 min) contra `/api/platform/stats` | ✅ |
 
 ## Env vars en Prod (post-REQ-001)

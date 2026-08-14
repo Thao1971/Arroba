@@ -40,7 +40,13 @@ interface RowSummary {
   growth_pct?: number | null;
   signal_score?: number | null; // 0..100
   signal_badge?: string | null;
-  valuation?: number | null;
+  valuation?: {
+    low?: number | null;
+    mid?: number | null;
+    high?: number | null;
+    currency?: string | null;
+    basis?: string | null;
+  } | null;
   employees?: number | null;
   arroba_score?: number | null;
   city?: string | null;
@@ -49,7 +55,7 @@ interface RowSummary {
 }
 type Row = SearchResultItem & { summary?: RowSummary | null };
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 12; // debe coincidir con _RESULTS_PAGE del backend
 
 const BADGES: Record<
   string,
@@ -89,6 +95,7 @@ export default function ResultadosPage() {
 
   const [input, setInput] = useState(q);
   const [rows, setRows] = useState<Row[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sector, setSector] = useState<string | null>(null);
@@ -97,23 +104,22 @@ export default function ResultadosPage() {
   const [page, setPage] = useState(0);
 
   const fetchResults = useCallback(
-    async (query: string) => {
+    async (query: string, pageIdx: number) => {
       setLoading(true);
       setError(null);
-      setSector(null);
       setExpanded(null);
-      setSelected(new Set());
-      setPage(0);
       try {
         const res = await apiClient.copilot.search({
           query,
           context: { locale: 'es', pathname: '/resultados' },
+          offset: pageIdx * PAGE_SIZE,
         });
         if (res.navigate_to) {
           router.replace(res.navigate_to);
           return;
         }
         let items: Row[] = [];
+        let count = 0;
         if (res.disambiguation?.length) {
           items = res.disambiguation.map((d) => ({
             master_company_id: d.master_company_id,
@@ -124,16 +130,22 @@ export default function ResultadosPage() {
             city: d.region,
             score: 1,
           }));
+          count = items.length;
         } else {
           const block = res.workspace?.blocks?.find((b) => b.type === 'search_results');
           if (block && block.type === 'search_results') {
             items = block.props.results as Row[];
+            // total real del conjunto (servidor); fallback al tamaño de página.
+            count = (block.props.total as number | undefined) ?? items.length;
           }
         }
         setRows(items);
+        setTotal(count);
+        setPage(pageIdx);
       } catch {
         setError('No hemos podido cargar los resultados. Inténtalo de nuevo.');
         setRows([]);
+        setTotal(0);
       } finally {
         setLoading(false);
       }
@@ -141,11 +153,24 @@ export default function ResultadosPage() {
     [router],
   );
 
+  // Nueva búsqueda (cambia q): resetea filtros/selección y pide la página 0.
   useEffect(() => {
     setInput(q);
-    if (q) void fetchResults(q);
-    else setRows([]);
+    setSector(null);
+    setSelected(new Set());
+    if (q) void fetchResults(q, 0);
+    else {
+      setRows([]);
+      setTotal(0);
+    }
   }, [q, fetchResults]);
+
+  function goToPage(next: number) {
+    const clamped = Math.max(0, Math.min(next, pages - 1));
+    if (clamped === page || loading) return;
+    void fetchResults(q, clamped);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -157,12 +182,13 @@ export default function ResultadosPage() {
     () => Array.from(new Set(rows.map((r) => r.sector).filter(Boolean) as string[])).sort(),
     [rows],
   );
-  const filtered = useMemo(
+  // `rows` ya es la página actual servida por el backend (offset = page*PAGE_SIZE).
+  // El chip de sector afina la página visible; la paginación se rige por `total`.
+  const pageRows = useMemo(
     () => (sector ? rows.filter((r) => r.sector === sector) : rows),
     [rows, sector],
   );
-  const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function toggleSel(id: string) {
     setSelected((prev) => {
@@ -175,7 +201,7 @@ export default function ResultadosPage() {
 
   function exportCsv() {
     const head = ['Empresa', 'CIF', 'Sector', 'Ingresos', 'EBITDA', 'Crecimiento', 'Score señales', 'Afinidad'];
-    const lines = filtered.map((r) =>
+    const lines = pageRows.map((r) =>
       [
         r.name,
         r.cif ?? '',
@@ -231,7 +257,7 @@ export default function ResultadosPage() {
             {q}
           </h1>
           <p className="text-sm text-text-muted mt-1">
-            {filtered.length} resultado{filtered.length === 1 ? '' : 's'}
+            {total} resultado{total === 1 ? '' : 's'}
           </p>
         </header>
       )}
@@ -243,10 +269,7 @@ export default function ResultadosPage() {
             <button
               key={s}
               type="button"
-              onClick={() => {
-                setSector(sector === s ? null : s);
-                setPage(0);
-              }}
+              onClick={() => setSector(sector === s ? null : s)}
               className={cn(
                 'inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border transition-colors',
                 sector === s
@@ -262,7 +285,7 @@ export default function ResultadosPage() {
       )}
 
       {/* Barra de acciones */}
-      {q && !loading && !error && filtered.length > 0 && (
+      {q && !loading && !error && rows.length > 0 && (
         <div className="flex items-center justify-end gap-2 mb-2 text-sm">
           <button
             type="button"
@@ -305,7 +328,7 @@ export default function ResultadosPage() {
       {!loading && error && (
         <div data-testid="resultados-error" className="mt-6 border border-danger/30 bg-danger/5 rounded-xl p-6 text-sm text-text-muted">
           {error}{' '}
-          <button type="button" onClick={() => q && fetchResults(q)} className="text-primary font-semibold hover:underline">
+          <button type="button" onClick={() => q && fetchResults(q, page)} className="text-primary font-semibold hover:underline">
             Reintentar
           </button>
         </div>
@@ -313,7 +336,7 @@ export default function ResultadosPage() {
       {!q && !loading && (
         <p className="mt-8 text-center text-sm text-text-muted">Escribe qué empresas buscas para empezar.</p>
       )}
-      {q && !loading && !error && filtered.length === 0 && (
+      {q && !loading && !error && rows.length === 0 && (
         <p data-testid="resultados-empty" className="mt-8 text-center text-sm text-text-muted">
           No hemos encontrado empresas para «{q}». Prueba con otras palabras o con un nombre o CIF.
         </p>
@@ -428,7 +451,7 @@ export default function ResultadosPage() {
                           ['EBITDA', eur(s.ebitda)],
                           ['Margen EBITDA', s.ebitda_margin != null ? margin(s.ebitda_margin) : '—'],
                           ['Crecimiento', pct(s.growth_pct)],
-                          ['Valoración', eur(s.valuation)],
+                          ['Valoración', eur(s.valuation?.mid)],
                           ['Empleados', s.employees != null ? String(s.employees) : '—'],
                           ['Score Arroba', s.arroba_score != null ? String(s.arroba_score) : '—'],
                         ].map(([k, v]) => (
@@ -472,17 +495,19 @@ export default function ResultadosPage() {
             })}
           </ul>
 
-          {/* Paginación */}
+          {/* Paginación (servidor: cada página se pide con offset = page*PAGE_SIZE) */}
           <div className="flex items-center justify-between mt-4 text-xs text-text-muted">
             <span>
-              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} de {filtered.length}
+              {total === 0
+                ? '0 resultados'
+                : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} de ${total}`}
             </span>
             <div className="flex items-center gap-4">
-              <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="disabled:opacity-40 hover:text-text">
+              <button type="button" disabled={page === 0 || loading} onClick={() => goToPage(page - 1)} className="disabled:opacity-40 hover:text-text">
                 ← Anterior
               </button>
               <span>Página {page + 1} de {pages}</span>
-              <button type="button" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)} className="disabled:opacity-40 hover:text-text">
+              <button type="button" disabled={page >= pages - 1 || loading} onClick={() => goToPage(page + 1)} className="disabled:opacity-40 hover:text-text">
                 Siguiente →
               </button>
             </div>
