@@ -1,13 +1,15 @@
 /**
- * End-to-end-ish test for the Copilot dock + composer.
+ * HARDENING-026 · End-to-end-ish test para el Copilot reskinneado (barra
+ * inferior anclada + panel de thread colapsable).
  *
- *   1. Mount the provider + dock.
- *   2. Mock global.fetch so the orchestrator returns a deterministic Workspace.
- *   3. Click the FAB → dock opens.
- *   4. Type into the composer + press Enter → assistant message + workspace.
- *   5. Click "Limpiar" → history cleared.
- *
- * Pathname is mocked via next/navigation.
+ * Cambios respecto al test anterior:
+ *   - No hay FAB. La barra con el Composer está siempre visible para el
+ *     usuario autenticado. Anterior: `copilot-dock-fab` → obsoleto.
+ *   - `data-testid="composer"` sigue siendo el contrato raíz Sprint 1.
+ *   - `data-open` refleja si el panel del thread está expandido (semántica
+ *     ampliada, contrato preservado).
+ *   - El panel + botón "Limpiar" sólo son visibles cuando hay history
+ *     (auto-open al hacer submit gracias a `CopilotProvider.submit`).
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -69,8 +71,6 @@ function mockSearchOnce(results: number) {
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     }
-    // Cualquier otro fetch (RecentWorkspacesPanel → /api/workspaces, etc.)
-    // resuelve como lista vacía para no polucionar SWR.
     return new Response(
       JSON.stringify({ items: [], total: 0 }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -78,17 +78,13 @@ function mockSearchOnce(results: number) {
   }) as unknown as typeof fetch;
 }
 
-describe('CopilotDock + Composer (E2E)', () => {
+describe('CopilotDock reskinneado + Composer (E2E · HARDENING-026)', () => {
   beforeEach(() => {
-    // Provider hydrates from localStorage — start clean.
     window.localStorage.clear();
     vi.resetAllMocks();
   });
 
-  it('emite data-testid="composer" persistente para autenticados en cualquier estado', () => {
-    // Regla 1 · Sprint 1: el Composer es un contrato universal del layout
-    // raíz. Debe estar presente al montar el dock, sin interacción, y
-    // conservar el mismo testid tanto colapsado como expandido.
+  it('emite data-testid="composer" persistente + barra siempre visible sin FAB', () => {
     global.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ items: [], total: 0 }), {
         status: 200,
@@ -102,31 +98,38 @@ describe('CopilotDock + Composer (E2E)', () => {
     );
     const composer = container.querySelector('[data-testid="composer"]');
     expect(composer).not.toBeNull();
-    // Estado inicial: colapsado (data-open="false") con el FAB dentro.
+    // HARDENING-026 · sin FAB: la barra Composer está siempre montada.
     expect(composer?.getAttribute('data-open')).toBe('false');
-    expect(composer?.querySelector('[data-testid="copilot-dock-fab"]')).not.toBeNull();
+    expect(composer?.querySelector('[data-testid="copilot-dock-bar"]')).not.toBeNull();
+    expect(composer?.querySelector('[data-testid="copilot-composer-textarea"]')).not.toBeNull();
+    // Panel del thread NO visible con history vacío.
+    expect(composer?.querySelector('[data-testid="copilot-dock-panel"]')).toBeNull();
+    // Y el FAB legacy DEBE haber desaparecido del DOM.
+    expect(composer?.querySelector('[data-testid="copilot-dock-fab"]')).toBeNull();
   });
 
-  it('opens via FAB, sends a query and renders the SearchResultsBlock', async () => {
+  it('envío auto-expande el panel del thread + renderiza SearchResultsBlock', async () => {
     const user = userEvent.setup();
     mockSearchOnce(3);
-    render(
+    const { container } = render(
       <CopilotProvider>
         <CopilotDock />
       </CopilotProvider>
     );
-    await user.click(screen.getByTestId('copilot-dock-fab'));
+    // Composer visible directamente, sin FAB previo.
     await user.type(screen.getByTestId('copilot-composer-textarea'), 'kitchen{enter}');
     await waitFor(() =>
       expect(screen.getByTestId('block-search-results')).toBeInTheDocument(),
     );
+    // Panel del thread ahora sí existe (auto-open on submit).
+    expect(container.querySelector('[data-testid="copilot-dock-panel"]')).not.toBeNull();
     expect(screen.getByTestId('copilot-workspace')).toBeInTheDocument();
     expect(screen.getByTestId('block-search-results-row-mc_0')).toBeInTheDocument();
     expect(screen.getByTestId('block-search-results-row-mc_1')).toBeInTheDocument();
     expect(screen.getByTestId('block-search-results-row-mc_2')).toBeInTheDocument();
   });
 
-  it('Limpiar button wipes the history', async () => {
+  it('Limpiar button (dentro del panel abierto) vacía la history', async () => {
     const user = userEvent.setup();
     mockSearchOnce(2);
     render(
@@ -134,14 +137,14 @@ describe('CopilotDock + Composer (E2E)', () => {
         <CopilotDock />
       </CopilotProvider>
     );
-    await user.click(screen.getByTestId('copilot-dock-fab'));
     await user.type(screen.getByTestId('copilot-composer-textarea'), 'kitchen{enter}');
     await waitFor(() => expect(screen.getByTestId('block-search-results')).toBeInTheDocument());
+    // El botón Limpiar sólo existe cuando el panel del thread está visible.
     await user.click(screen.getByTestId('copilot-dock-clear'));
     expect(screen.queryByTestId('block-search-results')).not.toBeInTheDocument();
   });
 
-  it('renders chips on first open and submits the chip query on click', async () => {
+  it('renders chips en la barra al inicio y submit del chip envía la query', async () => {
     const user = userEvent.setup();
     mockSearchOnce(1);
     render(
@@ -149,8 +152,7 @@ describe('CopilotDock + Composer (E2E)', () => {
         <CopilotDock />
       </CopilotProvider>
     );
-    await user.click(screen.getByTestId('copilot-dock-fab'));
-    // Chips visible when history is empty
+    // Chips visibles en la barra cuando history === 0 (no requiere abrir FAB).
     expect(screen.getByTestId('copilot-composer-chips')).toBeInTheDocument();
     await user.click(screen.getByTestId('copilot-composer-chip-0'));
     await waitFor(() => {

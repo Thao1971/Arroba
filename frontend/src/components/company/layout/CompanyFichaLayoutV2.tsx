@@ -2887,40 +2887,14 @@ function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | 
 }
 
 /* ============================ COPILOT ============================ */
-const AT_GRID = ['..XXXX..', '.X....X.', 'X..XX..X', 'X.X..X.X', 'X.X..X.X', 'X..XXXXX', '.X......', '..XXXX..'];
-function AtMark({ color = '#fff', size = 18 }: { color?: string; size?: number }) {
-  const cell = size / 8;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="arrobamark">
-      {AT_GRID.flatMap((row, r) => row.split('').map((c, x) => c === 'X'
-        ? <rect key={`${r}-${x}`} x={x * cell} y={r * cell} width={cell * 0.82} height={cell * 0.82} rx={cell * 0.2} fill={color} /> : null))}
-    </svg>
-  );
-}
-function Copilot({ name }: { name: string }) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState('');
-  return (
-    <div className="cop-wrap">
-      <div className={`cop${open ? ' open' : ''}`}>
-        <div className="cop-panel">
-          <div className="cop-phead"><span className="lbl">arroba copilot · {name}</span><button className="ci-min" onClick={() => setOpen(false)}>—</button></div>
-          <div className="pad"><div className="note">Pregunta sobre esta compañía y el copiloto te responde con su análisis.</div></div>
-        </div>
-        <div className="cop-chips">
-          {['Prepárame un teaser', 'Riesgos para el comprador', '¿Quién me la compraría?'].map((c) => (
-            <span key={c} className="ccchip" onClick={() => { setOpen(true); setText(c); }}><span className="cs">✦</span> {c}</span>
-          ))}
-        </div>
-        <div className="cop-bar" onClick={() => setOpen(true)}>
-          <button className="ci-add" aria-label="Adjuntar"><AtMark color="#9A9A93" size={16} /></button>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Pregunta al copilot…" rows={1} />
-          <button className="ci-send" aria-label="Enviar">↑</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+/* HARDENING-026 · Eliminado el composer interno muerto (`Copilot`) + los
+ * helpers `AtMark`/`AT_GRID`. El Copilot canónico es ahora el `CopilotDock`
+ * reskinneado como barra inferior anclada (Regla 1 · Sprint 1 · e1_tester
+ * `data-testid="composer"`). Ver `components/copilot/CopilotDock.tsx` +
+ * philosophy §12. Los 3 chips inertes que había aquí (`Prepárame un teaser`,
+ * `Riesgos para el comprador`, `¿Quién me la compraría?`) fabricaban texto
+ * fuera de Intel y violaban R15 → retirados. Los chips reales viven en
+ * `opportunity.chips[]` (T1 header) y disparan `prefillComposer()`. */
 
 /* ============================ LAYOUT ============================ */
 /**
@@ -3242,7 +3216,6 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
         </div>
       </div>
 
-      <Copilot name={name} />
     </div>
   );
 }

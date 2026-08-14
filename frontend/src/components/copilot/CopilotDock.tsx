@@ -11,27 +11,48 @@ import { ConversationThread } from './ConversationThread';
 import { RecentWorkspacesPanel } from './RecentWorkspacesPanel';
 
 /**
- * Floating Copilot dock. Two states:
- *   1. Minimised: FAB pinned bottom-right (52×52 round).
- *   2. Expanded: 420×min(560,80vh) panel anchored bottom-right, with header,
- *      thread + workspace, and composer.
+ * HARDENING-026 · Reskin del `CopilotDock` (2026-08-14).
  *
- * Keyboard shortcuts:
- *   - Cmd/Ctrl+K → toggle dock
- *   - ESC        → close dock if expanded
+ * ANTES (Sprint 1 · e1_tester): FAB flotante 52×52 en la esquina inferior
+ * derecha; al pulsar se expandía a un panel modal 420×620 anclado en la
+ * esquina con thread + composer dentro.
  *
- * Persistence: open + history are restored from localStorage by the provider.
+ * AHORA: **barra inferior centrada** a lo ancho del contenido, tipo Claude
+ * / GPT ficha. La barra está SIEMPRE visible para usuarios autenticados.
+ * El `ConversationThread` aparece como panel colapsable ENCIMA de la barra
+ * (auto-expand al enviar; cierre con la X del header). Reutiliza los tokens
+ * del canon `.afk` (radius, shadow, red-500 send button).
+ *
+ * INTACTO POR DENTRO (Regla crítica del ticket):
+ *   - `CopilotProvider.send` → `/api/companies/{cif}/messages` (entity_context)
+ *   - `ConversationThread` (superficie única de respuestas textuales)
+ *   - `section_updates[]` → refresh in-place de la ficha vía CustomEvent
+ *   - `nextBestActions` (chips contextuales)
+ *   - `RecentWorkspacesPanel`
+ *   - `data-testid="composer"` (contrato con e1_tester)
+ *   - Gate anónimo (`!isAuthenticated → null`)
+ *   - `prefillComposer` / `pendingComposerText` (HARDENING-025 Item 3)
+ *
+ * Ver `ARROBA_PHILOSOPHY.md` §12 "La ficha es la verdad": la respuesta
+ * canónica del Copilot cuando el usuario está en `/empresa/{cif}` es la
+ * actualización de las secciones de la ficha; el thread textual encima de
+ * la barra es la conversación complementaria.
+ *
+ * Keyboard shortcuts (preservados):
+ *   - Cmd/Ctrl+K → foco al composer + abre panel del thread si tenía history.
+ *   - ESC        → cierra el panel del thread (barra permanece visible).
+ *
+ * Persistence: `open` + `history` restaurados de localStorage por el provider.
  *
  * Accessibility:
- *   - role="dialog" + aria-modal="false" (not modal — page is still usable)
- *   - aria-label
- *   - autofocus on composer when opening
- *   - returns focus to FAB when closing
+ *   - `role="dialog" aria-modal="false"` en el panel (no modal — page usable).
+ *   - `aria-label` en la barra y el panel.
+ *   - Autofocus al composer al montar en la ficha (via prefill) o Cmd/K.
  */
 export function CopilotDock() {
   const {
     open,
-    toggle,
+    openDock,
     closeDock,
     clear,
     loading,
@@ -41,122 +62,102 @@ export function CopilotDock() {
   } = useCopilot();
   const pathname = usePathname() ?? '/';
   const { isAuthenticated } = useAuth();
-  const fabRef = useRef<HTMLButtonElement | null>(null);
   const composerRef = useRef<ComposerHandle | null>(null);
-  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const chips = useMemo(
     () => nextBestActions({ pathname, isAuthenticated }),
     [pathname, isAuthenticated]
   );
 
-  // Regla 1 · SPRINT 1: el Composer permanente vive en el layout raíz
-  // pero SOLO se renderiza para usuarios autenticados. Anónimos no lo ven
-  // ni siquiera al aterrizar en /empresa/{cif} (secciones 1-3 públicas
-  // sin dock).
-  const hooksAllRegistered = true;  // sanity comment
-  void hooksAllRegistered;
-
-  // Global hotkeys
+  // Global hotkeys. Cmd/Ctrl+K abre el panel + enfoca el composer. ESC cierra
+  // el panel del thread (la barra sigue ahí).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const isToggle = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
       if (isToggle) {
         e.preventDefault();
-        toggle();
+        openDock();
+        setTimeout(() => composerRef.current?.focus(), 60);
         return;
       }
       if (e.key === 'Escape' && open) {
         closeDock();
-        // Move focus back to the FAB so screen readers don't get lost.
-        setTimeout(() => fabRef.current?.focus(), 50);
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, toggle, closeDock]);
+  }, [open, openDock, closeDock]);
 
-  // Autofocus composer when opening.
+  // Autofocus composer al abrir el panel (equivalente al comportamiento previo
+  // del FAB → panel).
   useEffect(() => {
     if (open) {
       setTimeout(() => composerRef.current?.focus(), 60);
     }
   }, [open]);
 
-  // Whether to show suggestion chips: only when the conversation hasn't
-  // really started.
+  // Suggestion chips visibles cuando la conversación aún no ha empezado.
   const showChips = history.length === 0;
 
-  // ---- gate visual: no dock para usuarios anónimos ----
+  // Panel del thread visible cuando el usuario ha interactuado (`open` +
+  // history no vacío). No mostramos panel vacío: si abren con Cmd/K y no hay
+  // history, sólo se enfoca el composer.
+  const panelVisible = open && (history.length > 0 || loading);
+
+  // ---- gate visual: sin barra Copilot para usuarios anónimos ----
   if (!isAuthenticated) {
     return null;
   }
 
   // ---- raíz persistente del Composer (contrato con e1_tester) ----
-  // Envolvemos AMBOS estados (FAB colapsado y panel expandido) en un mismo
-  // nodo con `data-testid="composer"` para que el tester pueda localizar
-  // el Composer permanente independientemente de si está abierto o no.
-  // Regla 1 · Sprint 1: el Composer vive en el layout raíz y es el mismo
-  // en todas las rutas autenticadas (/inicio, /empresa/{cif}, /historial…).
+  // Regla 1 · Sprint 1: el Composer permanente vive en el layout raíz y
+  // expone `data-testid="composer"`. La barra es el estado por defecto
+  // (siempre visible autenticado); `data-open` refleja si el panel del
+  // thread está expandido (contract preservado, semántica ampliada).
   return (
     <div
       data-testid="composer"
       data-open={open ? 'true' : 'false'}
       data-entity-mode={currentEntity ? 'true' : 'false'}
+      className="fixed inset-x-0 bottom-0 z-[1100] flex justify-center px-5 pb-5 pointer-events-none"
+      aria-label="Arroba Copilot"
     >
-      {!open ? (
-        <button
-          ref={fabRef}
-          type="button"
-          onClick={() => toggle()}
-          aria-label="Abrir Arroba Copilot (Cmd/Ctrl + K)"
-          data-testid="copilot-dock-fab"
-          className={cn(
-            'fixed bottom-6 right-6 z-[1100]',
-            'w-13 h-13 rounded-full flex items-center justify-center',
-            'shadow-lg',
-            'transition-transform duration-fast hover:-translate-y-0.5'
-          )}
-          style={{
-            width: 52,
-            height: 52,
-            background: 'var(--gradient-brand-dark)',
-          }}
-        >
-          <Sparkles size={22} strokeWidth={1.5} className="text-primary" />
-        </button>
-      ) : (
-        <div
-          ref={panelRef}
-          role="dialog"
-          aria-modal="false"
-          aria-label="Arroba Copilot"
-          data-testid="copilot-dock-panel"
-          className={cn(
-            'fixed bottom-6 right-6 z-modal',
-            'flex flex-col',
-            'rounded-2xl bg-surface border border-border overflow-hidden',
-            'shadow-xl',
-            'animate-fade-in-up'
-          )}
-          style={{
-            width: 'min(420px, calc(100vw - 32px))',
-            height: 'min(620px, calc(100vh - 32px))',
-          }}
-        >
-          <Header
-            onClose={closeDock}
-            onClear={clear}
-            clearDisabled={loading || history.length === 0}
-            entityName={currentEntity?.entity_name ?? null}
-          />
-          <ConversationThread />
-          <footer className="border-t border-border bg-surface-2 px-4 py-3" data-testid="copilot-dock-footer">
-            <Composer ref={composerRef} chips={chips} showChips={showChips} />
-          </footer>
-          <SrAnnouncer loading={loading} workspaceId={workspace?.workspace_id ?? null} />
+      {/* Gradient scrim para que la barra flote sobre contenido claro sin
+          taparlo bruscamente. Reutiliza el patrón del `.cop-wrap::before`
+          canónico del mockup. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[150px]"
+        style={{
+          background: 'linear-gradient(to top, var(--color-surface, #FAFAF9) 36%, transparent)',
+        }}
+      />
+      <div className="relative w-full max-w-[680px] pointer-events-auto">
+        {panelVisible && (
+          <div
+            role="dialog"
+            aria-modal="false"
+            aria-label="Conversación con Arroba Copilot"
+            data-testid="copilot-dock-panel"
+            className={cn(
+              'mb-2 flex flex-col rounded-2xl bg-surface border border-border overflow-hidden shadow-xl animate-fade-in-up'
+            )}
+            style={{ maxHeight: 'min(56vh, 460px)' }}
+          >
+            <Header
+              onClose={closeDock}
+              onClear={clear}
+              clearDisabled={loading || history.length === 0}
+              entityName={currentEntity?.entity_name ?? null}
+            />
+            <ConversationThread />
+          </div>
+        )}
+        <div data-testid="copilot-dock-bar">
+          <Composer ref={composerRef} chips={chips} showChips={showChips} />
         </div>
-      )}
+        <SrAnnouncer loading={loading} workspaceId={workspace?.workspace_id ?? null} />
+      </div>
     </div>
   );
 }
@@ -217,7 +218,7 @@ function Header({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Minimizar Copilot"
+        aria-label="Cerrar panel de conversación"
         data-testid="copilot-dock-minimize"
         className="w-8 h-8 rounded-md border border-border bg-surface text-text-muted hover:bg-surface-2 hover:text-text flex items-center justify-center"
       >

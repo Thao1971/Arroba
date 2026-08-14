@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-08-14 — **🟢 HARDENING-025 CERRADO** (frontend cableado `opportunity` + Copilot dispatch de chips + re-verificación DN/EBITDA). El bloque `opportunity` viaja ya del BFF al layout (Item 1 tenía un bug oculto: el cliente `CompanyFichaF01Client.tsx` no pasaba `opportunity` al layout). Chips clicables → `prefillComposer()` abre el dock del Copilot y precarga el prompt. DN/EBITDA lógica extraída a `@/lib/companies/dn-ebitda` con 13 unit tests cubriendo los 4 estados + el escenario crítico del report del usuario. E2E verificado por Playwright sobre Servier B28184687. Pytest 3/3 backend + Vitest 22/22 nuevos.
+> **Última actualización**: 2026-08-14 — **🟢 HARDENING-026 CERRADO** (reskin del `CopilotDock` sin reconstrucción). El FAB lateral negro y el composer muerto de la ficha desaparecen; el Copilot canónico es ahora una barra inferior anclada centrada (680px max-width) con `ConversationThread` colapsable encima. Cero lógica tocada: `send`, `section_updates`, chips contextuales, `prefillComposer` y contrato `data-testid="composer"` intactos. Chips inventados R15 (`Prepárame un teaser`, `Riesgos para el comprador`, `¿Quién me la compraría?`) eliminados. Vitest 36/36 Copilot verde · 221/222 suite completa (única falla R14 pre-existente).
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 

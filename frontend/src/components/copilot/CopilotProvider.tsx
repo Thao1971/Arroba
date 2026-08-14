@@ -150,6 +150,11 @@ function reducer(state: CopilotState, action: Action): CopilotState {
       return {
         ...state,
         loading: true,
+        // HARDENING-026 · auto-expand del panel del thread al enviar. El dock
+        // rediseñado como barra inferior deja el panel de conversación
+        // colapsable; al enviar queremos que aparezca automáticamente para que
+        // el usuario vea la respuesta cuando llegue.
+        open: true,
         lastQuery: action.text,
         history: [
           ...state.history,
