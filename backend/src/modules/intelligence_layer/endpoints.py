@@ -388,6 +388,10 @@ async def get_company_ficha(
         #
         # HARDENING-014 (2026-08-13) · `control_graph` top-level: se anonimiza
         # con `_anonymize_control_graph` (elimina upstream/downstream/ubo/nodes/edges).
+        #
+        # HARDENING-024 (2026-08-14) · `opportunity` top-level: bloque gateado.
+        # `thesis.narrative` + `chips` son inteligencia derivada del set financiero
+        # completo → nulificar en anon (mismo patrón que `finances` y `ranking`).
         effective_auth = False
         update_dict: dict = {
             "finances": None,
@@ -403,6 +407,9 @@ async def get_company_ficha(
             # elimina `position` completo (bloque gateado) + `concentration.explain`
             # defensivo. Preserva sector/geo/concentration (contexto CNAE público).
             "market": _anonymize_market(ficha.market),
+            # HARDENING-024 (2026-08-14) · DPD backend `opportunity`: bloque
+            # gateado completo · nulificado para anon.
+            "opportunity": None,
         }
         ficha = ficha.model_copy(update=update_dict)
     else:

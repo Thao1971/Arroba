@@ -670,3 +670,130 @@ async def test_ficha_hardening_013_auth_keeps_ranking_and_position(alice: AsyncC
     assert body["market"]["position"] is not None
     assert body["market"]["position"]["sector_revenue_percentile"] == 100
 
+
+
+# ================================================================
+# HARDENING-024 · BFF relay + DPD del bloque `opportunity` (2026-08-14)
+#
+# Regla: `opportunity` es un bloque **gateado** (thesis.narrative + chips
+# derivan del set de finanzas). Auth → passthrough completo. Anon → None.
+#
+# Bug root cause: `CompanyFicha` NO declaraba el campo `opportunity`, y con
+# `extra="ignore"` Pydantic lo descartaba silenciosamente al parsear la
+# respuesta de Intel. Estos tests son la red de seguridad para evitar que
+# vuelva a ocurrir con futuros campos top-level.
+# ================================================================
+
+
+def _fake_opportunity_full() -> dict:
+    """Payload nominal (con `thesis.narrative` + `chips`) como emite Intel."""
+    return {
+        "available": True,
+        "thesis": {
+            "narrative": (
+                "Empresa consolidada en el sector farmacéutico con márgenes "
+                "sostenidos y posición competitiva relevante en su comunidad."
+            ),
+            "confidence": "high",
+        },
+        "chips": [
+            {"label": "Rentabilidad estable", "kind": "positive"},
+            {"label": "Crecimiento moderado", "kind": "neutral"},
+            {"label": "Concentración sectorial", "kind": "warning"},
+        ],
+        "engine_version": "arroba-opportunity-v1",
+    }
+
+
+def _fake_ficha_with_opportunity(opportunity: dict | None):
+    """CompanyFicha stub con opportunity parametrizado."""
+    from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
+    from src.modules.intelligence_layer.interfaces.financial import FinancialAnalysis
+    return CompanyFicha(
+        cif_normalized="B28184687",
+        master_id="mc_opportunity_test",
+        finances=FinancialAnalysis(cif_normalized="B28184687", has_financials=True),
+        identity={"cif": "B28184687", "legal_name": "SERVIER TEST SA"},
+        ownership={"available": False},
+        governance={"available": False},
+        events={"available": False},
+        ranking=None,
+        opportunity=opportunity,
+        engine_version="arroba-ficha-v1",
+    )
+
+
+@pytest.mark.asyncio
+async def test_ficha_hardening_024_auth_passthrough_opportunity(alice: AsyncClient):
+    """HARDENING-024 · Auth recibe `opportunity` completo · relay del BFF verificado."""
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_opportunity(_fake_opportunity_full())
+    )
+
+    r = await alice.get("/api/companies/B28184687/ficha?authenticated=true")
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    # (1) `opportunity` presente y con la estructura esperada.
+    opp = body.get("opportunity")
+    assert opp is not None, "opportunity debe ser passthrough en auth"
+    assert opp["available"] is True
+    # (2) `thesis.narrative` no vacío.
+    assert "thesis" in opp and isinstance(opp["thesis"], dict)
+    assert opp["thesis"]["narrative"].startswith("Empresa consolidada")
+    # (3) `chips` list preservada.
+    assert "chips" in opp and isinstance(opp["chips"], list)
+    assert len(opp["chips"]) == 3
+    assert opp["chips"][0]["label"] == "Rentabilidad estable"
+
+
+@pytest.mark.asyncio
+async def test_ficha_hardening_024_anon_nullifies_opportunity(client: AsyncClient):
+    """HARDENING-024 · Anon NO recibe `opportunity` · bloque nulificado por DPD."""
+    from src.modules.intelligence_layer.router import get_intelligence_router
+
+    router = get_intelligence_router()
+    router.get_company_ficha = AsyncMock(
+        return_value=_fake_ficha_with_opportunity(_fake_opportunity_full())
+    )
+
+    # Cliente anónimo (sin cookie).
+    r = await client.get("/api/companies/B28184687/ficha")
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    # `opportunity` nulificado en anon.
+    assert body.get("opportunity") is None, (
+        f"PII/gated leak · opportunity presente en anon: {body.get('opportunity')}"
+    )
+
+    # Grep bruto: ni la narrativa ni los labels de chips deben aparecer en el body.
+    raw = r.text
+    assert "Empresa consolidada" not in raw, "leak · thesis.narrative en anon"
+    assert "Rentabilidad estable" not in raw, "leak · chip label en anon"
+
+
+@pytest.mark.asyncio
+async def test_ficha_hardening_024_pydantic_model_accepts_opportunity():
+    """HARDENING-024 · regresión root cause · `CompanyFicha` DEBE declarar `opportunity`.
+
+    Sin este campo, Pydantic con `extra="ignore"` descartaría silenciosamente
+    el bloque devuelto por Intel (bug original). Test defensivo estático.
+    """
+    from src.modules.intelligence_layer.interfaces.ficha import CompanyFicha
+
+    assert "opportunity" in CompanyFicha.model_fields, (
+        "CompanyFicha debe declarar `opportunity` explícitamente · "
+        "sin este campo el BFF descarta el bloque de Intel (HARDENING-024)."
+    )
+    # Round-trip: construir con opportunity y verificar que se preserva.
+    payload = {
+        "cif_normalized": "B28184687",
+        "opportunity": {"available": True, "thesis": {"narrative": "x"}, "chips": []},
+    }
+    parsed = CompanyFicha.model_validate(payload)
+    assert parsed.opportunity is not None
+    assert parsed.opportunity["thesis"]["narrative"] == "x"

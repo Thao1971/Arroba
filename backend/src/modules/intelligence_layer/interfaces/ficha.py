@@ -85,6 +85,20 @@ class CompanyFicha(BaseModel):
     # ubo/nodes/edges`, emite `summary` agregado). Auth: passthrough completo.
     control_graph: dict | None = None
 
+    # HARDENING-024 · 2026-08-14 · Bloque `opportunity` top-level entregado por
+    # Intel (agregador `arroba-company-ficha-v1`). Passthrough `dict | None`.
+    # Shape observado:
+    #   {
+    #     available: bool,
+    #     thesis: { narrative: str, ... },
+    #     chips: [ { label: str, kind: str, ... } ],
+    #     ...
+    #   }
+    # DPD: bloque **gateado** (thesis narrative + chips son inteligencia
+    # derivada del set de finanzas). Anon: se nulifica en el endpoint.
+    # Auth: passthrough completo.
+    opportunity: dict | None = None
+
     engine_version: str = INTERNAL_FICHA_ENGINE_VERSION
 
 

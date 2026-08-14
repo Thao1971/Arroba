@@ -1,6 +1,6 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-08-11 — **🟢 LOTE B-2 COMPLETO CERRADO (12/12 ítems)**. Governance + Ownership DPD backend, Events shell BORME, Identificación registral ampliada (34 campos), Estructura de deuda, REQ-INTEL emitido. Cero PII leaks confirmado. Pytest 9/9 · Vitest 200/200 · testing_agent iter_36/37/38 100%. Listo para deploy único (pendiente sync env vars usuario).
+> **Última actualización**: 2026-08-14 — **🟢 HARDENING-024 CERRADO** (BFF relay + DPD del bloque `opportunity`). Bug root cause identificado en dos capas: (1) `CompanyFicha` no declaraba el campo → Pydantic `extra="ignore"` lo descartaba silenciosamente, (2) `AgencyToolFinancialProvider.fetch_ficha` no lo pasaba al constructor. Fix pasa el bloque completo (`thesis.narrative` + `chips`) en auth y lo nulifica en anon. Pytest 3/3 nuevo · cache_purge 8/8 verde · cero fugas confirmadas por curl auth/anon sobre Servier B28184687.
 > Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 
 

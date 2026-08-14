@@ -188,6 +188,11 @@ class AgencyToolFinancialProvider(FinancialProvider):
             # `get_company_ficha` (`_anonymize_control_graph`), no aquí. Se preserva el
             # shape Intel exacto para consumo auth.
             control_graph=data.get("control_graph") if isinstance(data.get("control_graph"), dict) else None,
+            # HARDENING-024 (2026-08-14) · passthrough puro del bloque `opportunity`
+            # top-level entregado por Intel (thesis.narrative + chips). Bloque gateado:
+            # la nulificación DPD para visitante anónimo se aplica en el endpoint
+            # `get_company_ficha` (`opportunity: None` en `update_dict`).
+            opportunity=data.get("opportunity") if isinstance(data.get("opportunity"), dict) else None,
             engine_version=INTERNAL_FICHA_ENGINE_VERSION,
         )
 
