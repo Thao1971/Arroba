@@ -1920,3 +1920,120 @@ El stroke SVG del anillo "Oportunidad" mantiene `#2563EB` (constante `INFO` del 
 ### Deploy
 
 - **NO desplegado.** Bundle final actualizado: **HARDENING-021 + 004 + 022 + 022b + 004b + 022c + Glosario (5 keys) + 005 + 022d + 022e**.
+
+---
+
+## 2026-08-13 · HARDENING-023 · DN/EBITDA display 3 estados · DONE
+
+### Root cause
+
+Fichero afectado: `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` (líneas 581-596 originales del `dnEbitdaValue`).
+
+El código previo consumía **exclusivamente el ratio pre-calculado** `ratios.net_debt_ebitda` (con fallbacks legacy `net_debt_to_ebitda`, `dn_ebitda`). Este ratio Intel NO lo emite en la mayoría de CIFs (verificado Servier B28184687: `ratios.net_debt_ebitda = null`). Cuando quedaba `null`, el `KpiCard` caía siempre en el `emptyReason="Sin deuda neta"` estático (línea 671), sin distinguir:
+
+- falta de dato base (net_debt / ebitda null)
+- caja neta positiva real (net_debt ≤ 0)
+- EBITDA negativo con deuda (ebitda ≤ 0)
+
+Resultado: **cualquier CIF con dato incompleto veía "Sin deuda neta"**, engañosamente, incluso empresas con deuda real y EBITDA negativo.
+
+### Fix aplicado · 3 estados spec
+
+Reescrita la lógica del KPI DN/EBITDA como una `dnEbitdaState` con 4 kinds:
+
+```ts
+type DnEbitdaState =
+  | { kind: 'empty' }        // "— · Sin dato"
+  | { kind: 'no_debt' }      // "— · Sin deuda neta"
+  | { kind: 'ebitda_neg' }   // "— · EBITDA negativo"
+  | { kind: 'ratio'; value: number };  // "N,N×"
+
+const dnEbitdaState: DnEbitdaState = (() => {
+  const kpis = financialAnalysis?.kpis as unknown as Record<string, unknown> | null;
+  const bs = financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null;
+  const readNum = (source, key) => {
+    const v = source?.[key];
+    return (typeof v === 'number' && isFinite(v)) ? v : null;
+  };
+  const netDebt = readNum(kpis, 'net_debt') ?? readNum(bs, 'net_debt');
+  const ebitda = readNum(kpis, 'ebitda');
+  if (netDebt == null || ebitda == null) return { kind: 'empty' };
+  if (netDebt <= 0) return { kind: 'no_debt' };
+  if (ebitda <= 0) return { kind: 'ebitda_neg' };
+  return { kind: 'ratio', value: netDebt / ebitda };
+})();
+```
+
+Cascada de fuentes:
+- `net_debt`: `kpis.net_debt` (canonical spec del usuario) → `balance_sheet.net_debt` (fallback tolerante) → `null`.
+- `ebitda`: `kpis.ebitda` (canonical).
+
+**R15 estricto**: no se deriva `net_debt` local desde `financial_debt - cash`. Cuando falta el dato base → estado `empty` (`<Empty>` honesto).
+
+### JSX consumer
+
+```tsx
+<KpiCard
+  label="DN / EBITDA"
+  tooltip="DN_EBITDA"
+  value={dnEbitdaState.kind === 'ratio' ? dnEbitdaState.value : null}
+  valueFormatter={(v) => `${v.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`}
+  emptyReason={
+    dnEbitdaState.kind === 'no_debt'    ? 'Sin deuda neta'
+    : dnEbitdaState.kind === 'ebitda_neg' ? 'EBITDA negativo'
+    : 'Sin dato'
+  }
+  ...
+/>
+```
+
+Formato ES: `toLocaleString('es-ES', {minimumFractionDigits:1, maximumFractionDigits:1})` produce coma decimal + 1 decimal. Se concatena `×` (símbolo multiplicación U+00D7, no `x` latino).
+
+### Verificación con lógica JS real (node · 11/11 PASS)
+
+| # | Caso | net_debt | ebitda | Estado esperado | Formato esperado | Resultado |
+|:-:|:--|:--|:--|:--:|:--|:--:|
+| 1 | Servier real | null | 18.5M | empty | — | ✅ |
+| 2 | Caja neta (-500k) | -500k | 1M | no_debt | — | ✅ |
+| 3 | EBITDA negativo | 5M | -800k | ebitda_neg | — | ✅ |
+| 4 | Ratio 3.33 | 5M | 1.5M | ratio | "3,3×" | ✅ |
+| 5 | Ratio 0.25 (round) | 500k | 2M | ratio | "0,3×" | ✅ |
+| 6 | Fallback bs.net_debt | k=null / bs=2M | 1M | ratio | "2,0×" | ✅ |
+| 7 | Ambos null | null | null | empty | — | ✅ |
+| 8 | net_debt=0 exacto | 0 | 1M | no_debt | — | ✅ |
+| 9 | ebitda=0 con deuda | 1M | 0 | ebitda_neg | — | ✅ |
+| 10 | Ratio 2.5 | 2.5M | 1M | ratio | "2,5×" | ✅ |
+| 11 | Ratio 0.05 (tiny) | 50k | 1M | ratio | "0,1×" | ✅ |
+
+Script: inline `node -e "..."` con lógica idéntica al TS. Los casos 8 y 9 confirman uso correcto de `??` (no `||`) para preservar el valor `0` como válido.
+
+### Verificación visual · Servier B28184687
+
+**Antes** (bug): `DN / EBITDA` → "— Sin deuda neta" (engañoso, Intel no emite el valor).
+**Ahora** (fix): `DN / EBITDA` → "— Sin dato" (honesto, R15).
+
+Screenshot en el pod dev capturado en `/tmp/kpi_dn_ebitda.png` mostrando el KPI DN/EBITDA en estado "Sin dato" junto a los otros 3 KPIs T2 (Facturación 164,2 M€, EBITDA 18,5 M€, Activos totales 97,4 M€) todos renderizando correctamente.
+
+**Limitación**: en el pod dev de Intel solo Servier tiene payload real (`net_debt=null`). Los otros 2 escenarios (no_debt real y ebitda_neg) se han verificado con la lógica JS unitaria (11/11 PASS) equivalente a la del bundle. En Prod, empresas con `kpis.net_debt` populado por Intel activarán los estados correctos automáticamente.
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|:--|:--|
+| `/app/frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` | -16 L (dnEbitdaValue legacy) + 26 L (dnEbitdaState 3-estados + type DnEbitdaState) · +2 L (JSX condicional en el KpiCard DN/EBITDA) |
+| `/app/memory/PLAN_BETA_status_20260810.md` | Este bloque |
+
+### Verificación
+
+| Item | Estado |
+|:--|:--:|
+| `yarn typecheck` | ✅ verde (3.37 s) |
+| `yarn build` | ✅ verde (17 s) |
+| First Load JS shared | **87.3 kB** (baseline sin regresión) |
+| Ruta `/es/empresa-f01/[cif]` | 51 kB / 163 kB (+0.1 kB por type DnEbitdaState) |
+| Unit test JS (Node) | ✅ 11/11 casos PASS |
+| Smoke Servier auth | ✅ "DN / EBITDA — Sin dato" (correcto R15) |
+
+### Deploy
+
+- **NO desplegado.** Bundle final actualizado: **HARDENING-021 + 004 + 022 + 022b + 004b + 022c + Glosario (5 keys) + 005 + 022d + 022e + 023**.

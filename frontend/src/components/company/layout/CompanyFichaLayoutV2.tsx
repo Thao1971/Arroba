@@ -575,24 +575,42 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
         : null
   );
 
-  // T2 · KPIs · DN/EBITDA. R15: solo mostramos si Intel emite el valor.
-  // Intel provenance canonical key: `net_debt_ebitda` (verificado Servier 2026-08-13);
-  // legacy tolerancia `net_debt_to_ebitda`. Cascada: ratios → balance_sheet → null.
-  const dnEbitdaValue: number | null = (() => {
-    const ratios = financialAnalysis?.ratios as unknown as Record<string, unknown> | null;
+  // ─────────────────────────────────────────────────────────────────────────
+  // T2 · KPI DN/EBITDA · 3 estados (HARDENING-023 · 2026-08-13)
+  //
+  // Fuente CANONICAL (spec usuario): `kpis.net_debt` + `kpis.ebitda` del payload
+  // `/ficha`. Fallback tolerante a `balance_sheet.net_debt` cuando Intel lo pone
+  // en el balance en vez de en kpis (verificado tras HARDENING-020).
+  //
+  // Estados:
+  //   1. Falta dato base           → { kind: 'empty' }        → "— · Sin dato"
+  //   2. net_debt <= 0             → { kind: 'no_debt' }      → "— · Sin deuda neta"
+  //   3. ebitda   <= 0 (con deuda) → { kind: 'ebitda_neg' }   → "— · EBITDA negativo"
+  //   4. Ambos positivos           → { kind: 'ratio', value } → "N,N×"
+  //
+  // R15: NO derivar `net_debt` local desde `financial_debt - cash` si Intel no
+  // lo emite. Cuando falta el dato base → estado 1 (Empty honesto).
+  // ─────────────────────────────────────────────────────────────────────────
+  type DnEbitdaState =
+    | { kind: 'empty' }
+    | { kind: 'no_debt' }
+    | { kind: 'ebitda_neg' }
+    | { kind: 'ratio'; value: number };
+
+  const dnEbitdaState: DnEbitdaState = (() => {
+    const kpis = financialAnalysis?.kpis as unknown as Record<string, unknown> | null;
     const bs = financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null;
-    const candidates = [
-      ratios?.['net_debt_ebitda'],
-      ratios?.['net_debt_to_ebitda'],
-      ratios?.['dn_ebitda'],
-      bs?.['net_debt_ebitda'],
-      bs?.['net_debt_to_ebitda'],
-      bs?.['dn_ebitda'],
-    ];
-    for (const c of candidates) {
-      if (typeof c === 'number' && isFinite(c)) return c;
-    }
-    return null;
+    const readNum = (source: Record<string, unknown> | null | undefined, key: string): number | null => {
+      const v = source?.[key];
+      return (typeof v === 'number' && isFinite(v)) ? v : null;
+    };
+    // Cascada `net_debt`: kpis (canonical) → balance_sheet (fallback verificado).
+    const netDebt: number | null = readNum(kpis, 'net_debt') ?? readNum(bs, 'net_debt');
+    const ebitda: number | null = readNum(kpis, 'ebitda');
+    if (netDebt == null || ebitda == null) return { kind: 'empty' };
+    if (netDebt <= 0) return { kind: 'no_debt' };
+    if (ebitda <= 0) return { kind: 'ebitda_neg' };
+    return { kind: 'ratio', value: netDebt / ebitda };
   })();
 
   // T2 · Activos totales · passthrough puro desde balance_sheet.
@@ -664,11 +682,18 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
           <KpiCard
             label="DN / EBITDA"
             tooltip="DN_EBITDA"
-            value={dnEbitdaValue}
-            valueFormatter={(v) => `${v.toLocaleString('es-ES', { maximumFractionDigits: 1 })}×`}
+            // HARDENING-023 · 3 estados. `value` sólo se pasa cuando hay ratio
+            // numérico válido; para "no_debt" / "ebitda_neg" / "empty" pasamos
+            // `null` + `emptyReason` con la etiqueta canonica del estado.
+            value={dnEbitdaState.kind === 'ratio' ? dnEbitdaState.value : null}
+            valueFormatter={(v) => `${v.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`}
             points={dnEbitdaPoints}
             invertColor
-            emptyReason="Sin deuda neta"
+            emptyReason={
+              dnEbitdaState.kind === 'no_debt' ? 'Sin deuda neta'
+              : dnEbitdaState.kind === 'ebitda_neg' ? 'EBITDA negativo'
+              : 'Sin dato'
+            }
             testid="kpi-dn-ebitda"
             srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'net_debt_ebitda') as ProvenanceValue | null} />}
           />
