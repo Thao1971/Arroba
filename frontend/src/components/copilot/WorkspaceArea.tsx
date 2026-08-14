@@ -12,6 +12,7 @@ import {
   ValuationBlock,
   type Metric,
 } from '@/components/blocks';
+import { useRouter } from 'next/navigation';
 import type { BlockSpec, Workspace } from '@/lib/orchestrator';
 import { useCopilot } from './CopilotProvider';
 
@@ -39,6 +40,8 @@ export function WorkspaceArea({ workspace }: { workspace: Workspace }) {
 
 function BlockRenderer({ block }: { block: BlockSpec }) {
   const { send, retry, lastQuery } = useCopilot();
+  // HARDENING-REQ001b · router para navegar al ficha desde search results.
+  const router = useRouter();
 
   switch (block.type) {
     case 'search_results':
@@ -47,6 +50,9 @@ function BlockRenderer({ block }: { block: BlockSpec }) {
           query={block.props.query}
           total={block.props.total}
           results={block.props.results}
+          onPick={(item) => {
+            if (item.cif) router.push(`/empresa-f01/${item.cif}`);
+          }}
         />
       );
     case 'empty_state':

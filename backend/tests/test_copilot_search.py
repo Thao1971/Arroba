@@ -10,10 +10,28 @@ Covers:
 
 The endpoint is `POST /api/copilot/skills/search` with body
 `{"query": "...", "context": {...}}`.
+
+HARDENING-REQ001b (2026-08-14): estos tests validan el PATH MOCK. Fuerzan
+`agency_tool_mode=mock` vía fixture autouse porque el pod puede tener la
+variable en `real` (Intel S2S) y el path real interceptaría antes de llegar
+al mock. Mismo patrón que `test_platform_stats.py`.
 """
 import pytest
 
 pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture(autouse=True)
+def _force_mock_mode(monkeypatch):
+    """HARDENING-REQ001b · fuerza modo mock para que estos tests siempre
+    ejecuten el path determinista del mock (independiente de `AGENCY_TOOL_MODE`
+    del pod)."""
+    from src.modules.intelligence_layer import config as _il_config
+    _il_config.get_intelligence_settings.cache_clear()
+    monkeypatch.setenv("AGENCY_TOOL_MODE", "mock")
+    _il_config.get_intelligence_settings.cache_clear()
+    yield
+    _il_config.get_intelligence_settings.cache_clear()
 
 
 SEED_COMPANIES = [
@@ -93,7 +111,7 @@ async def test_search_matches_by_cif_with_separators(admin_client, client):
     body = r.json()
     assert body["workspace"] is None
     assert body["entity_type"] == "company"
-    assert body["navigate_to"] == "/empresa/B47594478"
+    assert body["navigate_to"] == "/empresa-f01/B47594478"
 
 
 async def test_search_accent_insensitive(admin_client, client):
@@ -108,7 +126,7 @@ async def test_search_accent_insensitive(admin_client, client):
     assert r.status_code == 200
     body = r.json()
     # Muñoz Comunicación is the only strong match → resolve.
-    assert body["navigate_to"] == "/empresa/B85412003"
+    assert body["navigate_to"] == "/empresa-f01/B85412003"
     assert body["workspace"] is None
 
 

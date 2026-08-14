@@ -1,23 +1,34 @@
 #!/usr/bin/env bash
 # ══════════════════════════════════════════════════════════════════════════════
-# arroba.com · post_deploy.sh · HARDENING-005 (2026-08-13)
+# arroba.com · post_deploy.sh · HARDENING-005 (2026-08-13) · HARDENING-028 (2026-08-14)
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Orquesta el flujo post-deploy PROD:
+#   0) [HARDENING-028] Rebuild+restart local del frontend (dev pod). Previene el
+#      "next-server crash-loop tras yarn build" (Next.js production mode cachea
+#      manifest+chunks en memoria y no hot-reloadea con nuevos builds sin
+#      restart). Ver DEPLOY_NOTES.md · "Regla operativa preview dev".
 #   a) Purga selectiva del `intelligence_cache` (engine=ficha).
 #   b) Smoke: 5 checks contra endpoints reales de https://beta.arroba.com.
+#   6) [HARDENING-028] Smoke retry con backoff exponencial contra
+#      /api/platform/stats — detecta la ventana de crash-loop de arranque en
+#      Prod tras deploy antes de que un usuario la vea (5s → 10s → 20s → 40s
+#      → 80s → 160s = ~5 min total). Sale con exit 1 si tras 6 intentos sigue
+#      en 5xx.
 #   c) Resumen OK/FAIL por check + exit-code no-cero si CUALQUIER smoke falla.
 #
-# Idempotente y seguro re-ejecutar (la purga sobre cache vacío es no-op).
+# Idempotente y seguro re-ejecutar (la purga sobre cache vacío es no-op, el
+# rebuild es determinista, el smoke retry sólo hace GET reads).
 #
 # Uso:
 #   export ARROBA_ADMIN_TOKEN="<token-de-panel-emergent>"
 #   bash scripts/post_deploy.sh
 #
 # Overrides opcionales:
-#   ARROBA_BASE_URL   (default: https://beta.arroba.com)
-#   SMOKE_CIF         (default: B28184687 · Servier)
-#   SMOKE_TIMEOUT_S   (default: 20)
+#   ARROBA_BASE_URL       (default: https://beta.arroba.com)
+#   SMOKE_CIF             (default: B28184687 · Servier)
+#   SMOKE_TIMEOUT_S       (default: 20)
+#   SKIP_LOCAL_REBUILD    (default: 0 · pon a 1 para saltar Paso 0)
 # ══════════════════════════════════════════════════════════════════════════════
 
 set -uo pipefail
@@ -57,6 +68,37 @@ require_env ARROBA_ADMIN_TOKEN
 echo "  BASE_URL=$BASE_URL"
 echo "  CIF=$CIF"
 echo "  TIMEOUT=${TIMEOUT}s"
+
+# ─── (0) LOCAL REBUILD+RESTART FRONTEND ──────────────────────────────────────
+# HARDENING-028 · Rebuild fresco del `.next/` local + restart de supervisor.
+# Motivo: Next.js con `next start` cachea el manifest en memoria del proceso
+# Node; sin restart tras `yarn build` el pod dev sigue sirviendo el bundle
+# anterior (ver DEPLOY_NOTES.md · "Regla operativa preview dev"). Idempotente:
+# rebuild sobre `.next` existente es determinista; restart es seguro. Saltable
+# con `SKIP_LOCAL_REBUILD=1` si el usuario ya lo hizo manualmente.
+if [[ "${SKIP_LOCAL_REBUILD:-0}" != "1" ]]; then
+  log_step "(0) Rebuild+restart local del frontend (dev pod)"
+  if [[ -d /app/frontend ]]; then
+    ( cd /app/frontend && yarn build 2>&1 | tail -12 ) || {
+      echo "$(red 'FAIL')  yarn build local devolvió no-cero"
+      log_fail "step0 :: yarn build local falló"
+      # No abortamos — el resto del script sirve para diagnosticar Prod aunque
+      # el dev pod tenga problemas.
+    }
+    if command -v sudo >/dev/null 2>&1 && command -v supervisorctl >/dev/null 2>&1; then
+      sudo supervisorctl restart frontend >/dev/null 2>&1 && sleep 3
+      echo "  supervisor frontend restarted"
+      log_ok "step0 :: yarn build + supervisor restart frontend"
+    else
+      echo "  (skip supervisor restart · sudo/supervisorctl no disponibles)"
+      log_ok "step0 :: yarn build local (sin restart supervisor)"
+    fi
+  else
+    echo "  (skip · /app/frontend no existe en este entorno)"
+  fi
+else
+  echo "  (skipped · SKIP_LOCAL_REBUILD=1)"
+fi
 
 # ─── (a) PURGE ───────────────────────────────────────────────────────────────
 log_step "(a) Purga intelligence_cache · engine=ficha"
@@ -146,6 +188,40 @@ if [[ "$FE_CODE" == "200" ]]; then
   log_ok "smoke#5 frontend ficha :: HTTP 200"
 else
   log_fail "smoke#5 frontend ficha :: HTTP $FE_CODE (esperado 200)"
+fi
+
+# ─── (6) SMOKE RETRY BACKOFF ─────────────────────────────────────────────────
+# HARDENING-028 · Detecta la ventana de crash-loop del container Prod tras
+# deploy (patrón "Could not find a production build in .next" con next start
+# reiniciando en bucle) antes de que un usuario lo vea. Reintentos
+# exponenciales: 5s → 10s → 20s → 40s → 80s → 160s = ~5 min total. Sale con
+# exit 1 (dentro del contador FAILS del resumen) si tras 6 intentos sigue en
+# 5xx. Prueba contra /api/platform/stats porque es endpoint público sin auth
+# y consulta el estado real del backend (mongo + Intel client).
+log_step "(6) Smoke retry backoff · $BASE_URL/api/platform/stats"
+max_attempts=6
+delay=5
+retry_ok=0
+for i in $(seq 1 "$max_attempts"); do
+  code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time "$TIMEOUT" \
+    "$BASE_URL/api/platform/stats") || code="000"
+  if [[ "$code" == "200" ]]; then
+    echo "  attempt $i → HTTP 200 OK"
+    retry_ok=1
+    break
+  fi
+  if [[ "$i" == "$max_attempts" ]]; then
+    echo "  attempt $i → HTTP $code · sin más reintentos"
+    break
+  fi
+  echo "  attempt $i → HTTP $code · reintenta en ${delay}s"
+  sleep "$delay"
+  delay=$((delay * 2))
+done
+if [[ "$retry_ok" == "1" ]]; then
+  log_ok "smoke#6 retry backoff :: /api/platform/stats OK en $i intento(s)"
+else
+  log_fail "smoke#6 retry backoff :: /api/platform/stats sigue en HTTP $code tras $max_attempts intentos (~5 min)"
 fi
 
 # ─── (c) NOTIFY · resumen ────────────────────────────────────────────────────

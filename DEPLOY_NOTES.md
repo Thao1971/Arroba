@@ -1,5 +1,18 @@
 # DEPLOY_NOTES · bundle 2026-08-13
 
+> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b)
+>
+> El push que incluya **HARDENING-REQ001b** (búsqueda semántica en lenguaje
+> natural) debe salir **en la misma ventana** en la que Intel ejecute:
+>   - Intel redeploy en Prod.
+>   - Ejecución de `reembed_semantic_openai.py` contra el Atlas de Prod.
+>
+> Sin ese re-embed, la búsqueda semántica en Prod devuelve `empty_response`
+> (no es regresión — mismo comportamiento que hoy — pero la feature no se
+> enciende hasta que Intel corra el re-embed).
+>
+> **Push aislado de REQ001b antes del re-embed = feature inerte, inofensivo.**
+
 Bundle acumulado listo para push manual a Prod (`beta.arroba.com`). Todos los
 cambios validados en dev pod contra Servier `B28184687` (auth + anon).
 
@@ -22,6 +35,8 @@ cambios validados en dev pod contra Servier `B28184687` (auth + anon).
 | HARDENING-025   | Frontend cableado `opportunity` + Copilot dispatch chips + DN/EBITDA extraído a `@/lib/companies/dn-ebitda` · vitest 22/22 nuevos | ✅ |
 | HARDENING-026   | Reskin `CopilotDock` (barra inferior anclada + panel colapsable) · elimina composer muerto y 3 chips R15 · vitest 36/36 Copilot | ✅ |
 | HARDENING-REQ001| Intel real + hero search funcional + PlatformStats reshape (4 métricas) · reutiliza `AgencyToolClient` canónico (retry / dual-key / circuit breaker) · **NO añade nuevo cliente S2S** · pytest 12/12 platform_stats + vitest 104/104 · rewrite `/empresa/` → `/empresa-f01/` en 6 sitios | ✅ |
+| HARDENING-REQ001b| Búsqueda semántica NL vía Intel `/api/v1/semantic-intelligence/search` · reutiliza `AgencyToolClient` canónico · `WorkspaceArea` navega a `/empresa-f01/{cif}` al hacer click en un resultado · **inerte hasta re-embed Intel** | ✅ |
+| HARDENING-028   | `post_deploy.sh` blindado · Paso 0 rebuild+restart local · Paso 6 smoke retry backoff (~5 min) contra `/api/platform/stats` | ✅ |
 
 ## Env vars en Prod (post-REQ-001)
 

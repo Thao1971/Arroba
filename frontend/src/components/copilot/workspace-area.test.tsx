@@ -7,6 +7,12 @@ import { render, screen } from '@testing-library/react';
 import { WorkspaceArea } from './WorkspaceArea';
 import type { Workspace } from '@/lib/orchestrator';
 
+// HARDENING-REQ001b · mock estático de `useRouter` porque `WorkspaceArea`
+// ahora navega a `/empresa-f01/{cif}` al hacer click en un search result.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
+
 // Mock the Copilot context — only `send`, `retry` and `lastQuery` are needed.
 vi.mock('./CopilotProvider', async () => {
   const actual: typeof import('./CopilotProvider') = await vi.importActual('./CopilotProvider');

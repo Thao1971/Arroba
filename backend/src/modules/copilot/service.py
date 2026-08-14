@@ -336,7 +336,13 @@ async def _execute_search_real(
         if not matches:
             return _empty_response(q, pathname, locale)
 
-    # ---- exploratory / results list -------------------------------------
+    # HARDENING-REQ001b · 2026-08-14 · Exploratory / natural-language query
+    # ("clínicas dentales en Valencia") → semantic search vía Intel embeddings.
+    # `resolve` es para CIF/nombre exacto; `semantic` es para texto libre.
+    if not is_concrete:
+        return await _semantic_search_results(q, pathname, locale)
+
+    # ---- concrete fall-through → resolve matches as a results list ------
     top = matches[:MAX_RESULTS]
     if not top:
         return _empty_response(q, pathname, locale)
@@ -355,6 +361,64 @@ async def _execute_search_real(
     block = SearchResultsBlock(
         id="blk_results_" + uuid.uuid4().hex[:8],
         props=SearchResultsBlockProps(query=q, total=len(matches), results=items),
+    )
+    return SearchSkillResponse(
+        workspace=Workspace(
+            workspace_id="wsp_" + uuid.uuid4().hex[:12], intent="search", blocks=[block]
+        ),
+        source="real", query=q,
+    )
+
+
+async def _semantic_search_results(
+    q: str, pathname: str | None, locale: str
+) -> SearchSkillResponse:
+    """HARDENING-REQ001b · natural-language search vía Intel
+    `POST /api/v1/semantic-intelligence/search`.
+
+    Cada `SearchHit` trae un `cif` navegable a la ficha (`/empresa-f01/{cif}`).
+    Usa el `AgencyToolClient` canónico (retry + dual-key + semáforo + circuit
+    breaker). En caso de error del cliente propaga `AgencyToolHTTPError` para
+    que el caller (`_execute_search_real`) haga fallback silencioso al path
+    mock — mismo patrón que `_resolve` y `get_platform_stats`.
+
+    NOTA: la búsqueda semántica requiere que Intel tenga los embeddings
+    generados (`reembed_semantic_openai.py`). Sin re-embed el endpoint
+    responde `results=[]` y devolvemos `empty_response` — feature inerte
+    hasta que Intel ejecute el proceso.
+    """
+    resp = await get_agency_tool_client().request(
+        "POST",
+        "/api/v1/semantic-intelligence/search",
+        json={"query": q, "limit": MAX_RESULTS, "cnae_section": None},
+    )
+    if resp.status_code >= 400:
+        raise AgencyToolHTTPError(
+            status_code=resp.status_code,
+            error_class="client_4xx" if resp.status_code < 500 else "server_5xx",
+            message=f"semantic-search http_{resp.status_code}",
+        )
+    payload: dict[str, Any] = resp.json()
+    hits: list[dict[str, Any]] = payload.get("results") or []
+    if not hits:
+        return _empty_response(q, pathname, locale)
+    items = [
+        SearchResultItem(
+            master_company_id=str(h.get("master_id") or ""),
+            name=str(h.get("name") or "—"),
+            legal_name=h.get("name"),
+            cif=(
+                re.sub(r"[\s.\-]", "", str(h["cif"]).upper()) if h.get("cif") else None
+            ),
+            sector=h.get("cnae_section"),
+            city=None,
+            score=round(float(h.get("score") or 0.0), 3),
+        )
+        for h in hits
+    ]
+    block = SearchResultsBlock(
+        id="blk_results_" + uuid.uuid4().hex[:8],
+        props=SearchResultsBlockProps(query=q, total=len(hits), results=items),
     )
     return SearchSkillResponse(
         workspace=Workspace(
