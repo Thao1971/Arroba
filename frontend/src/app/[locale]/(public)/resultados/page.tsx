@@ -10,7 +10,7 @@
  * romper. Si la consulta resuelve a una sola empresa, redirige a su ficha.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
   ArrowRight,
@@ -33,6 +33,7 @@ import { apiClient } from '@/lib/api/client';
 import type { SearchResultItem } from '@/components/blocks';
 import { cn } from '@/lib/cn';
 import { applySignalFilter } from './_signal-filter';
+import { ResultCTA } from './_result-cta';
 
 interface RowSummary {
   revenue?: number | null;
@@ -92,7 +93,12 @@ function margin(n?: number | null): string {
 export default function ResultadosPage() {
   const router = useRouter();
   const params = useSearchParams();
+  const pathname = usePathname() ?? '/resultados';
   const q = (params.get('q') || '').trim();
+  // HARDENING-033 · locale extraído del pathname (`/es/...` o `/en/...`) o
+  // fallback a 'es'. Con `localePrefix: 'never'` el pathname puede venir sin
+  // prefijo — el CTA usa 'es' como default coherente con el resto de rutas.
+  const locale = pathname.match(/^\/(es|en)(\/|$)/)?.[1] ?? 'es';
 
   const [input, setInput] = useState(q);
   const [rows, setRows] = useState<Row[]>([]);
@@ -373,6 +379,21 @@ export default function ResultadosPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* HARDENING-033 · CTA contextual sobre resultados filtrados. Sólo se
+          renderiza cuando al menos un chip de signal_badge está activo
+          (`onlyGrowth` u `excludeRisk`). Variante auth → watchlist stub;
+          variante anon → registro con next=. Ver `_result-cta.tsx`. */}
+      {q && !loading && !error && rows.length > 0 && (
+        <ResultCTA
+          query={q}
+          onlyGrowth={onlyGrowth}
+          excludeRisk={excludeRisk}
+          locale={locale}
+          pathname={pathname}
+          visibleCount={pageRows.length}
+        />
       )}
 
       {/* Estados */}
