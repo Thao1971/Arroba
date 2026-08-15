@@ -243,7 +243,7 @@ export default function ResultadosPage() {
   }
 
   return (
-    <div data-testid="resultados-page" className="max-w-6xl mx-auto px-6 py-8">
+    <div data-testid="resultados-page" className="max-w-6xl mx-auto px-6 pt-8 pb-40">
       {/* Buscador */}
       <form
         onSubmit={submit}

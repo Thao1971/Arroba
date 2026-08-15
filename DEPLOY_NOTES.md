@@ -1,43 +1,56 @@
 # DEPLOY_NOTES · bundle 2026-08-13
 
-> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b + REQ002 + REQ003 + REQ004)
+> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b + REQ002 + REQ003 + REQ004 + REQ004b)
 >
 > El push que incluya **HARDENING-REQ001b** (búsqueda semántica NL),
 > **HARDENING-REQ002** (página `/resultados`), **HARDENING-REQ003** (4
-> modos + paginación server-side) y **HARDENING-REQ004** (5º modo
-> financiero) debe salir **en la misma ventana** en la que Intel ejecute:
+> modos + paginación server-side), **HARDENING-REQ004** (5º modo
+> financiero) y **HARDENING-REQ004b** (parser multi-métrica + sector-scoped
+> financiero + fix paginación) debe salir **en la misma ventana** en la
+> que Intel ejecute:
 >   - Intel redeploy en Prod.
 >   - Ejecución de `reembed_semantic_openai.py` contra el Atlas de Prod.
 >   - Endpoint `GET /api/v1/company-taxonomy/search` habilitado (rama
->     categórica REQ003). En dev pod ya responde con 898 hits para
->     "agencias de marketing".
+>     categórica REQ003 + resolución de `company_ids` para REQ004b sector
+>     scoping). En dev pod ya responde con 898 hits para "agencias de
+>     marketing" y 62 primary ids para el mismo residual.
 >   - Endpoint `POST /api/v1/skills/search` con filtros numéricos + `has_domain`
->     habilitado (rama financiera REQ004). En dev pod ya responde con **62
->     hits** para "agencias con EBITDA > 1M y más de 100 empleados" y **12
->     hits** para "empresas con ingresos > 50M".
+>     habilitado (rama financiera REQ004). En dev pod ya responde con **25
+>     hits** para "revenue_min ≥ 50M" (verificado 100% cumplen filtro), **237
+>     hits** para "ebitda_min ≥ 1M" y **975 hits** para combo multi-métrica
+>     revenue+employees.
+>   - **REQ-004b (Intel)** `skills/search` debe **obedecer `filters.master_company_ids`**
+>     como intersección (AND numérico + sector-scope). En dev pod Intel aún
+>     **ignora** este filtro (verificado: Q "agencias marketing con EBITDA > 1M"
+>     con `sector_scope_ids=62` devuelve 237 = idéntico al screen puro sin
+>     residual). Comportamiento post-deploy Intel REQ-004b: intersección
+>     ~5-15 hits para esa query.
 >   - Emisión de `summary` enriquecido en cada `SearchHit` (revenue, ebitda,
 >     ebitda_margin, growth_pct, signal_score, signal_badge, valuation, etc.).
 >     En dev pod ya vienen poblados en las ramas taxonomy/semantic; skills/search
->     los emite parcialmente (revenue+ebitda+growth+signal en Q2; parcial en Q1).
->     Verificar en Prod tras el push.
+>     los emite parcialmente. Verificar en Prod tras el push.
 >
 > Sin ese re-embed la búsqueda semántica devuelve `empty_response` honesto.
 > Sin el endpoint categórico habilitado la rama #3 devuelve 404 y cae al
 > path semántico (fallback documentado). Sin `skills/search` la rama
 > financiera #2 devuelve 404 y **cae a categorical/semantic** (fall-through
 > aditivo, no `<Empty/>`; verificado con filtro absurdo `revenue_min=9.9e18`
-> → 898 hits categorical). Sin `summary` la tabla renderiza «—» en columnas
-> financieras (degrade gracefully verificado).
+> → 898 hits categorical). Sin obediencia a `master_company_ids` (REQ-004b
+> Intel latente) → **screen puro** sin sector (aún útil, no error; ver
+> comportamiento post-deploy Intel REQ-004b). Sin `summary` la tabla renderiza
+> «—» en columnas financieras (degrade gracefully verificado).
 >
-> **Orden de modos en `_execute_search_real` (REQ004)**:
-> `#1 CIF → #2 Financial (skills/search) → #3 Categorical (taxonomy) →
->  #4 Name (resolve) → #5 Semantic (embeddings)`.
+> **Orden de modos en `_execute_search_real` (REQ004+REQ004b)**:
+> `#1 CIF → #2 Financial (skills/search + sector-scoped ids) → #3 Categorical
+>  (taxonomy) → #4 Name (resolve) → #5 Semantic (embeddings)`.
 > El parser `parse_financial_query` es puro (regex + stdlib, cero I/O) y
 > devuelve `None` si no detecta predicado numérico → NO entra la rama #2,
 > se preserva el flujo REQ003 intacto para "agencias de marketing",
-> "clínicas dentales en Valencia", etc.
+> "clínicas dentales en Valencia", etc. **REQ004b**: soporta multi-métrica
+> (revenue + employees en una sola query) y sector-scoping (residual → ids
+> via taxonomy → `master_company_ids` en `skills/search`).
 >
-> **Push aislado de REQ001b/REQ002/REQ003/REQ004 antes del re-embed = feature inerte, inofensivo.**
+> **Push aislado de REQ001b/REQ002/REQ003/REQ004/REQ004b antes del re-embed = feature inerte, inofensivo.**
 >
 > ### Backlog Intel
 > - **REQ-INTEL** soporte de `offset`/`total` en `semantic-intelligence/search`
@@ -48,20 +61,28 @@
 >   (para migrar HARDENING-032 fuera del client-side).
 > - **REQ-INTEL** `summary` completo en filas de `skills/search` (hoy parcial;
 >   la tabla renderiza «—» gracefully en columnas sin dato).
-> - **REQ-INTEL** `skills/search` sectorial-aware residual query
->   Cuando `skills/search` recibe `query` no-vacío junto con filtros numéricos,
->   aplicar el `query` como CNAE-hint / taxonomy-hint (misma lógica que
->   `company-taxonomy/search`) en vez de full-text sobre `name`.
->   Sin esto, queries mixtas tipo "agencias de marketing con EBITDA > 1M"
->   degradan silenciosamente a fall-through categorical (898 hits sectoriales
->   sin AND numérico).
->   Repro:
+> - **REQ-INTEL** `skills/search` sectorial-aware residual query · **RESUELTO
+>   en Beta por REQ004b vía `master_company_ids`**. Intel aún debe **obedecer**
+>   el filtro (dev pod lo ignora). Repro:
 >   ```
->   POST /api/v1/skills/search {"query":"agencias marketing","filters":{"ebitda_min":1000000}} → total=0
->   POST /api/v1/skills/search {"query":"","filters":{"ebitda_min":1000000}}                    → total=237
->   GET  /api/v1/company-taxonomy/search?q=agencias%20de%20marketing                            → total=898
+>   POST /api/v1/skills/search {"query":"","filters":{"ebitda_min":1000000,"master_company_ids":[62 ids]}} → total=237 (dev; espera ~5-15 post-REQ004b)
+>   POST /api/v1/skills/search {"query":"","filters":{"ebitda_min":1000000}}                                → total=237
 >   ```
->   Universo esperado: intersección ~5-15 hits.
+> - **REQ-INTEL** `crecimiento` (`growth_pct`) vacío en el 100% de filas por
+>   techo de dato histórico 1 año; requiere backfill YoY multi-año.
+>
+> ### Beta · Parser limitations (post-REQ004b) · edge cases no cubiertos
+> * Combos dual con dos rangos separados por "y" (revenue AND ebitda ranges):
+>   `"ingresos > 50M y EBITDA entre 1 y 5M"` → detecta solo el segundo.
+> * `"5M de facturación"` tras `"más de 100 empleados"` → mapea 5M a
+>   `employees_max` (esperado `revenue_max`).
+> * `employees_min`/`employees_max` devueltos como `float` en vez de `int`
+>   (Intel acepta ambos en JSON; solo estético).
+> * Residual con ruido léxico: `"agencias que crezcan >20%"` → residual
+>   `"agencias crezcan"` (verbo se cuela). Taxonomy lo ignora al no resolver;
+>   cae a screen puro.
+> Follow-up: hardening del parser cuando se detecten estos casos en uso real.
+
 
 
 Bundle acumulado listo para push manual a Prod (`beta.arroba.com`). Todos los

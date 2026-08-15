@@ -59,16 +59,27 @@ def _to_number(raw: str, unit: str | None) -> float | None:
     return val
 
 
-def _metric_in(text: str) -> str | None:
-    if any(k in text for k in _EBITDA_KW):
-        return "ebitda"
-    if any(k in text for k in _EMPLOYEE_KW):
+_EMP_TOK = ("emplead", "trabajad", "plantilla")
+_REV_TOK = ("ingres", "factur", "ventas", "revenue", "cifra de negocio")
+_MONEY_UNITS = ("millones", "millon", "mill", "mm", "m", "mil", "k")
+
+
+def _classify(n: str, start: int, end: int, unit: str | None) -> str:
+    """Assign a numeric predicate to a metric by its surrounding context.
+    Spanish puts the noun after the number ("100 empleados", "1 millón de euros")
+    and the metric keyword often before ("ingresos superiores a 50M")."""
+    before = n[max(0, start - 30):start]
+    after = n[end:end + 20]
+    if any(t in after for t in _EMP_TOK) or any(t in before for t in _EMP_TOK):
         return "employees"
-    if re.search(r"crec|crezc|growth", text):
-        return "growth"
-    if any(k in text for k in _REVENUE_KW):
+    if "ebitda" in before or "ebitda" in after:
+        return "ebitda"
+    if (any(t in before for t in _REV_TOK) or any(t in after for t in _REV_TOK)
+            or "euro" in after or "€" in after):
         return "revenue"
-    return None
+    if (unit or "").lower() in _MONEY_UNITS:
+        return "revenue"
+    return "revenue"
 
 
 _PROVINCES = (
@@ -92,39 +103,50 @@ def parse_financial_query(query: str) -> dict[str, Any] | None:
     filters: dict[str, Any] = {}
     consumed_spans: list[tuple[int, int]] = []
 
+    def _set(key: str, val: float) -> None:
+        filters.setdefault(key, val)  # first predicate wins; never overwrite
+
     # --- growth: "que crezca más de 20%" / "crecimiento > 20%" ---
     for m in re.finditer(rf"{_GTE}\s*{_NUM}\s*%", n):
         val = _to_number(m.group(1), None)
-        if val is not None and ("crec" in n or "growth" in n or "%" in n):
-            filters["growth_min"] = round(val / 100.0, 4)
+        if val is not None:
+            _set("growth_min", round(val / 100.0, 4))
             consumed_spans.append(m.span())
             break
 
-    # --- range: "entre X e Y (millones)" → applies to the metric in the query ---
-    metric = _metric_in(n) or "revenue"
-    rng = re.search(rf"entre\s+{_NUM}\s*{_UNIT}\s+(?:y|e)\s+{_NUM}\s*{_UNIT}", n)
-    if rng and metric in ("revenue", "ebitda", "employees"):
+    # --- ranges: "entre X e Y (millones)" → classified by context ---
+    for rng in re.finditer(rf"entre\s+{_NUM}\s*{_UNIT}\s+(?:y|e)\s+{_NUM}\s*{_UNIT}", n):
+        unit = rng.group(4) or rng.group(2)
+        metric = _classify(n, rng.start(), rng.end(), unit)
         lo = _to_number(rng.group(1), rng.group(2) or rng.group(4))
         hi = _to_number(rng.group(3), rng.group(4))
-        if lo is not None and hi is not None:
-            filters[f"{metric}_min"] = lo
-            filters[f"{metric}_max"] = hi
+        if metric in ("revenue", "ebitda", "employees") and lo is not None and hi is not None:
+            _set(f"{metric}_min", lo)
+            _set(f"{metric}_max", hi)
             consumed_spans.append(rng.span())
 
-    # --- single comparator predicates (gte / lte) ---
-    if metric in ("revenue", "ebitda", "employees") and f"{metric}_min" not in filters:
-        gte = re.search(rf"{_GTE}\s*{_NUM}\s*{_UNIT}", n)
-        if gte:
-            v = _to_number(gte.group(1), gte.group(2))
-            if v is not None:
-                filters[f"{metric}_min"] = v
-                consumed_spans.append(gte.span())
-        lte = re.search(rf"{_LTE}\s*{_NUM}\s*{_UNIT}", n)
-        if lte:
-            v = _to_number(lte.group(1), lte.group(2))
-            if v is not None:
-                filters[f"{metric}_max"] = v
-                consumed_spans.append(lte.span())
+    def _overlaps(span: tuple[int, int]) -> bool:
+        return any(a < span[1] and span[0] < b for a, b in consumed_spans)
+
+    # --- multi-metric comparators (each number classified independently) ---
+    # gte → *_min ; the negative lookahead keeps "20%" out of the money branch.
+    for m in re.finditer(rf"{_GTE}\s*{_NUM}\s*{_UNIT}(?!\s*%)", n):
+        if _overlaps(m.span()):
+            continue
+        v = _to_number(m.group(1), m.group(2))
+        metric = _classify(n, m.start(), m.end(), m.group(2))
+        if v is not None and metric in ("revenue", "ebitda", "employees"):
+            _set(f"{metric}_min", v)
+            consumed_spans.append(m.span())
+    # lte → *_max
+    for m in re.finditer(rf"{_LTE}\s*{_NUM}\s*{_UNIT}(?!\s*%)", n):
+        if _overlaps(m.span()):
+            continue
+        v = _to_number(m.group(1), m.group(2))
+        metric = _classify(n, m.start(), m.end(), m.group(2))
+        if v is not None and metric in ("revenue", "ebitda", "employees"):
+            _set(f"{metric}_max", v)
+            consumed_spans.append(m.span())
 
     # --- province: "en Valencia" ---
     for prov in _PROVINCES:
@@ -145,9 +167,11 @@ def parse_financial_query(query: str) -> dict[str, Any] | None:
     for a, b in sorted(consumed_spans, reverse=True):
         residual = residual[:a] + " " + residual[b:]
     _FILLER = (list(_REVENUE_KW) + list(_EBITDA_KW) + list(_EMPLOYEE_KW) + list(_GROWTH_KW)
-               + ["empresas", "empresa", "companias", "con", "que", "de", "un", "una",
-                  "y", "e", "mas", "los", "las", "del", "para", "millones", "millon",
-                  "euros", "€", "%"])
+               + ["empresas", "empresa", "companias", "compania", "con", "que", "de", "un", "una",
+                  "y", "e", "mas", "menos", "los", "las", "del", "para", "millones", "millon",
+                  "mill", "mil", "euros", "euro", "€", "%",
+                  "superior", "superiores", "inferior", "inferiores",
+                  "mayor", "mayores", "menor", "menores", "entre"])
     residual = " ".join(t for t in re.split(r"[^a-z0-9]+", residual) if t and t not in _FILLER)
 
     return {"filters": filters, "residual": residual.strip()}

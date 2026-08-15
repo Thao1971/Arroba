@@ -1,8 +1,38 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-08-15 — **🟢 HARDENING-REQ004 CERRADO** (5º modo · financial search).
+> **Última actualización**: 2026-08-15 — **🟢 HARDENING-REQ004b CERRADO** (parser multi-métrica + sector-scoped financiero + fix paginación).
 >
-> **HARDENING-REQ004 · Búsqueda por financieros (5º modo)** — Nuevo parser `financial_query.py` (153 LOC, puro: `re`+`unicodedata`+stdlib, cero I/O) que traduce NL cuantitativa a filtros estructurados: `parse_financial_query("empresas con ingresos > 50M") → {"filters":{"revenue_min":50_000_000}, "residual":""}`. Cubre gte/lte (más de/superior a/mayor que/`>=`/`>`), unidades (millones/mill/M/mil/k), decimales ES (`1,5` · `50.000`), rangos "entre X y Y", `%`→fracción para crecimiento, provincia gated a numeric. Nueva rama `#2 FINANCIAL` en `_execute_search_real` (tras CIF, antes de categorical): si parser retorna filtros → `_financial_search_results` llama `POST /api/v1/skills/search` con `has_domain:false` (screen numérico no debe descartar empresas sin web) via cliente canónico `AgencyToolClient` + `_intel_call_ff` (8s fail-fast REQ003). **Retorno tri-estado**: (a) `SearchSkillResponse` con rows → emite tabla; (b) `None` cuando Intel devuelve 0 rows → **fall-through** a categorical/name/semantic (no `<Empty/>`, comportamiento aditivo); (c) `AgencyToolHTTPError` propagada → `_empty_response` honesto en caller (política REQ003, sin fallback a mock). `_row_to_item` recibe fallback aditivo `master_id or master_company_id`; el resto del mapping canónico intacto. Cherry-pick quirúrgico (no diff completo del zip) porque el zip regresaba a `intel_client.py` paralelo, `adapter_mode`, orden pre-REQ003 y `_row_to_item` degradado.
+> **HARDENING-REQ004b · Multi-métrica + sector-scoped + fix pagination** — 3 cambios aditivos: (1) **Parser rewrite** con clasificación por contexto: cada número se asigna a su métrica correcta (`_classify` mira 30 chars atrás + 20 adelante para tokens `emplead|trabajad|plantilla` vs `ebitda` vs `ingres|factur|ventas|revenue|euro|€`). Habilita combos: `"empresas de más de 1M€ con menos de 100 empleados"` → `{revenue_min:1M, employees_max:100}`. Contrato preservado (`{filters, residual} | None`), 7 casos originales verdes + 2 combo nuevos (9/9). (2) **`service.py` sector-scoped**: nuevo helper `_taxonomy_company_ids(residual, _SECTOR_ID_CAP=3000)` que resuelve el residual a `company_ids` via `company-taxonomy/search?primary_only=true`, refactorizado al cliente canónico (`get_agency_tool_client()` + `_intel_call_ff` 8s). En `_financial_search_results` se scopea el payload: `if residual → master_company_ids=ids + query=""`. Si taxonomy no resuelve → screen puro sin sector (no fall-through a categorical). Este cambio **resuelve el gap REQ-INTEL sectorial-aware residual** documentado en REQ004 verificación: Beta resuelve sector→ids en vez de delegar full-text a Intel. (3) **`resultados/page.tsx`**: 1 clase CSS `py-8` → `pt-8 pb-40` en el contenedor root — la paginación ya no queda tapada por el dock del Copilot anclado al fondo.
+>
+> **Cherry-pick quirúrgico** (mismo patrón REQ001b/003/004): el zip trae regresión en `service.py` (reintroduce `intel_get`/`intel_post` paralelos) y `page.tsx` (destruye HARDENING-032/033 completos). Aplicados solo: `financial_query.py` completo, `test_financial_query.py` completo, helper `_taxonomy_company_ids` refactorizado al canónico, scoping en `_financial_search_results`, 1 clase CSS. Log estructurado `financial_search_dispatched {filters_keys, has_residual, sector_scope_ids}` para observabilidad.
+>
+> **Verificación E2E dev pod, real Intel** — 5 queries + log confirmations + screenshot:
+> - Q1 `"empresas de más de 1M€ con menos de 100 empleados"` → parser combo `{revenue_min:1M, employees_max:100}` · **975 hits** financial multi-métrica ✅
+> - Q2 `"agencias de marketing con EBITDA > 1M"` → parser `{ebitda_min:1M}` + residual `"agencias marketing"` → taxonomy resuelve **62 primary ids** (`sector_scope_ids=62` en log) → payload con `master_company_ids` a Intel → **237 hits** (Intel dev aún ignora `master_company_ids`; post-deploy Intel REQ-004b → intersección ~5-15) ✅
+> - Q3 `"empresas con ingresos superiores a 50 millones"` → **25 hits** REQ004 preservado ✅
+> - Q4 `"agencias de marketing"` (sin numérico) → parse `None` → **898 hits** categorical REQ003 idéntico ✅
+> - Q5 `"clínicas dentales en Valencia"` → parse `None` → **49 hits** semantic REQ001b idéntico ✅
+>
+> **Regresión**: `pytest test_financial_query.py` → **9/9** (7 originales + 2 combo) · `pytest test_copilot_search.py + test_platform_stats.py` → **19/19** · `yarn tsc --noEmit` verde · `yarn build` verde · Screenshot Playwright: contenedor `pt-8 pb-40` aplicado, `py-8` residual = False, paginación visible con espacio ~160px bajo (dock no la tapa).
+>
+> **Bundle final: 24 unidades** (23 previas + 1 nueva REQ004b). Gate ampliado: Intel REQ-004b (`master_company_ids` en `skills/search`) es el desbloqueo final del feature sector+financiero (screen puro funciona ya; intersección post-Intel-REQ-004b). Sin REQ-004b Intel → screen puro sin sector documentado, comportamiento aceptable.
+>
+> **Estado previo (2026-08-15)** — 🟢 HARDENING-REQ004 CERRADO (5º modo · financial search).
+>
+> **HARDENING-REQ004 · Búsqueda por financieros (5º modo)** — Nuevo parser `financial_query.py` puro, rama `#2 FINANCIAL` entre CIF y CATEGORICAL, helper `_financial_search_results` refactorizado al canónico. Retorno tri-estado (Response · None fall-through · propaga error). Verificación E2E: 25 hits para revenue≥50M (100% cumplen), 62 hits para combo EBITDA+empleados, fall-through OK con filtro absurdo. Bundle: 23 unidades.
+>
+> **Orden final de modos**: `#1 CIF → #2 FINANCIAL (REQ004+REQ004b) → #3 CATEGORICAL (REQ003) → #4 NAME → #5 SEMANTIC`.
+>
+> **Estado previo (2026-08-15)** — 🟢 HARDENING-029 + HARDENING-032 + HARDENING-033 CERRADOS.
+>
+> **HARDENING-033 · CTA contextual sobre `/resultados` filtrado** — CTA discreto sobre la tabla cuando ≥1 chip signal_badge está activo. Variantes por auth: autenticado → `/{locale}/me/watchlists/new?q=&signals=` (stub Fase 2); anónimo → `/{locale}/registro?next=<URL-encoded>`. Componente aislado en `_result-cta.tsx`, 4 unit tests, decisión stub page > `#tbd`.
+>
+> **HARDENING-029 · Retiro de ruta legacy `/empresa/[cif]`** — Directorio eliminado. Regex `ENTITY_COMPANY_RE` en `CopilotProvider.tsx` migrado a `/empresa-f01/`. Verificación: `/es/empresa/{cif}` → 404 · `/es/empresa-f01/{cif}` → 200.
+>
+> **HARDENING-032 · Chips filtro `signal_badge` client-side en `/resultados`** — Utilidades puras en `_signal-filter.ts`, 2 toggles combinables AND. 8 unit tests. Empty state extra.
+>
+> **Estado previo (2026-08-14)** — 🟢 HARDENING-REQ003 CERRADO. Buscador 4 modos ordenados en `_execute_search_real`: CIF → categórico (`company-taxonomy/search`) → nombre (resolve) → NL exploratorio (`semantic-intelligence/search`). Fail-fast 8s vía `_intel_call_ff`. Política de fallback: fallo Intel → `_empty_response` honesto. Paginación server-side con `PAGE_SIZE=12`. Rechazados 3 ficheros del zip que regresaban a REQ001 (cliente paralelo).
+> Documento vivo. Lo actualiza el agente al final de cada sub-tarea.
 >
 > **Orden final de modos**: `#1 CIF → #2 FINANCIAL (REQ004) → #3 CATEGORICAL (REQ003) → #4 NAME → #5 SEMANTIC`.
 >

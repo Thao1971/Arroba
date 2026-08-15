@@ -65,9 +65,15 @@ MAX_RESULTS = 12
 # `_SEARCH_PAGE_LIMIT`: tamaño del top-pool que pedimos a Intel semantic (que
 # no soporta offset server-side; ver DEPLOY_NOTES Backlog Intel). Slicing
 # local sobre este pool.
+# HARDENING-REQ004b · `_SECTOR_ID_CAP`: máximo de company_ids a extraer del
+# taxonomy hint para scoping de `skills/search` (sector + financiero). El
+# valor 3000 acomoda universos sectoriales típicos sin forzar payloads
+# gigantes; queries que resuelvan a más de 3000 ids se degradan a screen
+# puro sin sector (comportamiento aceptable · ver DEPLOY_NOTES).
 _SEARCH_TIMEOUT_S: float = 8.0
 _RESULTS_PAGE: int = 12
 _SEARCH_PAGE_LIMIT: int = 50
+_SECTOR_ID_CAP: int = 3000
 
 
 async def _intel_call_ff(coro: Any) -> Any:
@@ -523,13 +529,22 @@ async def _financial_search_results(
     residual: str,
     offset: int = 0,
 ) -> SearchSkillResponse | None:
-    """HARDENING-REQ004 · Structured financial/attribute screen (5º modo).
+    """HARDENING-REQ004 + REQ004b · Structured financial/attribute screen (5º modo).
 
     Push-down de predicados numéricos ("ingresos > 50M", "empleados > 100",
     "EBITDA entre 1M y 5M", "crecimiento > 20%") a Intel
     `POST /api/v1/skills/search`. Whole-universe filter, `total` server-side,
     paginación real. `has_domain: false` es explícito: un screen numérico no
     debe descartar empresas por no tener web.
+
+    **REQ004b · sector + financiero**: cuando el parser deja un `residual`
+    sectorial ("agencias marketing con EBITDA > 1M"), lo resolvemos a
+    `company_ids` vía `_taxonomy_company_ids` y los pusheamos como
+    `filters.master_company_ids`; `query=""` (el léxico de skills/search
+    fallaba con sectores en inglés y con residuales cortos — ver REQ-INTEL
+    sectorial-aware residual query en DEPLOY_NOTES). Si el sector no
+    resuelve → `master_company_ids` no se incluye → screen puro sin sector
+    (mejor que fall-through a categorical, que perdería los números).
 
     **Semántica de retorno tri-estado (crítico para el orquestador de modos):**
       · `SearchSkillResponse` → filas encontradas, se emite tabla.
@@ -543,11 +558,29 @@ async def _financial_search_results(
     cliente canónico — do NOT reintroduce `intel_client.py`.
     """
     page = (offset // _RESULTS_PAGE) + 1
+    # HARDENING-REQ004b · scoping sectorial explícito vía taxonomy → ids.
+    scoped: dict[str, Any] = {**filters, "has_domain": False}
+    if residual:
+        ids = await _taxonomy_company_ids(residual, _SECTOR_ID_CAP)
+        if ids:
+            scoped["master_company_ids"] = ids
+        # else: sector no resuelve → screen puro sin sector.
+    log.info(
+        "copilot.search.financial_search_dispatched",
+        query=q, page=page,
+        filters_keys=sorted(filters.keys()),
+        has_residual=bool(residual),
+        sector_scope_ids=len(scoped.get("master_company_ids", [])),
+    )
     payload: dict[str, Any] = {
-        "query": residual,
+        # HARDENING-REQ004b · sector se lee como `master_company_ids`, no como
+        # full-text (el léxico fallaba con sectores en inglés / residuales
+        # cortos). Para el modo financiero-puro (sin residual) también
+        # dejamos query="" — los filtros numéricos son autosuficientes.
+        "query": "",
         # has_domain=False: un screen numérico no debe descartar empresas por
         # no tener web. El filtro por dominio es un refinamiento, no un gate.
-        "filters": {**filters, "has_domain": False},
+        "filters": scoped,
         "pagination": {"page": page, "page_size": _RESULTS_PAGE},
     }
     resp = await _intel_call_ff(
@@ -632,6 +665,51 @@ def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
         score=round(float(r.get("score") or 1.0), 3),
         summary=summ,
     )
+
+
+async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
+    """HARDENING-REQ004b · resuelve un residual sectorial a la lista de
+    `company_ids` que compondrán el `filters.master_company_ids` del
+    `skills/search` en el modo financiero-con-sector.
+
+    Diseño: el gap REQ-INTEL sectorial-aware residual documentado en
+    DEPLOY_NOTES nos obliga a NO delegar en Intel el matching sector→ids
+    (skills/search lee `query` como full-text sobre `name` y falla con
+    sectores en inglés y con residuales cortos). En su lugar Beta resuelve
+    el sector aquí vía `company-taxonomy/search` (endpoint REQ003 que ya
+    devuelve `company_ids`) y pushea los ids explícitos a skills/search.
+
+    Retorno lista vacía en cualquier fallo (endpoint 404, HTTP >=400,
+    timeout, resp sin `company_ids`) — el caller decide degradarse a
+    screen puro sin sector (mejor que fall-through a categorical, que
+    perdería los predicados numéricos).
+
+    Reutiliza `_intel_call_ff` (fail-fast 8s uniforme del path search) y
+    el cliente canónico. No propaga: los fallos aquí son observabilidad,
+    no bloqueantes.
+    """
+    url = (
+        f"/api/v1/company-taxonomy/search"
+        f"?q={quote(q)}&primary_only=true&limit={limit}&offset=0"
+    )
+    try:
+        resp = await _intel_call_ff(get_agency_tool_client().request("GET", url))
+    except AgencyToolHTTPError as exc:
+        log.warning(
+            "copilot.search.taxonomy_company_ids_failed",
+            query=q, error=str(exc),
+        )
+        return []
+    if resp.status_code >= 400:
+        log.info(
+            "copilot.search.taxonomy_company_ids_http_error",
+            query=q, status=resp.status_code,
+        )
+        return []
+    payload = resp.json() if resp.content else {}
+    ids = (payload or {}).get("company_ids") or []
+    return [str(i) for i in ids if i]
+
 
 
 async def _taxonomy_search(

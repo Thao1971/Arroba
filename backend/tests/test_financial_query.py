@@ -46,6 +46,18 @@ def test_province_only_with_numeric():
     assert r["filters"] == {"revenue_min": 5_000_000, "province": "valencia"}
 
 
+def test_multi_metric_revenue_and_employees():
+    # Daniel's example: revenue + employees in one query.
+    assert _f("empresas de más de 1 millón de euros con menos de 100 empleados") == {
+        "revenue_min": 1_000_000, "employees_max": 100}
+
+
+def test_sector_plus_multi_metric_residual():
+    r = p("agencias de marketing con más de 1 millón de euros y menos de 100 empleados")
+    assert r["filters"] == {"revenue_min": 1_000_000, "employees_max": 100}
+    assert "agencias" in r["residual"] and "marketing" in r["residual"]
+
+
 def test_non_financial_returns_none():
     assert p("agencias de marketing") is None
     assert p("clínicas dentales en Valencia") is None
