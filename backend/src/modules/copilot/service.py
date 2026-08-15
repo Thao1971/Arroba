@@ -40,6 +40,12 @@ from src.modules.copilot.models import (
     SearchSkillResponse,
     Workspace,
 )
+# HARDENING-REQ004 · 2026-08-15 · parser NL → filtros numéricos (5º modo).
+# Puro (`re` + `unicodedata`), sin I/O. Consumido por `_execute_search_real`
+# tras la rama CIF y antes de categorical/name/semantic para que consultas
+# como "empresas con ingresos > 50M" no caigan al semántico (que ignora los
+# números y devolvería empresas que NO cumplen el predicado).
+from src.modules.copilot.financial_query import parse_financial_query
 
 log = get_logger("copilot.search")
 
@@ -295,13 +301,18 @@ async def execute_search(
 async def _execute_search_real(
     request: SearchSkillRequest, q: str, q_norm: str
 ) -> SearchSkillResponse:
-    """Real path (REQ-001 + REQ001b + REQ003): 4 branches ordered by precedence:
+    """Real path (REQ-001 + REQ001b + REQ003 + REQ004): 5 branches ordered by
+    precedence:
 
       #1  CIF detected → resolve → navigate `/empresa-f01/{cif}`.
-      #2  Categorical / exploratory sector query → `company-taxonomy/search`
+      #2  Financial / attribute screen (REQ004) → `skills/search` with numeric
+          predicates pushed down to Intel. Precedence over categorical/semantic
+          because those ignore numbers. Falls through to #3/#5 if the engine
+          has no such rows (not an error — the other modes may still match).
+      #3  Categorical / exploratory sector query → `company-taxonomy/search`
           (full paginated set) → `/resultados` with server-side pagination.
-      #3  Concrete-name query → resolve (single match or 2-5 disambiguation).
-      #4  Natural-language exploratory → `semantic-intelligence/search` with
+      #4  Concrete-name query → resolve (single match or 2-5 disambiguation).
+      #5  Natural-language exploratory → `semantic-intelligence/search` with
           local slicing → `/resultados` (offset applied locally over top-K).
 
     HARDENING-REQ003: all Intel calls wrapped with `_intel_call_ff` (8s
@@ -344,6 +355,26 @@ async def _execute_search_real(
             )
         return _empty_response(q, pathname, locale)
 
+    # ---- #2 · FINANCIAL / attribute screen (REQ-004) ---------------------
+    # NL queries with numeric predicates like "empresas con ingresos > 50M" or
+    # "agencias con EBITDA > 1M y más de 100 empleados". The parser is pure
+    # (regex + stdlib, no I/O) and returns None when there's no numeric
+    # predicate → we skip this branch and continue with the REQ003 flow.
+    # When Intel returns rows we emit them as `search_results`. When Intel
+    # returns 0 rows we return None so the request falls through to
+    # categorical/name/semantic (the query may still match textually — do
+    # not short-circuit into an empty response).
+    parsed = parse_financial_query(q)
+    if parsed:
+        fin = await _financial_search_results(
+            q=q,
+            filters=parsed["filters"],
+            residual=parsed["residual"],
+            offset=offset,
+        )
+        if fin is not None:
+            return fin
+
     tokens = [t for t in re.split(r"\s+", q_norm) if t]
     is_concrete = (
         bool(tokens)
@@ -352,7 +383,7 @@ async def _execute_search_real(
         and not any(t in _EXPLORATORY_TOKENS for t in tokens)
     )
 
-    # ---- #2 · CATEGORICAL (sector/geo/intent tokens) --------------------
+    # ---- #3 · CATEGORICAL (sector/geo/intent tokens) --------------------
     # HARDENING-REQ003 · Intel `/api/v1/company-taxonomy/search` returns the
     # full paginated set for queries like "agencias de marketing", "todas las
     # asesorías fiscales", "clínicas en Madrid". Server-side offset/total.
@@ -377,11 +408,11 @@ async def _execute_search_real(
                     source="real", query=q,
                 )
         # Taxonomy returned no rows or endpoint unavailable → fall through to
-        # semantic search (#4). Preserves REQ001b behaviour when categorical
+        # semantic search (#5). Preserves REQ001b behaviour when categorical
         # gate is still latent.
         return await _semantic_search_results(q, pathname, locale, offset=offset)
 
-    # ---- #3 · resolve by name (concrete → single/disambiguation) --------
+    # ---- #4 · resolve by name (concrete → single/disambiguation) --------
     resp = await _resolve({"name": q, "limit": MAX_RESULTS})
     matches: list[dict[str, Any]] = resp.get("matches") or []
     matches.sort(key=lambda m: -float(m.get("score") or 0.0))
@@ -486,13 +517,99 @@ async def _semantic_search_results(
     )
 
 
+async def _financial_search_results(
+    q: str,
+    filters: dict[str, Any],
+    residual: str,
+    offset: int = 0,
+) -> SearchSkillResponse | None:
+    """HARDENING-REQ004 · Structured financial/attribute screen (5º modo).
+
+    Push-down de predicados numéricos ("ingresos > 50M", "empleados > 100",
+    "EBITDA entre 1M y 5M", "crecimiento > 20%") a Intel
+    `POST /api/v1/skills/search`. Whole-universe filter, `total` server-side,
+    paginación real. `has_domain: false` es explícito: un screen numérico no
+    debe descartar empresas por no tener web.
+
+    **Semántica de retorno tri-estado (crítico para el orquestador de modos):**
+      · `SearchSkillResponse` → filas encontradas, se emite tabla.
+      · `None`                → 0 filas del motor. **Fall-through** a #3/#4/#5
+                                (categorical/name/semantic). NO es un error.
+      · Propaga `AgencyToolHTTPError` → fallo HTTP/timeout. El caller
+                                `search_skill` lo convierte a `_empty_response`
+                                honesto (política REQ003, no fallback a mock).
+
+    Reutiliza `_intel_call_ff` (fail-fast 8s uniforme del path search) y el
+    cliente canónico — do NOT reintroduce `intel_client.py`.
+    """
+    page = (offset // _RESULTS_PAGE) + 1
+    payload: dict[str, Any] = {
+        "query": residual,
+        # has_domain=False: un screen numérico no debe descartar empresas por
+        # no tener web. El filtro por dominio es un refinamiento, no un gate.
+        "filters": {**filters, "has_domain": False},
+        "pagination": {"page": page, "page_size": _RESULTS_PAGE},
+    }
+    resp = await _intel_call_ff(
+        get_agency_tool_client().request(
+            "POST", "/api/v1/skills/search", json=payload
+        )
+    )
+    if resp.status_code == 404:
+        # Endpoint not enabled yet on Intel side (gate REQ-004 latent). Fall
+        # through to categorical/semantic so the query still surfaces textual
+        # matches instead of showing an empty page.
+        log.info(
+            "copilot.search.financial_endpoint_404",
+            query=q, page=page, filters=list(filters.keys()),
+        )
+        return None
+    if resp.status_code >= 400:
+        raise AgencyToolHTTPError(
+            status_code=resp.status_code,
+            error_class="client_4xx" if resp.status_code < 500 else "server_5xx",
+            message=f"skills-search http_{resp.status_code}",
+        )
+    payload_out: dict[str, Any] = resp.json()
+    # `skills/search` puede emitir un shape workspace (blocks[]) o plano
+    # (results[] + total). Aceptamos ambos: primero blocks, luego plano.
+    blocks = ((payload_out.get("workspace") or {}).get("blocks") or [])
+    block = next((b for b in blocks if b.get("type") == "search_results"), None)
+    if block is not None:
+        rows = ((block.get("props") or {}).get("results") or [])
+        total = int((block.get("props") or {}).get("total") or len(rows))
+    else:
+        rows = payload_out.get("results") or []
+        total = int(payload_out.get("total") or len(rows))
+    if not rows:
+        log.info(
+            "copilot.search.financial_zero_rows_fallthrough",
+            query=q, filters=list(filters.keys()), residual=residual,
+        )
+        return None
+    items = [_row_to_item(r) for r in rows]
+    out_block = SearchResultsBlock(
+        id="blk_results_" + uuid.uuid4().hex[:8],
+        props=SearchResultsBlockProps(query=q, total=total, results=items),
+    )
+    return SearchSkillResponse(
+        workspace=Workspace(
+            workspace_id="wsp_" + uuid.uuid4().hex[:12],
+            intent="search", blocks=[out_block],
+        ),
+        source="real", query=q,
+    )
+
+
+
+
 def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
     """HARDENING-REQ003 · maps an Intel enriched row → `SearchResultItem`.
 
-    Único punto donde el shape Intel (taxonomy/semantic) se aplana al contrato
-    que consumen la home (`SearchResultsBlock`) y `/resultados/page.tsx`. Si
-    Intel evoluciona (rename de `master_id`, campos nuevos, etc.), este helper
-    es el único sitio a tocar.
+    Único punto donde el shape Intel (taxonomy/semantic/skills) se aplana al
+    contrato que consumen la home (`SearchResultsBlock`) y `/resultados/page.tsx`.
+    Si Intel evoluciona (rename de `master_id`, campos nuevos, etc.), este
+    helper es el único sitio a tocar.
 
     Defensivo con `summary` (aún no siempre presente; ver DEPLOY_NOTES gate
     Intel). Cuando falta, la tabla renderiza «—» en las columnas financieras.
@@ -501,7 +618,10 @@ def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
     cif = re.sub(r"[\s.\-]", "", str(cif_raw).upper()) if cif_raw else None
     summ = r.get("summary") if isinstance(r.get("summary"), dict) else None
     return SearchResultItem(
-        master_company_id=str(r.get("master_id") or ""),
+        # HARDENING-REQ004 · algunas rows de Intel emiten `master_company_id`
+        # (skills/search) en lugar de `master_id`. Fallback aditivo, no
+        # sustituye el mapeo canónico existente.
+        master_company_id=str(r.get("master_id") or r.get("master_company_id") or ""),
         name=str(r.get("name") or r.get("legal_name") or "—"),
         legal_name=r.get("legal_name") or r.get("name"),
         cif=cif,

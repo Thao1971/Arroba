@@ -1,32 +1,54 @@
 # DEPLOY_NOTES · bundle 2026-08-13
 
-> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b + HARDENING-REQ002 + HARDENING-REQ003)
+> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b + REQ002 + REQ003 + REQ004)
 >
 > El push que incluya **HARDENING-REQ001b** (búsqueda semántica NL),
-> **HARDENING-REQ002** (página `/resultados`) y **HARDENING-REQ003** (4
-> modos + paginación server-side) debe salir **en la misma ventana** en la
-> que Intel ejecute:
+> **HARDENING-REQ002** (página `/resultados`), **HARDENING-REQ003** (4
+> modos + paginación server-side) y **HARDENING-REQ004** (5º modo
+> financiero) debe salir **en la misma ventana** en la que Intel ejecute:
 >   - Intel redeploy en Prod.
 >   - Ejecución de `reembed_semantic_openai.py` contra el Atlas de Prod.
 >   - Endpoint `GET /api/v1/company-taxonomy/search` habilitado (rama
 >     categórica REQ003). En dev pod ya responde con 898 hits para
 >     "agencias de marketing".
+>   - Endpoint `POST /api/v1/skills/search` con filtros numéricos + `has_domain`
+>     habilitado (rama financiera REQ004). En dev pod ya responde con **62
+>     hits** para "agencias con EBITDA > 1M y más de 100 empleados" y **12
+>     hits** para "empresas con ingresos > 50M".
 >   - Emisión de `summary` enriquecido en cada `SearchHit` (revenue, ebitda,
 >     ebitda_margin, growth_pct, signal_score, signal_badge, valuation, etc.).
->     En dev pod ya vienen poblados; verificar en Prod tras el push.
+>     En dev pod ya vienen poblados en las ramas taxonomy/semantic; skills/search
+>     los emite parcialmente (revenue+ebitda+growth+signal en Q2; parcial en Q1).
+>     Verificar en Prod tras el push.
 >
 > Sin ese re-embed la búsqueda semántica devuelve `empty_response` honesto.
-> Sin el endpoint categórico habilitado la rama #2 devuelve 404 y cae al
-> path semántico (fallback documentado). Sin `summary` la tabla renderiza
-> «—» en columnas financieras (degrade gracefully verificado).
+> Sin el endpoint categórico habilitado la rama #3 devuelve 404 y cae al
+> path semántico (fallback documentado). Sin `skills/search` la rama
+> financiera #2 devuelve 404 y **cae a categorical/semantic** (fall-through
+> aditivo, no `<Empty/>`; verificado con filtro absurdo `revenue_min=9.9e18`
+> → 898 hits categorical). Sin `summary` la tabla renderiza «—» en columnas
+> financieras (degrade gracefully verificado).
 >
-> **Push aislado de REQ001b/REQ002/REQ003 antes del re-embed = feature inerte, inofensivo.**
+> **Orden de modos en `_execute_search_real` (REQ004)**:
+> `#1 CIF → #2 Financial (skills/search) → #3 Categorical (taxonomy) →
+>  #4 Name (resolve) → #5 Semantic (embeddings)`.
+> El parser `parse_financial_query` es puro (regex + stdlib, cero I/O) y
+> devuelve `None` si no detecta predicado numérico → NO entra la rama #2,
+> se preserva el flujo REQ003 intacto para "agencias de marketing",
+> "clínicas dentales en Valencia", etc.
+>
+> **Push aislado de REQ001b/REQ002/REQ003/REQ004 antes del re-embed = feature inerte, inofensivo.**
 >
 > ### Backlog Intel
 > - **REQ-INTEL** soporte de `offset`/`total` en `semantic-intelligence/search`
 >   para paginación server-side (hoy slicing local sobre top-K).
 > - **REQ-INTEL** `shareholder.type` para DPD granular en ownership.
 > - **REQ-INTEL** `finances.provenance` / `market.provenance` consistencia.
+> - **REQ-INTEL** `filter_by_signal_badge` server-side en taxonomy/skills
+>   (para migrar HARDENING-032 fuera del client-side).
+> - **REQ-INTEL** `summary` completo en filas de `skills/search` (hoy parcial;
+>   la tabla renderiza «—» gracefully en columnas sin dato).
+
 
 Bundle acumulado listo para push manual a Prod (`beta.arroba.com`). Todos los
 cambios validados en dev pod contra Servier `B28184687` (auth + anon).
