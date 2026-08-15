@@ -110,6 +110,9 @@ cambios validados en dev pod contra Servier `B28184687` (auth + anon).
 | HARDENING-REQ001b| Búsqueda semántica NL vía Intel `/api/v1/semantic-intelligence/search` · reutiliza `AgencyToolClient` canónico · `WorkspaceArea` navega a `/empresa-f01/{cif}` al hacer click en un resultado · **inerte hasta re-embed Intel** | ✅ |
 | HARDENING-REQ002| Página pública `/resultados?q=...` con tabla rica (ingresos, EBITDA, crecim., score señales, actualizado) · Exportar CSV activo · Comparar/Columnas "Próximamente" · Orchestrator redirige search NL a `/resultados` en vez de pintar dentro del dock · **columnas financieras en «—» hasta que Intel emita `summary` en `SearchHit`** | ✅ |
 | HARDENING-REQ003| Buscador 4 modos (CIF · categórico · nombre · NL) + paginación server-side (`offset`/`total`) + fail-fast 8s + política empty honesto en modo real (sin fallback a mock, R15) · `_row_to_item` helper único · nueva rama categórica llama `company-taxonomy/search` · smoke dev pod: CIF `B28184687` → ficha · "agencias de marketing" → 898 hits paginadas · "Servier" → disambiguation · "clínicas dentales en Valencia" → 49 hits semantic | ✅ |
+| HARDENING-REQ004 | 5º modo · financial search (parser NL puro `financial_query.py` + rama `#2 FINANCIAL` con retorno tri-estado + fallback a categorical/semantic) · cliente canónico + `_intel_call_ff` · pytest 7/7 + smoke 5 queries (25 hits revenue≥50M, 62 hits combo EBITDA+empleados, fall-through OK) | ✅ |
+| HARDENING-REQ004b| Parser multi-métrica + sector-scoped financiero (`_taxonomy_company_ids` resuelve residual→`master_company_ids`) + fix pagination `pt-8 pb-40` en `/resultados` · pytest 9/9 (7 originales + 2 combo) · smoke 5 queries · resuelve gap REQ-INTEL sectorial-aware residual (Beta scopea; Intel dev aún ignora → post-deploy REQ-004b Intel intersectará) | ✅ |
+| HARDENING-BETA-para-emergent | Aterrizaje aislado de 4 blocks presentacionales (SingleExerciseChart · MarketReadingBlock · InvestmentCommitteeBlock · OpportunityThesisBlock) + preview interna `/{locale}/internal/blocks-preview` con mock data · **NO cableado a `CompanyFichaLayoutV2.tsx`** (regla monolito preservada · decisión de scope b2) · **NO proxies backend** (decisión de scope c3, HARDENING-038) · smoke tests 5/5 · TSC verde | ✅ |
 | HARDENING-028   | `post_deploy.sh` blindado · Paso 0 rebuild+restart local · Paso 6 smoke retry backoff (~5 min) contra `/api/platform/stats` | ✅ |
 
 ## Env vars en Prod (post-REQ-001)
@@ -212,3 +215,35 @@ siguen siendo compatibles con el layout pre-022).
   estricto). No es un bug — es el comportamiento intencional post-canon CF.
 - La pestaña **Comparativa** sigue stashed en
   `/tmp/wip_comparativa_20260813/comparativa_wip.diff` (no incluida en este bundle).
+
+## Cableado pendiente · HARDENING-037 + HARDENING-038
+
+**HARDENING-BETA-para-emergent** aterrizó 4 blocks presentacionales aislados
+(SingleExerciseChart, MarketReadingBlock, InvestmentCommitteeBlock,
+OpportunityThesisBlock) accesibles hoy solo desde `/{locale}/internal/blocks-preview`
+con mock data. **Este bundle NO los cablea a la ficha ni al backend** por
+decisión consciente de scope:
+
+- **HARDENING-037 · Cableado layout (bloqueado por regla monolito)**
+  Requiere editar `CompanyFichaLayoutV2.tsx` para: (a) montar los 4 blocks
+  en sus pestañas (`finanzas`, `mercado`, `comite`, `oportunidades`);
+  (b) retirar items `sucesion` y `sector` del nav; (c) activar `comite`
+  con `ready:true`. Toca el layout monolito que hoy es intocable — abrir
+  como decisión de arquitectura separada (¿ampliación con puntos de
+  extensión vs refactor?).
+
+- **HARDENING-038 · Proxies backend Intel (4 endpoints nuevos)**
+  Todos usando cliente canónico `get_agency_tool_client()` + `_intel_call_ff`
+  con cache TTL + política empty honesto REQ003:
+  * `POST /api/company/{cif}/committee?lens=` → Intel `/api/v1/investment-decision/analyze`
+    (mapa lente→buyer_profile: `neutral=None`, `buyer=strategic`, `investor=private_equity`).
+    Cacheado por `(cif, lens)`. Export via `/decision/{id}/export-payload`.
+  * `GET /api/company/{cif}/succession` → Intel `signal-intelligence/succession-profile/{cif}`.
+  * `GET /api/company/{cif}/rollup` → Intel `investment-intelligence/rollup-thesis` + `/fragmentation`.
+  * `GET /api/company/{cif}/market-reading` → Intel `generate_summary market_reading` cacheado
+    (extiende payload actual del bloque Mercado).
+
+Beta degrada con elegancia si algún motor Intel aún no responde:
+`_empty_response` honesto en el endpoint + `EmptyStateBlock` en el bloque
+frontend (nunca hueco ni error).
+
