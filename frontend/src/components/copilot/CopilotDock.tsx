@@ -34,7 +34,7 @@ import { RecentWorkspacesPanel } from './RecentWorkspacesPanel';
  *   - `prefillComposer` / `pendingComposerText` (HARDENING-025 Item 3)
  *
  * Ver `ARROBA_PHILOSOPHY.md` §12 "La ficha es la verdad": la respuesta
- * canónica del Copilot cuando el usuario está en `/empresa/{cif}` es la
+ * canónica del Copilot cuando el usuario está en `/empresa-f01/{cif}` es la
  * actualización de las secciones de la ficha; el thread textual encima de
  * la barra es la conversación complementaria.
  *
@@ -173,7 +173,7 @@ function Header({
   clearDisabled: boolean;
   entityName: string | null;
 }) {
-  // When the dock is contextualised on an entity (e.g. /empresa/{cif}), the
+  // When the dock is contextualised on an entity (e.g. /empresa-f01/{cif}), the
   // header reflects the specialised advisor identity per
   // ARROBA_PHILOSOPHY.md §12 "Company Advisor".
   const title = entityName ? `✦ Company Advisor de ${entityName}` : 'Arroba Copilot';

@@ -32,6 +32,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import type { SearchResultItem } from '@/components/blocks';
 import { cn } from '@/lib/cn';
+import { applySignalFilter } from './_signal-filter';
 
 interface RowSummary {
   revenue?: number | null;
@@ -99,6 +100,14 @@ export default function ResultadosPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sector, setSector] = useState<string | null>(null);
+  // HARDENING-032 · Filtro por signal_badge client-side. Toggles independientes
+  // combinables (AND). Intel emite hoy los badges en snake_case ES
+  // (`alto_crecimiento`, `riesgo`, `estable`, `comprando`, `buscando_financiacion`).
+  // Comparamos con tokens defensivos (ES + EN) por si Intel migra el vocabulario
+  // en el futuro sin regresión visual. Sin persistencia (URL/localStorage) —
+  // HARDENING-031 aborda persistencia por separado.
+  const [onlyGrowth, setOnlyGrowth] = useState(false);
+  const [excludeRisk, setExcludeRisk] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(0);
@@ -157,6 +166,8 @@ export default function ResultadosPage() {
   useEffect(() => {
     setInput(q);
     setSector(null);
+    setOnlyGrowth(false);
+    setExcludeRisk(false);
     setSelected(new Set());
     if (q) void fetchResults(q, 0);
     else {
@@ -183,11 +194,12 @@ export default function ResultadosPage() {
     [rows],
   );
   // `rows` ya es la página actual servida por el backend (offset = page*PAGE_SIZE).
-  // El chip de sector afina la página visible; la paginación se rige por `total`.
-  const pageRows = useMemo(
-    () => (sector ? rows.filter((r) => r.sector === sector) : rows),
-    [rows, sector],
-  );
+  // El chip de sector y los toggles de signal_badge afinan la página visible;
+  // la paginación se rige por `total` (server-side).
+  const pageRows = useMemo(() => {
+    const bySector = sector ? rows.filter((r) => r.sector === sector) : rows;
+    return applySignalFilter(bySector, { onlyGrowth, excludeRisk });
+  }, [rows, sector, onlyGrowth, excludeRisk]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   function toggleSel(id: string) {
@@ -286,34 +298,80 @@ export default function ResultadosPage() {
 
       {/* Barra de acciones */}
       {q && !loading && !error && rows.length > 0 && (
-        <div className="flex items-center justify-end gap-2 mb-2 text-sm">
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted hover:bg-surface-2 transition-colors"
+        <div className="flex items-center justify-between gap-2 mb-2 text-sm">
+          {/* HARDENING-032 · Chips de filtro por signal_badge (client-side). */}
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid="resultados-signal-filters"
           >
-            <Download size={16} strokeWidth={1.6} /> Exportar
-          </button>
-          <button
-            type="button"
-            disabled={selected.size < 2}
-            title={selected.size < 2 ? 'Selecciona al menos dos empresas' : 'Próximamente'}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted hover:bg-surface-2 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
-          >
-            <GitCompare size={16} strokeWidth={1.6} /> Comparar
-            {selected.size > 0 && ` (${selected.size})`}
-          </button>
-          <button
-            type="button"
-            disabled
-            title="Próximamente"
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted opacity-40"
-          >
-            <Columns3 size={16} strokeWidth={1.6} /> Columnas
-          </button>
-          <button type="button" disabled title="Próximamente" className="h-9 w-9 inline-flex items-center justify-center rounded-[9px] text-text-muted opacity-40">
-            <MoreHorizontal size={16} strokeWidth={1.6} />
-          </button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={onlyGrowth}
+              aria-label="Sólo alto crecimiento"
+              onClick={() => setOnlyGrowth((v) => !v)}
+              data-testid="filter-chip-growth"
+              data-active={onlyGrowth ? 'true' : 'false'}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border transition-colors',
+                onlyGrowth
+                  ? 'bg-success/10 border-success/40 text-success'
+                  : 'bg-surface border-border text-text-muted hover:border-border-strong',
+              )}
+            >
+              <Flame size={12} strokeWidth={2} />
+              Sólo alto crecimiento
+              {onlyGrowth && <span className="text-text-subtle">✕</span>}
+            </button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={excludeRisk}
+              aria-label="Excluir riesgo"
+              onClick={() => setExcludeRisk((v) => !v)}
+              data-testid="filter-chip-exclude-risk"
+              data-active={excludeRisk ? 'true' : 'false'}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border transition-colors',
+                excludeRisk
+                  ? 'bg-warning/10 border-warning/40 text-warning'
+                  : 'bg-surface border-border text-text-muted hover:border-border-strong',
+              )}
+            >
+              <AlertTriangle size={12} strokeWidth={2} />
+              Excluir riesgo
+              {excludeRisk && <span className="text-text-subtle">✕</span>}
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted hover:bg-surface-2 transition-colors"
+            >
+              <Download size={16} strokeWidth={1.6} /> Exportar
+            </button>
+            <button
+              type="button"
+              disabled={selected.size < 2}
+              title={selected.size < 2 ? 'Selecciona al menos dos empresas' : 'Próximamente'}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted hover:bg-surface-2 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+            >
+              <GitCompare size={16} strokeWidth={1.6} /> Comparar
+              {selected.size > 0 && ` (${selected.size})`}
+            </button>
+            <button
+              type="button"
+              disabled
+              title="Próximamente"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted opacity-40"
+            >
+              <Columns3 size={16} strokeWidth={1.6} /> Columnas
+            </button>
+            <button type="button" disabled title="Próximamente" className="h-9 w-9 inline-flex items-center justify-center rounded-[9px] text-text-muted opacity-40">
+              <MoreHorizontal size={16} strokeWidth={1.6} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -339,6 +397,15 @@ export default function ResultadosPage() {
       {q && !loading && !error && rows.length === 0 && (
         <p data-testid="resultados-empty" className="mt-8 text-center text-sm text-text-muted">
           No hemos encontrado empresas para «{q}». Prueba con otras palabras o con un nombre o CIF.
+        </p>
+      )}
+      {q && !loading && !error && rows.length > 0 && pageRows.length === 0 && (
+        <p
+          data-testid="resultados-filter-empty"
+          className="mt-8 text-center text-sm text-text-muted"
+        >
+          Ningún resultado en esta página cumple los filtros activos. Ajusta los
+          chips o navega a otra página.
         </p>
       )}
 

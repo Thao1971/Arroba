@@ -1,6 +1,6 @@
 """Companies module — Entity First (E1.5-REWORK).
 
-Owns the persistent company entity view (`/empresa/{cif}`) including:
+Owns the persistent company entity view (`/empresa-f01/{cif}`) including:
   - Section materialisation (identity, financials, score, comparables,
     valuation, narrative, actions).
   - Per-user conversation memory with the Company Advisor (a Copilot variant

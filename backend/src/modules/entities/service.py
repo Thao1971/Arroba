@@ -46,7 +46,7 @@ async def _resolve_company(query: str, limit: int) -> list[EntityLookupResult]:
         results.append(
             EntityLookupResult(
                 type="company",
-                # Usamos CIF cuando existe (URL canónica /empresa/{cif});
+                # Usamos CIF cuando existe (URL canónica /empresa-f01/{cif});
                 # si no, master_company_id como fallback.
                 id=(c.cif or c.master_company_id),
                 display_name=c.legal_name,

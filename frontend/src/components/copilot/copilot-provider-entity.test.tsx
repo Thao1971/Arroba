@@ -3,8 +3,8 @@
  *
  * Pins the philosophy v3.0 §12 invariants on the client side:
  *
- *   1. When the pathname matches `/empresa/{cif}` the provider switches to
- *      `entity_context` mode and `send()` hits
+ *   1. When the pathname matches `/empresa-f01/{cif}` the provider switches
+ *      to `entity_context` mode and `send()` hits
  *      `POST /api/companies/{cif}/messages` (NOT `/api/copilot/...` and NOT
  *      `/api/workspaces/{id}/messages`).
  *
@@ -30,7 +30,7 @@ import {
 } from './CopilotProvider';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/empresa/B86540112',
+  usePathname: () => '/empresa-f01/B86540112',
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 vi.mock('@/contexts/auth-context', () => ({
@@ -94,7 +94,7 @@ describe('CopilotProvider — entity_context mode', () => {
     vi.restoreAllMocks();
   });
 
-  it('detects /empresa/{cif} pathname and sets currentEntity', async () => {
+  it('detects /empresa-f01/{cif} pathname and sets currentEntity', async () => {
     let api: Captured | null = null;
     render(
       <CopilotProvider>
@@ -154,7 +154,7 @@ describe('CopilotProvider — entity_context mode', () => {
     expect(body.query).toBe('Háblame de los riesgos');
     expect(body.context).toMatchObject({
       locale: 'es',
-      pathname: '/empresa/B86540112',
+      pathname: '/empresa-f01/B86540112',
     });
   });
 

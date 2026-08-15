@@ -21,7 +21,7 @@ import { CompanyPageClient } from './CompanyPageClient';
 import type { CompanyDetailResponse } from '@/lib/companies/types';
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/empresa/B86540112',
+  usePathname: () => '/empresa-f01/B86540112',
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useParams: () => ({ cif: 'B86540112' }),
 }));

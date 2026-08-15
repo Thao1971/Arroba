@@ -49,7 +49,7 @@ describe('apiClient.companies — URL + method + headers', () => {
   it('POST /messages — JSON body + Content-Type preserved (regression P0)', async () => {
     await apiClient.companies.sendMessage('B86540112', {
       query: 'Riesgos',
-      context: { locale: 'es', pathname: '/empresa/B86540112' },
+      context: { locale: 'es', pathname: '/empresa-f01/B86540112' },
     });
     const [url, init] = getCall();
     expect(url).toBe('/api/companies/B86540112/messages');
@@ -59,7 +59,7 @@ describe('apiClient.companies — URL + method + headers', () => {
     const body = JSON.parse(init.body as string);
     expect(body).toEqual({
       query: 'Riesgos',
-      context: { locale: 'es', pathname: '/empresa/B86540112' },
+      context: { locale: 'es', pathname: '/empresa-f01/B86540112' },
     });
   });
 

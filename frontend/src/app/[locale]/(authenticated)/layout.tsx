@@ -18,7 +18,7 @@ const ONBOARDING_EXEMPT_PREFIX = '/onboarding';
 export default function AuthenticatedLayout({ children }: { children: ReactNode }) {
   // NOTA (Regla 1 · SPRINT 1): CopilotProvider + CopilotDock ya no viven
   // aquí — se han promovido al layout raíz `[locale]/layout.tsx` para que
-  // el Composer persista al navegar a /empresa/{cif} (fuera del segment
+  // el Composer persista al navegar a /empresa-f01/{cif} (fuera del segment
   // autenticado). El Dock se auto-oculta para usuarios anónimos.
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text">

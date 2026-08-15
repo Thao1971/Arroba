@@ -1,6 +1,6 @@
 'use client';
 /**
- * CompanyHeader — smart container for the `/empresa/{cif}` Header module.
+ * CompanyHeader — smart container for the `/empresa-f01/{cif}` Header module.
  *
  * Owns the data flow + side effects (toggle watchlist, toggle share, fire
  * "coming soon" toasts) and delegates the presentational rendering to the

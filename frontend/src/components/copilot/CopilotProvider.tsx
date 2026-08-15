@@ -32,7 +32,7 @@ import type {
  *    the new blocks are persisted. The provider appends the delta to the
  *    local state (without recharging the workspace).
  *  - **entity_context** (E1.5-REWORK): when the user is on
- *    `/empresa/{cif}`, `send()` hits `POST /api/companies/{cif}/messages`
+ *    `/empresa-f01/{cif}`, `send()` hits `POST /api/companies/{cif}/messages`
  *    so the Company Advisor returns `section_updates[]` that refresh the
  *    ficha sections (NOT free-standing blocks). The provider broadcasts
  *    those via `CustomEvent("arroba:company-section-update")`; the
@@ -206,7 +206,7 @@ function reducer(state: CopilotState, action: Action): CopilotState {
       // we keep the ephemeral state intact.
       return { ...state, currentWorkspaceId: action.workspaceId };
     case 'set_entity_context':
-      // When entering /empresa/{cif} we wipe the dock history so it shows
+      // When entering /empresa-f01/{cif} we wipe the dock history so it shows
       // the Company Advisor scoped to THIS entity (the hydration call adds
       // the persistent thread right after). When leaving, history is wiped
       // too so the dock returns to the ephemeral session.
@@ -263,7 +263,7 @@ interface CopilotContextValue extends CopilotState {
   }) => Promise<{ workspaceId: string; url: string }>;
   /** Used by /w/[id]/page.tsx to load the persisted workspace into the dock. */
   hydratePersistent: (messages: CopilotMessage[], workspace: Workspace | null) => void;
-  /** Used by /empresa/[cif]/page.tsx to load the prior conversation thread
+  /** Used by /empresa-f01/[cif]/page.tsx to load the prior conversation thread
    *  into the dock and to attach the company's display name. */
   hydrateEntityConversation: (messages: CopilotMessage[], name: string) => void;
   /** Publica un contexto de entidad genérico (Regla 1 · Sprint 1). Cualquier
@@ -285,7 +285,9 @@ interface CopilotContextValue extends CopilotState {
 const CopilotContext = createContext<CopilotContextValue | undefined>(undefined);
 
 const ANCHORED_RE = /^\/(?:[a-z]{2}\/)?w\/([\w-]+)(?:\/.*)?$/;
-const ENTITY_COMPANY_RE = /^\/(?:[a-z]{2}\/)?empresa\/([A-Za-z]\d{8})(?:\/.*)?$/;
+// HARDENING-029: ruta canónica única es /empresa-f01/{cif}. La ruta legacy
+// /empresa/{cif} ha sido retirada; el regex ya no debe matchearla.
+const ENTITY_COMPANY_RE = /^\/(?:[a-z]{2}\/)?empresa-f01\/([A-Za-z]\d{8})(?:\/.*)?$/;
 
 function extractWorkspaceIdFromPath(pathname: string): string | null {
   const m = pathname.match(ANCHORED_RE);

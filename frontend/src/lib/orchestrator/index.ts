@@ -75,7 +75,7 @@ export interface OrchestratorResult {
   assistantMessage: string | null; // human-readable reply for the thread
   /** E1.5-REWORK: when set, the caller should `router.push(navigate_to)`
    *  because the search Skill resolved the query to a concrete entity
-   *  (e.g. "Kitchen Studio" → /empresa/B86540112). */
+   *  (e.g. "Kitchen Studio" → /empresa-f01/B86540112). */
   navigate_to?: string | null;
   /** E1.5-REWORK: disambiguation candidates when the search resolves to
    *  2-5 known entities (the dock should render a compact dropdown). */

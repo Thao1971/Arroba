@@ -1,6 +1,6 @@
 'use client';
 /**
- * LockedSectionBlur — overlay used by `/empresa/{cif}` for sections that are
+ * LockedSectionBlur — overlay used by `/empresa-f01/{cif}` for sections that are
  * hidden from anonymous visitors. Renders a teaser with a CTA pointing to
  * /registro and /login.
  *

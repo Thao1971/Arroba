@@ -326,7 +326,7 @@ function SectionHeader({
 /**
  * Buscador del hero — funcional. Cablea al Copilot canónico (mismo flujo que el
  * dock/barra inferior): `useCopilot().send()` resuelve un CIF puro a su ficha,
- * resuelve una entidad por nombre → navega a `/empresa/{cif}`, o pinta los
+ * resuelve una entidad por nombre → navega a `/empresa-f01/{cif}`, o pinta los
  * resultados de la búsqueda en la barra. Sin lógica paralela: reutiliza el
  * orquestador cliente y el skill público `/api/copilot/skills/search`.
  */
