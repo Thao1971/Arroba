@@ -26,8 +26,8 @@ def _norm(s: str) -> str:
 
 
 # Comparator groups (normalized, no diacritics).
-_GTE = r"(?:mas de|más de|superior(?:es)? a|mayor(?:es)? (?:que|a|de)|por encima de|desde|a partir de|>=?|min(?:imo)? de|al menos)"
-_LTE = r"(?:menos de|inferior(?:es)? a|menor(?:es)? (?:que|a|de)|por debajo de|hasta|como maximo|<=?|max(?:imo)? de)"
+_GTE = r"(?:mas del?|más del?|superior(?:es)? al?|mayor(?:es)? (?:que|al?|del?)|por encima del?|desde|a partir del?|>=?|min(?:imo)? de|al menos)"
+_LTE = r"(?:menos del?|inferior(?:es)? al?|menor(?:es)? (?:que|al?|del?)|por debajo del?|hasta|como maximo|<=?|max(?:imo)? de)"
 
 _NUM = r"(\d[\d.,]*)"
 _UNIT = r"(millones|millon|mill|mm|m|mil|k)?"
@@ -106,13 +106,28 @@ def parse_financial_query(query: str) -> dict[str, Any] | None:
     def _set(key: str, val: float) -> None:
         filters.setdefault(key, val)  # first predicate wins; never overwrite
 
-    # --- growth: "que crezca más de 20%" / "crecimiento > 20%" ---
+    # --- porcentajes: margen EBITDA vs crecimiento, según contexto ---
+    # "margen (de EBITDA) superior al 30%" → ebitda_margin_min; "crezca >20%" → growth_min.
+    def _pct_metric(a: int, b: int) -> str | None:
+        ctx = n[max(0, a - 32):b + 18]
+        if "margen" in ctx or "rentabilidad" in ctx:
+            return "ebitda_margin"
+        if re.search(r"crec|crezc|growth", ctx) or re.search(r"crec|crezc|growth", n):
+            return "growth"
+        return None
+
     for m in re.finditer(rf"{_GTE}\s*{_NUM}\s*%", n):
         val = _to_number(m.group(1), None)
-        if val is not None:
-            _set("growth_min", round(val / 100.0, 4))
+        met = _pct_metric(m.start(), m.end())
+        if val is not None and met:
+            _set("ebitda_margin_min" if met == "ebitda_margin" else "growth_min", round(val / 100.0, 4))
             consumed_spans.append(m.span())
-            break
+    for m in re.finditer(rf"{_LTE}\s*{_NUM}\s*%", n):
+        val = _to_number(m.group(1), None)
+        met = _pct_metric(m.start(), m.end())
+        if val is not None and met == "ebitda_margin":  # margen máximo; growth_max no existe
+            _set("ebitda_margin_max", round(val / 100.0, 4))
+            consumed_spans.append(m.span())
 
     # --- ranges: "entre X e Y (millones)" → classified by context ---
     for rng in re.finditer(rf"entre\s+{_NUM}\s*{_UNIT}\s+(?:y|e)\s+{_NUM}\s*{_UNIT}", n):
@@ -158,7 +173,8 @@ def parse_financial_query(query: str) -> dict[str, Any] | None:
     # Only treat as REQ-004 if there is at least one numeric predicate.
     if not any(k in filters for k in
                ("revenue_min", "revenue_max", "ebitda_min", "ebitda_max",
-                "employees_min", "employees_max", "growth_min")):
+                "employees_min", "employees_max", "growth_min",
+                "ebitda_margin_min", "ebitda_margin_max")):
         return None
 
     # Residual lexical text: drop consumed numeric spans, then strip metric/filler
@@ -171,7 +187,8 @@ def parse_financial_query(query: str) -> dict[str, Any] | None:
                   "y", "e", "mas", "menos", "los", "las", "del", "para", "millones", "millon",
                   "mill", "mil", "euros", "euro", "€", "%",
                   "superior", "superiores", "inferior", "inferiores",
-                  "mayor", "mayores", "menor", "menores", "entre"])
+                  "mayor", "mayores", "menor", "menores", "entre",
+                  "margen", "rentabilidad", "al", "del"])
     residual = " ".join(t for t in re.split(r"[^a-z0-9]+", residual) if t and t not in _FILLER)
 
     return {"filters": filters, "residual": residual.strip()}

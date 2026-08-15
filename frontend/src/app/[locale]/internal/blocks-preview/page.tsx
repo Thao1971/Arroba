@@ -1,20 +1,24 @@
 'use client';
 /**
- * HARDENING-BETA-para-emergent · Blocks preview (opción a2).
+ * HARDENING-BETA-para-emergent + HARDENING-BETA-preview-scenarios
  *
  * Página interna de review visual para los 4 componentes aterrizados en
  * `/app/frontend/src/components/blocks/{committee,financial,market,opportunity}/`.
  * NO cableada a Intel ni al layout monolítico (`CompanyFichaLayoutV2.tsx`) —
  * el cableado real vive en HARDENING-037 (layout) y HARDENING-038 (proxies).
  *
- * `runCommittee` aquí es un stub local con delay 400ms + mock por lente,
- * suficiente para verificar el flujo idle→loading→done sin backend.
+ * `runCommittee` aquí es un stub local con delay 400ms + mock por lente.
+ * `?scenario=proceed|proceed_with_conditions|pass` sobreescribe el mock
+ * neutral para poder validar los 3 veredictos canónicos del comité sin
+ * backend (mini-fuzz visual).
  *
  * NO indexar: la ruta vive bajo `/[locale]/internal/` (excluida vía middleware
  * i18n) y este archivo emite `<meta name="robots" content="noindex">` para
  * defensiva adicional.
  */
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
+import Link from 'next/link';
+import { useSearchParams, usePathname } from 'next/navigation';
 import {
   InvestmentCommitteeBlock,
   type CommitteeLens,
@@ -29,6 +33,14 @@ import {
   OpportunityThesisBlock,
   type OpportunityThesisView,
 } from '@/components/blocks/opportunity/OpportunityThesisBlock';
+
+type Scenario = 'proceed' | 'proceed_with_conditions' | 'pass';
+const DEFAULT_SCENARIO: Scenario = 'proceed';
+const SCENARIOS: { id: Scenario; label: string; blurb: string }[] = [
+  { id: 'proceed', label: 'Avanzar', blurb: 'Veredicto favorable · confianza alta' },
+  { id: 'proceed_with_conditions', label: 'Con condiciones', blurb: 'Favorable con condiciones · confianza media' },
+  { id: 'pass', label: 'No avanzar', blurb: 'Rechazo con veto legal/riesgo · confianza contraria' },
+];
 
 // ─── Mocks · plausibles pero explícitamente sintéticos ──────────────────
 const MOCK_MARKET: MarketContextView = {
@@ -180,15 +192,118 @@ const MOCK_COMMITTEE_RESPONSES: Record<CommitteeLens, CommitteeResult> = {
 };
 
 const stubRunCommittee = (
-  _cif: string,
-  lens: CommitteeLens,
-): Promise<CommitteeResult> =>
+  scenario: Scenario,
+) => (_cif: string, lens: CommitteeLens): Promise<CommitteeResult> =>
   new Promise((resolve) => {
-    setTimeout(() => resolve(MOCK_COMMITTEE_RESPONSES[lens]), 400);
+    // El escenario override sólo tiene sentido en la lente `neutral` (el
+    // scenario switcher es una lente global de veredicto, no de perfil).
+    // Para las lentes buyer/investor el mock queda intacto — combinarlas
+    // añadiría matriz 4×3 sin señal de review adicional.
+    const base = MOCK_COMMITTEE_RESPONSES[lens];
+    const scenarioOverride =
+      lens === 'neutral' ? SCENARIO_OVERRIDES[scenario] ?? null : null;
+    setTimeout(() => resolve(scenarioOverride ?? base), 400);
   });
 
-// ─── Preview page ───────────────────────────────────────────────────────
+// HARDENING-BETA-preview-scenarios · overrides del veredicto neutral para
+// mini-fuzz visual. Cada override reemplaza el `MOCK_COMMITTEE_RESPONSES.neutral`
+// completo (recommendation + score + confidence + summary + condiciones +
+// deliberación por especialista) para que el `InvestmentCommitteeBlock`
+// pinte los 3 estados canónicos sin necesidad de backend Intel.
+const SCENARIO_OVERRIDES: Record<Scenario, CommitteeResult> = {
+  proceed: {
+    decision_id: 'dec_mock_proceed_001',
+    recommendation: 'PROCEED',
+    investment_score: 84,
+    confidence: 0.89,
+    executive_summary:
+      'Empresa saneada con márgenes por encima de la media sectorial, crecimiento sostenido de doble dígito y posición de liderazgo territorial. Sin banderas rojas legales ni financieras materiales. Recomendamos avanzar.',
+    investment_thesis:
+      'Combinación infrecuente de crecimiento, rentabilidad y foco. El comité coincide en que el perfil es defensivo con opción de aceleración vía roll-up regional. Sin condiciones bloqueantes.',
+    conditions_to_proceed: [],
+    committee: [
+      { specialist: 'cfo', recommendation: 'proceed', score: 88, strengths: [{ text: 'EBITDA margin 22% en TTM, growth +18% YoY.' }] },
+      { specialist: 'valuation', recommendation: 'proceed', score: 82, strengths: [{ text: 'Múltiplo por debajo del rango de comparables premium.' }] },
+      { specialist: 'strategy', recommendation: 'proceed', score: 86 },
+      { specialist: 'commercial', recommendation: 'proceed', score: 80, strengths: [{ text: 'Cartera diversificada, top-3 clientes <25%.' }] },
+      { specialist: 'operations', recommendation: 'proceed', score: 84 },
+      { specialist: 'market', recommendation: 'proceed', score: 82 },
+      { specialist: 'hr', recommendation: 'proceed', score: 78, strengths: [{ text: 'Plan de sucesión formalizado y comunicado.' }] },
+      { specialist: 'legal', recommendation: 'proceed', score: 90, veto: false },
+      { specialist: 'risk', recommendation: 'proceed', score: 85 },
+      { specialist: 'investment_director', recommendation: 'proceed', score: 86 },
+    ],
+  },
+  proceed_with_conditions: {
+    decision_id: 'dec_mock_proceed_cond_001',
+    recommendation: 'PROCEED_WITH_CONDITIONS',
+    investment_score: 68,
+    confidence: 0.72,
+    executive_summary:
+      'Empresa sólida con posición competitiva relevante pero con dos áreas de atención que requieren remediación pre-closing: dependencia comercial (top-3 concentra 45% de la facturación) y ventana de sucesión abierta a medio plazo. Recomendamos avanzar tras satisfacer las condiciones.',
+    investment_thesis:
+      'Perfil defensivo con potencial de consolidación regional. La empresa combina márgenes sostenibles con una cartera de clientes de largo recorrido y una base territorial difícil de replicar. La palanca principal está en diversificar comercialmente y cerrar el plan de sucesión.',
+    conditions_to_proceed: [
+      'Auditoría de dependencia comercial (top-10 clientes) pre-closing.',
+      'Plan de sucesión directiva formalizado con retención founder 24 meses.',
+      'Revisión de contingencias laborales pre-2020 con provisión adecuada.',
+    ],
+    committee: [
+      { specialist: 'cfo', recommendation: 'proceed', score: 74 },
+      { specialist: 'valuation', recommendation: 'proceed_with_conditions', score: 70 },
+      { specialist: 'strategy', recommendation: 'proceed_with_conditions', score: 72 },
+      { specialist: 'commercial', recommendation: 'proceed_with_conditions', score: 58, weaknesses: [{ text: 'Top-3 clientes concentran el 45% de la facturación.' }] },
+      { specialist: 'operations', recommendation: 'proceed', score: 76 },
+      { specialist: 'market', recommendation: 'proceed', score: 71 },
+      { specialist: 'hr', recommendation: 'proceed_with_conditions', score: 56, risks: [{ text: 'Fundadora >60 sin plan de sucesión formalizado.' }] },
+      { specialist: 'legal', recommendation: 'proceed', score: 82 },
+      { specialist: 'risk', recommendation: 'proceed_with_conditions', score: 66, risks: [{ text: 'Riesgo agregado moderado, concentrado en comercial.' }] },
+      { specialist: 'investment_director', recommendation: 'proceed_with_conditions', score: 70 },
+    ],
+  },
+  pass: {
+    decision_id: 'dec_mock_pass_001',
+    recommendation: 'PASS',
+    investment_score: 38,
+    confidence: 0.83,
+    executive_summary:
+      'El comité recomienda NO AVANZAR. Se identifican dos vetos materiales: (a) contingencia legal significativa por litigio activo con la Agencia Tributaria; (b) riesgo agregado alto por deterioro de márgenes en los últimos 3 ejercicios. La confianza en la recomendación negativa es alta.',
+    investment_thesis:
+      'La operación no encaja en el mandato: el binomio deterioro operativo + contingencia legal desplaza el retorno esperado fuera del rango de tolerancia. Reevaluar en 24 meses si los frentes abiertos se cierran.',
+    conditions_to_proceed: [
+      'Resolución firme de la contingencia fiscal (litigio nº AT-2023-4471) antes de reabrir el caso.',
+      'Reversión sostenida del deterioro de margen (2 ejercicios completos por encima del 10%).',
+    ],
+    committee: [
+      { specialist: 'cfo', recommendation: 'pass', score: 42, weaknesses: [{ text: 'Deterioro sostenido de márgenes (-8pp en 3 años).' }] },
+      { specialist: 'valuation', recommendation: 'pass', score: 40 },
+      { specialist: 'strategy', recommendation: 'pass', score: 44 },
+      { specialist: 'commercial', recommendation: 'pass', score: 48 },
+      { specialist: 'operations', recommendation: 'proceed_with_conditions', score: 58 },
+      { specialist: 'market', recommendation: 'explore', score: 52 },
+      { specialist: 'hr', recommendation: 'pass', score: 46 },
+      { specialist: 'legal', recommendation: 'pass', score: 22, veto: true, veto_kind: 'contingencia_material', risks: [{ text: 'Litigio activo con la Agencia Tributaria (AT-2023-4471) sin provisión.' }] },
+      { specialist: 'risk', recommendation: 'pass', score: 28, veto: true, veto_kind: 'riesgo_agregado_alto', risks: [{ text: 'Riesgo agregado por deterioro operativo + contingencia legal.' }] },
+      { specialist: 'investment_director', recommendation: 'pass', score: 38 },
+    ],
+  },
+};
+
+// ─── Preview page (con Suspense boundary por `useSearchParams` en client) ─
 export default function BlocksPreviewPage() {
+  return (
+    <Suspense fallback={null}>
+      <BlocksPreviewInner />
+    </Suspense>
+  );
+}
+
+function BlocksPreviewInner() {
+  const params = useSearchParams();
+  const pathname = usePathname() ?? '/es/internal/blocks-preview';
+  const raw = (params.get('scenario') || '').toLowerCase();
+  const scenario: Scenario = (SCENARIOS.find((s) => s.id === raw)?.id) ?? DEFAULT_SCENARIO;
+
   // useMemo para que los mocks no se recreen en cada render (el chart usa
   // useEffect con `revenue`/`ebitda` en deps y no queremos re-animar sin causa).
   const singleExercise = useMemo(
@@ -202,6 +317,11 @@ export default function BlocksPreviewPage() {
     }),
     [],
   );
+
+  // El stub se recrea cuando cambia el escenario para que la próxima
+  // deliberación devuelva el mock correcto. El `key={scenario}` en el bloque
+  // fuerza remount y reinicia el estado idle→loading→done.
+  const runCommittee = useMemo(() => stubRunCommittee(scenario), [scenario]);
 
   const alert = (msg: string) => () =>
     // eslint-disable-next-line no-alert
@@ -221,7 +341,7 @@ export default function BlocksPreviewPage() {
           HARDENING-038 (proxies Intel).
         </div>
 
-        <header className="mb-10">
+        <header className="mb-6">
           <h1 className="font-display text-h2 font-bold text-text-primary">
             Blocks preview
           </h1>
@@ -229,6 +349,44 @@ export default function BlocksPreviewPage() {
             Aterrizaje aislado · HARDENING-BETA-para-emergent · opción a2.
           </p>
         </header>
+
+        {/* HARDENING-BETA-preview-scenarios · switcher de veredicto Committee. */}
+        <div
+          data-testid="blocks-preview-scenario-switcher"
+          className="mb-10 pb-6 border-b border-border-default"
+        >
+          <div className="text-caption text-text-muted uppercase tracking-wide mb-2">
+            Escenario Committee · mini-fuzz visual del veredicto
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {SCENARIOS.map((s) => {
+              const active = s.id === scenario;
+              const nextParams = new URLSearchParams(params.toString());
+              nextParams.set('scenario', s.id);
+              const href = `${pathname}?${nextParams.toString()}`;
+              return (
+                <Link
+                  key={s.id}
+                  href={href}
+                  data-testid={`blocks-preview-scenario-${s.id}`}
+                  data-active={active ? 'true' : 'false'}
+                  scroll={false}
+                  className={
+                    'inline-flex flex-col gap-0.5 px-4 py-2 rounded-lg border text-sm transition-colors ' +
+                    (active
+                      ? 'border-brand-primary bg-brand-primary/10 text-brand-primary font-bold'
+                      : 'border-border-default bg-surface-elevated text-text-primary hover:bg-surface-muted')
+                  }
+                >
+                  <span>{s.label}</span>
+                  <span className="text-caption text-text-muted font-normal">
+                    {s.blurb}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Componente 1 · SingleExerciseChart */}
         <section
@@ -258,12 +416,16 @@ export default function BlocksPreviewPage() {
           className="mb-12 pb-12 border-b border-border-default"
         >
           <div className="mb-4 text-caption text-text-muted uppercase tracking-wide">
-            components/blocks/committee/InvestmentCommitteeBlock · 338 LOC
+            components/blocks/committee/InvestmentCommitteeBlock · 338 LOC ·
+            scenario={scenario}
           </div>
+          {/* key={scenario} fuerza remount al cambiar de veredicto — resetea
+              state y `runCommittee` recibe el nuevo override. */}
           <InvestmentCommitteeBlock
+            key={scenario}
             cif="B28184687"
             defaultLens="neutral"
-            runCommittee={stubRunCommittee}
+            runCommittee={runCommittee}
             onExport={alert('export decision_id')}
           />
         </section>

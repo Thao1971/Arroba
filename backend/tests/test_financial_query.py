@@ -58,6 +58,18 @@ def test_sector_plus_multi_metric_residual():
     assert "agencias" in r["residual"] and "marketing" in r["residual"]
 
 
+def test_ebitda_margin():
+    # margen de EBITDA con "%" y comparador "al/del" (el caso del screenshot)
+    assert _f("empresas con margen de EBITDA superior al 30%") == {"ebitda_margin_min": 0.30}
+    assert _f("empresas con margen EBITDA superior a 30%") == {"ebitda_margin_min": 0.30}
+    assert _f("margen inferior al 10%") == {"ebitda_margin_max": 0.10}
+    # crecimiento con "%" sigue siendo growth, no margen
+    assert _f("empresas que crezcan más de 20%") == {"growth_min": 0.20}
+    # combo margen + ingresos
+    assert _f("empresas con más del 30% de margen y más de 5M de ingresos") == {
+        "ebitda_margin_min": 0.30, "revenue_min": 5_000_000}
+
+
 def test_non_financial_returns_none():
     assert p("agencias de marketing") is None
     assert p("clínicas dentales en Valencia") is None
