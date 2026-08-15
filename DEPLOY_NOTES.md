@@ -48,6 +48,20 @@
 >   (para migrar HARDENING-032 fuera del client-side).
 > - **REQ-INTEL** `summary` completo en filas de `skills/search` (hoy parcial;
 >   la tabla renderiza «—» gracefully en columnas sin dato).
+> - **REQ-INTEL** `skills/search` sectorial-aware residual query
+>   Cuando `skills/search` recibe `query` no-vacío junto con filtros numéricos,
+>   aplicar el `query` como CNAE-hint / taxonomy-hint (misma lógica que
+>   `company-taxonomy/search`) en vez de full-text sobre `name`.
+>   Sin esto, queries mixtas tipo "agencias de marketing con EBITDA > 1M"
+>   degradan silenciosamente a fall-through categorical (898 hits sectoriales
+>   sin AND numérico).
+>   Repro:
+>   ```
+>   POST /api/v1/skills/search {"query":"agencias marketing","filters":{"ebitda_min":1000000}} → total=0
+>   POST /api/v1/skills/search {"query":"","filters":{"ebitda_min":1000000}}                    → total=237
+>   GET  /api/v1/company-taxonomy/search?q=agencias%20de%20marketing                            → total=898
+>   ```
+>   Universo esperado: intersección ~5-15 hits.
 
 
 Bundle acumulado listo para push manual a Prod (`beta.arroba.com`). Todos los
