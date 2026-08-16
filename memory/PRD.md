@@ -1,6 +1,26 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-08-15 — **🟢 HARDENING-BETA-preview-scenarios + HARDENING-REQ004c CERRADOS** (2 tickets aditivos paralelos).
+> **Última actualización**: 2026-08-16 — **🟢 HARDENING-037 + HARDENING-038 CERRADOS** (bundle 28 unidades · pendiente `e1_tester` + go/no-go usuario · sin deploy).
+>
+> **HARDENING-037 · Cableado layout via `sectionRegistry.tsx`** (monolito lifted por autorización explícita del usuario). El monolito `CompanyFichaLayoutV2.tsx` deja de tener el switch de render hardcodeado para las 3 secciones nuevas (Mercado · Oportunidades · Comité). Ahora resuelve `getSection(active)?.render(ctx)` **antes** del switch inline (líneas 3220-3259) y el registro declarativo `frontend/src/components/company/layout/sectionRegistry.tsx` mapea cada `SectionId` → block presentacional (MarketReadingBlock · OpportunityThesisBlock · InvestmentCommitteeBlock). Wrapper canónico `<section data-testid="section-{active}">` habilita smoke E2E sin scraping DOM frágil. Retirados del `NAV[]`: `sucesion` y `sector` (absorbidos por `oportunidades` con `sell`/`buy` en `OpportunityThesisView`). Nuevo módulo `layout/adapters.ts` con funciones puras `marketBlockToContextView` + `opportunityToThesisView` bajo R15 estricto: todo campo sin fuente Intel → `undefined` explícito (los blocks renderizan `<Empty/>` internamente).
+>
+> **HARDENING-038 · 5 proxies backend Intel JWT-gated** bajo `/api/companies/{cif}/*` (`POST /committee?lens=`, `GET /committee/export/{decision_id}`, `GET /succession`, `GET /rollup`, `GET /market-reading`). Todos en `backend/src/modules/companies/router.py` con `Depends(get_current_user)` → **401 sin cookie** verificado localmente. Cliente canónico `get_agency_tool_client()` + `_intel_call_ff` (fail-fast 8s) en `backend/src/modules/copilot/intel_ficha_proxies.py`. Mapa lens→`buyer_profile`: `neutral=None` · `buyer=strategic` · `investor=private_equity`. Errores upstream → **502 estructurado** `{"detail":"http_error","code":"http_502"}` (nunca 500, nunca filtrar detalle Intel).
+>
+> **Degradación honesta verificada (smoke dev pod, `B28184687` `test.arroba+neo@arroba.com` autenticado)** — Screenshots R15 en `/app/docs/bundle28_screenshots/`:
+> - **committee POST** · **succession** · **rollup** → 502 upstream (motores Intel dev inactivos). Frontend: idle state en Comité, "No hemos detectado oportunidades..." en Oportunidades.
+> - **market-reading** → 200 con `reading` real (Intel dev sí lo expone).
+> - **Sin cookie** → 401 en las 5 rutas.
+> - 3 capturas: `bundle28_market.jpeg` (Mercado con título · área vacía por `ficha.market=null`) · `bundle28_opportunities.jpeg` (Empty explícito) · `bundle28_committee.jpeg` (idle con 10 celdas de especialistas + botón "Ver deliberación del comité").
+>
+> **Verificación conjunta**: `yarn tsc --noEmit` verde (0 errors) · `yarn build` verde (First Load JS shared 87.3 kB, sin regresión) · `pytest` **283 passed / 37 legacy pre-existentes** (HARDENING-002 · 31 tests broken by design + 6 aditivos legacy no relacionados con bundle 28; grep confirma **0 fallos** relacionados con committee/succession/rollup/market/intel_ficha) · Vitest **238 passed / 1 legacy pre-existente** (R14 guard sobre `atoms/{Tip,SrcDot,MethodDetails}.tsx` — commits pre-bundle 28, verificado con stash) · `curl /api/openapi.json` confirma las 5 rutas + smoke curl valida 401→200 flujo auth.
+>
+> **Refactoring pending intel_ficha_proxies tests**: no hay pytest específico para el módulo nuevo (`intel_ficha_proxies.py`). Cubierto por curl E2E dev pod. Backlog INTEL: cuando los motores Intel dev estén activos, añadir 5 tests unitarios mockeando `AgencyToolClient` que validen contrato + fallback empty.
+>
+> **Bundle final: 28 unidades** (27 previas + 1 nueva: HARDENING-037/038 doble). **NO desplegado. Awaiting `e1_tester` external validation + user go/no-go.**
+>
+> **Docs vivos actualizados**: `/app/DEPLOY_NOTES.md` (tabla contenido + sección "Cableado HARDENING-037 + HARDENING-038 · resuelto en bundle 28" + "Screenshots R15 · bundle 28" + "Cableado pendiente · HARDENING-038b (congelado)"), `/app/docs/HARDENING-037_puntos_extension.md`, `/app/docs/HARDENING-038_proxies.md`, `/app/docs/HARDENING-038b_opportunity_full_wiring.md`.
+>
+> **Estado previo (2026-08-15)** — 🟢 HARDENING-BETA-preview-scenarios + HARDENING-REQ004c CERRADOS (2 tickets aditivos paralelos).
 >
 > **HARDENING-REQ004c · Parser margen EBITDA + comparador "al/del"** — Extiende el parser financiero (REQ004/004b) con la métrica que faltaba: `ebitda_margin_min`/`ebitda_margin_max`. Los comparadores `_GTE`/`_LTE` ahora aceptan "al"/"del" (`"superior al"`, `"más del"`, `"menor del"`). Los predicados con `%` se **desambiguan por contexto** vía `_pct_metric()` que mira 32 chars atrás + 18 adelante: si aparece `margen`/`rentabilidad` → `ebitda_margin_*`; si aparece `crec|crezc|growth` → `growth_min`; si no → nada. Contrato preservado, 10/10 tests (9 REQ004b regresión + 1 nuevo `test_ebitda_margin`). Smoke dev pod: `"margen EBITDA > 15%"` → 500 hits · `"margen de EBITDA superior al 30%"` (comparador "al") → 500 hits · `"crezcan más de 20%"` → 50 hits growth (NO confundido con margen) · REQ004 (`EBITDA > 1M`) → 237 hits regresión idéntica · REQ003 (`agencias de marketing`) → 898 categorical regresión idéntica. Cherry-pick limpio: sólo `financial_query.py` + `test_financial_query.py` de Beta (los ficheros `intel/*` del zip son del otro repo).
 >
@@ -8,7 +28,7 @@
 >
 > **Verificación conjunta**: `yarn tsc --noEmit` verde · `yarn build` verde · Vitest **5/5** aterrizaje verdes (regresión sana) · pytest **10/10** financial_query + **10/10** copilot_search (regresión REQ003/004/004b) · Screenshots Playwright con los 3 escenarios renderizando: proceed (84/100 confianza 89%, todos avanzar) · proceed_with_conditions (68/100 confianza 72%, mix), pass (38/100 confianza 83%, TODOS "No avanzar" con ⛔ Veto explícito en Legal + Riesgo materializados con litigio AT-2023-4471 y deterioro operativo).
 >
-> **Bundle final: 27 unidades** (25 previas + 2 nuevas: REQ004c + preview-scenarios).
+> **Bundle 27** (25 previas + 2 nuevas: REQ004c + preview-scenarios) — superseded por bundle 28.
 >
 > **Estado previo (2026-08-15)** — 🟢 HARDENING-BETA-para-emergent CERRADO (aterrizaje aislado de 4 blocks + preview interna con mock data).
 >

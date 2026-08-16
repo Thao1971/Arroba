@@ -116,6 +116,11 @@ cambios validados en dev pod contra Servier `B28184687` (auth + anon).
 | HARDENING-BETA-preview-scenarios | Selector `?scenario=proceed\|proceed_with_conditions\|pass` en `/internal/blocks-preview` con 3 mocks override del veredicto neutral · `useSearchParams` en `Suspense` + `Link scroll={false}` + `key={scenario}` para remount limpio · mini-fuzz visual de los 3 estados canónicos del Committee sin backend | ✅ |
 | HARDENING-REQ004c | Parser margen EBITDA + comparador "al/del" (aditivo sobre REQ004b · `financial_query.py` 194 LOC · **10/10 pytests** · 9 REQ004b regresión + 1 nuevo `test_ebitda_margin`) · Intel dev responde 500 hits para `margen > 15%` y `> 30%` · growth vs margen desambiguado por contexto (`"crezcan >20%"` sigue siendo growth, no margen) · sólo `financial_query.py` + `test_financial_query.py` (ficheros `intel/*` del zip son del otro repo) | ✅ |
 | HARDENING-028   | `post_deploy.sh` blindado · Paso 0 rebuild+restart local · Paso 6 smoke retry backoff (~5 min) contra `/api/platform/stats` | ✅ |
+| HARDENING-029   | Retiro ruta legacy `/empresa/[cif]` · regex `ENTITY_COMPANY_RE` → `/empresa-f01/` · 3 tests de tools migrados | ✅ |
+| HARDENING-032   | Chips filtro `signal_badge` client-side (crecimiento + excluir riesgo) en `/resultados` · 8 unit tests · empty state extra | ✅ |
+| HARDENING-033   | CTA contextual post-filtrado (`auth → /me/watchlists/new` · `anon → /registro?next=`) · 4 unit tests | ✅ |
+| HARDENING-037   | Wiring dinámico via `sectionRegistry.tsx` (Mercado · Oportunidades · Comité) + retirado nav `sucesion`/`sector` · monolito lifted temporalmente (autorizado por usuario) · `data-testid="section-{active}"` en wrapper · 3 blocks presentacionales renderizando desde adapters `layout/adapters.ts` (undefined explícito para campos sin fuente Intel) | ✅ |
+| HARDENING-038   | 5 proxies backend JWT-gated bajo `/api/companies/{cif}/*` (committee POST · committee/export · succession · rollup · market-reading) · cliente canónico `get_agency_tool_client()` + `_intel_call_ff` · cache TTL vía módulo compartido · 502 estructurado en fallo upstream (nunca 500) · sin cookie → 401 verificado local | ✅ |
 
 ## Env vars en Prod (post-REQ-001)
 
@@ -218,34 +223,95 @@ siguen siendo compatibles con el layout pre-022).
 - La pestaña **Comparativa** sigue stashed en
   `/tmp/wip_comparativa_20260813/comparativa_wip.diff` (no incluida en este bundle).
 
-## Cableado pendiente · HARDENING-037 + HARDENING-038
+## Cableado HARDENING-037 + HARDENING-038 · resuelto en bundle 28
 
-**HARDENING-BETA-para-emergent** aterrizó 4 blocks presentacionales aislados
-(SingleExerciseChart, MarketReadingBlock, InvestmentCommitteeBlock,
-OpportunityThesisBlock) accesibles hoy solo desde `/{locale}/internal/blocks-preview`
-con mock data. **Este bundle NO los cablea a la ficha ni al backend** por
-decisión consciente de scope:
+Los 4 blocks presentacionales aterrizados por HARDENING-BETA-para-emergent
+(MarketReadingBlock · OpportunityThesisBlock · InvestmentCommitteeBlock ·
+SingleExerciseChart) ya no viven aislados en `/internal/blocks-preview`.
+Bundle 28 los cablea al monolito vía **registro declarativo de secciones** y
+añade **5 proxies backend** JWT-gated.
 
-- **HARDENING-037 · Cableado layout (bloqueado por regla monolito)**
-  Requiere editar `CompanyFichaLayoutV2.tsx` para: (a) montar los 4 blocks
-  en sus pestañas (`finanzas`, `mercado`, `comite`, `oportunidades`);
-  (b) retirar items `sucesion` y `sector` del nav; (c) activar `comite`
-  con `ready:true`. Toca el layout monolito que hoy es intocable — abrir
-  como decisión de arquitectura separada (¿ampliación con puntos de
-  extensión vs refactor?).
+### HARDENING-037 · Cableado layout (monolito lifted por autorización explícita)
 
-- **HARDENING-038 · Proxies backend Intel (4 endpoints nuevos)**
-  Todos usando cliente canónico `get_agency_tool_client()` + `_intel_call_ff`
-  con cache TTL + política empty honesto REQ003:
-  * `POST /api/company/{cif}/committee?lens=` → Intel `/api/v1/investment-decision/analyze`
-    (mapa lente→buyer_profile: `neutral=None`, `buyer=strategic`, `investor=private_equity`).
-    Cacheado por `(cif, lens)`. Export via `/decision/{id}/export-payload`.
-  * `GET /api/company/{cif}/succession` → Intel `signal-intelligence/succession-profile/{cif}`.
-  * `GET /api/company/{cif}/rollup` → Intel `investment-intelligence/rollup-thesis` + `/fragmentation`.
-  * `GET /api/company/{cif}/market-reading` → Intel `generate_summary market_reading` cacheado
-    (extiende payload actual del bloque Mercado).
+- Nuevo módulo `frontend/src/components/company/layout/sectionRegistry.tsx`:
+  tabla `EXTENSION_SECTIONS[]` con `{id, label, icon, group, ready, render(ctx)}`
+  para las 3 nuevas pestañas (`mercado` · `oportunidades` · `comite`).
+- `CompanyFichaLayoutV2.tsx` resuelve `getSection(active)?.render(ctx)` **antes**
+  del switch inline (líneas 3220-3259). El monolito solo (1) construye
+  `FichaSectionContext` con `cif`, `anon`, `market`, `opportunity` y
+  `runCommittee` inyectado, y (2) delega el render al registro.
+- Wrapper canónico `<section data-testid="section-{active}">` habilita
+  smoke E2E de las 3 pestañas nuevas sin scraping DOM frágil.
+- Retirados del `NAV[]`: `sucesion` y `sector` (absorbidos por
+  `oportunidades` vía `OpportunityThesisBlock` con `sell`/`buy`).
+- Nuevo módulo `frontend/src/components/company/layout/adapters.ts`:
+  funciones puras `marketBlockToContextView` + `opportunityToThesisView`
+  con **R15 estricto** (todo campo sin fuente Intel → `undefined` explícito;
+  los blocks ya renderizan `<Empty/>` cuando reciben `undefined`).
 
-Beta degrada con elegancia si algún motor Intel aún no responde:
-`_empty_response` honesto en el endpoint + `EmptyStateBlock` en el bloque
-frontend (nunca hueco ni error).
+### HARDENING-038 · Proxies backend Intel
+
+Cinco endpoints bajo `/api/companies/{cif}/*` en
+`backend/src/modules/companies/router.py`, todos gated por
+`Depends(get_current_user)` (401 sin cookie) y con cliente canónico
+`get_agency_tool_client()` + `_intel_call_ff` (fail-fast 8s) en
+`backend/src/modules/copilot/intel_ficha_proxies.py`:
+
+| Método | Ruta                                                        | Intel upstream                                                          | Notas |
+|:-------|:------------------------------------------------------------|:------------------------------------------------------------------------|:------|
+| POST   | `/api/companies/{cif}/committee?lens=neutral\|buyer\|investor` | `/api/v1/investment-decision/analyze` (mapa lens→`buyer_profile`)     | Cacheado por `(cif, lens)`. |
+| GET    | `/api/companies/{cif}/committee/export/{decision_id}?format=pdf\|json` | `/api/v1/investment-decision/{id}/export-payload`             | Export del veredicto. |
+| GET    | `/api/companies/{cif}/succession`                           | `signal-intelligence/succession-profile/{cif}`                          | Sub-payload `sell` de Oportunidades. |
+| GET    | `/api/companies/{cif}/rollup`                               | `investment-intelligence/rollup-thesis` + `/fragmentation`              | Sub-payload `buy` de Oportunidades. |
+| GET    | `/api/companies/{cif}/market-reading`                       | `generate_summary market_reading` (cacheado)                            | Extiende payload actual del bloque Mercado. |
+
+**Degradación honesta verificada (smoke dev pod, `B28184687` autenticado)**:
+- committee POST · succession · rollup → **502 estructurado**
+  `{"detail":"http_error","code":"http_502"}` — motores Intel dev inactivos.
+  Frontend renderiza los `<Empty/>` correspondientes (idle state en Comité,
+  "No hemos detectado oportunidades..." en Oportunidades).
+- market-reading → **200** con `reading` real (Intel dev sí lo expone).
+- Sin cookie → 401 en las 5 rutas.
+
+### Prerrequisitos Intel dev para "lentes al completo"
+
+Post-deploy Intel debe activar los motores (aún inactivos en dev pod):
+- `investment-decision/analyze` (Comité 10 especialistas)
+- `investment-decision/{id}/export-payload` (Export veredicto)
+- `signal-intelligence/succession-profile/{cif}` (Sucesión narrativa)
+- `investment-intelligence/rollup-thesis` + `/fragmentation` (Roll-up + fragmentación)
+
+`market-reading` ya está activo. Bundle 28 no bloquea deploy — degrada.
+
+
+## Screenshots R15 · bundle 28
+
+Ubicación: `/app/docs/bundle28_screenshots/`
+
+| Archivo                              | Pestaña       | Estado renderizado |
+|:-------------------------------------|:--------------|:-------------------|
+| `bundle28_market.png`                | Mercado       | Título "Mercado" + área vacía (`ficha.market=null` en aggregator, honesto R15). |
+| `bundle28_opportunities.png`         | Oportunidades | "No hemos detectado oportunidades de operación con los datos disponibles." |
+| `bundle28_committee.png`             | Comité        | Idle: lente `neutral` preseleccionada, 10 celdas de especialistas visibles, botón "Ver deliberación del comité" — sin veredicto (motor Intel inactivo). |
+
+Contexto de las capturas:
+- URL: `https://musing-hellman-9.preview.emergentagent.com/empresa-f01/B28184687`
+  (Laboratorios Servier · Verificada · Auditada · ERNST & YOUNG).
+- Usuario autenticado: `test.arroba+neo@arroba.com` (subscriber, cookie
+  `arroba_session=sess_vQ21L1pmnOf24Z0...`, secure+httpOnly).
+- Estado Intel real por endpoint (verificado curl local):
+  * committee POST → 502 upstream
+  * succession → 502 upstream
+  * rollup → 502 upstream
+  * market-reading → 200 payload real
+  * committee/export → no ejercido (requiere `decision_id` de un `analyze` previo)
+
+
+## Cableado pendiente · HARDENING-038b (post-bundle 28, congelado)
+
+Doc vivo en `/app/docs/HARDENING-038b_opportunity_full_wiring.md`.
+Alcance: fetch `succession_profile` + `rollup_thesis` server-side en el
+data-loader parent (`CompanyFichaF01Client.tsx`) para poblar `sell.*` y
+`buy.*` en `OpportunityThesisView`. Sin motores Intel dev activos hoy no
+aporta señal — se retoma cuando el usuario lo autorice.
 

@@ -31,6 +31,24 @@ import { useCopilot } from '@/components/copilot/CopilotProvider';
 import { buildChipPrompt, hasPromptForChip } from '@/lib/copilot/prompts';
 import { computeDnEbitdaState, type DnEbitdaState } from '@/lib/companies/dn-ebitda';
 
+// HARDENING-037 · Cableado del sectionRegistry (puntos de extensión) para las
+// pestañas Mercado / Oportunidades / Comité (blocks aterrizados en
+// components/blocks/*). Adapters puros mapean payload canónico → shape del
+// bloque. Detalle de decisiones en /app/docs/HARDENING-037_puntos_extension.md.
+import { getSection, type FichaSectionContext } from './sectionRegistry';
+import {
+  marketBlockToContextView,
+  opportunityToThesisView,
+} from './adapters';
+// HARDENING-037 · SingleExerciseChart en Resumen cuando evolution tiene 1 año.
+import {
+  SingleExerciseChart,
+  singleExerciseFromEvolution,
+} from '@/components/blocks/financial/SingleExerciseChart';
+// HARDENING-038 · Proxies JWT para el Committee. Se inyecta como callback en
+// el context del registry; el bloque llama runCommittee(lens) y no conoce apiClient.
+import { apiClient } from '@/lib/api/client';
+
 export interface CompanyFichaLayoutV2Props {
   identity: IdentitySection;
   financial: FinancialSection | null;
@@ -108,9 +126,11 @@ const NAV: NavItem[] = [
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, ready: true, grp: 'Perfil' },
   { id: 'senales', label: 'Cambios relevantes', icon: Activity, ready: true, grp: 'Inteligencia' },
   { id: 'oportunidades', label: 'Oportunidades', icon: Zap, ready: true, grp: 'Inteligencia' },
-  { id: 'comite', label: 'Comité de inversión', icon: Scale, ready: false, grp: 'Inteligencia' },
-  { id: 'sucesion', label: 'Sucesión', icon: Hourglass, ready: false, grp: 'Inteligencia' },
-  { id: 'sector', label: 'Sector & Roll-up', icon: PieChart, ready: false, grp: 'Inteligencia' },
+  // HARDENING-037 · comite pasa a `ready:true` (cableado a InvestmentCommitteeBlock).
+  { id: 'comite', label: 'Comité de inversión', icon: Scale, ready: true, grp: 'Inteligencia' },
+  // HARDENING-037 · `sucesion` y `sector` retiradas del NAV. Absorbidas por
+  // Oportunidades vía OpportunityThesisBlock (`sell` = sucesión, `buy` = roll-up).
+  // El wiring completo (sell.*/buy.* con data real) queda en HARDENING-038b.
   { id: 'eventos', label: 'Eventos y BORME', icon: Bell, ready: true, grp: 'Fuentes' },
   { id: 'registros', label: 'Registros públicos', icon: FileText, ready: false, grp: 'Fuentes' },
   { id: 'documentos', label: 'Documentos', icon: Files, ready: false, grp: 'Fuentes' },
@@ -534,6 +554,19 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
     }));
   }, [evo]);
   const hasChart = evo != null && evoSeries.length > 0;
+  // HARDENING-037 · Cuando evolution tiene un solo ejercicio, `EvolutionChart`
+  // (multi-año) no aporta lectura. Renderizamos `SingleExerciseChart` como
+  // visualización complementaria con los datos del único año disponible.
+  const singleExercise = useMemo(
+    () => (evo && evo.years.length === 1
+      ? singleExerciseFromEvolution({
+          years: evo.years,
+          series: evo.series.map((s) => ({ key: s.label, values: s.values })),
+        })
+      : null),
+    [evo],
+  );
+  const hasSingleExercise = singleExercise != null && singleExercise.year != null;
 
   // HARDENING-022 · T2 · Series históricas para sparklines (2-5 puntos).
   // `finances.evolution.points[]` ordenados año descendente por Intel; los
@@ -766,6 +799,16 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
             <h3><span className="k" />Evolución financiera</h3>
             <div className="cs">Facturación y <span className="help" data-tip="EBITDA" tabIndex={0}>EBITDA</span> · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
             <EvolutionChart series={evoSeries} years={evo!.years.map(String)} />
+          </div>
+        ) : hasSingleExercise ? (
+          // HARDENING-037 · single exercise chart cuando no hay serie temporal
+          // (sólo 1 año de datos). No fabricamos evolución sintética (R15).
+          <div className="card" data-testid="resumen-single-exercise-chart">
+            <SingleExerciseChart
+              year={singleExercise!.year}
+              revenue={singleExercise!.revenue}
+              ebitda={singleExercise!.ebitda}
+            />
           </div>
         ) : <Pending label="Evolución financiera" />}
       </div>
@@ -2942,6 +2985,10 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
   const [collapsed, setCollapsed] = useState(false);
 
   const name = identity.legal_name ?? identity.cif_normalized ?? 'Empresa';
+  // HARDENING-037 · `cif` en scope del componente principal para poder pasarlo
+  // al context del sectionRegistry (Committee proxy). Prefiere `cif_normalized`
+  // (canónico) y cae a `cif` bruto si el normalizado no está.
+  const cif = identity.cif_normalized ?? (identity as { cif?: string | null }).cif ?? '';
   const cls = identity.classification;
   const grps = ['Perfil', 'Inteligencia', 'Fuentes'];
 
@@ -3171,6 +3218,45 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
           </aside>
 
           <main className="main">
+            {/* HARDENING-037 · Puntos de extensión (`sectionRegistry`).
+                Se resuelve ANTES del switch inline; si la sección `active` está
+                en el registry, renderiza el bloque nuevo directamente. Ver
+                /app/docs/HARDENING-037_puntos_extension.md.
+                Cubre: mercado, oportunidades, comite (con sucesion + sector
+                absorbidos por oportunidades vía OpportunityThesisBlock).
+                Gate DPD: en anonimo mostramos `<Gate>` como el resto de secciones. */}
+            {(() => {
+              const entry = getSection(active);
+              if (!entry?.render) return null;
+              const ctx: FichaSectionContext = {
+                cif,
+                anon,
+                market: marketBlockToContextView(props.market),
+                opportunity: opportunityToThesisView(props.opportunities as never),
+                runCommittee: (lens) =>
+                  apiClient.companies.committee(
+                    cif,
+                    lens as 'neutral' | 'buyer' | 'investor',
+                  ) as Promise<never>,
+                committeeDefaultLens: 'neutral',
+              };
+              const label =
+                NAV.find((n) => n.id === active)?.label ?? active;
+              const gateWhat =
+                active === 'mercado'
+                  ? 'el análisis de mercado'
+                  : active === 'oportunidades'
+                    ? 'las oportunidades'
+                    : active === 'comite'
+                      ? 'el comité de inversión'
+                      : `la sección ${label}`;
+              return (
+                <section className="panel on" data-testid={`section-${active}`}>
+                  <div className="sec-h">{label}</div>
+                  {anon ? <Gate what={gateWhat} /> : entry.render(ctx)}
+                </section>
+              );
+            })()}
             {active === 'resumen' && <Resumen {...props} identity={identity} anon={anon} />}
             {active === 'finanzas' && (anon
               ? <section className="panel on"><div className="sec-h">Finanzas</div><Gate what="las finanzas" /></section>
@@ -3184,9 +3270,10 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             {active === 'senales' && (anon
               ? <section className="panel on"><div className="sec-h">Señales</div><Gate what="las señales" /></section>
               : <IntelligenceSectionErrorBoundary label="Señales" sectionTestid="senales-error-boundary"><Senales signal={props.signal} /></IntelligenceSectionErrorBoundary>)}
-            {active === 'oportunidades' && (anon
-              ? <section className="panel on"><div className="sec-h">Oportunidades</div><Gate what="las oportunidades" /></section>
-              : <IntelligenceSectionErrorBoundary label="Oportunidades" sectionTestid="oportunidades-error-boundary"><Oportunidades opportunities={props.opportunities} /></IntelligenceSectionErrorBoundary>)}
+            {/* HARDENING-037 · Ramas `oportunidades` y `mercado` retiradas del
+                switch inline (ahora las sirve `getSection(active)` arriba). Se
+                mantiene la lógica de Oportunidades legacy accesible vía Mercado
+                si el nuevo bloque devuelve empty (fallback interno del bloque). */}
             {active === 'gobierno' && <Gobierno governance={props.governance} />}
             {active === 'propiedad' && (
               <ControlGraphErrorBoundary>
@@ -3197,8 +3284,11 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
             {active === 'rankings' && (anon
               ? <section className="panel on" data-testid="rankings-gated"><div className="sec-h">Posicionamiento sectorial y competitivo</div><Gate what="tu posición en el sector, la posición local y la lectura CF" /></section>
               : <Rankings analysis={props.financialAnalysis} />)}
-            {active === 'mercado' && <Mercado market={props.market} anon={anon} />}
-            {['comite', 'sucesion', 'sector', 'registros', 'documentos'].includes(active) && (
+            {/* HARDENING-037 · `comite`, `sucesion` y `sector` retiradas del
+                array Pending. `comite` ahora vive en el registry; `sucesion` y
+                `sector` fueron absorbidas por Oportunidades. Solo quedan aquí
+                `registros` y `documentos` (aún sin motor Intel). */}
+            {['registros', 'documentos'].includes(active) && (
               <section className="panel on">
                 <div className="sec-h">{NAV.find((n) => n.id === active)?.label}</div>
                 <Pending label={NAV.find((n) => n.id === active)?.label ?? active} />

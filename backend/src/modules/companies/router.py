@@ -16,7 +16,7 @@ sourced data so the frontend can banner the boundary state.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Path, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Response
 from fastapi.responses import RedirectResponse
 
 from src.core.exceptions import BadRequestError
@@ -37,6 +37,7 @@ from src.modules.companies.models import (
     ShareToggleResponse,
     WatchlistToggleResponse,
 )
+from src.modules.copilot import intel_ficha_proxies
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -191,6 +192,92 @@ async def post_share(
         user_id=user.user_id, org_id=x_active_org, cif=cif
     )
     return ShareToggleResponse(visibility=visibility)
+
+
+# ---------------------------------------------------------------------------
+# HARDENING-038 · Proxies JWT hacia Intel para la ficha extendida.
+# 5 rutas: comité (analyze + export), sucesión, roll-up, market-reading.
+# La service-key S2S NO viaja al navegador — todo pasa por estos proxies con
+# `get_current_user`. Errores upstream → 502 neutro (nunca filtrar detalle
+# de Intel al cliente). Log completo se guarda en el helper `intel_ficha_proxies`.
+# ---------------------------------------------------------------------------
+
+_ALLOWED_LENSES: frozenset[str] = frozenset({"neutral", "buyer", "investor"})
+_DECISION_ID_RE = __import__("re").compile(r"^[A-Za-z0-9._-]{4,128}$")
+
+
+def _upstream_502(section: str) -> HTTPException:
+    """Respuesta neutra al cliente en fallo upstream (R15 · empty honesto)."""
+    return HTTPException(
+        status_code=502,
+        detail={"error": "upstream_unavailable", "section": section},
+    )
+
+
+@router.post("/{cif}/committee")
+async def post_committee(
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
+    lens: str = "neutral",
+) -> dict:
+    if lens not in _ALLOWED_LENSES:
+        raise BadRequestError(
+            f"invalid_lens: {lens} not in {sorted(_ALLOWED_LENSES)}",
+            code="invalid_lens",
+        )
+    res = await intel_ficha_proxies.committee_analyze(cif, lens)
+    if res is None:
+        raise _upstream_502("committee")
+    return res
+
+
+@router.get("/{cif}/committee/export/{decision_id}")
+async def get_committee_export(
+    cif: str = Depends(_cif_param),  # noqa: ARG001 — validation only
+    decision_id: str = Path(..., min_length=4, max_length=128),
+    user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
+    fmt: str = "pdf",
+) -> dict:
+    if not _DECISION_ID_RE.match(decision_id):
+        raise BadRequestError("invalid_decision_id", code="invalid_decision_id")
+    res = await intel_ficha_proxies.committee_export(decision_id, fmt)
+    if res is None:
+        raise _upstream_502("committee_export")
+    return res
+
+
+@router.get("/{cif}/succession")
+async def get_succession(
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
+) -> dict:
+    res = await intel_ficha_proxies.succession_profile(cif)
+    if res is None:
+        raise _upstream_502("succession")
+    return res
+
+
+@router.get("/{cif}/rollup")
+async def get_rollup(
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
+    cnae: str | None = None,
+) -> dict:
+    res = await intel_ficha_proxies.rollup_thesis(cif, cnae)
+    if res is None:
+        raise _upstream_502("rollup")
+    return res
+
+
+@router.get("/{cif}/market-reading")
+async def get_market_reading(
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
+) -> dict:
+    res = await intel_ficha_proxies.market_reading(cif)
+    if res is None:
+        raise _upstream_502("market_reading")
+    return {"reading": res}
 
 
 __all__ = ["router"]

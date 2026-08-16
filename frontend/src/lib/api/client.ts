@@ -312,6 +312,36 @@ export const apiClient = {
           headers: { 'X-Active-Org': activeOrg },
         },
       ),
+    // ─── HARDENING-038 · Proxies JWT hacia Intel para la ficha extendida ───
+    // La service-key S2S vive solo en el backend; estos métodos son la única
+    // vía por la que el navegador accede a los motores Committee / Succession /
+    // Roll-up / Market-Reading. Los responses son `dict` pass-through de Intel
+    // — se tipan como `unknown` a propósito porque los componentes
+    // (`InvestmentCommitteeBlock`, `OpportunityThesisBlock`) tienen sus propios
+    // tipos internos y adaptan al recibir.
+    committee: (cif: string, lens: 'neutral' | 'buyer' | 'investor' = 'neutral') =>
+      request<unknown>(
+        `/api/companies/${cif.toUpperCase()}/committee?lens=${lens}`,
+        { method: 'POST' },
+      ),
+    committeeExport: (
+      cif: string,
+      decisionId: string,
+      fmt: 'pdf' | 'json' = 'pdf',
+    ) =>
+      request<unknown>(
+        `/api/companies/${cif.toUpperCase()}/committee/export/${encodeURIComponent(decisionId)}?fmt=${fmt}`,
+      ),
+    succession: (cif: string) =>
+      request<unknown>(`/api/companies/${cif.toUpperCase()}/succession`),
+    rollup: (cif: string, cnae?: string) =>
+      request<unknown>(
+        `/api/companies/${cif.toUpperCase()}/rollup${cnae ? `?cnae=${encodeURIComponent(cnae)}` : ''}`,
+      ),
+    marketReading: (cif: string) =>
+      request<{ reading: string | null }>(
+        `/api/companies/${cif.toUpperCase()}/market-reading`,
+      ),
   },
   entities: {
     /**
