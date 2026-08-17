@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sparkles, X } from 'lucide-react';
+import { Sparkles, X, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useAuth } from '@/contexts/auth-context';
 import { nextBestActions } from '@/lib/orchestrator';
@@ -64,6 +64,18 @@ export function CopilotDock() {
   const { isAuthenticated } = useAuth();
   const composerRef = useRef<ComposerHandle | null>(null);
 
+  // HARDENING-030b · barra minimizable. La barra inferior es persistente y puede
+  // tapar contenido (p.ej. la paginación de /resultados); permitimos colapsarla a
+  // un FAB. Estado recordado en localStorage entre navegaciones/recargas.
+  const [minimized, setMinimized] = useState(false);
+  useEffect(() => {
+    try { setMinimized(localStorage.getItem('arroba_dock_min') === '1'); } catch { /* SSR/priv */ }
+  }, []);
+  const setMin = useCallback((v: boolean) => {
+    setMinimized(v);
+    try { localStorage.setItem('arroba_dock_min', v ? '1' : '0'); } catch { /* noop */ }
+  }, []);
+
   const chips = useMemo(
     () => nextBestActions({ pathname, isAuthenticated }),
     [pathname, isAuthenticated]
@@ -107,6 +119,22 @@ export function CopilotDock() {
   // ---- gate visual: sin barra Copilot para usuarios anónimos ----
   if (!isAuthenticated) {
     return null;
+  }
+
+  // ---- minimizado: solo un FAB para restaurar la barra ----
+  if (minimized) {
+    return (
+      <button
+        type="button"
+        onClick={() => setMin(false)}
+        data-testid="copilot-dock-restore"
+        aria-label="Abrir Arroba Copilot"
+        className="fixed bottom-5 right-5 z-[1100] w-12 h-12 rounded-full shadow-xl flex items-center justify-center text-white pointer-events-auto"
+        style={{ background: 'var(--gradient-brand-dark)' }}
+      >
+        <Sparkles size={20} strokeWidth={1.6} />
+      </button>
+    );
   }
 
   // ---- raíz persistente del Composer (contrato con e1_tester) ----
@@ -153,7 +181,16 @@ export function CopilotDock() {
             <ConversationThread />
           </div>
         )}
-        <div data-testid="copilot-dock-bar">
+        <div data-testid="copilot-dock-bar" className="relative">
+          <button
+            type="button"
+            onClick={() => setMin(true)}
+            data-testid="copilot-dock-collapse"
+            aria-label="Minimizar Arroba Copilot"
+            className="absolute -top-3 right-1 z-10 w-7 h-7 rounded-full border border-border bg-surface text-text-muted hover:text-text shadow-sm flex items-center justify-center"
+          >
+            <ChevronDown size={14} strokeWidth={1.8} />
+          </button>
           <Composer ref={composerRef} chips={chips} showChips={showChips} />
         </div>
         <SrAnnouncer loading={loading} workspaceId={workspace?.workspace_id ?? null} />

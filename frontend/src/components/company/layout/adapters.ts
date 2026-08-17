@@ -15,7 +15,10 @@
  */
 import type { MarketBlock } from '@/lib/companies/intelligence-types';
 import type { MarketContextView } from '@/components/blocks/market/MarketReadingBlock';
-import type { OpportunityThesisView } from '@/components/blocks/opportunity/OpportunityThesisBlock';
+import type {
+  OpportunityThesisView,
+  RollupTarget,
+} from '@/components/blocks/opportunity/OpportunityThesisBlock';
 
 /**
  * `MarketBlock` (shape Intel `market` canónico) → `MarketContextView` (shape
@@ -175,8 +178,67 @@ type LayoutOpportunity = {
  * Intel dev activos, seríamos empty state disfrazado con spinner eterno).
  * Ver `/app/docs/HARDENING-038b_opportunity_full_wiring.md`.
  */
+/** Payload crudo de `succession-profile` (proxy Intel). Passthrough tolerante. */
+type SuccessionRaw =
+  | { score?: number | null; summary?: string | null; narrative?: string | null; attractiveness?: string | null }
+  | null
+  | undefined;
+
+/** Payload crudo de `rollup-thesis` (proxy Intel). Passthrough tolerante. */
+type RollupRaw =
+  | { viable?: boolean | null; narrative?: string | null; thesis?: string | null; targets?: Array<{ name?: string | null; fit_score?: number | null }> | null }
+  | null
+  | undefined;
+
+/**
+ * HARDENING-038b · `succession_profile` -> `sell` (sell-side). Solo emite el
+ * bloque si hay al menos un campo con fuente; campos ausentes -> null (R15: no
+ * fabricamos score ni atractivo). Devuelve undefined si no hay nada.
+ */
+function mapSell(raw: unknown): OpportunityThesisView['sell'] {
+  const s = (raw ?? undefined) as SuccessionRaw;
+  if (!s || typeof s !== 'object') return undefined;
+  const successionScore = typeof s.score === 'number' ? s.score : undefined;
+  const note = s.summary ?? s.narrative ?? undefined;
+  const attractiveness = s.attractiveness ?? undefined;
+  if (successionScore === undefined && !note && !attractiveness) return undefined;
+  return {
+    successionScore: successionScore ?? null,
+    note: note ?? null,
+    attractiveness: attractiveness ?? null,
+  };
+}
+
+/**
+ * HARDENING-038b · `rollup_thesis` -> `buy` (buy-side). `viable` se deriva de
+ * `rollup.viable` o, en su defecto, de que existan targets. Los targets solo se
+ * incluyen si traen name Y fit_score numerico (R15: sin fit inventado).
+ */
+function mapBuy(raw: unknown): OpportunityThesisView['buy'] {
+  const r = (raw ?? undefined) as RollupRaw;
+  if (!r || typeof r !== 'object') return undefined;
+  const targets: RollupTarget[] = (Array.isArray(r.targets) ? r.targets : [])
+    .map((t) => {
+      const name = t?.name ?? null;
+      const fit = typeof t?.fit_score === 'number' ? t.fit_score : null;
+      return name && fit != null ? { name, fit } : null;
+    })
+    .filter((x): x is RollupTarget => x !== null);
+  const viable =
+    typeof r.viable === 'boolean' ? r.viable : targets.length > 0 ? true : undefined;
+  const note = r.narrative ?? r.thesis ?? undefined;
+  if (viable === undefined && !note && targets.length === 0) return undefined;
+  return {
+    viable: viable ?? null,
+    note: note ?? null,
+    targets: targets.length > 0 ? targets : undefined,
+  };
+}
+
 export function opportunityToThesisView(
   opportunity: LayoutOpportunity,
+  succession?: unknown,
+  rollup?: unknown,
 ): OpportunityThesisView {
   const thesis = opportunity?.thesis?.narrative ?? undefined;
   const detected =
@@ -191,8 +253,7 @@ export function opportunityToThesisView(
   return {
     thesis,
     detected: detected.length > 0 ? detected : undefined,
-    // HARDENING-038b · sin fuente hoy → undefined explícito.
-    sell: undefined,
-    buy: undefined,
+    sell: mapSell(succession),
+    buy: mapBuy(rollup),
   };
 }

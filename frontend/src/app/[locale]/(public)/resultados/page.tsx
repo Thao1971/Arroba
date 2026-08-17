@@ -9,7 +9,7 @@
  * SearchHit trae `summary`). Mientras Intel no lo devuelva, muestran «—» sin
  * romper. Si la consulta resuelve a una sola empresa, redirige a su ficha.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
@@ -105,18 +105,18 @@ export default function ResultadosPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sector, setSector] = useState<string | null>(null);
+  const [sector, setSector] = useState<string | null>(params.get('sector') || null);
   // HARDENING-032 · Filtro por signal_badge client-side. Toggles independientes
   // combinables (AND). Intel emite hoy los badges en snake_case ES
   // (`alto_crecimiento`, `riesgo`, `estable`, `comprando`, `buscando_financiacion`).
   // Comparamos con tokens defensivos (ES + EN) por si Intel migra el vocabulario
   // en el futuro sin regresión visual. Sin persistencia (URL/localStorage) —
   // HARDENING-031 aborda persistencia por separado.
-  const [onlyGrowth, setOnlyGrowth] = useState(false);
-  const [excludeRisk, setExcludeRisk] = useState(false);
+  const [onlyGrowth, setOnlyGrowth] = useState(params.get('growth') === '1');
+  const [excludeRisk, setExcludeRisk] = useState(params.get('norisk') === '1');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(Number(params.get('page') || '0') || 0);
 
   const fetchResults = useCallback(
     async (query: string, pageIdx: number) => {
@@ -168,19 +168,47 @@ export default function ResultadosPage() {
     [router],
   );
 
-  // Nueva búsqueda (cambia q): resetea filtros/selección y pide la página 0.
+  // HARDENING-031 · en el PRIMER montaje respetamos sector/growth/norisk/page de
+  // la URL (hidratados en los useState de arriba); cuando el usuario lanza una
+  // NUEVA búsqueda (cambia q) reseteamos filtros y volvemos a la página 0.
+  const prevQ = useRef<string | null>(null);
+  const initialPageRef = useRef(Number(params.get('page') || '0') || 0);
   useEffect(() => {
     setInput(q);
+    const isFirst = prevQ.current === null;
+    prevQ.current = q;
+    if (isFirst) {
+      if (q) void fetchResults(q, initialPageRef.current);
+      else {
+        setRows([]);
+        setTotal(0);
+      }
+      return;
+    }
     setSector(null);
     setOnlyGrowth(false);
     setExcludeRisk(false);
     setSelected(new Set());
+    setPage(0);
     if (q) void fetchResults(q, 0);
     else {
       setRows([]);
       setTotal(0);
     }
   }, [q, fetchResults]);
+
+  // HARDENING-031 · refleja sector/growth/norisk/page en la URL (replace, sin
+  // scroll) para que recargar o compartir el enlace conserve el estado.
+  useEffect(() => {
+    if (!q) return;
+    const sp = new URLSearchParams();
+    sp.set('q', q);
+    if (sector) sp.set('sector', sector);
+    if (onlyGrowth) sp.set('growth', '1');
+    if (excludeRisk) sp.set('norisk', '1');
+    if (page > 0) sp.set('page', String(page));
+    router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
+  }, [q, sector, onlyGrowth, excludeRisk, page, pathname, router]);
 
   function goToPage(next: number) {
     const clamped = Math.max(0, Math.min(next, pages - 1));

@@ -33,9 +33,9 @@ export function BrandPanel() {
         ✦
       </span>
 
-      <div className="relative font-display font-semibold text-lg flex items-center gap-2">
-        <span className="text-primary">@</span>
-        <span>arroba.com</span>
+      <div className="relative flex items-center">
+        {/* HARDENING-030 · logo ARROBA variante blanca (fondo oscuro). */}
+        <img src="/brand/logo-white.png" alt="arroba" className="h-9 w-auto" />
       </div>
 
       <div className="relative max-w-md">

@@ -60,9 +60,10 @@ export function AuthHeader() {
           href="/organizaciones"
           className="font-display font-semibold text-lg flex items-center gap-2 shrink-0"
           data-testid="auth-header-logo"
+          aria-label="arroba"
         >
-          <span className="text-primary">@</span>
-          <span>arroba.com</span>
+          {/* HARDENING-030 · logo real ARROBA (asset /brand/logo.png). */}
+          <img src="/brand/logo.png" alt="arroba" className="h-7 w-auto" />
         </Link>
         <nav className="hidden md:flex items-center gap-1" data-testid="auth-header-nav">
           {NAV_ITEMS.map((item) => {

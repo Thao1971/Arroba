@@ -32,6 +32,7 @@ import { TipProvider } from '@/components/company/atoms/Tip';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
 
 import { CompanyFichaLayoutV2 } from './layout/CompanyFichaLayoutV2';
+import { apiClient } from '@/lib/api/client';
 
 const FETCH_CONFIG = {
   revalidateOnFocus: false,
@@ -244,6 +245,30 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
     FETCH_CONFIG,
   );
 
+  // ─── HARDENING-038b · lectura de mercado en prosa + sucesión + roll-up ───
+  // Vía proxies JWT (apiClient.companies.*). Auth-gated. Fetch tolerante
+  // (catch→null): un 502 upstream degrada a narrative-only (MVP), nunca spinner
+  // eterno (R15). Alimentan `marketReading`/`succession`/`rollup` del layout.
+  const { data: marketReading } = useSWR<string | null>(
+    isAuthenticated ? ['ficha-market-reading', cifUpper] : null,
+    () =>
+      apiClient.companies
+        .marketReading(cifUpper)
+        .then((r) => r.reading ?? null)
+        .catch(() => null),
+    FETCH_CONFIG,
+  );
+  const { data: succession } = useSWR<unknown>(
+    isAuthenticated ? ['ficha-succession', cifUpper] : null,
+    () => apiClient.companies.succession(cifUpper).catch(() => null),
+    FETCH_CONFIG,
+  );
+  const { data: rollup } = useSWR<unknown>(
+    isAuthenticated ? ['ficha-rollup', cifUpper] : null,
+    () => apiClient.companies.rollup(cifUpper).catch(() => null),
+    FETCH_CONFIG,
+  );
+
   if (fichaLoading) {
     return (
       <div
@@ -301,6 +326,9 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
         events={ficha?.events ?? null}
         market={ficha?.market ?? null}
         opportunity={ficha?.opportunity ?? null}
+        marketReading={marketReading ?? null}
+        succession={succession ?? null}
+        rollup={rollup ?? null}
         authenticated={isAuthenticated}
       />
     </TipProvider>

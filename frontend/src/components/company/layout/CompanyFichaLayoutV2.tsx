@@ -105,6 +105,18 @@ export interface CompanyFichaLayoutV2Props {
    * Sub-paneles independientes: sector/geo/concentration públicos · position gated.
    */
   market?: MarketBlock | null;
+  /**
+   * HARDENING-038b · Payloads crudos de los proxies Intel para poblar sell
+   * (sucesión) y buy (roll-up) del bloque Oportunidades. Passthrough; el adapter
+   * `opportunityToThesisView` mapea. `null` → sell/buy undefined (R15).
+   */
+  succession?: unknown;
+  rollup?: unknown;
+  /**
+   * HARDENING-038b · Lectura de mercado en prosa (proxy market-reading). Se
+   * inyecta al adapter `marketBlockToContextView` como `reading`.
+   */
+  marketReading?: string | null;
   /** false = visitante anónimo (mixed-access): cifras bajo CTA de registro. */
   authenticated?: boolean;
 }
@@ -3231,8 +3243,12 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
               const ctx: FichaSectionContext = {
                 cif,
                 anon,
-                market: marketBlockToContextView(props.market),
-                opportunity: opportunityToThesisView(props.opportunities as never),
+                market: marketBlockToContextView(props.market, props.marketReading),
+                opportunity: opportunityToThesisView(
+                  props.opportunity ?? null,
+                  props.succession,
+                  props.rollup,
+                ),
                 runCommittee: (lens) =>
                   apiClient.companies.committee(
                     cif,

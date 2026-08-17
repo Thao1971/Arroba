@@ -55,9 +55,8 @@ export function PublicFooter() {
           ))}
         </ul>
         <div className="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-text-subtle">
-          <span className="font-display font-semibold text-text">
-            <span className="text-primary">@</span> arroba.com
-          </span>
+          {/* HARDENING-030 · logo real ARROBA. */}
+          <img src="/brand/logo.png" alt="arroba" className="h-6 w-auto" />
           <div className="flex gap-5">
             <Link href="/login" className="hover:text-text">Acceder</Link>
             <Link href="/registro" className="hover:text-text">Crear cuenta</Link>
