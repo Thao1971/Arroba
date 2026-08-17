@@ -1,6 +1,29 @@
 # DEPLOY_NOTES · bundle 2026-08-13
 
-> ## 🔴 Push coordinado con Intel (HARDENING-REQ001b + REQ002 + REQ003 + REQ004 + REQ004b)
+> ## 🟢 DEPLOY BUNDLE 28 · Prod OK (2026-08-17 10:32 UTC)
+>
+> Deploy ejecutado por el usuario desde panel Emergent. `post_deploy.sh` ejecutado post-deploy:
+> - (0) `yarn build` + `supervisor restart frontend` local (dev pod). OK.
+> - (a) Purga `intelligence_cache engine=ficha`. HTTP 200 `{ok:true, deleted:0}`.
+> - (b) 5/5 smoke checks prod OK:
+>   * backend health `/api/health` → 200
+>   * ficha anon `/api/companies/B28184687/ficha` → 200 (DPD OK, `finances=null`)
+>   * `identity.legal_name` → "LABORATORIOS SERVIER" presente en anon
+>   * OpenAPI expone `/api/admin/cache/purge`
+>   * frontend `/es/empresa-f01/B28184687` → 307 → 200 (locale prefix "never", el script no seguía redirects; verificado manualmente que la URL final devuelve 200)
+> - (6) `/api/platform/stats` retry OK en intento 1.
+>
+> **Verificación manual post-deploy prod**:
+> - Home `https://beta.arroba.com/` → **200 text/html** ✅
+> - Ficha `https://beta.arroba.com/empresa-f01/B28184687` → **200** ✅
+> - `/brand/logo.png` → **200 image/png** (HARDENING-030) ✅
+> - `/brand/logo-white.png` → **200 image/png** (HARDENING-030) ✅
+> - `/api/companies/B28184687/rollup` sin cookie → **401 application/json** (HARDENING-038 contrato JWT-gated correcto, no 404) ✅
+> - `/api/companies/B28184687/market-reading` sin cookie → **401 application/json** ✅
+>
+> **Bundle 28 vivo en producción. Job done.**
+
+## 🔴 Push coordinado con Intel (HARDENING-REQ001b + REQ002 + REQ003 + REQ004 + REQ004b)
 >
 > El push que incluya **HARDENING-REQ001b** (búsqueda semántica NL),
 > **HARDENING-REQ002** (página `/resultados`), **HARDENING-REQ003** (4
