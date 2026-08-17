@@ -230,3 +230,48 @@ export function singleExerciseFromEvolution(
     evolution.series.find((s) => s.key === key)?.values?.[0] ?? null;
   return { year, revenue: pick('revenue'), ebitda: pick('ebitda') };
 }
+
+/**
+ * HARDENING-030c · Cascada de fuentes para el gráfico de UN ejercicio.
+ *
+ * Prioridad:
+ *  1) `legacy` — resultado de `singleExerciseFromEvolution(financial.evolution)`
+ *     (fuente histórica, contrato preservado).
+ *  2) Único punto del agregador `financialAnalysis.evolution.points[]` (misma
+ *     fuente que KPIs/sparklines). Solo se usa cuando (1) devuelve `null`.
+ *
+ * Si ni la fuente legacy trae 1 año ni el agregador tiene exactamente 1 punto,
+ * devuelve `null` (el layout renderiza `<Pending/>`). R15 estricto: nunca se
+ * sintetiza ni combina; se lee de la primera fuente que ofrece dato.
+ */
+export function resolveSingleExerciseCascade(
+  legacy: { year: number; revenue: number | null; ebitda: number | null } | null,
+  evoPoints: ReadonlyArray<Record<string, unknown>> | null | undefined,
+): {
+  year: number;
+  revenue: number | null;
+  ebitda: number | null;
+  ebitdaMargin: number | null;
+} | null {
+  if (legacy && legacy.year != null) {
+    return {
+      year: legacy.year,
+      revenue: legacy.revenue,
+      ebitda: legacy.ebitda,
+      ebitdaMargin: null,
+    };
+  }
+  const pts = evoPoints ?? [];
+  if (pts.length !== 1) return null;
+  const pt = pts[0];
+  if (!pt) return null;
+  const year = Number(pt['year']);
+  if (!year) return null;
+  const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
+  return {
+    year,
+    revenue: num(pt['revenue']),
+    ebitda: num(pt['ebitda']),
+    ebitdaMargin: num(pt['ebitda_margin']),
+  };
+}

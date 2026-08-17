@@ -44,6 +44,7 @@ import {
 import {
   SingleExerciseChart,
   singleExerciseFromEvolution,
+  resolveSingleExerciseCascade,
 } from '@/components/blocks/financial/SingleExerciseChart';
 // HARDENING-038 · Proxies JWT para el Committee. Se inyecta como callback en
 // el context del registry; el bloque llama runCommittee(lens) y no conoce apiClient.
@@ -578,7 +579,6 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
       : null),
     [evo],
   );
-  const hasSingleExercise = singleExercise != null && singleExercise.year != null;
 
   // HARDENING-022 · T2 · Series históricas para sparklines (2-5 puntos).
   // `finances.evolution.points[]` ordenados año descendente por Intel; los
@@ -596,6 +596,17 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   const dnEbitdaPoints: Array<number | null | undefined> = [];
   // Activos totales: no en `points[]` · Intel no emite serie. Sparkline ausente.
   const totalAssetsPoints: Array<number | null | undefined> = [];
+
+  // HARDENING-030c · Gráfico de UN ejercicio con fuente en cascada: (1) el
+  // `financialSection` legacy si trae exactamente 1 año; (2) en su defecto, el
+  // ÚNICO punto del agregador `finances.evolution.points[]` (misma fuente que
+  // KPIs/sparklines). Cubre empresas cuyo único año solo vive en el agregador
+  // (antes caían a «Información en preparación»). Sin síntesis (R15).
+  const single = useMemo(
+    () => resolveSingleExerciseCascade(singleExercise, evoPoints),
+    [singleExercise, evoPoints],
+  );
+  const showSingleExercise = single != null && single.year != null;
 
   // HARDENING-022 · T3 · Descripción prosa + flag de origen (cascada canon CF).
   const descriptionText =
@@ -812,14 +823,16 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
             <div className="cs">Facturación y <span className="help" data-tip="EBITDA" tabIndex={0}>EBITDA</span> · {evo!.years[0]}–{evo!.years[evo!.years.length - 1]}</div>
             <EvolutionChart series={evoSeries} years={evo!.years.map(String)} />
           </div>
-        ) : hasSingleExercise ? (
-          // HARDENING-037 · single exercise chart cuando no hay serie temporal
-          // (sólo 1 año de datos). No fabricamos evolución sintética (R15).
+        ) : showSingleExercise ? (
+          // HARDENING-037/030c · single exercise chart cuando no hay serie temporal
+          // (sólo 1 año). Fuente en cascada: financialSection legacy o el único
+          // punto del agregador. No fabricamos evolución sintética (R15).
           <div className="card" data-testid="resumen-single-exercise-chart">
             <SingleExerciseChart
-              year={singleExercise!.year}
-              revenue={singleExercise!.revenue}
-              ebitda={singleExercise!.ebitda}
+              year={single!.year}
+              revenue={single!.revenue}
+              ebitda={single!.ebitda}
+              ebitdaMargin={single!.ebitdaMargin}
             />
           </div>
         ) : <Pending label="Evolución financiera" />}
