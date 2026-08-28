@@ -8,6 +8,7 @@ import { isLocale, locales } from '@/i18n/config';
 import { PRE_PAINT_THEME_SCRIPT } from '@/lib/theme';
 import { tokens } from '@/lib/tokens';
 import { AuthProvider } from '@/contexts/auth-context';
+import { ActiveOrgProvider } from '@/lib/workspaces/useActiveOrg';
 import { CopilotProvider, CopilotDock } from '@/components/copilot';
 import '../globals.css';
 
@@ -67,10 +68,12 @@ export default async function LocaleLayout({
       <body>
         <NextIntlClientProvider messages={messages} locale={locale}>
           <AuthProvider>
-            <CopilotProvider>
-              {children}
-              <CopilotDock />
-            </CopilotProvider>
+            <ActiveOrgProvider>
+              <CopilotProvider>
+                {children}
+                <CopilotDock />
+              </CopilotProvider>
+            </ActiveOrgProvider>
           </AuthProvider>
         </NextIntlClientProvider>
       </body>

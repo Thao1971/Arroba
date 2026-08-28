@@ -180,6 +180,20 @@ export interface DisambiguationItem {
   region: string | null;
 }
 
+/**
+ * HARDENING 2026-08-24 · "Sectores relacionados" (chips). Mismo shape que
+ * `EntityLookupResult` en `@/lib/api/client` — redefinido aquí (no
+ * importado) para no crear un ciclo: `client.ts` ya importa tipos DESDE
+ * este archivo.
+ */
+export interface RelatedEntity {
+  type: 'sector' | 'territory' | 'investor' | 'company' | string;
+  id: string;
+  display_name: string;
+  secondary_label: string | null;
+  icon: string;
+}
+
 export interface SearchSkillResponse {
   /** Filled with a `SearchResultsBlock` or `EmptyStateBlock` workspace
    *  on the legacy/exploratory path. Null when the response is an
@@ -194,6 +208,11 @@ export interface SearchSkillResponse {
   /** E1.5-REWORK: when present (length 1-5), render a compact disambiguation
    *  dropdown inside the dock. */
   disambiguation?: DisambiguationItem[] | null;
+  /** HARDENING 2026-08-24 · sector/territory/investor que coinciden con la
+   *  misma query — para las chips de "Sectores relacionados" sobre la tabla
+   *  de `/resultados` y en el Composer. Null cuando no hay coincidencias, o
+   *  cuando la respuesta es un navigate_to/disambiguation directo. */
+  related_entities?: RelatedEntity[] | null;
 }
 
 export interface AnalyzeSkillRequest {

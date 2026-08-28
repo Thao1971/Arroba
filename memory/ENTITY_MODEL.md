@@ -122,6 +122,7 @@ versiones futuras pueden añadir tipos sin modificar este principio.
 | `territory` | Territorio | Región geográfica (país, comunidad, provincia, ciudad) | `/territorio/{slug}` | 🔵 E1.7 |
 | `person` | Persona | Individuo identificado (fundador, advisor, etc.) | `/persona/{slug}` | 🔵 backlog |
 | `advisor` | Advisor | Profesional acreditado en arroba (asesor M&A, valuator) | `/advisor/{slug}` | 🔵 backlog |
+| `investor` | Inversor | Entidad inversora institucional (gestora de fondos: SGEIC/SGIIC/ESI/EAF, registro CNMV) | `/inversor/{slug}` | ✅ conectado y funcionando (ver nota) |
 | `mandate` | Mandato | Encargo formal de un cliente a un advisor (buy-side / sell-side) | `/mandato/{id}` | 🔵 backlog |
 | `match` | Match | Acuerdo bilateral Buyer↔Seller que abre la Operación | `/match/{id}` (vista histórica) | 🔵 E2.0 |
 | `operation` | Operación | Proceso M&A en ejecución (Transaction OS, multi-fase) | `/operacion/{id}` | 🔵 E2.0 |
@@ -130,6 +131,10 @@ versiones futuras pueden añadir tipos sin modificar este principio.
 | `opportunity` | Oportunidad | Tesis de inversión / desinversión, con candidatos | `/oportunidad/{id}` | 🔵 E1.9 |
 | `user` | Usuario | Persona física que ejecuta acciones (search, watchlist) | (sin ficha pública) | ✅ implementado como `users` |
 | `organization` | Organización | Cuenta multi-usuario (workspace owner) | `/org/{slug}` | ✅ implementado |
+
+**`investor` añadido 2026-08-24** (decisión Daniel, tras evaluar sector/territory para el buscador). A diferencia de `sector`/`territory`, Intel sí tiene un endpoint de búsqueda real por texto: `GET /api/v1/cnmv/entities?search=` (registro CNMV). No mapea a `person` (esa fila es "individuo identificado", no una entidad institucional) ni a `advisor` (asesor acreditado en arroba, no gestora externa).
+
+**Bloqueo de auth inicial, resuelto el mismo día:** ese endpoint de Intel exige `get_current_user` (JWT o Bearer API-key de `db.api_keys` de Intel) — un esquema distinto al `X-API-Key`/`require_service_key` que usa `AgencyToolClient` (el que sí abre `company-taxonomy/search`). La primera versión de `_resolve_investor` usaba `AgencyToolClient` por error y devolvía 403 siempre. **No hizo falta pedir una clave nueva a Intel**: la Bearer API-key que Beta ya tenía provisionada para el módulo `mandates` (`INTEL_MANDATES_BEARER_TOKEN`, ver `mandates/config.py`) resultó ser válida también para `cnmv/entities` — Intel no restringe la key por el nombre/scope con el que se creó, solo por la cuenta a la que está asociada. Verificado con una llamada real (`curl -H "Authorization: Bearer $INTEL_MANDATES_BEARER_TOKEN" .../api/v1/cnmv/entities?search=capital` → 200, datos reales). `_resolve_investor` ahora reutiliza `mandates.client.get_mandates_client()` en vez de `AgencyToolClient` — funciona en producción sin coordinación adicional con Intel.
 
 **Match pasa a ser una entidad canónica de primer nivel** (decisión Sprint 0.5 Ciclo B). Encapsula el acuerdo bilateral Buyer↔Seller con estados `SOLICITADO → ACEPTADO | RECHAZADO | EXPIRADO`. La transición `ACEPTADO` genera la `operation` correspondiente. Modelo completo en `TRANSACTION_OS_SPEC §4` y ficha en `ENTITY_FRAMEWORK §11.13`.
 

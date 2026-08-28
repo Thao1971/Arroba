@@ -5,12 +5,32 @@
  * other components via a CustomEvent so they can refilter without prop
  * drilling.
  *
+ * PERF · dedup auth/org fan-out (2026-08-24): this used to be a plain hook
+ * that each caller invoked independently, each opening its own
+ * `useSWR('/api/organizations/mine', …)` subscription. SWR dedupes
+ * identical requests fired within `dedupingInterval` (2s default), but the
+ * ~6 call sites (CopilotProvider, RecentWorkspacesPanel, CompanyHeader,
+ * OrgSwitcher, several pages) don't all mount in the same tick — e.g.
+ * `CompanyHeader` only mounts once the ficha aggregate resolves, seconds
+ * later — so each late mount fired a fresh network request outside the
+ * dedup window. Now `ActiveOrgProvider` (mounted once at the root layout)
+ * owns the single SWR fetch, and `useActiveOrg()` just reads the resulting
+ * context — same public API, one request instead of N.
+ *
  * Auto-detection:
  *   - If localStorage value is missing or stale (not in user's memberships),
  *     defaults to memberships[0].org_id.
  *   - If memberships is empty, returns null (caller decides what to do).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import useSWR from 'swr';
 import { apiClient } from '@/lib/api/client';
 import { useAuth } from '@/contexts/auth-context';
@@ -44,12 +64,14 @@ function writeStored(value: string | null): void {
   }
 }
 
-export function useActiveOrg(): ActiveOrgState {
+const ActiveOrgContext = createContext<ActiveOrgState | undefined>(undefined);
+
+export function ActiveOrgProvider({ children }: { children: ReactNode }) {
   const { memberships, isAuthenticated } = useAuth();
   const [activeOrgId, setActiveOrgIdState] = useState<string | null>(null);
 
   // Fetch orgs with legal_name lazily (memberships only has IDs). SWR caches
-  // it for us; revalidates on focus.
+  // it for us; revalidates on focus. Single subscription for the whole app.
   const { data: orgsWithName } = useSWR<OrgWithMembership[]>(
     isAuthenticated && memberships.length > 0 ? '/api/organizations/mine' : null,
     () => apiClient.organizations.mine(),
@@ -96,7 +118,18 @@ export function useActiveOrg(): ActiveOrgState {
     }
   }, []);
 
-  return { activeOrgId, setActiveOrgId, availableOrgs };
+  const value = useMemo<ActiveOrgState>(
+    () => ({ activeOrgId, setActiveOrgId, availableOrgs }),
+    [activeOrgId, setActiveOrgId, availableOrgs],
+  );
+
+  return <ActiveOrgContext.Provider value={value}>{children}</ActiveOrgContext.Provider>;
+}
+
+export function useActiveOrg(): ActiveOrgState {
+  const ctx = useContext(ActiveOrgContext);
+  if (!ctx) throw new Error('useActiveOrg must be used within <ActiveOrgProvider>');
+  return ctx;
 }
 
 export const ACTIVE_ORG_EVENT = EVENT_NAME;

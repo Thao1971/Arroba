@@ -10,11 +10,12 @@ import { routeIntent } from './route-intent';
 import type {
   BlockSpec,
   Intent,
+  RelatedEntity,
   SkillContext,
   Workspace,
 } from './types';
 
-export type { BlockSpec, Workspace, SkillContext, Intent };
+export type { BlockSpec, Workspace, SkillContext, Intent, RelatedEntity };
 export { routeIntent };
 export { nextBestActions } from './next-best-actions';
 export type { SuggestionChip } from './next-best-actions';
@@ -80,6 +81,9 @@ export interface OrchestratorResult {
   /** E1.5-REWORK: disambiguation candidates when the search resolves to
    *  2-5 known entities (the dock should render a compact dropdown). */
   disambiguation?: import('./types').DisambiguationItem[] | null;
+  /** HARDENING 2026-08-24 · sector/territory/investor relacionados con la
+   *  misma query — chips en /resultados y en el Composer. */
+  related_entities?: RelatedEntity[] | null;
 }
 
 export async function dispatch(
@@ -147,6 +151,11 @@ export async function dispatch(
       return {
         intent,
         workspace: ws,
+        // HARDENING 2026-08-24 · caso "sin empresas pero sí sector/territorio/
+        // inversor relacionado" (empty_state con chips) se queda en el dock —
+        // el caso con resultados de empresas ya se fue a /resultados arriba,
+        // que trae sus propias chips de su propia llamada.
+        related_entities: res.related_entities,
         assistantMessage: ws ? assistantSummaryFor('search', ws) : 'Sin resultados.',
       };
     }

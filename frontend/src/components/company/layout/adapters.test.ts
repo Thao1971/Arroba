@@ -6,7 +6,7 @@ const opp = {
   chips: [{ enum: 'succession_risk', label_es: 'Riesgo de sucesión' }],
 };
 
-describe('opportunityToThesisView · HARDENING-038b', () => {
+describe('opportunityToThesisView · HARDENING-038b (shapes reales Intel)', () => {
   it('solo opportunity → thesis + detected, sell/buy undefined', () => {
     const v = opportunityToThesisView(opp);
     expect(v.thesis).toBe('Tesis de operación X.');
@@ -15,39 +15,46 @@ describe('opportunityToThesisView · HARDENING-038b', () => {
     expect(v.buy).toBeUndefined();
   });
 
-  it('+succession → sell poblado desde score/summary/attractiveness', () => {
+  it('+succession (shape real: {profile:{succession_risk_score, reasons}}) → sell', () => {
     const v = opportunityToThesisView(opp, {
-      score: 72,
-      summary: 'Fundador >65, sin plan de relevo.',
-      attractiveness: 'Alta',
+      master_id: 'mc_x',
+      profile: {
+        succession_risk_score: 72,
+        reasons: ['administrador con 20 años de antigüedad', 'administrador único'],
+      },
     });
     expect(v.sell?.successionScore).toBe(72);
-    expect(v.sell?.note).toContain('relevo');
-    expect(v.sell?.attractiveness).toBe('Alta');
+    expect(v.sell?.note).toContain('antigüedad');
   });
 
-  it('+rollup → buy.viable + targets solo con fit numérico', () => {
+  it('+rollup (shape real: rollup_viable + addon_targets_ranked[addon_score]) → buy', () => {
     const v = opportunityToThesisView(opp, null, {
-      narrative: 'Sector fragmentado, plataforma viable.',
-      targets: [
-        { name: 'Target A', fit_score: 0.88 },
-        { name: 'Sin fit' }, // se descarta (sin fit_score) — R15
+      rollup_viable: true,
+      viability_reasons: ['HHI=1200 (fragmentado)', '8 targets standalone'],
+      addon_targets_ranked: [
+        { name: 'Target A', addon_score: 0.88 },
+        { addon_score: 0.5 }, // sin name → descartado (R15)
       ],
     });
     expect(v.buy?.viable).toBe(true);
+    expect(v.buy?.note).toContain('HHI');
     expect(v.buy?.targets?.length).toBe(1);
     expect(v.buy?.targets?.[0]).toEqual({ name: 'Target A', fit: 0.88 });
+  });
+
+  it('rollup no viable explícito → buy.viable false', () => {
+    const v = opportunityToThesisView(opp, null, {
+      rollup_viable: false,
+      viability_reasons: ['HHI alto: sector ya consolidado'],
+      addon_targets_ranked: [],
+    });
+    expect(v.buy?.viable).toBe(false);
   });
 
   it('degradación honesta: succession/rollup null → sell/buy undefined', () => {
     const v = opportunityToThesisView(opp, null, null);
     expect(v.sell).toBeUndefined();
     expect(v.buy).toBeUndefined();
-  });
-
-  it('rollup.viable explícito respeta el valor del motor', () => {
-    const v = opportunityToThesisView(opp, null, { viable: false, targets: [] });
-    expect(v.buy?.viable).toBe(false);
   });
 });
 
@@ -56,7 +63,7 @@ describe('marketBlockToContextView · reading merge', () => {
     const v = marketBlockToContextView(null, 'Mercado en expansión moderada.');
     expect(v.reading).toBe('Mercado en expansión moderada.');
   });
-  it('sin reading → undefined (R15, no fabricamos)', () => {
+  it('sin reading → undefined (R15)', () => {
     const v = marketBlockToContextView(null);
     expect(v.reading).toBeUndefined();
   });

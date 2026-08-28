@@ -22,6 +22,7 @@ from src.modules.agency_tool_adapter.router import (
 )
 from src.modules.copilot.router import public_router as copilot_router
 from src.modules.companies.router import router as companies_router
+from src.modules.companies.lists_router import router as saved_lists_router
 from src.modules.entities.router import router as entities_router
 from src.modules.intelligence_layer.endpoints import (
     companies_intel_router,
@@ -30,6 +31,7 @@ from src.modules.intelligence_layer.endpoints import (
     internal_router as intelligence_internal_router,
 )
 from src.modules.intelligence_layer.admin import admin_router as intelligence_admin_router
+from src.modules.mandates.router import router as mandates_router
 from src.modules.platform.router import router as platform_router
 from src.modules.workspaces.router import router as workspaces_router
 from src.modules.auth.router import router as auth_router
@@ -144,10 +146,12 @@ app.include_router(agency_tool_public_router, prefix="/api")
 app.include_router(agency_tool_admin_router, prefix="/api")
 app.include_router(copilot_router, prefix="/api")
 app.include_router(companies_router)
+app.include_router(saved_lists_router)
 app.include_router(companies_intel_router)
 app.include_router(intelligence_layer_router)
 app.include_router(entities_semantic_router)
 app.include_router(entities_router)
+app.include_router(mandates_router)
 app.include_router(platform_router, prefix="/api")
 app.include_router(workspaces_router, prefix="/api")
 app.include_router(intelligence_internal_router)

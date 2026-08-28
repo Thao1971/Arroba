@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { useCopilot } from './CopilotProvider';
 import { WorkspaceArea } from './WorkspaceArea';
 import { OpenWorkspaceButton } from './OpenWorkspaceButton';
 import type { CopilotMessage } from './CopilotProvider';
+import type { RelatedEntity } from '@/lib/orchestrator';
 
 /**
  * Conversation thread. User bubbles (right) + assistant bubbles (left) +
@@ -96,7 +98,37 @@ function Message({ m }: { m: CopilotMessage }) {
       >
         <Sparkles size={14} strokeWidth={1.5} className="text-primary" />
       </div>
-      <div className="flex-1 min-w-0 text-sm text-text leading-relaxed">{m.text}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-text leading-relaxed">{m.text}</div>
+        {m.relatedEntities && m.relatedEntities.length > 0 && (
+          <RelatedEntityChips items={m.relatedEntities} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * HARDENING 2026-08-24 · "Sectores relacionados" — chips de sector/
+ * territory/investor que coinciden con la query, debajo del mensaje del
+ * asistente. Cada chip lleva a `/resultados` filtrado por ese nombre
+ * (mismo patrón de navegación que el resto del buscador).
+ */
+function RelatedEntityChips({ items }: { items: RelatedEntity[] }) {
+  return (
+    <div
+      className="flex flex-wrap gap-1.5 mt-2"
+      data-testid="copilot-related-entities"
+    >
+      {items.map((e) => (
+        <Link
+          key={`${e.type}:${e.id}`}
+          href={`/resultados?q=${encodeURIComponent(e.display_name)}`}
+          className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-surface-2 border border-border text-text-muted hover:text-text hover:border-border-strong transition-colors"
+        >
+          {e.display_name}
+        </Link>
+      ))}
     </div>
   );
 }

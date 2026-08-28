@@ -75,3 +75,17 @@ def test_non_financial_returns_none():
     assert p("clínicas dentales en Valencia") is None
     assert p("Servier") is None
     assert p("") is None
+
+
+def test_province_only_routes_to_structured_search():
+    """Provincia sola (sin número) debe devolver filters con province y residual
+    sectorial limpio (sin 'en madrid') — antes se descartaba (return None)."""
+    out = parse_financial_query("agencias inmobiliarias en madrid")
+    assert out is not None
+    assert out["filters"].get("province") == "madrid"
+    assert "madrid" not in out["residual"]
+    assert "agencias" in out["residual"] and "inmobiliarias" in out["residual"]
+
+
+def test_no_predicate_no_province_returns_none():
+    assert parse_financial_query("agencias inmobiliarias") is None

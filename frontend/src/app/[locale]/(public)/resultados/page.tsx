@@ -9,16 +9,16 @@
  * SearchHit trae `summary`). Mientras Intel no lo devuelva, muestran «—» sin
  * romper. Si la consulta resuelve a una sola empresa, redirige a su ficha.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
   ArrowRight,
   ChevronDown,
+  ChevronUp,
   Download,
   GitCompare,
   Columns3,
-  MoreHorizontal,
   MapPin,
   Users,
   Tag,
@@ -27,11 +27,24 @@ import {
   Flame,
   CircleDollarSign,
   CheckCircle2,
+  X,
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  Printer,
+  Rows3,
+  Rows4,
+  Bookmark,
+  BookmarkPlus,
 } from 'lucide-react';
 
-import { apiClient } from '@/lib/api/client';
+import { apiClient, ApiError } from '@/lib/api/client';
 import type { SearchResultItem } from '@/components/blocks';
+import type { RelatedEntity } from '@/lib/orchestrator';
 import { cn } from '@/lib/cn';
+import { useActiveOrg } from '@/lib/workspaces/useActiveOrg';
+import { useAuth } from '@/contexts/auth-context';
+import { notify } from '@/lib/notify';
 import { applySignalFilter } from './_signal-filter';
 import { ResultCTA } from './_result-cta';
 
@@ -90,6 +103,163 @@ function margin(n?: number | null): string {
   return `${v.toFixed(1).replace('.', ',')}%`;
 }
 
+// ══ Gestión de columnas (HARDENING-tabla-inteligente, fase 1: front puro) ══
+// Catálogo de columnas disponibles para esta tabla. "Empresa" no está aquí:
+// va siempre fija en primera posición y no es gestionable. El resto se puede
+// añadir/quitar/reordenar desde el botón "Columnas"; el orden y la selección
+// se persisten en localStorage (sin backend — ver PROPUESTA_TABLA_INTELIGENTE_
+// RESULTADOS.md §6, fase 2 son vistas/listas guardadas con backend real).
+interface ColumnDef {
+  id: string;
+  label: string;
+  align?: 'right';
+  width?: string; // fracción del grid-template-columns; por defecto 1fr
+  defaultVisible: boolean;
+  wrapperClassName: (r: Row, s: RowSummary) => string;
+  render: (r: Row, s: RowSummary) => ReactNode;
+  // Valor primitivo para ordenar y exportar (reutilizado en ambos). `null` se
+  // trata como "sin dato" y se manda al final del orden, independientemente
+  // de asc/desc.
+  sortValue: (r: Row, s: RowSummary) => number | string | null;
+}
+
+const COLUMN_DEFS: ColumnDef[] = [
+  {
+    id: 'facturacion',
+    label: 'Facturación',
+    align: 'right',
+    defaultVisible: true,
+    wrapperClassName: () => 'text-right text-sm tabular-nums text-text',
+    render: (_r, s) => eur(s.revenue),
+    sortValue: (_r, s) => s.revenue ?? null,
+  },
+  {
+    id: 'ebitda',
+    label: 'EBITDA',
+    align: 'right',
+    defaultVisible: true,
+    wrapperClassName: () => 'text-right text-sm tabular-nums text-text',
+    render: (_r, s) => (
+      <>
+        {eur(s.ebitda)}
+        {s.ebitda_margin != null && (
+          <span className="block text-[11px] text-text-subtle">{margin(s.ebitda_margin)}</span>
+        )}
+      </>
+    ),
+    sortValue: (_r, s) => s.ebitda ?? null,
+  },
+  {
+    id: 'crecimiento',
+    label: 'Crecim.',
+    align: 'right',
+    defaultVisible: true,
+    wrapperClassName: (_r, s) =>
+      cn(
+        'text-right text-sm font-semibold tabular-nums',
+        (s.growth_pct ?? 0) >= 10 ? 'text-success' : (s.growth_pct ?? 0) > 0 ? 'text-warning' : 'text-text-muted',
+      ),
+    render: (_r, s) => pct(s.growth_pct),
+    sortValue: (_r, s) => s.growth_pct ?? null,
+  },
+  {
+    id: 'score_senales',
+    label: 'Score señales',
+    defaultVisible: true,
+    wrapperClassName: () => 'flex items-center gap-2 min-w-0',
+    render: (_r, s) => {
+      const badge = s.signal_badge ? BADGES[s.signal_badge] : undefined;
+      if (s.signal_score == null) return <span className="text-sm text-text-subtle">—</span>;
+      return (
+        <>
+          <span className="text-sm font-semibold tabular-nums text-text">{Math.round(s.signal_score)}</span>
+          <span className="h-1 w-8 rounded-full shrink-0" style={{ background: badge?.tone === 'warn' ? '#D97706' : '#1A8A4A' }} />
+          {badge && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap"
+              style={{
+                background: badge.tone === 'warn' ? '#FAEEDA' : '#EAF3EA',
+                color: badge.tone === 'warn' ? '#B45309' : '#1A8A4A',
+              }}
+            >
+              <badge.icon size={11} strokeWidth={2} /> {badge.label}
+            </span>
+          )}
+        </>
+      );
+    },
+    sortValue: (_r, s) => s.signal_score ?? null,
+  },
+  {
+    id: 'actualizado',
+    label: 'Actualizado',
+    align: 'right',
+    width: '0.8fr',
+    defaultVisible: true,
+    wrapperClassName: () => 'text-right text-xs text-text-subtle',
+    render: (_r, s) => s.updated_at || '—',
+    // Ordena como string (localCompare) — si `updated_at` no viene en ISO
+    // sortable, el orden puede no ser cronológico real; pendiente de que
+    // Intel confirme el formato exacto del campo.
+    sortValue: (_r, s) => s.updated_at ?? null,
+  },
+  // — Añadibles (no visibles por defecto) —
+  {
+    id: 'cif',
+    label: 'CIF',
+    defaultVisible: false,
+    wrapperClassName: () => 'text-sm text-text-subtle tabular-nums',
+    render: (r) => r.cif || '—',
+    sortValue: (r) => r.cif ?? null,
+  },
+  {
+    id: 'sector',
+    label: 'Sector',
+    defaultVisible: false,
+    wrapperClassName: () => 'text-sm text-text truncate',
+    render: (r, s) => s.activity_label || r.sector || '—',
+    sortValue: (r, s) => s.activity_label || r.sector || null,
+  },
+  {
+    id: 'ciudad',
+    label: 'Ciudad',
+    defaultVisible: false,
+    wrapperClassName: () => 'text-sm text-text-subtle truncate',
+    render: (r, s) => s.city || r.city || '—',
+    sortValue: (r, s) => s.city || r.city || null,
+  },
+  {
+    id: 'empleados',
+    label: 'Empleados',
+    align: 'right',
+    defaultVisible: false,
+    wrapperClassName: () => 'text-right text-sm tabular-nums text-text',
+    render: (_r, s) => (s.employees != null ? String(s.employees) : '—'),
+    sortValue: (_r, s) => s.employees ?? null,
+  },
+  {
+    id: 'valoracion',
+    label: 'Valoración',
+    align: 'right',
+    defaultVisible: false,
+    wrapperClassName: () => 'text-right text-sm tabular-nums text-text',
+    render: (_r, s) => eur(s.valuation?.mid),
+    sortValue: (_r, s) => s.valuation?.mid ?? null,
+  },
+  {
+    id: 'score_arroba',
+    label: 'Score Arroba',
+    align: 'right',
+    defaultVisible: false,
+    wrapperClassName: () => 'text-right text-sm tabular-nums text-text',
+    render: (_r, s) => (s.arroba_score != null ? String(s.arroba_score) : '—'),
+    sortValue: (_r, s) => s.arroba_score ?? null,
+  },
+];
+const DEFAULT_COLUMN_IDS = COLUMN_DEFS.filter((c) => c.defaultVisible).map((c) => c.id);
+const COLUMNS_STORAGE_KEY = 'arroba.resultados.columnas.v1';
+const DENSITY_STORAGE_KEY = 'arroba.resultados.densidad.v1';
+
 export default function ResultadosPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -103,6 +273,9 @@ export default function ResultadosPage() {
   const [input, setInput] = useState(q);
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
+  // HARDENING 2026-08-24 · "Sectores relacionados" — sector/territory/investor
+  // que coinciden con la query, chips de navegación aparte de la tabla.
+  const [relatedEntities, setRelatedEntities] = useState<RelatedEntity[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sector, setSector] = useState<string | null>(params.get('sector') || null);
@@ -117,6 +290,158 @@ export default function ResultadosPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(Number(params.get('page') || '0') || 0);
+
+  // ── Columnas (gestión front-only, ver COLUMN_DEFS más arriba) ──
+  const [columnIds, setColumnIds] = useState<string[]>(DEFAULT_COLUMN_IDS);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [columnsHydrated, setColumnsHydrated] = useState(false);
+  const columnsWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COLUMNS_STORAGE_KEY);
+      if (raw) {
+        const ids = JSON.parse(raw) as string[];
+        const valid = ids.filter((id) => COLUMN_DEFS.some((c) => c.id === id));
+        if (valid.length) setColumnIds(valid);
+      }
+    } catch {
+      // localStorage no disponible o corrupto — se queda el set por defecto.
+    }
+    setColumnsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!columnsHydrated) return; // evita sobrescribir lo guardado con el default en el primer render
+    try {
+      window.localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(columnIds));
+    } catch {
+      // localStorage no disponible (modo privado, cuota…) — se pierde la persistencia, sin romper.
+    }
+  }, [columnIds, columnsHydrated]);
+
+  useEffect(() => {
+    if (!columnsOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (columnsWrapRef.current && !columnsWrapRef.current.contains(e.target as Node)) {
+        setColumnsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [columnsOpen]);
+
+  const visibleColumns = useMemo(
+    () => columnIds.map((id) => COLUMN_DEFS.find((c) => c.id === id)).filter((c): c is ColumnDef => Boolean(c)),
+    [columnIds],
+  );
+  const availableColumns = useMemo(
+    () => COLUMN_DEFS.filter((c) => !columnIds.includes(c.id)),
+    [columnIds],
+  );
+  const gridTemplate = `minmax(220px,1.6fr) ${visibleColumns.map((c) => c.width ?? '1fr').join(' ')}`;
+
+  function moveColumn(index: number, dir: -1 | 1) {
+    setColumnIds((prev) => {
+      const target = index + dir;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      const a = next[index];
+      const b = next[target];
+      if (a == null || b == null) return prev;
+      next[index] = b;
+      next[target] = a;
+      return next;
+    });
+  }
+  function removeColumn(id: string) {
+    setColumnIds((prev) => prev.filter((c) => c !== id));
+  }
+  function addColumn(id: string) {
+    setColumnIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+
+  // ── Orden por cabecera (front-only, reutiliza ColumnDef.sortValue) ──
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function toggleSort(id: string) {
+    if (sortColumn === id) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(id);
+      setSortDir('asc');
+    }
+  }
+
+  // ── Densidad de fila (front-only, persistida) ──
+  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(DENSITY_STORAGE_KEY);
+      if (raw === 'compact' || raw === 'comfortable') setDensity(raw);
+    } catch {
+      // localStorage no disponible — se queda 'comfortable'.
+    }
+  }, []);
+  function toggleDensity() {
+    setDensity((prev) => {
+      const next = prev === 'comfortable' ? 'compact' : 'comfortable';
+      try {
+        window.localStorage.setItem(DENSITY_STORAGE_KEY, next);
+      } catch {
+        // localStorage no disponible — se pierde la persistencia, sin romper.
+      }
+      return next;
+    });
+  }
+
+  // ── Comparar (front-only) — modal con las empresas seleccionadas, una
+  // columna por empresa, filas = las mismas columnas visibles en la tabla. ──
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  // ── Seguir — conecta con el watchlist real (mismo endpoint que la ficha,
+  // apiClient.companies.toggleWatchlist). `/resultados` no recibe el estado
+  // inicial de watchlist por CIF desde el buscador (el SearchHit no lo trae),
+  // así que este set solo refleja lo que se ha tocado EN ESTA SESIÓN — si una
+  // empresa ya estaba guardada de antes, el botón la mostrará como "no
+  // seguida" hasta que el usuario la toque aquí. Igual que en CompanyHeader.tsx. ──
+  const { activeOrgId } = useActiveOrg();
+  const { isAuthenticated } = useAuth();
+  const [watchlisted, setWatchlisted] = useState<Set<string>>(new Set());
+  const [watchlistBusy, setWatchlistBusy] = useState<string | null>(null);
+
+  async function toggleRowWatchlist(cif: string) {
+    if (!isAuthenticated) {
+      notify({ kind: 'info', text: 'Inicia sesión para guardar empresas en tu cartera.' });
+      return;
+    }
+    if (!activeOrgId) {
+      notify({ kind: 'info', text: 'Selecciona una organización para guardar empresas.' });
+      return;
+    }
+    setWatchlistBusy(cif);
+    try {
+      const r = await apiClient.companies.toggleWatchlist(cif, activeOrgId);
+      setWatchlisted((prev) => {
+        const next = new Set(prev);
+        if (r.saved) next.add(cif);
+        else next.delete(cif);
+        return next;
+      });
+      notify({
+        kind: 'success',
+        text: r.saved ? 'Guardada en tu cartera de empresas.' : 'Quitada de tu cartera.',
+      });
+    } catch (e) {
+      notify({
+        kind: 'error',
+        text: e instanceof ApiError ? e.detail : 'No se pudo actualizar la cartera.',
+      });
+    } finally {
+      setWatchlistBusy(null);
+    }
+  }
 
   const fetchResults = useCallback(
     async (query: string, pageIdx: number) => {
@@ -156,11 +481,13 @@ export default function ResultadosPage() {
         }
         setRows(items);
         setTotal(count);
+        setRelatedEntities(res.related_entities ?? []);
         setPage(pageIdx);
       } catch {
         setError('No hemos podido cargar los resultados. Inténtalo de nuevo.');
         setRows([]);
         setTotal(0);
+        setRelatedEntities([]);
       } finally {
         setLoading(false);
       }
@@ -182,6 +509,7 @@ export default function ResultadosPage() {
       else {
         setRows([]);
         setTotal(0);
+        setRelatedEntities([]);
       }
       return;
     }
@@ -194,6 +522,7 @@ export default function ResultadosPage() {
     else {
       setRows([]);
       setTotal(0);
+      setRelatedEntities([]);
     }
   }, [q, fetchResults]);
 
@@ -236,6 +565,42 @@ export default function ResultadosPage() {
   }, [rows, sector, onlyGrowth, excludeRisk]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Orden en cliente sobre la página visible. `null`/`undefined` siempre al
+  // final, sea cual sea la dirección. 'empresa' es la única columna fija que
+  // no vive en COLUMN_DEFS, se resuelve aparte por r.name.
+  const sortedRows = useMemo(() => {
+    if (!sortColumn) return pageRows;
+    const col = sortColumn === 'empresa' ? null : COLUMN_DEFS.find((c) => c.id === sortColumn);
+    if (sortColumn !== 'empresa' && !col) return pageRows;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const withValue = pageRows.map((r) => {
+      const s = r.summary || {};
+      const value = sortColumn === 'empresa' ? r.name ?? null : col!.sortValue(r, s);
+      return { r, value };
+    });
+    withValue.sort((a, b) => {
+      if (a.value == null && b.value == null) return 0;
+      if (a.value == null) return 1;
+      if (b.value == null) return -1;
+      if (typeof a.value === 'number' && typeof b.value === 'number') {
+        return (a.value - b.value) * dir;
+      }
+      return String(a.value).localeCompare(String(b.value), 'es') * dir;
+    });
+    return withValue.map((x) => x.r);
+  }, [pageRows, sortColumn, sortDir]);
+
+  // Sólo compara empresas que siguen presentes en la página actual (la
+  // selección puede incluir ids de otra página cuyo Row ya no está cargado).
+  const compareRows = useMemo(
+    () => sortedRows.filter((r) => selected.has(r.master_company_id)),
+    [sortedRows, selected],
+  );
+
+  useEffect(() => {
+    if (compareOpen && selected.size < 2) setCompareOpen(false);
+  }, [compareOpen, selected]);
+
   function toggleSel(id: string) {
     setSelected((prev) => {
       const n = new Set(prev);
@@ -245,22 +610,16 @@ export default function ResultadosPage() {
     });
   }
 
+  // Exporta exactamente las columnas visibles en pantalla (mismo orden, mismo
+  // valor crudo vía ColumnDef.sortValue) y en el orden actual de la tabla.
+  // "Empresa" va siempre primero por ser la columna fija no gestionable.
   function exportCsv() {
-    const head = ['Empresa', 'CIF', 'Sector', 'Ingresos', 'EBITDA', 'Crecimiento', 'Score señales', 'Afinidad'];
-    const lines = pageRows.map((r) =>
-      [
-        r.name,
-        r.cif ?? '',
-        r.sector ?? '',
-        r.summary?.revenue ?? '',
-        r.summary?.ebitda ?? '',
-        r.summary?.growth_pct ?? '',
-        r.summary?.signal_score ?? '',
-        Math.round((r.score ?? 0) * 100),
-      ]
-        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
-        .join(','),
-    );
+    const head = ['Empresa', ...visibleColumns.map((c) => c.label)];
+    const lines = sortedRows.map((r) => {
+      const s = r.summary || {};
+      const cells = [r.name, ...visibleColumns.map((c) => c.sortValue(r, s) ?? '')];
+      return cells.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',');
+    });
     const blob = new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -275,7 +634,7 @@ export default function ResultadosPage() {
       {/* Buscador */}
       <form
         onSubmit={submit}
-        className="flex items-center gap-2 px-4 h-12 rounded-[13px] border-[1.5px] border-border-strong bg-surface mb-6 transition-colors focus-within:border-primary"
+        className="print:hidden flex items-center gap-2 px-4 h-12 rounded-[13px] border-[1.5px] border-border-strong bg-surface mb-6 transition-colors focus-within:border-primary"
       >
         <Search size={18} strokeWidth={1.6} className="text-text-subtle shrink-0" />
         <input
@@ -308,9 +667,39 @@ export default function ResultadosPage() {
         </header>
       )}
 
+      {/* HARDENING 2026-08-24 · "Sectores relacionados": sector/territory/
+          investor que coinciden con la query — sección aparte de la tabla,
+          cada chip navega a una búsqueda nueva por ese nombre. Distinto de
+          los "Chips de filtro por sector" de abajo (que filtran ESTOS
+          resultados por el campo `sector` de cada fila, no navegan). */}
+      {q && !loading && !error && relatedEntities.length > 0 && (
+        <div
+          className="print:hidden mb-4"
+          data-testid="resultados-related-entities"
+        >
+          <div className="text-xs font-semibold text-text-subtle uppercase tracking-wide mb-1.5">
+            Relacionado
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {relatedEntities.map((e) => (
+              <a
+                key={`${e.type}:${e.id}`}
+                href={`/resultados?q=${encodeURIComponent(e.display_name)}`}
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-border bg-surface text-text-muted hover:border-border-strong hover:text-text transition-colors"
+              >
+                {e.display_name}
+                {e.secondary_label && (
+                  <span className="text-text-subtle font-normal">· {e.secondary_label}</span>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Chips de filtro por sector */}
       {q && !loading && !error && sectors.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="resultados-filters">
+        <div className="print:hidden flex flex-wrap items-center gap-2 mb-4" data-testid="resultados-filters">
           {sectors.map((s) => (
             <button
               key={s}
@@ -332,7 +721,7 @@ export default function ResultadosPage() {
 
       {/* Barra de acciones */}
       {q && !loading && !error && rows.length > 0 && (
-        <div className="flex items-center justify-between gap-2 mb-2 text-sm">
+        <div className="print:hidden flex items-center justify-between gap-2 mb-2 text-sm">
           {/* HARDENING-032 · Chips de filtro por signal_badge (client-side). */}
           <div
             className="flex flex-wrap items-center gap-2"
@@ -388,22 +777,127 @@ export default function ResultadosPage() {
             <button
               type="button"
               disabled={selected.size < 2}
-              title={selected.size < 2 ? 'Selecciona al menos dos empresas' : 'Próximamente'}
+              title={selected.size < 2 ? 'Selecciona al menos dos empresas' : 'Comparar empresas seleccionadas'}
+              onClick={() => setCompareOpen(true)}
+              data-testid="resultados-compare-btn"
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted hover:bg-surface-2 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
             >
               <GitCompare size={16} strokeWidth={1.6} /> Comparar
               {selected.size > 0 && ` (${selected.size})`}
             </button>
+            <div className="relative" ref={columnsWrapRef}>
+              <button
+                type="button"
+                onClick={() => setColumnsOpen((v) => !v)}
+                aria-expanded={columnsOpen}
+                aria-label="Gestionar columnas"
+                data-testid="resultados-columns-btn"
+                className={cn(
+                  'inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted hover:bg-surface-2 transition-colors',
+                  columnsOpen && 'bg-surface-2 text-text',
+                )}
+              >
+                <Columns3 size={16} strokeWidth={1.6} /> Columnas
+              </button>
+              {columnsOpen && (
+                <div
+                  data-testid="resultados-columns-panel"
+                  className="absolute right-0 top-full mt-2 w-72 rounded-[12px] border border-border-strong bg-surface shadow-lg p-3 z-30"
+                >
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-text-subtle px-1 mb-2">
+                    Columnas visibles
+                  </div>
+                  <ul className="space-y-1 mb-1">
+                    {visibleColumns.map((col, i) => (
+                      <li
+                        key={col.id}
+                        className="flex items-center gap-1 px-2 py-1.5 rounded-[8px] hover:bg-surface-2 text-sm text-text"
+                      >
+                        <span className="flex-1 truncate">{col.label}</span>
+                        <button
+                          type="button"
+                          disabled={i === 0}
+                          onClick={() => moveColumn(i, -1)}
+                          aria-label={`Subir ${col.label}`}
+                          className="h-6 w-6 inline-flex items-center justify-center rounded-[6px] text-text-subtle hover:text-text disabled:opacity-30"
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={i === visibleColumns.length - 1}
+                          onClick={() => moveColumn(i, 1)}
+                          aria-label={`Bajar ${col.label}`}
+                          className="h-6 w-6 inline-flex items-center justify-center rounded-[6px] text-text-subtle hover:text-text disabled:opacity-30"
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeColumn(col.id)}
+                          aria-label={`Quitar columna ${col.label}`}
+                          className="h-6 w-6 inline-flex items-center justify-center rounded-[6px] text-text-subtle hover:text-danger"
+                        >
+                          <X size={14} />
+                        </button>
+                      </li>
+                    ))}
+                    {visibleColumns.length === 0 && (
+                      <li className="px-2 py-1.5 text-xs text-text-subtle">
+                        Sin columnas adicionales. Añade alguna abajo.
+                      </li>
+                    )}
+                  </ul>
+                  {availableColumns.length > 0 && (
+                    <>
+                      <div className="text-[11px] font-semibold uppercase tracking-wide text-text-subtle px-1 mb-2 pt-2 border-t border-border">
+                        Añadir columna
+                      </div>
+                      <ul className="space-y-1">
+                        {availableColumns.map((col) => (
+                          <li key={col.id}>
+                            <button
+                              type="button"
+                              onClick={() => addColumn(col.id)}
+                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[8px] hover:bg-surface-2 text-sm text-text-muted hover:text-text text-left"
+                            >
+                              <Plus size={14} className="shrink-0" /> {col.label}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                  <div className="flex justify-end pt-2 mt-2 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setColumnIds(DEFAULT_COLUMN_IDS)}
+                      className="text-xs font-semibold text-text-subtle hover:text-text"
+                    >
+                      Restablecer
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               type="button"
-              disabled
-              title="Próximamente"
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[9px] text-text-muted opacity-40"
+              onClick={toggleDensity}
+              aria-label={density === 'comfortable' ? 'Densidad compacta' : 'Densidad cómoda'}
+              title={density === 'comfortable' ? 'Densidad compacta' : 'Densidad cómoda'}
+              data-testid="resultados-density-btn"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-[9px] text-text-muted hover:bg-surface-2 transition-colors"
             >
-              <Columns3 size={16} strokeWidth={1.6} /> Columnas
+              {density === 'comfortable' ? <Rows4 size={16} strokeWidth={1.6} /> : <Rows3 size={16} strokeWidth={1.6} />}
             </button>
-            <button type="button" disabled title="Próximamente" className="h-9 w-9 inline-flex items-center justify-center rounded-[9px] text-text-muted opacity-40">
-              <MoreHorizontal size={16} strokeWidth={1.6} />
+            <button
+              type="button"
+              onClick={() => window.print()}
+              aria-label="Imprimir"
+              title="Imprimir"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-[9px] text-text-muted hover:bg-surface-2 transition-colors"
+            >
+              <Printer size={16} strokeWidth={1.6} />
             </button>
           </div>
         </div>
@@ -414,14 +908,16 @@ export default function ResultadosPage() {
           (`onlyGrowth` u `excludeRisk`). Variante auth → watchlist stub;
           variante anon → registro con next=. Ver `_result-cta.tsx`. */}
       {q && !loading && !error && rows.length > 0 && (
-        <ResultCTA
-          query={q}
-          onlyGrowth={onlyGrowth}
-          excludeRisk={excludeRisk}
-          locale={locale}
-          pathname={pathname}
-          visibleCount={pageRows.length}
-        />
+        <div className="print:hidden">
+          <ResultCTA
+            query={q}
+            onlyGrowth={onlyGrowth}
+            excludeRisk={excludeRisk}
+            locale={locale}
+            pathname={pathname}
+            visibleCount={pageRows.length}
+          />
+        </div>
       )}
 
       {/* Estados */}
@@ -462,23 +958,52 @@ export default function ResultadosPage() {
       {q && !loading && !error && pageRows.length > 0 && (
         <div className="border-t border-border">
           {/* Cabecera de columnas */}
-          <div className="hidden md:grid grid-cols-[minmax(220px,1.6fr)_repeat(4,1fr)_0.8fr] gap-3 px-2 py-2 text-[11px] uppercase tracking-wide text-text-subtle border-b border-border">
-            <span>Empresa</span>
-            <span className="text-right">Ingresos</span>
-            <span className="text-right">EBITDA</span>
-            <span className="text-right">Crecim.</span>
-            <span>Score señales</span>
-            <span className="text-right">Actualizado</span>
+          <div
+            className={cn(
+              'hidden md:grid md:grid-cols-[var(--res-grid)] gap-3 px-2 text-[11px] uppercase tracking-wide text-text-subtle border-b border-border',
+              density === 'compact' ? 'py-1.5' : 'py-2',
+            )}
+            style={{ '--res-grid': gridTemplate } as CSSProperties}
+          >
+            <button
+              type="button"
+              onClick={() => toggleSort('empresa')}
+              className="inline-flex items-center gap-1 text-left hover:text-text"
+            >
+              Empresa
+              {sortColumn === 'empresa' &&
+                (sortDir === 'asc' ? <ArrowUp size={11} strokeWidth={2} /> : <ArrowDown size={11} strokeWidth={2} />)}
+            </button>
+            {visibleColumns.map((col) => (
+              <button
+                key={col.id}
+                type="button"
+                onClick={() => toggleSort(col.id)}
+                className={cn(
+                  'inline-flex items-center gap-1 hover:text-text',
+                  col.align === 'right' ? 'justify-end text-right' : 'text-left',
+                )}
+              >
+                {col.label}
+                {sortColumn === col.id &&
+                  (sortDir === 'asc' ? <ArrowUp size={11} strokeWidth={2} /> : <ArrowDown size={11} strokeWidth={2} />)}
+              </button>
+            ))}
           </div>
 
           <ul data-testid="resultados-list">
-            {pageRows.map((r) => {
+            {sortedRows.map((r) => {
               const s = r.summary || {};
-              const badge = s.signal_badge ? BADGES[s.signal_badge] : undefined;
               const isOpen = expanded === r.master_company_id;
               return (
                 <li key={r.master_company_id} className="border-b border-border">
-                  <div className="grid md:grid-cols-[minmax(220px,1.6fr)_repeat(4,1fr)_0.8fr] grid-cols-1 gap-3 px-2 py-3 items-center">
+                  <div
+                    className={cn(
+                      'grid grid-cols-1 md:grid-cols-[var(--res-grid)] gap-3 px-2 items-center',
+                      density === 'compact' ? 'py-1.5' : 'py-3',
+                    )}
+                    style={{ '--res-grid': gridTemplate } as CSSProperties}
+                  >
                     {/* Empresa */}
                     <div className="flex items-center gap-2.5 min-w-0">
                       <input
@@ -486,13 +1011,13 @@ export default function ResultadosPage() {
                         checked={selected.has(r.master_company_id)}
                         onChange={() => toggleSel(r.master_company_id)}
                         aria-label={`Seleccionar ${r.name}`}
-                        className="shrink-0 accent-[var(--primary)]"
+                        className="print:hidden shrink-0 accent-[var(--primary)]"
                       />
                       <button
                         type="button"
                         onClick={() => setExpanded(isOpen ? null : r.master_company_id)}
                         aria-label={isOpen ? 'Contraer' : 'Expandir'}
-                        className="shrink-0 text-text-subtle hover:text-text"
+                        className="print:hidden shrink-0 text-text-subtle hover:text-text"
                       >
                         <ChevronDown size={16} className={cn('transition-transform', isOpen && 'rotate-180')} />
                       </button>
@@ -513,48 +1038,16 @@ export default function ResultadosPage() {
                         </span>
                       </button>
                     </div>
-                    {/* Ingresos */}
-                    <div className="text-right text-sm tabular-nums text-text">{eur(s.revenue)}</div>
-                    {/* EBITDA + margen */}
-                    <div className="text-right text-sm tabular-nums text-text">
-                      {eur(s.ebitda)}
-                      {s.ebitda_margin != null && (
-                        <span className="block text-[11px] text-text-subtle">{margin(s.ebitda_margin)}</span>
-                      )}
-                    </div>
-                    {/* Crecimiento */}
-                    <div className={cn('text-right text-sm font-semibold tabular-nums', (s.growth_pct ?? 0) >= 10 ? 'text-success' : (s.growth_pct ?? 0) > 0 ? 'text-warning' : 'text-text-muted')}>
-                      {pct(s.growth_pct)}
-                    </div>
-                    {/* Score señales + badge */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      {s.signal_score != null ? (
-                        <>
-                          <span className="text-sm font-semibold tabular-nums text-text">{Math.round(s.signal_score)}</span>
-                          <span className="h-1 w-8 rounded-full shrink-0" style={{ background: badge?.tone === 'warn' ? '#D97706' : '#1A8A4A' }} />
-                          {badge && (
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap"
-                              style={{
-                                background: badge.tone === 'warn' ? '#FAEEDA' : '#EAF3EA',
-                                color: badge.tone === 'warn' ? '#B45309' : '#1A8A4A',
-                              }}
-                            >
-                              <badge.icon size={11} strokeWidth={2} /> {badge.label}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-sm text-text-subtle">—</span>
-                      )}
-                    </div>
-                    {/* Actualizado */}
-                    <div className="text-right text-xs text-text-subtle">{r.summary?.updated_at || '—'}</div>
+                    {visibleColumns.map((col) => (
+                      <div key={col.id} className={col.wrapperClassName(r, s)}>
+                        {col.render(r, s)}
+                      </div>
+                    ))}
                   </div>
 
                   {/* Fila expandida */}
                   {isOpen && (
-                    <div className="bg-surface-2 rounded-xl p-5 mb-3 mx-2">
+                    <div className={cn('bg-surface-2 rounded-xl mb-3 mx-2', density === 'compact' ? 'p-3' : 'p-5')}>
                       <div className="flex items-center gap-3 mb-3">
                         <span className="inline-flex w-10 h-10 rounded-lg bg-surface border border-border items-center justify-center font-display font-bold text-text">
                           {(r.name || '?').slice(0, 2).toUpperCase()}
@@ -563,7 +1056,7 @@ export default function ResultadosPage() {
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 py-3 border-y border-border">
                         {[
-                          ['Ingresos', eur(s.revenue)],
+                          ['Facturación', eur(s.revenue)],
                           ['EBITDA', eur(s.ebitda)],
                           ['Margen EBITDA', s.ebitda_margin != null ? margin(s.ebitda_margin) : '—'],
                           ['Crecimiento', pct(s.growth_pct)],
@@ -601,7 +1094,25 @@ export default function ResultadosPage() {
                           Abrir ficha
                         </button>
                         <button type="button" disabled title="Próximamente" className="h-9 px-4 rounded-[9px] border border-border text-sm font-semibold text-text-muted opacity-50">Comparar</button>
-                        <button type="button" disabled title="Próximamente" className="h-9 px-4 rounded-[9px] border border-border text-sm font-semibold text-text-muted opacity-50">Seguir</button>
+                        <button
+                          type="button"
+                          disabled={!r.cif || watchlistBusy === r.cif}
+                          onClick={() => r.cif && toggleRowWatchlist(r.cif)}
+                          title={!r.cif ? 'Esta empresa no tiene CIF disponible' : undefined}
+                          className={cn(
+                            'inline-flex items-center gap-1.5 h-9 px-4 rounded-[9px] border text-sm font-semibold transition-colors disabled:opacity-50',
+                            r.cif && watchlisted.has(r.cif)
+                              ? 'border-primary/40 bg-primary/5 text-primary'
+                              : 'border-border text-text-muted hover:bg-surface-2',
+                          )}
+                        >
+                          {r.cif && watchlisted.has(r.cif) ? (
+                            <Bookmark size={14} strokeWidth={1.8} />
+                          ) : (
+                            <BookmarkPlus size={14} strokeWidth={1.8} />
+                          )}
+                          {r.cif && watchlisted.has(r.cif) ? 'Siguiendo' : 'Seguir'}
+                        </button>
                         <button type="button" disabled title="Próximamente" className="h-9 px-4 rounded-[9px] border border-border text-sm font-semibold text-text-muted opacity-50">Crear oportunidad</button>
                       </div>
                     </div>
@@ -612,7 +1123,7 @@ export default function ResultadosPage() {
           </ul>
 
           {/* Paginación (servidor: cada página se pide con offset = page*PAGE_SIZE) */}
-          <div className="flex items-center justify-between mt-4 text-xs text-text-muted">
+          <div className="print:hidden flex items-center justify-between mt-4 text-xs text-text-muted">
             <span>
               {total === 0
                 ? '0 resultados'
@@ -626,6 +1137,74 @@ export default function ResultadosPage() {
               <button type="button" disabled={page >= pages - 1 || loading} onClick={() => goToPage(page + 1)} className="disabled:opacity-40 hover:text-text">
                 Siguiente →
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comparar — empresas seleccionadas, una columna por empresa, filas =
+          las columnas actualmente visibles en la tabla (reutiliza col.render). */}
+      {compareOpen && compareRows.length >= 2 && (
+        <div
+          className="print:hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setCompareOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Comparar empresas"
+            data-testid="resultados-compare-modal"
+            className="bg-surface rounded-2xl border border-border-strong shadow-lg w-full max-w-5xl max-h-[85vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border sticky top-0 bg-surface z-10">
+              <h2 className="font-display font-semibold text-text">
+                Comparar empresas ({compareRows.length})
+              </h2>
+              <button
+                type="button"
+                onClick={() => setCompareOpen(false)}
+                aria-label="Cerrar"
+                className="text-text-subtle hover:text-text"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left text-[11px] uppercase tracking-wide text-text-subtle font-semibold px-3 py-2 sticky left-0 bg-surface">
+                      Empresa
+                    </th>
+                    {compareRows.map((r) => (
+                      <th key={r.master_company_id} className="text-left px-3 py-2 min-w-[170px] align-top">
+                        <div className="font-display font-semibold text-text">{r.name}</div>
+                        <div className="text-xs text-text-muted">
+                          {r.summary?.activity_label || r.sector || '—'}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleColumns.map((col) => (
+                    <tr key={col.id} className="border-t border-border">
+                      <td className="px-3 py-2 text-[11px] uppercase tracking-wide text-text-subtle font-semibold sticky left-0 bg-surface whitespace-nowrap">
+                        {col.label}
+                      </td>
+                      {compareRows.map((r) => {
+                        const s = r.summary || {};
+                        return (
+                          <td key={r.master_company_id} className="px-3 py-2 align-top">
+                            {col.render(r, s)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

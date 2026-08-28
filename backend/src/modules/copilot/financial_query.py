@@ -163,18 +163,22 @@ def parse_financial_query(query: str) -> dict[str, Any] | None:
             _set(f"{metric}_max", v)
             consumed_spans.append(m.span())
 
-    # --- province: "en Valencia" ---
+    # --- province: "en Valencia" / "en Madrid" ---
     for prov in _PROVINCES:
-        if re.search(rf"\ben {re.escape(prov)}\b", n):
+        mprov = re.search(rf"\ben {re.escape(prov)}\b", n)
+        if mprov:
             filters["province"] = prov
+            consumed_spans.append(mprov.span())  # que no ensucie el residual sectorial
             break
 
-    # A bare province ("en Madrid") alone is a geo refine, not a financial screen.
-    # Only treat as REQ-004 if there is at least one numeric predicate.
-    if not any(k in filters for k in
-               ("revenue_min", "revenue_max", "ebitda_min", "ebitda_max",
+    # Un predicado numérico O una provincia enrutan a la búsqueda estructurada
+    # (que aplica `province` + scoping sectorial por `residual`). Sin ninguno →
+    # None (cae a categorical/semantic). Antes una provincia sola se descartaba y
+    # el filtro geográfico se perdía ("agencias en madrid" == "agencias").
+    _numeric = ("revenue_min", "revenue_max", "ebitda_min", "ebitda_max",
                 "employees_min", "employees_max", "growth_min",
-                "ebitda_margin_min", "ebitda_margin_max")):
+                "ebitda_margin_min", "ebitda_margin_max")
+    if not any(k in filters for k in _numeric) and "province" not in filters:
         return None
 
     # Residual lexical text: drop consumed numeric spans, then strip metric/filler
@@ -184,7 +188,7 @@ def parse_financial_query(query: str) -> dict[str, Any] | None:
         residual = residual[:a] + " " + residual[b:]
     _FILLER = (list(_REVENUE_KW) + list(_EBITDA_KW) + list(_EMPLOYEE_KW) + list(_GROWTH_KW)
                + ["empresas", "empresa", "companias", "compania", "con", "que", "de", "un", "una",
-                  "y", "e", "mas", "menos", "los", "las", "del", "para", "millones", "millon",
+                  "y", "e", "en", "mas", "menos", "los", "las", "del", "para", "millones", "millon",
                   "mill", "mil", "euros", "euro", "€", "%",
                   "superior", "superiores", "inferior", "inferiores",
                   "mayor", "mayores", "menor", "menores", "entre",

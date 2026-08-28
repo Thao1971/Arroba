@@ -178,6 +178,18 @@ async def init_indexes() -> None:
     await db.company_watchlists.create_index("saved_by")
     await db.company_watchlists.create_index("visibility")
 
+    # company_saved_lists / company_saved_list_items (E-tabla-inteligente):
+    # listas con nombre + oportunidades manuales, aditivo, no toca lo de
+    # arriba. Una empresa puede estar en varias listas a la vez (a diferencia
+    # de la watchlist), por eso la unicidad es (list_id, master_company_id),
+    # no (org_id, master_company_id).
+    await db.company_saved_lists.create_index("list_id", unique=True)
+    await db.company_saved_lists.create_index([("org_id", 1), ("created_by", 1), ("updated_at", -1)])
+    await db.company_saved_list_items.create_index(
+        [("list_id", 1), ("master_company_id", 1)], unique=True
+    )
+    await db.company_saved_list_items.create_index([("list_id", 1), ("org_id", 1)])
+
     # company_analysis_refreshes: rate-limit ledger. TTL on last_refresh_at
     # gives us automatic cleanup so the collection cannot grow unbounded.
     await db.company_analysis_refreshes.create_index(

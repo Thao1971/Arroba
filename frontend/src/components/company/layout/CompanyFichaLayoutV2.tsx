@@ -602,6 +602,9 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   // ÚNICO punto del agregador `finances.evolution.points[]` (misma fuente que
   // KPIs/sparklines). Cubre empresas cuyo único año solo vive en el agregador
   // (antes caían a «Información en preparación»). Sin síntesis (R15).
+  // Fuente = pipeline financiero real (Iberinform → norm_financials → evolution.points).
+  // El único ejercicio lo emite Intel `compute_evolution` (fix 2026-08-17). NO se
+  // fabrica desde los KPIs de cabecera. Sin punto → Pending honesto (R15).
   const single = useMemo(
     () => resolveSingleExerciseCascade(singleExercise, evoPoints),
     [singleExercise, evoPoints],

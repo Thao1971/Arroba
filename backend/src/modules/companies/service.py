@@ -48,7 +48,10 @@ from src.modules.companies.models import (
     CompanyWatchlistEntry,
     DocumentsSection,
     GetConversationResponse,
+    ListKind,
     NextBestAction,
+    SavedList,
+    SavedListItem,
     SendMessageResponse,
     SignalsSection,
     WatchlistVisibility,
@@ -1004,10 +1007,186 @@ async def toggle_share(
     return new_visibility
 
 
+# ---------------------------------------------------------------------------
+# Listas guardadas / oportunidades manuales (aditivo, ver models.py — no
+# toca `company_watchlists`). `_add_items_to_list` resuelve cada CIF contra
+# `master_companies_mock` vía `_doc_by_cif` (no llama al adapter de enrich
+# completo: para una fila de lista basta con lo que ya vive en el doc local),
+# e ignora en silencio los CIFs que no existan en vez de abortar el resto de
+# la selección.
+# ---------------------------------------------------------------------------
+async def _add_items_to_list(
+    *, list_id: str, org_id: str, user_id: str, cifs: list[str]
+) -> int:
+    db = get_db()
+    added = 0
+    for cif in cifs:
+        doc = await _doc_by_cif(cif)
+        if not doc:
+            continue
+        item = SavedListItem(
+            list_id=list_id,
+            org_id=org_id,
+            master_company_id=doc["master_company_id"],
+            cif=doc.get("cif"),
+            legal_name=doc.get("legal_name"),
+            added_by=user_id,
+        )
+        try:
+            await db.company_saved_list_items.insert_one(item.model_dump(mode="json"))
+            added += 1
+        except Exception:
+            continue  # ya estaba en la lista (índice único list_id+master_company_id)
+    if added:
+        await db.company_saved_lists.update_one(
+            {"list_id": list_id, "org_id": org_id}, {"$set": {"updated_at": now_utc()}}
+        )
+    return added
+
+
+async def create_saved_list(
+    *, user_id: str, org_id: str | None, name: str, kind: ListKind, cifs: list[str]
+) -> dict[str, Any]:
+    if not org_id:
+        raise BadRequestError("organization_required", code="organization_required")
+    db = get_db()
+    record = SavedList(org_id=org_id, name=name, kind=kind, created_by=user_id)
+    await db.company_saved_lists.insert_one(record.model_dump(mode="json"))
+    if cifs:
+        await _add_items_to_list(
+            list_id=record.list_id, org_id=org_id, user_id=user_id, cifs=cifs
+        )
+    return await get_saved_list_detail(list_id=record.list_id, org_id=org_id)
+
+
+async def list_saved_lists(*, user_id: str, org_id: str | None) -> list[dict[str, Any]]:
+    if not org_id:
+        return []
+    db = get_db()
+    lists = await db.company_saved_lists.find(
+        {"org_id": org_id, "created_by": user_id}, {"_id": 0}
+    ).sort("updated_at", -1).to_list(length=200)
+    out: list[dict[str, Any]] = []
+    for lst in lists:
+        count = await db.company_saved_list_items.count_documents(
+            {"list_id": lst["list_id"], "org_id": org_id}
+        )
+        # Dict explícito (no `**lst`): `SavedListSummary` es `extra="forbid"`
+        # y el doc Mongo trae además org_id/created_by, que no son parte del
+        # contrato de API.
+        out.append(
+            {
+                "list_id": lst["list_id"],
+                "name": lst["name"],
+                "kind": lst["kind"],
+                "item_count": count,
+                "created_at": lst["created_at"],
+                "updated_at": lst["updated_at"],
+            }
+        )
+    return out
+
+
+async def get_saved_list_detail(*, list_id: str, org_id: str) -> dict[str, Any]:
+    db = get_db()
+    lst = await db.company_saved_lists.find_one(
+        {"list_id": list_id, "org_id": org_id}, {"_id": 0}
+    )
+    if not lst:
+        raise NotFoundError("list_not_found", code="list_not_found")
+    items = await db.company_saved_list_items.find(
+        {"list_id": list_id, "org_id": org_id}, {"_id": 0}
+    ).sort("added_at", -1).to_list(length=500)
+    out_items: list[dict[str, Any]] = []
+    for it in items:
+        secondary_parts: list[str] = []
+        doc = await _doc_by_master_id(it["master_company_id"])
+        if doc:
+            if doc.get("sector"):
+                secondary_parts.append(doc["sector"])
+            if doc.get("region"):
+                secondary_parts.append(doc["region"])
+        out_items.append(
+            {
+                "cif": it.get("cif"),
+                "master_company_id": it["master_company_id"],
+                "legal_name": it.get("legal_name"),
+                "secondary_label": " · ".join(secondary_parts) or None,
+                "added_at": it.get("added_at"),
+            }
+        )
+    # Dict explícito (no `**lst`): `SavedListDetail` es `extra="forbid"` y el
+    # doc Mongo trae además org_id/created_by, que no son parte del contrato.
+    return {
+        "list_id": lst["list_id"],
+        "name": lst["name"],
+        "kind": lst["kind"],
+        "created_at": lst["created_at"],
+        "updated_at": lst["updated_at"],
+        "items": out_items,
+    }
+
+
+async def add_items_to_saved_list(
+    *, user_id: str, org_id: str | None, list_id: str, cifs: list[str]
+) -> dict[str, Any]:
+    if not org_id:
+        raise BadRequestError("organization_required", code="organization_required")
+    db = get_db()
+    owned = await db.company_saved_lists.find_one({"list_id": list_id, "org_id": org_id})
+    if not owned:
+        raise NotFoundError("list_not_found", code="list_not_found")
+    await _add_items_to_list(list_id=list_id, org_id=org_id, user_id=user_id, cifs=cifs)
+    return await get_saved_list_detail(list_id=list_id, org_id=org_id)
+
+
+async def remove_item_from_saved_list(
+    *, org_id: str | None, list_id: str, cif: str
+) -> None:
+    if not org_id:
+        raise BadRequestError("organization_required", code="organization_required")
+    db = get_db()
+    owned = await db.company_saved_lists.find_one({"list_id": list_id, "org_id": org_id})
+    if not owned:
+        raise NotFoundError("list_not_found", code="list_not_found")
+    res = await db.company_saved_list_items.delete_one(
+        {"list_id": list_id, "org_id": org_id, "cif": cif.upper()}
+    )
+    if res.deleted_count == 0:
+        raise NotFoundError("list_item_not_found", code="list_item_not_found")
+    await db.company_saved_lists.update_one(
+        {"list_id": list_id, "org_id": org_id}, {"$set": {"updated_at": now_utc()}}
+    )
+
+
+async def rename_saved_list(*, org_id: str | None, list_id: str, name: str) -> dict[str, Any]:
+    if not org_id:
+        raise BadRequestError("organization_required", code="organization_required")
+    db = get_db()
+    res = await db.company_saved_lists.update_one(
+        {"list_id": list_id, "org_id": org_id},
+        {"$set": {"name": name, "updated_at": now_utc()}},
+    )
+    if res.matched_count == 0:
+        raise NotFoundError("list_not_found", code="list_not_found")
+    return await get_saved_list_detail(list_id=list_id, org_id=org_id)
+
+
+async def delete_saved_list(*, org_id: str | None, list_id: str) -> None:
+    if not org_id:
+        raise BadRequestError("organization_required", code="organization_required")
+    db = get_db()
+    res = await db.company_saved_lists.delete_one({"list_id": list_id, "org_id": org_id})
+    if res.deleted_count == 0:
+        raise NotFoundError("list_not_found", code="list_not_found")
+    await db.company_saved_list_items.delete_many({"list_id": list_id, "org_id": org_id})
+
+
 __all__ = [
     "ADAPTER_MODE",
     "ANALYSIS_REFRESH_COOLDOWN_S",
     "RateLimitedError",
+    "add_items_to_saved_list",
     "build_comparables",
     "build_financials_metrics",
     "build_hero",
@@ -1016,15 +1195,21 @@ __all__ = [
     "build_narrative",
     "build_score_placeholder",
     "build_valuation",
+    "create_saved_list",
+    "delete_saved_list",
     "get_canonical_cif_for_master_id",
     "get_company_detail",
     "get_conversation",
     "get_enriched_by_cif",
     "get_or_create_conversation",
+    "get_saved_list_detail",
+    "list_saved_lists",
     "list_user_watchlist",
     "refresh_analysis",
     "refresh_comparables",
     "refresh_valuation",
+    "remove_item_from_saved_list",
+    "rename_saved_list",
     "send_message",
     "toggle_share",
     "toggle_watchlist",

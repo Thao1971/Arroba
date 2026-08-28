@@ -22,6 +22,8 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.modules.entities.models import EntityLookupResult
+
 # ---------------------------------------------------------------------------
 # Request — what the frontend sends. One context shape for every Skill.
 # ---------------------------------------------------------------------------
@@ -329,6 +331,12 @@ class SearchSkillResponse(BaseModel):
     navigate_to: str | None = None
     entity_type: Literal["company", "sector", "territory"] | None = None
     disambiguation: list[DisambiguationItem] | None = None
+    # HARDENING 2026-08-24 · "Sectores relacionados" — sector/territory/investor
+    # que coinciden con la misma query, para chips sobre la tabla de resultados
+    # y en el Composer. Solo se rellena cuando `workspace` trae contenido real
+    # (nunca en un navigate_to directo ni en disambiguation). `None` si no hay
+    # coincidencias o si Intel falla — nunca rompe la búsqueda principal.
+    related_entities: list[EntityLookupResult] | None = None
 
 
 class AnalyzeSkillResponse(BaseModel):

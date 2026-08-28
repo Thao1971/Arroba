@@ -6,7 +6,7 @@ Arquitectura (Regla canónica R9):
     interfaces/   → Contratos abstractos (MasterProvider, ...)
     providers/    → Implementaciones concretas
       mock/       → Lee master_companies_mock local
-      agency_tool/→ Cliente HTTPX contra agencias.wearebudadvisors.com (real)
+      agency_tool/→ Cliente HTTPX contra intel.arroba.com (real)
     router.py     → Dispatcher según AGENCY_TOOL_MODE (mock|real)
     cache.py      → Caché 2 capas (memory + Mongo) con single-flight
     circuit_breaker.py → Breaker propio async (closed|open|half_open)

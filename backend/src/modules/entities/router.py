@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/entities", tags=["entities"])
 
 # Catálogo válido de tipos que la API acepta como filtro.
 _VALID_TYPES: set[str] = {
-    "company", "sector", "territory", "person", "advisor",
+    "company", "sector", "territory", "person", "advisor", "investor",
     "mandate", "match", "operation", "valuation", "document", "opportunity",
 }
 

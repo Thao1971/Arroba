@@ -37,7 +37,9 @@ class IntelligenceSettings(BaseSettings):
     intelligence_company_v2_enabled: bool = False
 
     # ---------- Proveedor Agency Tool ----------
-    agency_tool_base_url: str = "https://agencias.wearebudadvisors.com"
+    # agencias.wearebudadvisors.com quedó obsoleto (2026-08-20, Daniel) —
+    # la URL vigente de Intel es intel.arroba.com (ver comentario más abajo).
+    agency_tool_base_url: str = "https://intel.arroba.com"
     agency_tool_timeout_ms: int = 30_000
     agency_tool_connect_timeout_ms: int = 5_000
     agency_tool_retry_max: int = 3

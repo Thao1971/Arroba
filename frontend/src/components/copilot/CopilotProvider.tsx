@@ -11,7 +11,7 @@ import {
   useRef,
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { dispatch as orchestratorDispatch, type Workspace, type BlockSpec } from '@/lib/orchestrator';
+import { dispatch as orchestratorDispatch, type Workspace, type BlockSpec, type RelatedEntity } from '@/lib/orchestrator';
 import { useAuth } from '@/contexts/auth-context';
 import { apiClient } from '@/lib/api/client';
 import { useActiveOrg } from '@/lib/workspaces/useActiveOrg';
@@ -46,6 +46,10 @@ export interface CopilotMessage {
   role: MessageRole;
   text: string;
   workspace?: Workspace | null;
+  /** HARDENING 2026-08-24 · chips de "Sectores relacionados" (sector/
+   *  territory/investor) para el caso en que la respuesta se queda en el
+   *  dock (sin redirigir a /resultados) — típicamente el empty_state. */
+  relatedEntities?: RelatedEntity[] | null;
   ts: number;
 }
 
@@ -102,6 +106,7 @@ type Action =
       type: 'resolve';
       assistant: string | null;
       workspace: Workspace | null;
+      relatedEntities?: RelatedEntity[] | null;
       cleared?: boolean;
     }
   | { type: 'fail'; assistant: string }
@@ -183,6 +188,7 @@ function reducer(state: CopilotState, action: Action): CopilotState {
                 role: 'assistant',
                 text: action.assistant,
                 workspace: action.workspace,
+                relatedEntities: action.relatedEntities,
                 ts: Date.now(),
               },
             ]
@@ -497,6 +503,7 @@ export function CopilotProvider({ children }: { children: ReactNode }) {
         type: 'resolve',
         assistant: result.assistantMessage,
         workspace: result.workspace,
+        relatedEntities: result.related_entities,
       });
     },
     [

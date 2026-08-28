@@ -3,6 +3,7 @@
 Shapes the API surface AND the Mongo documents in:
   - company_conversations
   - company_watchlists
+  - company_saved_lists / company_saved_list_items
   - company_analysis_refreshes
 """
 from __future__ import annotations
@@ -36,6 +37,10 @@ def new_message_id() -> str:
 
 def new_watchlist_id() -> str:
     return "wl_" + uuid.uuid4().hex[:12]
+
+
+def new_list_id() -> str:
+    return "lst_" + uuid.uuid4().hex[:12]
 
 
 def new_block_id(prefix: str) -> str:
@@ -234,6 +239,96 @@ class WatchlistToggleResponse(BaseModel):
 class ShareToggleResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     visibility: WatchlistVisibility
+
+
+# ---------------------------------------------------------------------------
+# Listas guardadas / oportunidades manuales (E-tabla-inteligente)
+#
+# `company_watchlists` (arriba) es la cartera única sin nombre por org — no se
+# toca. Esto es un recurso NUEVO y aditivo: un conjunto explícito, con nombre,
+# de empresas concretas elegidas a mano. `kind` distingue "lista guardada"
+# (para volver más tarde) de "oportunidad" (creada desde una selección en
+# /resultados) — mismo dato, misma colección, la UI decide qué mostrar según
+# `kind`. Colecciones: `company_saved_lists` (metadata) +
+# `company_saved_list_items` (membership, N:N — una empresa puede estar en
+# varias listas a la vez, a diferencia de la watchlist).
+# ---------------------------------------------------------------------------
+ListKind = Literal["list", "opportunity"]
+
+
+class SavedList(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    list_id: str = Field(default_factory=new_list_id)
+    org_id: str
+    name: str
+    kind: ListKind = "list"
+    created_by: str  # user_id
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+
+
+class SavedListItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    list_id: str
+    org_id: str
+    master_company_id: str
+    cif: str | None = None
+    legal_name: str | None = None
+    added_by: str  # user_id
+    added_at: datetime = Field(default_factory=now_utc)
+
+
+class SavedListCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+    kind: ListKind = "list"
+    # CIFs iniciales (opcional) — permite crear-y-poblar en una sola llamada,
+    # que es exactamente lo que necesita "Crear oportunidad desde selección".
+    cifs: list[str] = Field(default_factory=list, max_length=200)
+
+
+class SavedListAddItemsPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cifs: list[str] = Field(min_length=1, max_length=200)
+
+
+class SavedListRenamePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+
+
+class SavedListItemOut(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cif: str | None = None
+    master_company_id: str
+    legal_name: str | None = None
+    secondary_label: str | None = None
+    added_at: datetime
+
+
+class SavedListSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    list_id: str
+    name: str
+    kind: ListKind
+    item_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedListDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    list_id: str
+    name: str
+    kind: ListKind
+    created_at: datetime
+    updated_at: datetime
+    items: list[SavedListItemOut] = Field(default_factory=list)
+
+
+class SavedListsResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    lists: list[SavedListSummary] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

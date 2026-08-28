@@ -40,21 +40,29 @@ export function marketBlockToContextView(
   const position = market.position ?? null;
 
   const sectorLabel =
+    (sector as { cnae_label?: string | null } | null)?.cnae_label ??
     (sector as { label?: string | null } | null)?.label ??
     (sector as { name?: string | null } | null)?.name ??
     undefined;
   const sectorVerdict =
-    (sector as { verdict?: string | null } | null)?.verdict ?? undefined;
+    (sector as { verdict?: string | null } | null)?.verdict ??
+    (sector as { narrative?: string | null } | null)?.narrative ?? undefined;
   const territoryLabel =
     (geo as { label?: string | null } | null)?.label ??
     (geo as { name?: string | null } | null)?.name ??
+    (geo as { scope?: string | null } | null)?.scope ??
+    (geo as { province?: string | null } | null)?.province ??
     undefined;
   const territoryVerdict =
-    (geo as { verdict?: string | null } | null)?.verdict ?? undefined;
+    (geo as { verdict?: string | null } | null)?.verdict ??
+    (geo as { narrative?: string | null } | null)?.narrative ?? undefined;
   const concentrationLabel =
-    (concentration as { label?: string | null } | null)?.label ?? undefined;
+    (concentration as { label?: string | null } | null)?.label ??
+    (concentration as { concentration_label?: string | null } | null)?.concentration_label ??
+    (concentration as { narrative?: string | null } | null)?.narrative ?? undefined;
 
   const positionHeadline =
+    (position as { narrative?: string | null } | null)?.narrative ??
     (position as { headline?: string | null } | null)?.headline ?? undefined;
 
   return {
@@ -66,7 +74,9 @@ export function marketBlockToContextView(
             percentile:
               typeof (position as { percentile?: number | null }).percentile === 'number'
                 ? ((position as { percentile: number }).percentile)
-                : undefined,
+                : typeof (position as { sector_revenue_percentile?: number | null }).sector_revenue_percentile === 'number'
+                  ? ((position as { sector_revenue_percentile: number }).sector_revenue_percentile)
+                  : undefined,
             sectorRank: sectorRankLabel(position),
             territoryRank: territoryRankLabel(position),
           }
@@ -79,7 +89,9 @@ export function marketBlockToContextView(
             dynamism:
               typeof (sector as { dynamism?: number | null }).dynamism === 'number'
                 ? ((sector as { dynamism: number }).dynamism)
-                : undefined,
+                : typeof (sector as { dynamism_score?: number | null }).dynamism_score === 'number'
+                  ? ((sector as { dynamism_score: number }).dynamism_score)
+                  : undefined,
             trend: normalizeTrend((sector as { trend?: unknown }).trend),
           }
         : undefined,
@@ -91,7 +103,9 @@ export function marketBlockToContextView(
             dynamism:
               typeof (geo as { dynamism?: number | null }).dynamism === 'number'
                 ? ((geo as { dynamism: number }).dynamism)
-                : undefined,
+                : typeof (geo as { dynamism_score?: number | null }).dynamism_score === 'number'
+                  ? ((geo as { dynamism_score: number }).dynamism_score)
+                  : undefined,
             activeCompanies:
               typeof (geo as { active_companies?: number | null }).active_companies ===
               'number'
@@ -100,7 +114,9 @@ export function marketBlockToContextView(
             netCreation:
               typeof (geo as { net_creation?: number | null }).net_creation === 'number'
                 ? ((geo as { net_creation: number }).net_creation)
-                : undefined,
+                : typeof (geo as { net_company_creation?: number | null }).net_company_creation === 'number'
+                  ? ((geo as { net_company_creation: number }).net_company_creation)
+                  : undefined,
           }
         : undefined,
     concentration:
@@ -110,7 +126,9 @@ export function marketBlockToContextView(
             actors:
               typeof (concentration as { actors?: number | null }).actors === 'number'
                 ? ((concentration as { actors: number }).actors)
-                : undefined,
+                : typeof (concentration as { market_actors_count?: number | null }).market_actors_count === 'number'
+                  ? ((concentration as { market_actors_count: number }).market_actors_count)
+                  : undefined,
             hhi:
               typeof (concentration as { hhi?: number | null }).hhi === 'number'
                 ? ((concentration as { hhi: number }).hhi)
@@ -178,17 +196,9 @@ type LayoutOpportunity = {
  * Intel dev activos, seríamos empty state disfrazado con spinner eterno).
  * Ver `/app/docs/HARDENING-038b_opportunity_full_wiring.md`.
  */
-/** Payload crudo de `succession-profile` (proxy Intel). Passthrough tolerante. */
-type SuccessionRaw =
-  | { score?: number | null; summary?: string | null; narrative?: string | null; attractiveness?: string | null }
-  | null
-  | undefined;
-
-/** Payload crudo de `rollup-thesis` (proxy Intel). Passthrough tolerante. */
-type RollupRaw =
-  | { viable?: boolean | null; narrative?: string | null; thesis?: string | null; targets?: Array<{ name?: string | null; fit_score?: number | null }> | null }
-  | null
-  | undefined;
+// Shapes reales verificados contra Intel (2026-08-17): succession-profile envuelve
+// bajo `profile` con `succession_risk_score`+`reasons[]`; rollup-thesis emite
+// `rollup_viable`+`viability_reasons[]`+`addon_targets_ranked[{name,addon_score}]`.
 
 /**
  * HARDENING-038b · `succession_profile` -> `sell` (sell-side). Solo emite el
@@ -196,16 +206,23 @@ type RollupRaw =
  * fabricamos score ni atractivo). Devuelve undefined si no hay nada.
  */
 function mapSell(raw: unknown): OpportunityThesisView['sell'] {
-  const s = (raw ?? undefined) as SuccessionRaw;
-  if (!s || typeof s !== 'object') return undefined;
-  const successionScore = typeof s.score === 'number' ? s.score : undefined;
-  const note = s.summary ?? s.narrative ?? undefined;
-  const attractiveness = s.attractiveness ?? undefined;
-  if (successionScore === undefined && !note && !attractiveness) return undefined;
+  const root = (raw ?? undefined) as Record<string, unknown> | undefined;
+  if (!root || typeof root !== 'object') return undefined;
+  // El endpoint envuelve el perfil bajo `profile`; toleramos también shape plano.
+  const p = ((root['profile'] as Record<string, unknown> | undefined) ?? root);
+  if (!p || typeof p !== 'object') return undefined;
+  const successionScore =
+    typeof p['succession_risk_score'] === 'number' ? (p['succession_risk_score'] as number) : undefined;
+  const reasons = Array.isArray(p['reasons'])
+    ? (p['reasons'] as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  const caveat = typeof p['data_caveat'] === 'string' ? (p['data_caveat'] as string) : undefined;
+  const note = reasons.length ? reasons.join(' · ') : caveat;
+  if (successionScore === undefined && !note) return undefined;
   return {
     successionScore: successionScore ?? null,
     note: note ?? null,
-    attractiveness: attractiveness ?? null,
+    attractiveness: null, // Intel no emite atractivo cualitativo (R15: no se inventa).
   };
 }
 
@@ -215,18 +232,28 @@ function mapSell(raw: unknown): OpportunityThesisView['sell'] {
  * incluyen si traen name Y fit_score numerico (R15: sin fit inventado).
  */
 function mapBuy(raw: unknown): OpportunityThesisView['buy'] {
-  const r = (raw ?? undefined) as RollupRaw;
+  const r = (raw ?? undefined) as Record<string, unknown> | undefined;
   if (!r || typeof r !== 'object') return undefined;
-  const targets: RollupTarget[] = (Array.isArray(r.targets) ? r.targets : [])
+  const rawTargets = Array.isArray(r['addon_targets_ranked'])
+    ? (r['addon_targets_ranked'] as Array<Record<string, unknown>>)
+    : [];
+  const targets: RollupTarget[] = rawTargets
     .map((t) => {
-      const name = t?.name ?? null;
-      const fit = typeof t?.fit_score === 'number' ? t.fit_score : null;
+      const name = typeof t['name'] === 'string' ? (t['name'] as string) : null;
+      const fit = typeof t['addon_score'] === 'number' ? (t['addon_score'] as number) : null;
       return name && fit != null ? { name, fit } : null;
     })
     .filter((x): x is RollupTarget => x !== null);
   const viable =
-    typeof r.viable === 'boolean' ? r.viable : targets.length > 0 ? true : undefined;
-  const note = r.narrative ?? r.thesis ?? undefined;
+    typeof r['rollup_viable'] === 'boolean'
+      ? (r['rollup_viable'] as boolean)
+      : r['platform_candidate'] != null || targets.length > 0
+        ? true
+        : undefined;
+  const reasons = Array.isArray(r['viability_reasons'])
+    ? (r['viability_reasons'] as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
+  const note = reasons.length ? reasons.join(' · ') : undefined;
   if (viable === undefined && !note && targets.length === 0) return undefined;
   return {
     viable: viable ?? null,

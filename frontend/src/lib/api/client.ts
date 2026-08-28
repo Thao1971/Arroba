@@ -50,8 +50,11 @@ import type {
 
 /**
  * EntityLookupType — catálogo canónico multi-tipo (Regla 2 · Sprint 1).
- * En este sprint solo `company` retorna resultados; los demás son stubs
- * silenciosos.
+ * `company` implementado desde el día 1. `sector`/`territory` conectados
+ * 2026-08-24 (catálogos CNAE/geo de Intel, filtrados en Beta). `investor`
+ * añadido 2026-08-24 pero bloqueado por un mismatch de auth con Intel — ver
+ * ENTITY_MODEL.md junto a la fila `investor` — devuelve [] hasta resolverlo.
+ * El resto son stubs silenciosos.
  */
 export type EntityLookupType =
   | 'company'
@@ -59,6 +62,7 @@ export type EntityLookupType =
   | 'territory'
   | 'person'
   | 'advisor'
+  | 'investor'
   | 'mandate'
   | 'match'
   | 'operation'
@@ -97,6 +101,109 @@ export interface WatchlistItem {
 export interface WatchlistListResponse {
   items: WatchlistItem[];
   total: number;
+}
+
+/**
+ * Mandato de compra — proxy Beta → Intel `buyer-mandates` (ver
+ * DIAGNOSTICO_PAGINA_OPORTUNIDADES.md). Campos 1:1 con `MandateCreate` en
+ * `backend/src/modules/mandates/models.py`.
+ */
+export interface MandateCreatePayload {
+  name: string;
+  mandate_type?: 'strategic' | 'financial' | 'roll_up';
+  target_cnae_sections?: string[] | null;
+  target_cnae_codes?: string[] | null;
+  target_provincias?: string[] | null;
+  revenue_min?: number | null;
+  revenue_max?: number | null;
+  ownership_preference?: 'any' | 'standalone_only';
+  exclude_master_ids?: string[];
+  notes?: string | null;
+}
+
+export interface Mandate extends MandateCreatePayload {
+  id: string;
+  status: 'active' | 'paused' | 'closed';
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface FitDimension {
+  value: number | string | null;
+  score: number | null;
+  sources: string[];
+}
+
+export interface MandateTarget {
+  master_id: string;
+  name: string | null;
+  score: number | null;
+  fit_dimensions: Record<string, FitDimension>;
+  score_method: string | null;
+  explanation: string | null;
+  // Tipo de oportunidad real (recommendation-intelligence en Intel, o su
+  // equivalente de demo en modo mock): "roll_up_candidate" |
+  // "divestment_candidate" | "acquisition_target". role_label ya viene en ES.
+  role?: string | null;
+  role_label?: string | null;
+  cif?: string | null;
+  sector?: string | null;
+  location?: string | null;
+}
+
+export interface MandateTargetsResponse {
+  mandate_id: string;
+  mandate_name: string | null;
+  candidates_scanned: number;
+  count: number;
+  targets: MandateTarget[];
+  source: 'mock' | 'real';
+}
+
+/**
+ * Listas guardadas / oportunidades manuales — proxy Beta → `/api/lists`
+ * (backend/src/modules/companies/lists_router.py). Recurso aditivo, no
+ * relacionado con `WatchlistItem` (la cartera única sin nombre) ni con
+ * `Mandate` (criterios de compra, matching automático). `kind` distingue
+ * "lista guardada" de "oportunidad creada desde selección" — mismo dato,
+ * misma llamada de creación, solo cambia `kind`.
+ */
+export type ListKind = 'list' | 'opportunity';
+
+export interface SavedListCreatePayload {
+  name: string;
+  kind?: ListKind;
+  cifs?: string[];
+}
+
+export interface SavedListItemOut {
+  cif: string | null;
+  master_company_id: string;
+  legal_name: string | null;
+  secondary_label: string | null;
+  added_at: string;
+}
+
+export interface SavedListDetail {
+  list_id: string;
+  name: string;
+  kind: ListKind;
+  created_at: string;
+  updated_at: string;
+  items: SavedListItemOut[];
+}
+
+export interface SavedListSummary {
+  list_id: string;
+  name: string;
+  kind: ListKind;
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedListsResponse {
+  lists: SavedListSummary[];
 }
 
 export class ApiError extends Error {
@@ -369,6 +476,66 @@ export const apiClient = {
     getMe: () => request<MeResponse>('/api/auth/me'),
     getMyWatchlist: (activeOrg?: string | null) =>
       request<WatchlistListResponse>('/api/users/me/watchlist', {
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+  },
+  mandates: {
+    create: (payload: MandateCreatePayload, activeOrg?: string | null) =>
+      request<Mandate>('/api/mandates', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    listMine: (activeOrg?: string | null, status?: string) =>
+      request<Mandate[]>(
+        `/api/mandates/mine${status ? `?status=${encodeURIComponent(status)}` : ''}`,
+        { headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined }
+      ),
+    get: (mandateId: string) => request<Mandate>(`/api/mandates/${mandateId}`),
+    update: (mandateId: string, payload: Partial<MandateCreatePayload> & { status?: string }) =>
+      request<Mandate>(`/api/mandates/${mandateId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }),
+    targets: (mandateId: string, limit = 20) =>
+      request<MandateTargetsResponse>(`/api/mandates/${mandateId}/targets?limit=${limit}`),
+  },
+  // Listas guardadas / "Crear oportunidad desde selección" (kind: 'opportunity').
+  lists: {
+    create: (payload: SavedListCreatePayload, activeOrg?: string | null) =>
+      request<SavedListDetail>('/api/lists', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    mine: (activeOrg?: string | null) =>
+      request<SavedListsResponse>('/api/lists', {
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    get: (listId: string, activeOrg?: string | null) =>
+      request<SavedListDetail>(`/api/lists/${listId}`, {
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    addItems: (listId: string, cifs: string[], activeOrg?: string | null) =>
+      request<SavedListDetail>(`/api/lists/${listId}/items`, {
+        method: 'POST',
+        body: JSON.stringify({ cifs }),
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    removeItem: (listId: string, cif: string, activeOrg?: string | null) =>
+      request<void>(`/api/lists/${listId}/items/${cif}`, {
+        method: 'DELETE',
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    rename: (listId: string, name: string, activeOrg?: string | null) =>
+      request<SavedListDetail>(`/api/lists/${listId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+        headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
+      }),
+    remove: (listId: string, activeOrg?: string | null) =>
+      request<void>(`/api/lists/${listId}`, {
+        method: 'DELETE',
         headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
       }),
   },

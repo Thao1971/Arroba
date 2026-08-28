@@ -40,6 +40,10 @@ from src.modules.copilot.models import (
     SearchSkillResponse,
     Workspace,
 )
+# HARDENING 2026-08-24 · "Sectores relacionados" (chips) — reutiliza el
+# dispatcher multi-tipo ya existente en vez de duplicar lógica de matching.
+from src.modules.entities import service as entities_service
+from src.modules.entities.models import EntityLookupResult
 # HARDENING-REQ004 · 2026-08-15 · parser NL → filtros numéricos (5º modo).
 # Puro (`re` + `unicodedata`), sin I/O. Consumido por `_execute_search_real`
 # tras la rama CIF y antes de categorical/name/semantic para que consultas
@@ -158,6 +162,40 @@ def _score(query_norm: str, doc: dict[str, Any]) -> float:
 
 
 async def execute_search(
+    request: SearchSkillRequest,
+) -> SearchSkillResponse:
+    """Entry point público del skill de búsqueda.
+
+    HARDENING 2026-08-24 · "Sectores relacionados" (chips): además de la
+    respuesta de empresas (`_execute_search_impl`, sin cambios), cuando la
+    respuesta trae un `workspace` con contenido real (no un navigate_to
+    directo a una ficha, ni disambiguation), se enriquece con
+    `related_entities` — sector/territory/investor que coincidan con la
+    misma query, vía `entities.service.lookup()`. Un fallo aquí NUNCA rompe
+    la búsqueda principal: se loguea y se omiten los chips.
+    """
+    resp = await _execute_search_impl(request)
+    if resp.workspace is not None:
+        resp.related_entities = await _related_entities_chips(request.query)
+    return resp
+
+
+async def _related_entities_chips(query: str) -> list[EntityLookupResult] | None:
+    """Sector/territory/investor que coincidan con `query` — para las chips
+    de "Sectores relacionados" sobre la tabla de resultados y en el
+    Composer. Reutiliza `entities.service.lookup()` (mismos resolvers ya
+    probados en `test_entities_sector_territory.py` / `test_entities_investor.py`)."""
+    try:
+        results = await entities_service.lookup(
+            query=query, types=["sector", "territory", "investor"], limit=6
+        )
+    except Exception as exc:  # noqa: BLE001 — decoración opcional, nunca tumba la búsqueda
+        log.warning("copilot.search.related_entities_failed", error=str(exc), query=query)
+        return None
+    return results or None
+
+
+async def _execute_search_impl(
     request: SearchSkillRequest,
 ) -> SearchSkillResponse:
     """Materialises a response for a search request.
@@ -397,25 +435,34 @@ async def _execute_search_real(
     # DEPLOY_NOTES `HARDENING-REQ003 Gate Intel`).
     if not is_concrete:
         tax = await _taxonomy_search(q, offset=offset, limit=_RESULTS_PAGE)
-        if tax is not None:
-            rows: list[dict[str, Any]] = tax.get("results") or []
+        rows: list[dict[str, Any]] = (tax.get("results") or []) if tax is not None else []
+        if tax is not None and not rows:
+            retry_q = _taxonomy_retry_variant(q)
+            if retry_q is not None:
+                tax_retry = await _taxonomy_search(retry_q, offset=offset, limit=_RESULTS_PAGE)
+                retry_rows = (tax_retry.get("results") or []) if tax_retry is not None else []
+                if retry_rows:
+                    tax, rows = tax_retry, retry_rows
+        if tax is not None and rows:
             total = int(tax.get("total") or tax.get("count") or len(rows))
-            if rows:
-                items = [_row_to_item(r) for r in rows]
-                block = SearchResultsBlock(
-                    id="blk_results_" + uuid.uuid4().hex[:8],
-                    props=SearchResultsBlockProps(query=q, total=total, results=items),
-                )
-                return SearchSkillResponse(
-                    workspace=Workspace(
-                        workspace_id="wsp_" + uuid.uuid4().hex[:12],
-                        intent="search", blocks=[block],
-                    ),
-                    source="real", query=q,
-                )
-        # Taxonomy returned no rows or endpoint unavailable → fall through to
-        # semantic search (#5). Preserves REQ001b behaviour when categorical
-        # gate is still latent.
+            items = [_row_to_item(r) for r in rows]
+            # `query` en la respuesta es SIEMPRE el texto original del usuario
+            # (nunca la variante con "de" insertado) — así el resultado dice
+            # "resultados para «agencias marketing»", no la reescritura interna.
+            block = SearchResultsBlock(
+                id="blk_results_" + uuid.uuid4().hex[:8],
+                props=SearchResultsBlockProps(query=q, total=total, results=items),
+            )
+            return SearchSkillResponse(
+                workspace=Workspace(
+                    workspace_id="wsp_" + uuid.uuid4().hex[:12],
+                    intent="search", blocks=[block],
+                ),
+                source="real", query=q,
+            )
+        # Taxonomy returned no rows (incluso tras el reintento) o endpoint no
+        # disponible → cae a búsqueda semántica (#5). Preserva el
+        # comportamiento REQ001b cuando el gate categórico sigue latente.
         return await _semantic_search_results(q, pathname, locale, offset=offset)
 
     # ---- #4 · resolve by name (concrete → single/disambiguation) --------
@@ -710,6 +757,24 @@ async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
     ids = (payload or {}).get("company_ids") or []
     return [str(i) for i in ids if i]
 
+
+
+# HARDENING-2026-08-24 · bug reportado: "agencias marketing" no devuelve
+# resultados, "agencias de marketing" sí. Los nombres de categoría de Intel
+# son compuestos nominales ("Agencias DE marketing", "Empresas DE
+# construcción") y el endpoint de taxonomía parece matchear por frase — sin
+# el conector, falla en seco. Generamos una variante con "de" insertado
+# entre las 2 primeras palabras y la probamos antes de caer a semántico.
+_CONNECTOR_WORDS = frozenset({"de", "del", "en", "con", "para", "y"})
+
+
+def _taxonomy_retry_variant(q: str) -> str | None:
+    tokens = q.strip().split()
+    if len(tokens) < 2:
+        return None
+    if any(t.lower() in _CONNECTOR_WORDS for t in tokens):
+        return None  # ya tiene conector — no es este caso, no reintentar
+    return f"{tokens[0]} de {' '.join(tokens[1:])}"
 
 
 async def _taxonomy_search(

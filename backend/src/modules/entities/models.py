@@ -13,12 +13,15 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 # Catálogo cerrado de tipos canónicos declarado en ENTITY_MODEL §3.
+# `investor` añadido 2026-08-24 — ver nota en ENTITY_MODEL.md junto a la tabla
+# de tipos (bloqueo de auth conocido con el endpoint CNMV de Intel).
 EntityType = Literal[
     "company",
     "sector",
     "territory",
     "person",
     "advisor",
+    "investor",
     "mandate",
     "match",
     "operation",
@@ -33,7 +36,7 @@ EntityIcon = Literal[
     "grid",       # sector
     "map",        # territory
     "user",       # person / advisor
-    "briefcase",  # mandate / advisor
+    "briefcase",  # mandate / advisor / investor
     "handshake",  # match / operation / opportunity
     "trending-up",  # valuation
     "file-text",  # document

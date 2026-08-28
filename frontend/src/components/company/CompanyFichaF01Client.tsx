@@ -249,8 +249,17 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   // Vía proxies JWT (apiClient.companies.*). Auth-gated. Fetch tolerante
   // (catch→null): un 502 upstream degrada a narrative-only (MVP), nunca spinner
   // eterno (R15). Alimentan `marketReading`/`succession`/`rollup` del layout.
+  //
+  // PERF · diferido tras primer paint (2026-08-24): estas tres NO son
+  // esenciales para el render inicial (el layout ya las trata como opcionales,
+  // pasándolas `null` mientras cargan). Antes se lanzaban en el mismo batch
+  // que `ficha`/`semantic`/`financial`/`signal`/`buyers`/`opportunities`,
+  // compitiendo por workers del backend justo en el instante más cargado de
+  // la ficha. Ahora esperan a que `fichaLoading` sea `false` (identity ya
+  // resuelta o fallida) para arrancar, así no compiten con la carga crítica.
+  const deferredReady = isAuthenticated && !fichaLoading;
   const { data: marketReading } = useSWR<string | null>(
-    isAuthenticated ? ['ficha-market-reading', cifUpper] : null,
+    deferredReady ? ['ficha-market-reading', cifUpper] : null,
     () =>
       apiClient.companies
         .marketReading(cifUpper)
@@ -259,12 +268,12 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
     FETCH_CONFIG,
   );
   const { data: succession } = useSWR<unknown>(
-    isAuthenticated ? ['ficha-succession', cifUpper] : null,
+    deferredReady ? ['ficha-succession', cifUpper] : null,
     () => apiClient.companies.succession(cifUpper).catch(() => null),
     FETCH_CONFIG,
   );
   const { data: rollup } = useSWR<unknown>(
-    isAuthenticated ? ['ficha-rollup', cifUpper] : null,
+    deferredReady ? ['ficha-rollup', cifUpper] : null,
     () => apiClient.companies.rollup(cifUpper).catch(() => null),
     FETCH_CONFIG,
   );

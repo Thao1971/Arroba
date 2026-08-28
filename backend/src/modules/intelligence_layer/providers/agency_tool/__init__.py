@@ -1,4 +1,4 @@
-"""Proveedor real — Agency Tool (agencias.wearebudadvisors.com).
+"""Proveedor real — Agency Tool (intel.arroba.com; agencias.wearebudadvisors.com quedó obsoleto).
 
 Fase B.6.a: se implementa el andamiaje. En modo `mock` el router NUNCA
 instancia estos proveedores, así que no se realiza ninguna llamada HTTP
