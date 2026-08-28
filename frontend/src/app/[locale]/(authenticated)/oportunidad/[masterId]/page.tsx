@@ -80,7 +80,7 @@ function OportunidadDetalleContent() {
 
   useEffect(() => {
     if (!target) return;
-    publish({ entity_type: 'company', entity_id: target.master_id, entity_name: target.name || undefined });
+    publish({ entity_type: 'company', entity_id: target.master_id, entity_name: target.name || null }); // hotfix bundle-160826: TS strict cast (entity_name: string | null; undefined no admitido)
     return () => publish(null);
   }, [target, publish]);
 

@@ -4,6 +4,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+# hotfix bundle-160826: contract update — parse_financial_query se importa
+# también sin alias para los tests nuevos (province-only routes to structured search).
+from src.modules.copilot.financial_query import parse_financial_query  # noqa: E402
 from src.modules.copilot.financial_query import parse_financial_query as p  # noqa: E402
 
 
@@ -71,10 +74,18 @@ def test_ebitda_margin():
 
 
 def test_non_financial_returns_none():
+    # hotfix bundle-160826: contract update — queries sin predicados numéricos
+    # y sin provincia siguen devolviendo None. Query CON provincia (aunque sin
+    # números) ahora enruta a structured search (ver test_province_only).
     assert p("agencias de marketing") is None
-    assert p("clínicas dentales en Valencia") is None
     assert p("Servier") is None
     assert p("") is None
+    # Antes: p("clínicas dentales en Valencia") is None
+    # Ahora: extrae province='valencia' y residual='clinicas dentales'
+    result = p("clínicas dentales en Valencia")
+    assert result is not None
+    assert result["filters"] == {"province": "valencia"}
+    assert result["residual"] == "clinicas dentales"
 
 
 def test_province_only_routes_to_structured_search():
