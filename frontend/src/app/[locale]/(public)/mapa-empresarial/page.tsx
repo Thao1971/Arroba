@@ -11,7 +11,7 @@
  * con Daniel antes de sumar esta pantalla al deploy:
  *   - Sin AIBar (banner narrativo por IA): no existe un generador de ese
  *     texto en Intel hoy.
- *   - Sin mapa SVG interactivo: se sustituye por un ranking (lista ordenada)
+ *   - Mapa SVG de España (CCAA) añadido 2026-08-29 — mismas formas estilizadas del mockup, coloreadas con el dynamism_score real. Solo visible con geoLevel==='ccaa'.
  *     de territorios — mismos datos, sin la coreografía visual del mockup.
  *   - Sin filtro "Periodo" (histórico por snapshot): Intel no expone
  *     snapshots pasados de geo/sector-intelligence, solo el estado actual.
@@ -47,6 +47,7 @@ import {
 } from '@/lib/api/client';
 import { Badge, Card, Spinner, Tooltip } from '@/components/ds';
 import { cn } from '@/lib/cn';
+import { SpainMap } from '@/components/mapa-empresarial/SpainMap';
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -264,6 +265,39 @@ function EvolutionCard({
 /* ------------------------------------------------------------------ */
 /* Territory ranking                                                   */
 /* ------------------------------------------------------------------ */
+
+/* ── Tarjeta flotante sobre el mapa (réplica del popup "Madrid" del mock) ── */
+function MapHoverCard({ t }: { t: MarketMapTerritoryCard }) {
+  return (
+    <div className="absolute top-2 right-2 w-48 bg-surface border border-border-strong rounded-lg shadow-lg p-3 pointer-events-none">
+      <p className="font-display font-semibold text-sm text-text truncate">{t.geo_name}</p>
+      <div className="mt-1.5 space-y-1">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-text-muted">Empresas activas</span>
+          <span className="font-mono font-medium text-text">{fmtNum(t.active_companies)}</span>
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-text-muted">Nuevas empresas</span>
+          <span className="font-mono font-medium text-success">{fmtNum(t.new_companies)}</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+        <span className="text-[11px] text-text-muted">Índice de dinamismo</span>
+        <span className="font-display text-lg font-bold text-danger">{fmtScore(t.dynamism_score)}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 mt-1.5 text-[10px] text-text-muted">
+        <div><p>Tamaño</p><p className="font-mono text-text">{fmtScore(t.size_score)}</p></div>
+        <div><p>Crecim.</p><p className="font-mono text-text">{fmtScore(t.growth_score)}</p></div>
+        <div><p>Activ.</p><p className="font-mono text-text">{fmtScore(t.activity_score)}</p></div>
+      </div>
+      {t.primary_driver && (
+        <p className="text-[10px] text-text-muted mt-1.5 pt-1.5 border-t border-border truncate">
+          Sector líder: <span className="text-text">{t.primary_driver}</span>
+        </p>
+      )}
+    </div>
+  );
+}
 
 function TerritoryRow({
   t,
@@ -555,6 +589,7 @@ export default function MapaEmpresarialPage() {
   const [territories, setTerritories] = useState<MarketMapTerritoryCard[]>([]);
   const [territoriesLoading, setTerritoriesLoading] = useState(true);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
+  const [hoveredTerritoryId, setHoveredTerritoryId] = useState<string | null>(null);
   const [territoryDetail, setTerritoryDetail] = useState<MarketMapTerritoryDetailResponse | null>(null);
   const [territoryCross, setTerritoryCross] = useState<MarketMapCrossSector[]>([]);
   const [territoryCrossLoading, setTerritoryCrossLoading] = useState(false);
@@ -812,6 +847,36 @@ export default function MapaEmpresarialPage() {
           </div>
         ) : territories.length === 0 ? (
           <EmptyRow text="Intel no devolvió territorios para esta combinación." />
+        ) : geoLevel === 'ccaa' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-7 relative">
+              <SpainMap
+                territories={territories}
+                selectedId={selectedTerritoryId}
+                hoveredId={hoveredTerritoryId}
+                onHover={setHoveredTerritoryId}
+                onSelect={(id) => setSelectedTerritoryId((cur) => (cur === id ? null : id))}
+              />
+              {(() => {
+                const shown = territories.find(
+                  (t) => t.geo_id === (hoveredTerritoryId ?? selectedTerritoryId)
+                );
+                return shown ? <MapHoverCard t={shown} /> : null;
+              })()}
+            </div>
+            <div className="lg:col-span-5 space-y-0.5 lg:max-h-[420px] lg:overflow-y-auto">
+              {territories.map((t) => (
+                <TerritoryRow
+                  key={t.geo_id}
+                  t={t}
+                  selected={selectedTerritoryId === t.geo_id}
+                  onSelect={() =>
+                    setSelectedTerritoryId((cur) => (cur === t.geo_id ? null : t.geo_id))
+                  }
+                />
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="space-y-0.5">
             {territories.map((t) => (
