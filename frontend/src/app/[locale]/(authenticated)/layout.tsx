@@ -2,7 +2,7 @@
 import { ReactNode, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
-import { AuthHeader } from '@/components/layout/AuthHeader';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { Spinner } from '@/components/ds';
 
 /**
@@ -20,12 +20,40 @@ export default function AuthenticatedLayout({ children }: { children: ReactNode 
   // aquí — se han promovido al layout raíz `[locale]/layout.tsx` para que
   // el Composer persista al navegar a /empresa-f01/{cif} (fuera del segment
   // autenticado). El Dock se auto-oculta para usuarios anónimos.
+  //
+  // NOTA (App Shell, 2026-08-29): AuthHeader desaparece — el sidebar
+  // (components/layout/Sidebar.tsx) es ahora el único chrome de navegación
+  // en las páginas autenticadas (incluida /inicio — la home PRIVADA sí lo
+  // lleva; la home PÚBLICA en `(public)/page.tsx` sigue con `PublicHeader`,
+  // sin sidebar). Organización activa y cerrar sesión, que antes vivían en
+  // AuthHeader, se movieron dentro del sidebar (menú bajo el nombre de
+  // usuario), confirmado por Daniel.
+  //
+  // Excepción: `/onboarding` NO lleva sidebar — es un flujo lineal guiado
+  // (conversación paso a paso para crear la primera organización) donde el
+  // usuario aún no tiene nada que navegar; un menú lleno de "Pronto" ahí
+  // sería ruido, no ayuda. Patrón habitual: los onboardings se sirven sin
+  // chrome de navegación principal.
+  const pathname = usePathname() ?? '/';
+  const isOnboarding = pathname.startsWith(ONBOARDING_EXEMPT_PREFIX);
+
+  if (isOnboarding) {
+    return (
+      <div className="min-h-screen bg-bg text-text">
+        <main className="flex-1">
+          <OnboardingGuard>{children}</OnboardingGuard>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-text">
-      <AuthHeader />
-      <main className="flex-1">
-        <OnboardingGuard>{children}</OnboardingGuard>
-      </main>
+    <div className="min-h-screen bg-bg text-text">
+      <Sidebar>
+        <main className="flex-1">
+          <OnboardingGuard>{children}</OnboardingGuard>
+        </main>
+      </Sidebar>
     </div>
   );
 }
@@ -67,7 +95,7 @@ function RedirectingFallback({ testId }: { testId?: string }) {
   return (
     <div
       data-testid={testId}
-      className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center text-text-muted text-sm gap-2"
+      className="min-h-screen flex items-center justify-center text-text-muted text-sm gap-2"
     >
       <Spinner /> Redirigiendo…
     </div>

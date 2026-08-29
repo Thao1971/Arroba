@@ -195,7 +195,12 @@ const COLUMN_DEFS: ColumnDef[] = [
     label: 'Actualizado',
     align: 'right',
     width: '0.8fr',
-    defaultVisible: true,
+    // BUGFIX-2026-08-29 - Daniel: la columna es larga y no aporta en el
+    // primer vistazo de resultados. La dejamos en el catalogo (se puede
+    // volver a activar desde el boton Columnas) pero fuera del set por
+    // defecto. La fecha de actualizacion ya es visible dentro de la
+    // ficha de empresa al pinchar, que es donde de verdad importa.
+    defaultVisible: false,
     wrapperClassName: () => 'text-right text-xs text-text-subtle',
     render: (_r, s) => s.updated_at || '—',
     // Ordena como string (localCompare) — si `updated_at` no viene en ISO
@@ -448,6 +453,17 @@ export default function ResultadosPage() {
       setLoading(true);
       setError(null);
       setExpanded(null);
+      // BUGFIX-2026-08-29 · el contador de cabecera ("N resultados") y las
+      // filas no se reseteaban al arrancar una busqueda nueva, solo al
+      // terminar (setTotal/setRows solo se llamaban en los paths de exito
+      // o error mas abajo). Efecto visible: al lanzar una query nueva se
+      // veia el titulo actualizado junto al total ANTIGUO ("clinicas
+      // dentales" con "898 resultados" heredado de la busqueda anterior)
+      // mientras el skeleton de carga estaba activo — parecia que el loader
+      // no funcionaba o mostraba datos incorrectos. Reseteamos aqui, antes
+      // del fetch, para que la cabecera quede coherente con el skeleton.
+      setRows([]);
+      setTotal(0);
       try {
         const res = await apiClient.copilot.search({
           query,

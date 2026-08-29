@@ -81,7 +81,7 @@ export function MandateForm({ initial, submitLabel, onSubmit }: MandateFormProps
         <select
           className="h-11 px-3 rounded-md font-body bg-surface text-text border border-border"
           value={mandateType}
-          onChange={(e) => setMandateType(e.target.value as 'strategic' | 'financial' | 'roll_up')} // hotfix bundle-160826: TS strict cast (union type narrow desde select)
+          onChange={(e) => setMandateType(e.target.value as NonNullable<MandateCreatePayload['mandate_type']>)}
         >
           <option value="strategic">Estratégico</option>
           <option value="financial">Financiero</option>
@@ -130,7 +130,7 @@ export function MandateForm({ initial, submitLabel, onSubmit }: MandateFormProps
         <select
           className="h-11 px-3 rounded-md font-body bg-surface text-text border border-border"
           value={ownership}
-          onChange={(e) => setOwnership(e.target.value as 'any' | 'standalone_only')} // hotfix bundle-160826: TS strict cast (union type narrow desde select)
+          onChange={(e) => setOwnership(e.target.value as NonNullable<MandateCreatePayload['ownership_preference']>)}
         >
           <option value="any">Cualquiera</option>
           <option value="standalone_only">Solo empresas independientes (sin grupo)</option>

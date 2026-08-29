@@ -436,6 +436,22 @@ async def _execute_search_real(
     if not is_concrete:
         tax = await _taxonomy_search(q, offset=offset, limit=_RESULTS_PAGE)
         rows: list[dict[str, Any]] = (tax.get("results") or []) if tax is not None else []
+        # REVERTIDO 2026-08-29 · el mismo dia probamos aqui un parche que
+        # SIEMPRE reintentaba con "de" insertado y se quedaba con el total
+        # mas alto, para tapar que "agencias marketing" (sin "de") devolvia
+        # resultados irrelevantes (agencias de viajes) en vez de los de
+        # marketing. Ese sintoma tenia arreglo de verdad en el origen: el
+        # motor de taxonomia de Intel (resolve_label + NODE_ALIASES, ver
+        # Intel-290826-deploy-pendiente/) ya reconoce "agencias marketing" y
+        # "agencias de marketing" como la MISMA categoria via alias curado,
+        # asi que la llamada directa de aqui ya devuelve el total correcto
+        # sin necesidad de una segunda llamada. Mantener el parche de Beta
+        # habria significado dos sitios resolviendo el mismo problema de
+        # formas distintas (Daniel: "no quiero que cada uno haga una
+        # cosa") -- Intel es el dueno de la resolucion de categorias, Beta
+        # solo consume. Se deja el retry original (solo si `rows` viene
+        # vacio) como red de seguridad generica para categorias que Intel
+        # de verdad no reconoce, no como parche de este caso concreto.
         if tax is not None and not rows:
             retry_q = _taxonomy_retry_variant(q)
             if retry_q is not None:

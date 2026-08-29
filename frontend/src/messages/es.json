@@ -219,7 +219,8 @@
   "common": {
     "loading": "Cargando…",
     "tryAgain": "Reintentar",
-    "back": "Volver"
+    "back": "Volver",
+    "soon": "Pronto"
   },
   "entity": {
     "lock": {
@@ -252,5 +253,55 @@
     "valoracionDescription": "Rango de valoración por múltiplos + peers comparables.",
     "mercadoTitle": "Empresas similares",
     "mercadoDescription": "Empresas con perfil semántico y sectorial cercano."
+  },
+  "sidebar": {
+    "pillars": {
+      "analizar": {
+        "label": "Analizar",
+        "items": {
+          "empresas": "Analizar empresas",
+          "sectores": "Analizar sectores",
+          "territorios": "Analizar territorios"
+        }
+      },
+      "valorar": {
+        "label": "Valorar",
+        "items": {
+          "multiplos": "Múltiplos de mercado",
+          "valorarCompania": "Valorar una compañía",
+          "valoracionAvanzada": "Valoración avanzada"
+        }
+      },
+      "comprarVender": {
+        "label": "Comprar y vender",
+        "items": {
+          "empresasEnVenta": "Empresas en venta",
+          "oportunidadesMercado": "Oportunidades de mercado"
+        }
+      }
+    },
+    "miEspacio": {
+      "eyebrow": "Mi espacio",
+      "pipeline": "Mi pipeline",
+      "seguimiento": "Lista de seguimiento",
+      "alertas": "Alertas",
+      "senales": "Señales",
+      "busquedasGuardadas": "Búsquedas guardadas",
+      "misTesis": "Mis tesis",
+      "configuracion": "Configuración"
+    },
+    "fold": "Plegar / desplegar menú",
+    "org": {
+      "activeLabel": "Organización activa",
+      "switch": "Cambiar de organización"
+    },
+    "roles": {
+      "anonymous": "—",
+      "subscriber": "Suscriptor",
+      "corporate": "Corporativo",
+      "investor": "Inversor",
+      "advisor": "Advisor",
+      "admin": "Admin"
+    }
   }
 }

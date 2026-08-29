@@ -217,6 +217,15 @@
    * ------------------------------------------------------------------- */
   --gradient-brand-dark: linear-gradient(135deg, var(--arroba-black), var(--neutral-800));
   --gradient-brand-red:  linear-gradient(135deg, var(--arroba-red), var(--arroba-red-dark));
+
+  /* ---------------------------------------------------------------------
+   * 11 -- Layout (App Shell)
+   *
+   * Sidebar de navegacion persistente (App Shell). Ancho expandido / cuando
+   * esta plegado (icon rail). Ver components/layout/Sidebar.tsx.
+   * ------------------------------------------------------------------- */
+  --sb-w:           240px;
+  --sb-w-collapsed: 72px;
 }
 
 /* ===========================================================================

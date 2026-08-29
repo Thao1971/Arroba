@@ -206,6 +206,229 @@ export interface SavedListsResponse {
   lists: SavedListSummary[];
 }
 
+/**
+ * Mapa Empresarial — tipos de los proxies publicos hacia geo-intelligence /
+ * sector-intelligence-v2 / cross-intelligence / business-demography de
+ * Intel (2026-08-28). Todo es lectura publica, sin `activeOrg`.
+ */
+export interface MarketMapKpi {
+  value: number | null;
+  change_pct: number | null;
+  trend: string | null;
+}
+
+export interface MarketMapNationalOverview {
+  active_companies: MarketMapKpi;
+  new_companies: MarketMapKpi;
+  closed_companies: MarketMapKpi;
+  net_balance: { value: number | null };
+  period: string | null;
+}
+
+export interface MarketMapNationalHistory {
+  months: string[];
+  created: number[];
+  closed: number[];
+  active: (number | null)[];
+}
+
+export interface MarketMapNationalResponse {
+  kpis: MarketMapNationalOverview | null;
+  evolution: MarketMapNationalHistory | null;
+  months: number;
+}
+
+export type MarketMapGeoLevel = 'ccaa' | 'province';
+export type MarketMapSectorLevel = 'section' | 'division' | 'group';
+export type MarketMapMetric = 'dynamism' | 'size' | 'growth' | 'activity';
+
+export interface MarketMapTerritoryCard {
+  geo_id: string;
+  geo_level: MarketMapGeoLevel;
+  geo_name: string;
+  active_companies: number;
+  new_companies: number;
+  closed_companies: number;
+  net_company_creation: number;
+  public_contracts_count: number;
+  borme_activity_count: number;
+  size_score: number;
+  growth_score: number;
+  activity_score: number;
+  dynamism_score: number;
+  trend_direction: string | null;
+  signal: string | null;
+  primary_driver: string | null;
+  partial_data: boolean;
+  parent_ccaa?: string;
+  source_attribution?: string;
+}
+
+export interface MarketMapTerritoriesResponse {
+  level: MarketMapGeoLevel;
+  metric: MarketMapMetric;
+  territories: MarketMapTerritoryCard[];
+  count: number;
+}
+
+export interface MarketMapTerritoryDetailResponse {
+  level: MarketMapGeoLevel;
+  code: string;
+  territory: MarketMapTerritoryCard | null;
+  provinces: MarketMapTerritoryCard[] | null;
+}
+
+export interface MarketMapSectorCard {
+  cnae_code: string;
+  cnae_level: MarketMapSectorLevel;
+  cnae_label: string;
+  size_score: number;
+  growth_score: number;
+  activity_score: number;
+  dynamism_score: number;
+  trend_direction: string | null;
+  signal: string | null;
+  primary_driver: string | null;
+  active_companies: number;
+  procurement_contracts: number;
+  procurement_amount: number;
+  partial_data: boolean;
+}
+
+export interface MarketMapSectorsResponse {
+  level: MarketMapSectorLevel;
+  metric: MarketMapMetric;
+  sectors: MarketMapSectorCard[];
+  count: number;
+}
+
+export interface MarketMapEmergingResponse {
+  level: MarketMapSectorLevel;
+  sectors: MarketMapSectorCard[];
+  count: number;
+}
+
+export interface MarketMapCrossSector {
+  cnae_section: string;
+  cnae_label: string;
+  estimated_companies: number;
+  borme_events: number;
+  iberinform_companies: number;
+  concentration_index: number;
+  activity_score: number;
+}
+
+export interface MarketMapCrossSectorsInResponse {
+  geo_level: MarketMapGeoLevel;
+  geo_code: string;
+  geo_name?: string;
+  sectors: MarketMapCrossSector[];
+  count: number;
+}
+
+export interface MarketMapCrossTerritory {
+  geo_id: string;
+  geo_name: string;
+  geo_level: MarketMapGeoLevel;
+  estimated_companies: number;
+  borme_events: number;
+  iberinform_companies: number;
+  concentration_index: number;
+  activity_score: number;
+}
+
+export interface MarketMapCrossTerritoryForResponse {
+  cnae_section: string;
+  cnae_label?: string;
+  geo_level: MarketMapGeoLevel;
+  territories: MarketMapCrossTerritory[];
+  count: number;
+}
+
+// Ficha sectorial — drill-down de un CNAE concreto (2026-08-29). El objeto
+// `sector` trae TODOS los campos crudos de sector_intelligence_v2.py (no solo
+// la tarjeta compacta de `MarketMapSectorCard`): breakdown real de actividad,
+// estimaciones de demografia/crecimiento marcadas como tal, y `partial_data`.
+export interface MarketMapSectorDetail {
+  cnae_code: string;
+  cnae_level: MarketMapSectorLevel;
+  cnae_label: string;
+  taxonomy_type: string;
+  size_score: number;
+  growth_score: number;
+  activity_score: number;
+  dynamism_score: number;
+  trend_direction: string | null;
+  signal: string | null;
+  primary_driver: string | null;
+  active_companies: number;
+  market_share: number;
+  new_companies_estimate: number;
+  dissolved_estimate: number;
+  net_balance: number;
+  national_yoy_pct: number;
+  procurement_contracts: number;
+  procurement_amount: number;
+  borme_events: number;
+  iberinform_companies: number;
+  activity_sub_scores: Record<string, number>;
+  sources_available: string[];
+  source_attribution: string;
+  partial_data: boolean;
+  parent_section?: string;
+  parent_division?: string;
+  generated_at: string;
+}
+
+export interface MarketMapSectorCompanyPreview {
+  companies: MarketMapSectorCompany[];
+  pagination: { total_in_arroba_universe: number; limit: number; offset: number; returned: number };
+  data_caveat: string;
+}
+
+export interface MarketMapSectorDetailResponse {
+  cnae_code: string;
+  sector: MarketMapSectorDetail | null;
+  children: MarketMapSectorCard[];
+  children_count?: number;
+  companies_preview: MarketMapSectorCompanyPreview | null;
+}
+
+export interface MarketMapSectorCompany {
+  master_id: string;
+  legal_name: string | null;
+  cnae_code: string | null;
+  provincia: string | null;
+  revenue: number | null;
+  ebitda: number | null;
+  active_signals_count: number;
+  top_signal: { signal_type: string; category: string } | null;
+}
+
+export interface MarketMapSectorCompaniesResponse {
+  cnae_code: string;
+  companies: MarketMapSectorCompany[];
+  pagination: { total_in_arroba_universe: number; limit: number; offset: number; returned: number } | null;
+  data_caveat: string | null;
+}
+
+export interface MarketMapSectorSignalOpportunity {
+  master_id: string;
+  name: string;
+  signal_type: string;
+  dimensions: { impact?: number; confidence?: number; urgency?: number; persistence?: number };
+}
+
+export interface MarketMapSectorSignalsResponse {
+  cnae_code: string;
+  level: MarketMapSectorLevel;
+  companies_analyzed: number;
+  counts_by_category: Record<string, number>;
+  counts_by_type: Record<string, number>;
+  top_opportunities: MarketMapSectorSignalOpportunity[];
+  engine_version?: string;
+}
+
 export class ApiError extends Error {
   status: number;
   code: string;
@@ -538,6 +761,48 @@ export const apiClient = {
         method: 'DELETE',
         headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
       }),
+  },
+  // Mapa Empresarial — proxies publicos (sin auth) hacia geo/sector/cross
+  // intelligence de Intel (2026-08-28). Ver market_map/service.py en el backend.
+  marketMap: {
+    national: (months = 12) =>
+      request<MarketMapNationalResponse>(`/api/market-map/national?months=${months}`),
+    territories: (params: { level?: MarketMapGeoLevel; metric?: MarketMapMetric; limit?: number } = {}) => {
+      const qp = new URLSearchParams();
+      if (params.level) qp.set('level', params.level);
+      if (params.metric) qp.set('metric', params.metric);
+      if (typeof params.limit === 'number') qp.set('limit', String(params.limit));
+      return request<MarketMapTerritoriesResponse>(`/api/market-map/territories?${qp.toString()}`);
+    },
+    territory: (level: MarketMapGeoLevel, code: string) =>
+      request<MarketMapTerritoryDetailResponse>(`/api/market-map/territory/${level}/${code}`),
+    sectors: (params: { level?: MarketMapSectorLevel; metric?: MarketMapMetric; limit?: number } = {}) => {
+      const qp = new URLSearchParams();
+      if (params.level) qp.set('level', params.level);
+      if (params.metric) qp.set('metric', params.metric);
+      if (typeof params.limit === 'number') qp.set('limit', String(params.limit));
+      return request<MarketMapSectorsResponse>(`/api/market-map/sectors?${qp.toString()}`);
+    },
+    sectorsEmerging: (level: MarketMapSectorLevel = 'section') =>
+      request<MarketMapEmergingResponse>(`/api/market-map/sectors/emerging?level=${level}`),
+    crossSectorsIn: (geoLevel: MarketMapGeoLevel, geoCode: string, limit = 21) =>
+      request<MarketMapCrossSectorsInResponse>(
+        `/api/market-map/cross/sectors-in/${geoLevel}/${geoCode}?limit=${limit}`,
+      ),
+    crossTerritoryFor: (cnaeSection: string, geoLevel: MarketMapGeoLevel = 'province', limit = 20) =>
+      request<MarketMapCrossTerritoryForResponse>(
+        `/api/market-map/cross/territory-for/${cnaeSection}?geo_level=${geoLevel}&limit=${limit}`,
+      ),
+    sectorDetail: (cnaeCode: string) =>
+      request<MarketMapSectorDetailResponse>(`/api/market-map/sector/${cnaeCode}`),
+    sectorCompanies: (cnaeCode: string, limit = 20, offset = 0) =>
+      request<MarketMapSectorCompaniesResponse>(
+        `/api/market-map/sector/${cnaeCode}/companies?limit=${limit}&offset=${offset}`,
+      ),
+    sectorSignals: (cnaeCode: string, level: MarketMapSectorLevel = 'section', limit = 20) =>
+      request<MarketMapSectorSignalsResponse>(
+        `/api/market-map/sector/${cnaeCode}/signals?level=${level}&limit=${limit}`,
+      ),
   },
 };
 

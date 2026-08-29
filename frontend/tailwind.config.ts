@@ -116,6 +116,9 @@ const config: Config = {
         16: 'var(--space-16)',
         20: 'var(--space-20)',
         24: 'var(--space-24)',
+        // App Shell sidebar widths (tokens.css §11 -- Layout)
+        sb: 'var(--sb-w)',
+        'sb-collapsed': 'var(--sb-w-collapsed)',
       },
       borderRadius: {
         none: 'var(--radius-none)',

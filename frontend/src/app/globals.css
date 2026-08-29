@@ -55,3 +55,11 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* ---------- App Shell — marca @ animada (mosaico), Sidebar.tsx colapsado ---------- */
+.cm-px { fill: color-mix(in srgb, var(--brand-primary) 25%, transparent); animation: cmSweep 3.4s ease-in-out infinite; animation-delay: calc(var(--o) * .12s); }
+@keyframes cmSweep {
+  0%, 82%, 100% { fill: color-mix(in srgb, var(--brand-primary) 25%, transparent); }
+  18%, 55%      { fill: var(--brand-primary); }
+}
+.arroba-mark:hover .cm-px { animation: none; fill: var(--brand-primary); }

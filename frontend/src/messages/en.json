@@ -230,7 +230,8 @@
   "common": {
     "loading": "Loading…",
     "tryAgain": "Try again",
-    "back": "Back"
+    "back": "Back",
+    "soon": "Soon"
   },
   "entity": {
     "lock": {
@@ -263,5 +264,55 @@
     "valoracionDescription": "Valuation range by multiples + comparable peers.",
     "mercadoTitle": "Similar companies",
     "mercadoDescription": "Companies with close semantic and sector profile."
+  },
+  "sidebar": {
+    "pillars": {
+      "analizar": {
+        "label": "Analyze",
+        "items": {
+          "empresas": "Analyze companies",
+          "sectores": "Analyze sectors",
+          "territorios": "Analyze territories"
+        }
+      },
+      "valorar": {
+        "label": "Value",
+        "items": {
+          "multiplos": "Market multiples",
+          "valorarCompania": "Value a company",
+          "valoracionAvanzada": "Advanced valuation"
+        }
+      },
+      "comprarVender": {
+        "label": "Buy & sell",
+        "items": {
+          "empresasEnVenta": "Companies for sale",
+          "oportunidadesMercado": "Market opportunities"
+        }
+      }
+    },
+    "miEspacio": {
+      "eyebrow": "My space",
+      "pipeline": "My pipeline",
+      "seguimiento": "Watchlist",
+      "alertas": "Alerts",
+      "senales": "Signals",
+      "busquedasGuardadas": "Saved searches",
+      "misTesis": "My theses",
+      "configuracion": "Settings"
+    },
+    "fold": "Collapse / expand menu",
+    "org": {
+      "activeLabel": "Active organisation",
+      "switch": "Switch organisation"
+    },
+    "roles": {
+      "anonymous": "—",
+      "subscriber": "Subscriber",
+      "corporate": "Corporate",
+      "investor": "Investor",
+      "advisor": "Advisor",
+      "admin": "Admin"
+    }
   }
 }

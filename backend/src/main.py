@@ -24,6 +24,7 @@ from src.modules.copilot.router import public_router as copilot_router
 from src.modules.companies.router import router as companies_router
 from src.modules.companies.lists_router import router as saved_lists_router
 from src.modules.entities.router import router as entities_router
+from src.modules.market_map.router import router as market_map_router
 from src.modules.intelligence_layer.endpoints import (
     companies_intel_router,
     entities_semantic_router,
@@ -151,6 +152,7 @@ app.include_router(companies_intel_router)
 app.include_router(intelligence_layer_router)
 app.include_router(entities_semantic_router)
 app.include_router(entities_router)
+app.include_router(market_map_router)
 app.include_router(mandates_router)
 app.include_router(platform_router, prefix="/api")
 app.include_router(workspaces_router, prefix="/api")
