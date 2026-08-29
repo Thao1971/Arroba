@@ -262,7 +262,7 @@ const COLUMN_DEFS: ColumnDef[] = [
   },
 ];
 const DEFAULT_COLUMN_IDS = COLUMN_DEFS.filter((c) => c.defaultVisible).map((c) => c.id);
-const COLUMNS_STORAGE_KEY = 'arroba.resultados.columnas.v1';
+const COLUMNS_STORAGE_KEY = 'arroba.resultados.columnas.v2';
 const DENSITY_STORAGE_KEY = 'arroba.resultados.densidad.v1';
 
 export default function ResultadosPage() {

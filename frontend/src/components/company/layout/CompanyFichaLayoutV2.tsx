@@ -574,7 +574,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
     () => (evo && evo.years.length === 1
       ? singleExerciseFromEvolution({
           years: evo.years,
-          series: evo.series.map((s) => ({ key: s.label, values: s.values })),
+          series: evo.series.map((s) => ({ key: s.key, values: s.values })),
         })
       : null),
     [evo],

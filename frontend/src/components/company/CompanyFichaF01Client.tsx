@@ -27,9 +27,9 @@ import type {
   SignalAnalysis,
   ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
-import { Spinner } from '@/components/ds';
 import { TipProvider } from '@/components/company/atoms/Tip';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
+import { LoadingBlock } from '@/components/blocks';
 
 import { CompanyFichaLayoutV2 } from './layout/CompanyFichaLayoutV2';
 import { apiClient } from '@/lib/api/client';
@@ -280,12 +280,8 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
 
   if (fichaLoading) {
     return (
-      <div
-        data-testid="ficha-f01-loading"
-        className="py-24 flex items-center justify-center text-body-sm"
-        style={{ color: 'var(--text-secondary, #6B6B6B)' }}
-      >
-        <Spinner /> <span className="ml-3">Cargando ficha…</span>
+      <div className="max-w-3xl mx-auto py-10 px-4">
+        <LoadingBlock testId="ficha-f01-loading" />
       </div>
     );
   }

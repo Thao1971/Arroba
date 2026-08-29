@@ -30,11 +30,11 @@ function PublicHeader() {
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
         <Link
           href="/"
-          className="font-display font-semibold text-lg flex items-center gap-2"
+          className="flex items-center"
           data-testid="public-header-logo"
         >
-          <span className="text-primary">@</span>
-          <span>arroba.com</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/logo.png" alt="arroba.com" className="h-[30px] w-auto object-contain" />
         </Link>
         <nav className="flex items-center gap-2">
           <Link
