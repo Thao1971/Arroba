@@ -228,7 +228,7 @@ function EvolutionCard({
         <EmptyRow text="Intel no devolvió la serie histórica en este momento." />
       ) : (
         <div>
-          <div className="flex items-end gap-1 h-32">
+          <div className="flex items-stretch gap-1 h-32">
             {created.map((c, i) => {
               const cl = closed[i] ?? 0;
               return (
@@ -309,25 +309,32 @@ function TerritoryRow({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <div
       className={cn(
-        'w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-md text-left transition-colors',
+        'w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-md transition-colors',
         selected ? 'bg-surface-2 border border-border' : 'hover:bg-surface-2 border border-transparent'
       )}
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <button type="button" onClick={onSelect} className="flex items-center gap-2 min-w-0 text-left flex-1">
         <MapPin size={14} className="text-text-muted shrink-0" />
         <span className="font-medium text-sm text-text truncate">{t.geo_name}</span>
         {t.partial_data && <EstimadoBadge reason="Componente de tamaño/actividad estimado a partir de distribuciones nacionales por provincia (INE DIRCE), no de conteo directo." />}
-      </div>
+      </button>
       <div className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-text-muted">{fmtNum(t.active_companies)} empresas</span>
         <span className="font-mono text-sm font-semibold text-text">{fmtScore(t.dynamism_score)}</span>
         <TrendIcon trend={t.trend_direction} />
+        {/* BUGFIX-2026-08-30 · enlace a la nueva ficha territorial, mismo
+            patrón que "Ficha →" en SectorRow más arriba. */}
+        <Link
+          href={`/territorio/${t.geo_level}/${t.geo_id}`}
+          className="text-xs text-text-muted hover:text-text underline underline-offset-2"
+          title="Ver ficha territorial completa"
+        >
+          Ficha →
+        </Link>
       </div>
-    </button>
+    </div>
   );
 }
 

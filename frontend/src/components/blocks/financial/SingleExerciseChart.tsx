@@ -239,39 +239,84 @@ export function singleExerciseFromEvolution(
  *     (fuente histórica, contrato preservado).
  *  2) Único punto del agregador `financialAnalysis.evolution.points[]` (misma
  *     fuente que KPIs/sparklines). Solo se usa cuando (1) devuelve `null`.
+ *  3) BUGFIX-2026-08-30 (P3) · `profit_loss` como red de seguridad. Cuando la
+ *     fuente elegida tiene el `year` pero `revenue`/`ebitda` vienen `null`
+ *     (empresas cuya evolution/agregador no traen estos KPIs pero sí tienen
+ *     la Cuenta de Resultados completa entregada), se completa cada campo
+ *     individualmente desde la fila correspondiente de `profit_loss.rows[]`.
+ *     Nunca se sintetiza — se lee literalmente del cell.value del mismo año.
  *
- * Si ni la fuente legacy trae 1 año ni el agregador tiene exactamente 1 punto,
- * devuelve `null` (el layout renderiza `<Pending/>`). R15 estricto: nunca se
- * sintetiza ni combina; se lee de la primera fuente que ofrece dato.
+ * Si ni la fuente legacy trae 1 año, ni el agregador tiene exactamente 1 punto,
+ * ni `profit_loss` tiene una entrada del mismo año, devuelve `null` (el layout
+ * renderiza `<Pending/>`). R15 estricto: nunca se sintetiza ni combina; se
+ * lee de la primera fuente que ofrece dato para cada campo.
  */
 export function resolveSingleExerciseCascade(
   legacy: { year: number; revenue: number | null; ebitda: number | null } | null,
   evoPoints: ReadonlyArray<Record<string, unknown>> | null | undefined,
+  profitLoss?: {
+    years: number[];
+    rows: ReadonlyArray<{ key: string; values: ReadonlyArray<{ value: number | null }> }>;
+  } | null,
 ): {
   year: number;
   revenue: number | null;
   ebitda: number | null;
   ebitdaMargin: number | null;
 } | null {
+  let out: {
+    year: number;
+    revenue: number | null;
+    ebitda: number | null;
+    ebitdaMargin: number | null;
+  } | null = null;
   if (legacy && legacy.year != null) {
-    return {
+    out = {
       year: legacy.year,
       revenue: legacy.revenue,
       ebitda: legacy.ebitda,
       ebitdaMargin: null,
     };
+  } else {
+    const pts = evoPoints ?? [];
+    if (pts.length === 1) {
+      const pt = pts[0];
+      if (pt) {
+        const year = Number(pt['year']);
+        if (year) {
+          const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
+          out = {
+            year,
+            revenue: num(pt['revenue']),
+            ebitda: num(pt['ebitda']),
+            ebitdaMargin: num(pt['ebitda_margin']),
+          };
+        }
+      }
+    }
   }
-  const pts = evoPoints ?? [];
-  if (pts.length !== 1) return null;
-  const pt = pts[0];
-  if (!pt) return null;
-  const year = Number(pt['year']);
-  if (!year) return null;
-  const num = (v: unknown): number | null => (typeof v === 'number' ? v : null);
-  return {
-    year,
-    revenue: num(pt['revenue']),
-    ebitda: num(pt['ebitda']),
-    ebitdaMargin: num(pt['ebitda_margin']),
-  };
+  if (out == null) return null;
+  // Fallback profit_loss por campo — solo si sigue faltando algún KPI clave.
+  if ((out.revenue == null || out.ebitda == null) && profitLoss) {
+    const yearIdx = (profitLoss.years ?? []).indexOf(out.year);
+    if (yearIdx >= 0 && Array.isArray(profitLoss.rows)) {
+      const pickCell = (keys: string[]): number | null => {
+        for (const k of keys) {
+          const row = profitLoss.rows.find((r) => r.key === k);
+          if (row) {
+            const cell = row.values?.[yearIdx];
+            if (cell && typeof cell.value === 'number') return cell.value;
+          }
+        }
+        return null;
+      };
+      if (out.revenue == null) {
+        out.revenue = pickCell(['revenue', 'net_revenue', 'total_revenue', 'ingresos', 'importe_neto_cifra_negocios']);
+      }
+      if (out.ebitda == null) {
+        out.ebitda = pickCell(['ebitda', 'ebitda_result']);
+      }
+    }
+  }
+  return out;
 }

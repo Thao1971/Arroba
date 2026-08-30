@@ -21,6 +21,7 @@ import {
   Columns3,
   MapPin,
   Users,
+  Building2,
   Tag,
   TrendingUp,
   AlertTriangle,
@@ -572,6 +573,48 @@ export default function ResultadosPage() {
     () => Array.from(new Set(rows.map((r) => r.sector).filter(Boolean) as string[])).sort(),
     [rows],
   );
+
+  // BUGFIX-2026-08-30 · Daniel: "cada uno debe estar dividido... con
+  // categorías diferentes, sectores, territorios, empresas" — antes
+  // `relatedEntities` se pintaba como una sola tira de chips "Relacionado".
+  // Ahora se separa por tipo para dar Sectores/Territorios su propia sección
+  // visible, en paralelo a la sección de Empresas (la tabla de siempre).
+  // `investor` y cualquier otro tipo sin ficha propia hoy quedan en
+  // `otherMatches`, con el chip-strip antiguo — no se pierden, pero no se
+  // les inventa una sección propia que no tenemos dónde llevar.
+  const sectorMatches = useMemo(() => relatedEntities.filter((e) => e.type === 'sector'), [relatedEntities]);
+  const territoryMatches = useMemo(() => relatedEntities.filter((e) => e.type === 'territory'), [relatedEntities]);
+  const otherMatches = useMemo(
+    () => relatedEntities.filter((e) => e.type !== 'sector' && e.type !== 'territory'),
+    [relatedEntities],
+  );
+
+  // BUGFIX-2026-08-30 · helper de routing para los chips/filas
+  // "Relacionado"/"Sectores"/"Territorios": antes SIEMPRE relanzaban una
+  // búsqueda de texto por `display_name`, aunque ya existiera (o se acabe
+  // de construir, para territorio) la ficha propia de esa entidad.
+  // `RelatedEntity.id` trae el identificador real con prefijo de tipo que
+  // ya devuelve `entities/service.py` (`cnae:{code}` para sector,
+  // `ccaa:{code}`/`province:{code}` para territorio, el CIF tal cual para
+  // empresa). Cuando el id no tiene el shape esperado, o el tipo no tiene
+  // ficha propia todavía (ej. `investor`), cae al comportamiento anterior
+  // (relanzar búsqueda) — nunca un enlace roto.
+  function relatedEntityHref(e: RelatedEntity): string {
+    if (e.type === 'sector' && e.id.startsWith('cnae:')) {
+      const code = e.id.slice('cnae:'.length);
+      if (code) return `/sector/${encodeURIComponent(code)}`;
+    }
+    if (e.type === 'territory') {
+      const [level, code] = e.id.split(':');
+      if ((level === 'ccaa' || level === 'province') && code) {
+        return `/territorio/${level}/${encodeURIComponent(code)}`;
+      }
+    }
+    if (e.type === 'company' && e.id) {
+      return `/empresa-f01/${encodeURIComponent(e.id)}`;
+    }
+    return `/resultados?q=${encodeURIComponent(e.display_name)}`;
+  }
   // `rows` ya es la página actual servida por el backend (offset = page*PAGE_SIZE).
   // El chip de sector y los toggles de signal_badge afinan la página visible;
   // la paginación se rige por `total` (server-side).
@@ -683,24 +726,62 @@ export default function ResultadosPage() {
         </header>
       )}
 
-      {/* HARDENING 2026-08-24 · "Sectores relacionados": sector/territory/
-          investor que coinciden con la query — sección aparte de la tabla,
-          cada chip navega a una búsqueda nueva por ese nombre. Distinto de
-          los "Chips de filtro por sector" de abajo (que filtran ESTOS
-          resultados por el campo `sector` de cada fila, no navegan). */}
-      {q && !loading && !error && relatedEntities.length > 0 && (
-        <div
-          className="print:hidden mb-4"
-          data-testid="resultados-related-entities"
-        >
+      {q && !loading && !error && sectorMatches.length > 0 && (
+        <div className="print:hidden mb-4" data-testid="resultados-sector-matches">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-text-subtle uppercase tracking-wide mb-2">
+            <Building2 size={13} /> Sectores
+          </div>
+          <div className="rounded-[13px] border border-border bg-surface divide-y divide-border overflow-hidden">
+            {sectorMatches.map((e) => (
+              <a
+                key={`${e.type}:${e.id}`}
+                href={relatedEntityHref(e)}
+                className="flex items-center justify-between gap-3 px-4 h-11 text-sm hover:bg-surface-2 transition-colors"
+              >
+                <span className="font-medium text-text truncate">{e.display_name}</span>
+                <span className="flex items-center gap-2 shrink-0 text-text-subtle">
+                  {e.secondary_label && <span className="text-xs">{e.secondary_label}</span>}
+                  <ArrowRight size={13} />
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {q && !loading && !error && territoryMatches.length > 0 && (
+        <div className="print:hidden mb-4" data-testid="resultados-territory-matches">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-text-subtle uppercase tracking-wide mb-2">
+            <MapPin size={13} /> Territorios
+          </div>
+          <div className="rounded-[13px] border border-border bg-surface divide-y divide-border overflow-hidden">
+            {territoryMatches.map((e) => (
+              <a
+                key={`${e.type}:${e.id}`}
+                href={relatedEntityHref(e)}
+                className="flex items-center justify-between gap-3 px-4 h-11 text-sm hover:bg-surface-2 transition-colors"
+              >
+                <span className="font-medium text-text truncate">{e.display_name}</span>
+                <span className="flex items-center gap-2 shrink-0 text-text-subtle">
+                  {e.secondary_label && <span className="text-xs">{e.secondary_label}</span>}
+                  <ArrowRight size={13} />
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {q && !loading && !error && otherMatches.length > 0 && (
+        <div className="print:hidden mb-4" data-testid="resultados-related-entities">
           <div className="text-xs font-semibold text-text-subtle uppercase tracking-wide mb-1.5">
             Relacionado
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {relatedEntities.map((e) => (
+            {otherMatches.map((e) => (
               <a
                 key={`${e.type}:${e.id}`}
-                href={`/resultados?q=${encodeURIComponent(e.display_name)}`}
+                href={relatedEntityHref(e)}
                 className="inline-flex items-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold border border-border bg-surface text-text-muted hover:border-border-strong hover:text-text transition-colors"
               >
                 {e.display_name}
@@ -710,6 +791,12 @@ export default function ResultadosPage() {
               </a>
             ))}
           </div>
+        </div>
+      )}
+
+      {q && !loading && !error && (sectorMatches.length > 0 || territoryMatches.length > 0) && total > 0 && (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-text-subtle uppercase tracking-wide mb-2" data-testid="resultados-empresas-label">
+          <Users size={13} /> Empresas
         </div>
       )}
 

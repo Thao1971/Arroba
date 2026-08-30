@@ -15,6 +15,7 @@
  * en el agregador (cf. `PARA_BETA_B24_FICHA_SHAPE.md`).
  */
 import useSWR from 'swr';
+import { useState } from 'react';
 
 import { useAuth } from '@/contexts/auth-context';
 import { intelligenceClient } from '@/lib/companies/intelligence-client';
@@ -29,7 +30,10 @@ import type {
 } from '@/lib/companies/intelligence-types';
 import { TipProvider } from '@/components/company/atoms/Tip';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
-import { LoadingBlock } from '@/components/blocks';
+// BUGFIX-2026-08-30 (P8) · Loader temático para la Ficha F01 (dark hero con
+// 3 pasos cosméticos + swap inmediato en cuanto `ready`). Sustituye el
+// `LoadingBlock` genérico. Ver `frontend/src/components/company/FichaLoadingScreen.tsx`.
+import { FichaLoadingScreen } from '@/components/company/FichaLoadingScreen';
 
 import { CompanyFichaLayoutV2 } from './layout/CompanyFichaLayoutV2';
 import { apiClient } from '@/lib/api/client';
@@ -186,6 +190,13 @@ function adaptValuationFromFinances(
 
 export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const cifUpper = cif.toUpperCase();
+  // BUGFIX-2026-08-30 (P8) · Gate del swap loader→ficha. Empieza en `false`
+  // (mostramos loader). El propio `FichaLoadingScreen` llama a `onSettled`
+  // tras `SETTLE_MS` cuando `ready=true` (o inmediatamente con reduced
+  // motion). Nunca esperamos artificialmente: si `fichaLoading` termina
+  // antes que el ritmo cosmético, el loader corta directo a completo y
+  // aplica el settle corto para que el ojo lo registre.
+  const [showReal, setShowReal] = useState(false);
   // Mixed-access: identidad + perfil semántico son públicos; las secciones con
   // cifras (finanzas, valoración, señales, compradores, oportunidades) solo se
   // piden con sesión. `null` key = no fetch.
@@ -278,11 +289,13 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
     FETCH_CONFIG,
   );
 
-  if (fichaLoading) {
+  if ((fichaLoading || !showReal) && !fichaError) {
     return (
-      <div className="max-w-3xl mx-auto py-10 px-4">
-        <LoadingBlock testId="ficha-f01-loading" />
-      </div>
+      <FichaLoadingScreen
+        cif={cifUpper}
+        ready={!fichaLoading}
+        onSettled={() => setShowReal(true)}
+      />
     );
   }
 

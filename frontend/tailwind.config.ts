@@ -20,27 +20,33 @@ const config: Config = {
     extend: {
       colors: {
         // ---------- Canonical semantic palette ----------
-        'brand-primary':       'var(--brand-primary)',
-        'brand-primary-hover': 'var(--brand-primary-hover)',
-        'brand-accent':        'var(--brand-accent)',
+        // BUGFIX-2026-08-29 · Daniel: bg-success/60 y clases hermanas se
+        // pintaban transparentes (ver detalle en tokens.css §2b). Los
+        // tokens solidos usan ahora rgb(var(--x-rgb) / <alpha-value>) en
+        // vez de 'var(--x)' para que Tailwind pueda generar variantes de
+        // opacidad. Los *-subtle NO cambian: ya son semitransparentes por
+        // diseno, un modificador de opacidad encima no tiene sentido ahi.
+        'brand-primary':       'rgb(var(--brand-primary-rgb) / <alpha-value>)',
+        'brand-primary-hover': 'rgb(var(--brand-primary-hover-rgb) / <alpha-value>)',
+        'brand-accent':        'rgb(var(--brand-accent-rgb) / <alpha-value>)',
 
-        'surface-primary':  'var(--surface-primary)',
-        'surface-elevated': 'var(--surface-elevated)',
-        'surface-muted':    'var(--surface-muted)',
+        'surface-primary':  'rgb(var(--surface-primary-rgb) / <alpha-value>)',
+        'surface-elevated': 'rgb(var(--surface-elevated-rgb) / <alpha-value>)',
+        'surface-muted':    'rgb(var(--surface-muted-rgb) / <alpha-value>)',
 
-        'text-primary':   'var(--text-primary)',
-        'text-secondary': 'var(--text-secondary)',
-        'text-muted':     'var(--text-muted)',
-        'text-disabled':  'var(--text-disabled)',
-        'text-on-brand':  'var(--text-on-brand)',
+        'text-primary':   'rgb(var(--text-primary-rgb) / <alpha-value>)',
+        'text-secondary': 'rgb(var(--text-secondary-rgb) / <alpha-value>)',
+        'text-muted':     'rgb(var(--text-muted-rgb) / <alpha-value>)',
+        'text-disabled':  'rgb(var(--text-disabled-rgb) / <alpha-value>)',
+        'text-on-brand':  'rgb(var(--text-on-brand-rgb) / <alpha-value>)',
 
-        'border-default':  'var(--border-default)',
-        'border-emphasis': 'var(--border-emphasis)',
+        'border-default':  'rgb(var(--border-default-rgb) / <alpha-value>)',
+        'border-emphasis': 'rgb(var(--border-emphasis-rgb) / <alpha-value>)',
 
-        success: 'var(--success)',
-        warning: 'var(--warning)',
-        danger:  'var(--danger)',
-        info:    'var(--info)',
+        success: 'rgb(var(--success-rgb) / <alpha-value>)',
+        warning: 'rgb(var(--warning-rgb) / <alpha-value>)',
+        danger:  'rgb(var(--danger-rgb) / <alpha-value>)',
+        info:    'rgb(var(--info-rgb) / <alpha-value>)',
 
         'success-subtle': 'var(--success-subtle)',
         'warning-subtle': 'var(--warning-subtle)',
@@ -48,17 +54,17 @@ const config: Config = {
         'info-subtle':    'var(--info-subtle)',
 
         // ---------- Legacy aliases (kept for retrocompat) ----------
-        bg:              'var(--bg)',
-        surface:         'var(--surface)',
-        'surface-2':     'var(--surface-2)',
-        border:          'var(--border)',
-        'border-strong': 'var(--border-strong)',
-        text:            'var(--text)',
-        'text-subtle':   'var(--text-subtle)',
-        primary:         'var(--primary)',
-        'primary-hover': 'var(--primary-hover)',
-        'arroba-red':    'var(--arroba-red)',
-        'arroba-black':  'var(--arroba-black)',
+        bg:              'rgb(var(--bg-rgb) / <alpha-value>)',
+        surface:         'rgb(var(--surface-rgb) / <alpha-value>)',
+        'surface-2':     'rgb(var(--surface-2-rgb) / <alpha-value>)',
+        border:          'rgb(var(--border-rgb) / <alpha-value>)',
+        'border-strong': 'rgb(var(--border-strong-rgb) / <alpha-value>)',
+        text:            'rgb(var(--text-rgb) / <alpha-value>)',
+        'text-subtle':   'rgb(var(--text-subtle-rgb) / <alpha-value>)',
+        primary:         'rgb(var(--primary-rgb) / <alpha-value>)',
+        'primary-hover': 'rgb(var(--primary-hover-rgb) / <alpha-value>)',
+        'arroba-red':    'rgb(var(--arroba-red-rgb) / <alpha-value>)',
+        'arroba-black':  'rgb(var(--arroba-black-rgb) / <alpha-value>)',
       },
       fontFamily: {
         display: 'var(--font-display)',

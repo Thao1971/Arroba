@@ -606,8 +606,8 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   // El único ejercicio lo emite Intel `compute_evolution` (fix 2026-08-17). NO se
   // fabrica desde los KPIs de cabecera. Sin punto → Pending honesto (R15).
   const single = useMemo(
-    () => resolveSingleExerciseCascade(singleExercise, evoPoints),
-    [singleExercise, evoPoints],
+    () => resolveSingleExerciseCascade(singleExercise, evoPoints, financial?.profit_loss ?? null),
+    [singleExercise, evoPoints, financial?.profit_loss],
   );
   const showSingleExercise = single != null && single.year != null;
 

@@ -79,7 +79,6 @@ _RESULTS_PAGE: int = 12
 _SEARCH_PAGE_LIMIT: int = 50
 _SECTOR_ID_CAP: int = 3000
 
-
 async def _intel_call_ff(coro: Any) -> Any:
     """HARDENING-REQ003 · Fail-fast wrapper para el path search. Envuelve una
     coroutine del `AgencyToolClient` canónico con `asyncio.wait_for(8s)`.
@@ -127,7 +126,6 @@ _DEFAULT_SUGGESTIONS = [
 # Spanish CIF: leading letter + 8 digits.
 _CIF_RE = re.compile(r"^[A-Z]\d{8}$")
 
-
 def _normalize(s: str) -> str:
     """NFD + lowercase + strip diacritics. Same logic as the frontend's
     `normalizeES` so both sides match the same query."""
@@ -142,7 +140,6 @@ def _normalize(s: str) -> str:
         .lower()
         .strip()
     )
-
 
 def _score(query_norm: str, doc: dict[str, Any]) -> float:
     """Cheap deterministic relevance: exact substring → 1.0, prefix → 0.85,
@@ -159,7 +156,6 @@ def _score(query_norm: str, doc: dict[str, Any]) -> float:
     elif query_norm and query_norm in sector:
         score = 0.5
     return min(score, 1.0)
-
 
 async def execute_search(
     request: SearchSkillRequest,
@@ -179,7 +175,6 @@ async def execute_search(
         resp.related_entities = await _related_entities_chips(request.query)
     return resp
 
-
 async def _related_entities_chips(query: str) -> list[EntityLookupResult] | None:
     """Sector/territory/investor que coincidan con `query` — para las chips
     de "Sectores relacionados" sobre la tabla de resultados y en el
@@ -193,7 +188,6 @@ async def _related_entities_chips(query: str) -> list[EntityLookupResult] | None
         log.warning("copilot.search.related_entities_failed", error=str(exc), query=query)
         return None
     return results or None
-
 
 async def _execute_search_impl(
     request: SearchSkillRequest,
@@ -341,7 +335,6 @@ async def _execute_search_impl(
         query=q,
     )
 
-
 async def _execute_search_real(
     request: SearchSkillRequest, q: str, q_norm: str
 ) -> SearchSkillResponse:
@@ -434,48 +427,9 @@ async def _execute_search_real(
     # Latent until Intel enables the endpoint with enriched rows (see
     # DEPLOY_NOTES `HARDENING-REQ003 Gate Intel`).
     if not is_concrete:
-        tax = await _taxonomy_search(q, offset=offset, limit=_RESULTS_PAGE)
-        rows: list[dict[str, Any]] = (tax.get("results") or []) if tax is not None else []
-        # REVERTIDO 2026-08-29 · el mismo dia probamos aqui un parche que
-        # SIEMPRE reintentaba con "de" insertado y se quedaba con el total
-        # mas alto, para tapar que "agencias marketing" (sin "de") devolvia
-        # resultados irrelevantes (agencias de viajes) en vez de los de
-        # marketing. Ese sintoma tenia arreglo de verdad en el origen: el
-        # motor de taxonomia de Intel (resolve_label + NODE_ALIASES, ver
-        # Intel-290826-deploy-pendiente/) ya reconoce "agencias marketing" y
-        # "agencias de marketing" como la MISMA categoria via alias curado,
-        # asi que la llamada directa de aqui ya devuelve el total correcto
-        # sin necesidad de una segunda llamada. Mantener el parche de Beta
-        # habria significado dos sitios resolviendo el mismo problema de
-        # formas distintas (Daniel: "no quiero que cada uno haga una
-        # cosa") -- Intel es el dueno de la resolucion de categorias, Beta
-        # solo consume. Se deja el retry original (solo si `rows` viene
-        # vacio) como red de seguridad generica para categorias que Intel
-        # de verdad no reconoce, no como parche de este caso concreto.
-        if tax is not None and not rows:
-            retry_q = _taxonomy_retry_variant(q)
-            if retry_q is not None:
-                tax_retry = await _taxonomy_search(retry_q, offset=offset, limit=_RESULTS_PAGE)
-                retry_rows = (tax_retry.get("results") or []) if tax_retry is not None else []
-                if retry_rows:
-                    tax, rows = tax_retry, retry_rows
-        if tax is not None and rows:
-            total = int(tax.get("total") or tax.get("count") or len(rows))
-            items = [_row_to_item(r) for r in rows]
-            # `query` en la respuesta es SIEMPRE el texto original del usuario
-            # (nunca la variante con "de" insertado) — así el resultado dice
-            # "resultados para «agencias marketing»", no la reescritura interna.
-            block = SearchResultsBlock(
-                id="blk_results_" + uuid.uuid4().hex[:8],
-                props=SearchResultsBlockProps(query=q, total=total, results=items),
-            )
-            return SearchSkillResponse(
-                workspace=Workspace(
-                    workspace_id="wsp_" + uuid.uuid4().hex[:12],
-                    intent="search", blocks=[block],
-                ),
-                source="real", query=q,
-            )
+        tax_resp = await _try_taxonomy(q, offset)
+        if tax_resp is not None:
+            return tax_resp
         # Taxonomy returned no rows (incluso tras el reintento) o endpoint no
         # disponible → cae a búsqueda semántica (#5). Preserva el
         # comportamiento REQ001b cuando el gate categórico sigue latente.
@@ -494,6 +448,22 @@ async def _execute_search_real(
                 workspace=None, source="real", query=q,
                 navigate_to=f"/empresa-f01/{cif}", entity_type="company",
             )
+    # BUGFIX-2026-08-30 · Daniel: "panaderías" / "aceros" devolvían solo 1-5
+    # resultados. `is_concrete` es una heurística sintáctica (≤3 tokens
+    # alfanuméricos, ninguno en `_EXPLORATORY_TOKENS`) — no sabe si la
+    # palabra es de verdad un sector. `_EXPLORATORY_TOKENS` es una lista
+    # curada a mano (hoteles, agencias, software...) que nunca va a cubrir
+    # todos los sectores reales de Intel. Cuando no hay 1 coincidencia fuerte
+    # de nombre de empresa (arriba), la query sigue siendo candidata a ser un
+    # sector aunque no esté en la lista — se prueba taxonomy ANTES de asumir
+    # que es "el nombre de una empresa con pocas coincidencias" y enseñar
+    # solo 1-5 resultados de un dropdown de desambiguación pensado para otra
+    # cosa. Si taxonomy no reconoce la query (tax_resp is None, caso normal
+    # para un nombre de empresa real como "movistar"), seguimos exactamente
+    # igual que antes.
+    tax_resp = await _try_taxonomy(q, offset)
+    if tax_resp is not None:
+        return tax_resp
     candidates = matches[:5]
     if 1 <= len(candidates) <= 5:
         items = [
@@ -536,7 +506,6 @@ async def _execute_search_real(
         ),
         source="real", query=q,
     )
-
 
 async def _semantic_search_results(
     q: str, pathname: str | None, locale: str, offset: int = 0
@@ -584,7 +553,6 @@ async def _semantic_search_results(
         ),
         source="real", query=q,
     )
-
 
 async def _financial_search_results(
     q: str,
@@ -696,9 +664,6 @@ async def _financial_search_results(
         source="real", query=q,
     )
 
-
-
-
 def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
     """HARDENING-REQ003 · maps an Intel enriched row → `SearchResultItem`.
 
@@ -728,7 +693,6 @@ def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
         score=round(float(r.get("score") or 1.0), 3),
         summary=summ,
     )
-
 
 async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
     """HARDENING-REQ004b · resuelve un residual sectorial a la lista de
@@ -773,8 +737,6 @@ async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
     ids = (payload or {}).get("company_ids") or []
     return [str(i) for i in ids if i]
 
-
-
 # HARDENING-2026-08-24 · bug reportado: "agencias marketing" no devuelve
 # resultados, "agencias de marketing" sí. Los nombres de categoría de Intel
 # son compuestos nominales ("Agencias DE marketing", "Empresas DE
@@ -782,7 +744,6 @@ async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
 # el conector, falla en seco. Generamos una variante con "de" insertado
 # entre las 2 primeras palabras y la probamos antes de caer a semántico.
 _CONNECTOR_WORDS = frozenset({"de", "del", "en", "con", "para", "y"})
-
 
 def _taxonomy_retry_variant(q: str) -> str | None:
     tokens = q.strip().split()
@@ -792,6 +753,63 @@ def _taxonomy_retry_variant(q: str) -> str | None:
         return None  # ya tiene conector — no es este caso, no reintentar
     return f"{tokens[0]} de {' '.join(tokens[1:])}"
 
+async def _try_taxonomy(q: str, offset: int) -> SearchSkillResponse | None:
+    """Intenta resolver `q` como categoría (sector/geo) vía Intel taxonomy.
+
+    Devuelve un `SearchSkillResponse` (workspace con TODOS los resultados
+    paginados) si Intel reconoce `q` como categoría con al menos 1 fila;
+    `None` si no la reconoce (endpoint 404/latente, o 0 filas incluso tras
+    el reintento con "de" insertado) — en ese caso el caller sigue con su
+    propio fallback (semantic para #3, disambiguation por nombre para #4).
+
+    Factorizado de #3 (BUGFIX-2026-08-30) para poder probarlo también desde
+    #4 antes de asumir que una query de ≤3 tokens sin coincidencia fuerte de
+    nombre de empresa es un nombre raro en vez de un sector no listado en
+    `_EXPLORATORY_TOKENS`.
+    """
+    tax = await _taxonomy_search(q, offset=offset, limit=_RESULTS_PAGE)
+    rows: list[dict[str, Any]] = (tax.get("results") or []) if tax is not None else []
+    # REVERTIDO 2026-08-29 · el mismo dia probamos aqui un parche que
+    # SIEMPRE reintentaba con "de" insertado y se quedaba con el total
+    # mas alto, para tapar que "agencias marketing" (sin "de") devolvia
+    # resultados irrelevantes (agencias de viajes) en vez de los de
+    # marketing. Ese sintoma tenia arreglo de verdad en el origen: el
+    # motor de taxonomia de Intel (resolve_label + NODE_ALIASES, ver
+    # Intel-290826-deploy-pendiente/) ya reconoce "agencias marketing" y
+    # "agencias de marketing" como la MISMA categoria via alias curado,
+    # asi que la llamada directa de aqui ya devuelve el total correcto
+    # sin necesidad de una segunda llamada. Mantener el parche de Beta
+    # habria significado dos sitios resolviendo el mismo problema de
+    # formas distintas (Daniel: "no quiero que cada uno haga una
+    # cosa") -- Intel es el dueno de la resolucion de categorias, Beta
+    # solo consume. Se deja el retry original (solo si `rows` viene
+    # vacio) como red de seguridad generica para categorias que Intel
+    # de verdad no reconoce, no como parche de este caso concreto.
+    if tax is not None and not rows:
+        retry_q = _taxonomy_retry_variant(q)
+        if retry_q is not None:
+            tax_retry = await _taxonomy_search(retry_q, offset=offset, limit=_RESULTS_PAGE)
+            retry_rows = (tax_retry.get("results") or []) if tax_retry is not None else []
+            if retry_rows:
+                tax, rows = tax_retry, retry_rows
+    if tax is None or not rows:
+        return None
+    total = int(tax.get("total") or tax.get("count") or len(rows))
+    items = [_row_to_item(r) for r in rows]
+    # `query` en la respuesta es SIEMPRE el texto original del usuario
+    # (nunca la variante con "de" insertado) — así el resultado dice
+    # "resultados para «agencias marketing»", no la reescritura interna.
+    block = SearchResultsBlock(
+        id="blk_results_" + uuid.uuid4().hex[:8],
+        props=SearchResultsBlockProps(query=q, total=total, results=items),
+    )
+    return SearchSkillResponse(
+        workspace=Workspace(
+            workspace_id="wsp_" + uuid.uuid4().hex[:12],
+            intent="search", blocks=[block],
+        ),
+        source="real", query=q,
+    )
 
 async def _taxonomy_search(
     q: str, offset: int = 0, limit: int = _RESULTS_PAGE
@@ -819,7 +837,6 @@ async def _taxonomy_search(
             message=f"taxonomy-search http_{resp.status_code}",
         )
     return resp.json()
-
 
 def _empty_response(q: str, pathname: str | None, locale: str) -> SearchSkillResponse:
     workspace_id = "wsp_" + uuid.uuid4().hex[:12]

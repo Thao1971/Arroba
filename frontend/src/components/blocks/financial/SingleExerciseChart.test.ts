@@ -94,4 +94,41 @@ describe('resolveSingleExerciseCascade · HARDENING-030c', () => {
     expect(out?.revenue).toBe(500);
     expect(out?.ebitdaMargin).toBe(0.1);
   });
+
+  // BUGFIX-2026-08-30 (P3) · fallback profit_loss cuando revenue/ebitda faltan.
+  it('(P3) legacy con year pero revenue/ebitda null + profit_loss del mismo año → completa desde profit_loss', () => {
+    const legacy = { year: 2024, revenue: null, ebitda: null };
+    const profitLoss = {
+      years: [2024],
+      rows: [
+        { key: 'revenue', values: [{ value: 7_500_000 }] },
+        { key: 'ebitda', values: [{ value: 900_000 }] },
+      ],
+    };
+    const out = resolveSingleExerciseCascade(legacy, null, profitLoss);
+    expect(out).toEqual({
+      year: 2024,
+      revenue: 7_500_000,
+      ebitda: 900_000,
+      ebitdaMargin: null,
+    });
+  });
+
+  it('(P3) profit_loss no tiene el año pedido → no completa, mantiene null', () => {
+    const legacy = { year: 2024, revenue: null, ebitda: null };
+    const profitLoss = {
+      years: [2022, 2023],
+      rows: [
+        { key: 'revenue', values: [{ value: 1 }, { value: 2 }] },
+        { key: 'ebitda', values: [{ value: 3 }, { value: 4 }] },
+      ],
+    };
+    const out = resolveSingleExerciseCascade(legacy, null, profitLoss);
+    expect(out).toEqual({
+      year: 2024,
+      revenue: null,
+      ebitda: null,
+      ebitdaMargin: null,
+    });
+  });
 });

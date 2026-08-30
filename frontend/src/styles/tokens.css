@@ -37,6 +37,29 @@
   --neutral-900:  #1A1A18;
   --neutral-950:  #0C0C0E;
 
+  /* 1.3 — RGB triplets for primitives. Consumed by the semantic *-rgb
+   * tokens in §2b below, which tailwind.config.ts uses as
+   * rgb(var(--x-rgb) / <alpha-value>) so bg-x/NN opacity-modifier
+   * utilities actually work (see BUGFIX-2026-08-29 note in §2b). */
+  --arroba-red-rgb:        232 0 29;
+  --arroba-red-hover-rgb:  197 0 25;
+  --arroba-red-dark-rgb:   181 0 26;
+  --arroba-red-light-rgb:  255 26 53;
+  --arroba-black-rgb:      12 12 14;
+
+  --neutral-0-rgb:    255 255 255;
+  --neutral-50-rgb:   250 250 248;
+  --neutral-100-rgb:  244 244 240;
+  --neutral-200-rgb:  232 232 226;
+  --neutral-300-rgb:  212 212 204;
+  --neutral-400-rgb:  173 173 170;
+  --neutral-500-rgb:  133 133 128;
+  --neutral-600-rgb:  99 99 96;
+  --neutral-700-rgb:  74 74 71;
+  --neutral-800-rgb:  46 46 44;
+  --neutral-900-rgb:  26 26 24;
+  --neutral-950-rgb:  12 12 14;
+
   /* ---------------------------------------------------------------------
    * 2 — Semantic palette (LIGHT mode, default)
    *
@@ -94,6 +117,54 @@
   --text-subtle:    var(--text-disabled);
   --primary:        var(--brand-primary);
   --primary-hover: var(--brand-primary-hover);
+
+  /* ---------------------------------------------------------------------
+   * 2b — Semantic palette RGB triplets (opacity-modifier support, LIGHT)
+   *
+   * BUGFIX-2026-08-29 · Daniel: bg-success/60, bg-danger/50 etc (usadas por
+   * ej. en el grafico de altas/bajas del Mapa Empresarial) se pintaban
+   * totalmente transparentes. Causa: para que Tailwind genere las variantes
+   * bg-x/NN necesita que el color este definido como
+   * rgb(var(--x-rgb) / <alpha-value>) — un string hex plano como
+   * 'var(--success)' no admite modificador de opacidad, Tailwind omite esa
+   * clase del CSS compilado sin avisar. Anadimos aqui el triplete RGB de
+   * cada token solido (alias a los primitivos §1.3, o literal para los
+   * colores de feedback) y tailwind.config.ts pasa a consumir estos -rgb.
+   * Los tokens *-subtle (ya semitransparentes de por si) se quedan como
+   * estaban: no tiene sentido aplicarles un modificador de opacidad encima.
+   * ------------------------------------------------------------------- */
+  --brand-primary-rgb:        var(--arroba-red-rgb);
+  --brand-primary-hover-rgb:  var(--arroba-red-hover-rgb);
+  --brand-accent-rgb:         var(--arroba-black-rgb);
+
+  --surface-primary-rgb:  var(--neutral-50-rgb);
+  --surface-elevated-rgb: var(--neutral-0-rgb);
+  --surface-muted-rgb:    var(--neutral-100-rgb);
+
+  --text-primary-rgb:   var(--neutral-950-rgb);
+  --text-secondary-rgb: var(--neutral-700-rgb);
+  --text-muted-rgb:     var(--neutral-600-rgb);
+  --text-disabled-rgb:  var(--neutral-400-rgb);
+  --text-on-brand-rgb:  var(--neutral-0-rgb);
+
+  --border-default-rgb:  var(--neutral-200-rgb);
+  --border-emphasis-rgb: var(--neutral-300-rgb);
+
+  --success-rgb: 21 128 61;
+  --warning-rgb: 194 65 12;
+  --danger-rgb:  185 28 28;
+  --info-rgb:    29 78 216;
+
+  /* Legacy aliases rgb — DO NOT add new uses. */
+  --bg-rgb:             var(--surface-primary-rgb);
+  --surface-rgb:        var(--surface-elevated-rgb);
+  --surface-2-rgb:      var(--surface-muted-rgb);
+  --border-rgb:         var(--border-default-rgb);
+  --border-strong-rgb:  var(--border-emphasis-rgb);
+  --text-rgb:           var(--text-primary-rgb);
+  --text-subtle-rgb:    var(--text-disabled-rgb);
+  --primary-rgb:        var(--brand-primary-rgb);
+  --primary-hover-rgb:  var(--brand-primary-hover-rgb);
 
   /* ---------------------------------------------------------------------
    * 3 — Typography
@@ -293,6 +364,39 @@
   --text-subtle:    var(--text-disabled);
   --primary:        var(--brand-primary);
   --primary-hover:  var(--brand-primary-hover);
+
+  /* RGB triplets — dark overrides. Only tokens whose value actually
+   * changes in dark mode need restating; aliases that merely point at
+   * these via var() cascade through automatically. */
+  --surface-primary-rgb:  var(--neutral-950-rgb);
+  --surface-elevated-rgb: var(--neutral-900-rgb);
+  --surface-muted-rgb:    var(--neutral-800-rgb);
+
+  --text-primary-rgb:   var(--neutral-50-rgb);
+  --text-secondary-rgb: var(--neutral-300-rgb);
+  --text-muted-rgb:     var(--neutral-400-rgb);
+  --text-disabled-rgb:  var(--neutral-500-rgb);
+
+  --border-default-rgb:  var(--neutral-800-rgb);
+  --border-emphasis-rgb: var(--neutral-700-rgb);
+
+  --brand-primary-hover-rgb: var(--arroba-red-light-rgb);
+
+  --success-rgb: 34 197 94;
+  --warning-rgb: 251 146 60;
+  --danger-rgb:  239 68 68;
+  --info-rgb:    59 130 246;
+
+  /* Legacy aliases rgb follow */
+  --bg-rgb:             var(--surface-primary-rgb);
+  --surface-rgb:        var(--surface-elevated-rgb);
+  --surface-2-rgb:      var(--surface-muted-rgb);
+  --border-rgb:         var(--border-default-rgb);
+  --border-strong-rgb:  var(--border-emphasis-rgb);
+  --text-rgb:           var(--text-primary-rgb);
+  --text-subtle-rgb:    var(--text-disabled-rgb);
+  --primary-rgb:        var(--brand-primary-rgb);
+  --primary-hover-rgb:  var(--brand-primary-hover-rgb);
 }
 
 /* ===========================================================================
