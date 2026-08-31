@@ -1,6 +1,23 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-08-30 — **🟢 LOTE 2026-08-30 · 8 PUNTOS APLICADO** (Bundle 300826 · pendiente user go/no-go · sin deploy).
+> **Última actualización**: 2026-08-31 — **🟢 HOTFIX P3 · A08698060 aplicado sobre Bundle 300826** (preview verificado · sin deploy).
+>
+> **Hotfix P3 · shape real `profit_loss` primaria (2026-08-31)** — repro real de Daniel: PRM Internacional `A08698060`, empresa de un solo ejercicio 2024, con header mostrando `Facturación 1,9M€ · EBITDA 771 k€` pero "Evolución financiera" caía a "Información en preparación". Causa raíz: el shape del agregador para esta empresa era `financial.evolution: null` + `financialAnalysis.evolution.points: []` + `profit_loss: {years:[2024], rows:[revenue, ebitda...]}`. `resolveSingleExerciseCascade` P3 solo aplicaba `profit_loss` como *completa-KPIs-faltantes* cuando ya había `out` de otra fuente — no como fuente primaria del año. Fix mínimo: nueva rama **(3a) `profit_loss` como fuente PRIMARIA** cuando legacy y evoPoints están vacíos y `profit_loss.years.length === 1`. La rama existente pasa a llamarse **(3b) `profit_loss` completando KPIs faltantes**. R15 final acotado solo a la rama (3a): si tras leer profit_loss primaria revenue Y ebitda siguen null → `null`; para las ramas 1/2 se preserva el comportamiento HARDENING-030c (año conocido con KPIs null → punto válido, gráfico pinta «—» explícito). Verificación E2E preview: `/es/empresa-f01/A08698060` → renderiza `SingleExerciseChart` con "Resultados 2024 · Facturación 1,9 M€ · EBITDA 771 k€ · Margen EBITDA 41,4 %". Sanity multi-año Servier B28184687: NO renderiza SingleExerciseChart (correcto, sigue EvolutionChart multi-año). 3 tests nuevos añadidos a `SingleExerciseChart.test.ts`: P3-hotfix-repro-A08698060 (fixture con shape real: `revenue=1_861_978.24`, `ebitda=770_599.86` en `profit_loss.rows`), P3-hotfix-empty-years (guarda), P3-hotfix-rows-sin-kpis (R15). 12/12 vitest verdes. Vitest total: 257/258 (era 254/255, +3 tests nuevos, 1 legacy R14 esperado).
+>
+> **Lote 2026-08-30 · 8 puntos idempotentes** — aplicados sobre el preview sin deploy. Todos con evidencia + verificación consolidada (`pytest`, `tsc`, `eslint`, `build`, `vitest`, Tailwind CLI check) + smoke E2E S1→S8.
+>
+> - **P1 · Tailwind sistémico** — `frontend/src/styles/tokens.css` + `frontend/tailwind.config.ts` reemplazados completos. Introduce triplete RGB para brand/surface/text/border/feedback en LIGHT + overrides DARK (§2b `--x-rgb`). BUGFIX-2026-08-29: `bg-success/60`, `bg-danger/50`, etc. ahora compilan a `rgb(var(--x-rgb) / 0.6)` en vez de invisible.
+> - **P2 · `items-end` → `items-stretch`** — un swap de 1 línea en el contenedor de barras del gráfico "Altas y bajas" de `/mapa-empresarial`.
+> - **P3 · SingleExerciseChart · fallback profit_loss** — extendido `resolveSingleExerciseCascade` con 3er parámetro opcional `profitLoss`. **Hotfix 2026-08-31**: añadida rama (3a) profit_loss como fuente PRIMARIA (ver arriba).
+> - **P4 · Ficha Territorial nueva** — `frontend/src/app/[locale]/(authenticated)/territorio/[level]/[code]/page.tsx` (~260 líneas). Verificado E2E: `/es/territorio/ccaa/13` (Madrid) renderiza con datos reales Intel.
+> - **P5 · `copilot/service.py` reemplazado** — ~600 líneas. BUGFIX-2026-08-30 central en rama #4: `_try_taxonomy(q, offset)` antes de disambiguation. Panaderías→74 resultados verificado.
+> - **P6 · Resultados en 3 secciones** — `resultados/page.tsx` separa `relatedEntities` en Sectores/Territorios/Otros con helper `relatedEntityHref`.
+> - **P7 · Enlace "Ficha →" en `TerritoryRow`** — 19 enlaces detectados en `/mapa-empresarial`.
+> - **P8 · `FichaLoadingScreen.tsx` nuevo** — 140 líneas, `@componentId COMP-P-0007`. E2E verificado: swap fluido loader→ficha en Servier + PRM Internacional.
+>
+> **NO DESPLEGADO. Awaiting user go/no-go antes de coordinar deploy conjunto con Intel-290826.**
+>
+> **Estado previo (2026-08-16)** — 🟢 HARDENING-037 + HARDENING-038 CERRADOS (bundle 28 unidades).
 >
 > **Lote 2026-08-30 · 8 puntos idempotentes** — aplicados sobre el preview sin deploy. Todos con evidencia + verificación consolidada (`pytest`, `tsc`, `eslint`, `build`, `vitest`, Tailwind CLI check) + smoke E2E S1→S8.
 >

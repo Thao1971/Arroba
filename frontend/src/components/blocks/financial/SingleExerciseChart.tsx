@@ -239,17 +239,28 @@ export function singleExerciseFromEvolution(
  *     (fuente histórica, contrato preservado).
  *  2) Único punto del agregador `financialAnalysis.evolution.points[]` (misma
  *     fuente que KPIs/sparklines). Solo se usa cuando (1) devuelve `null`.
- *  3) BUGFIX-2026-08-30 (P3) · `profit_loss` como red de seguridad. Cuando la
- *     fuente elegida tiene el `year` pero `revenue`/`ebitda` vienen `null`
- *     (empresas cuya evolution/agregador no traen estos KPIs pero sí tienen
- *     la Cuenta de Resultados completa entregada), se completa cada campo
- *     individualmente desde la fila correspondiente de `profit_loss.rows[]`.
- *     Nunca se sintetiza — se lee literalmente del cell.value del mismo año.
+ *  3) BUGFIX-2026-08-30 (P3) · `profit_loss` como red de seguridad. Se activa
+ *     en dos modos:
+ *       (3a) Fuente PRIMARIA cuando (1) y (2) están ambos vacíos pero
+ *            `profit_loss.years.length === 1`. Caso real: empresas cuyo
+ *            `/financial-section` trae `evolution=null` (sin serie
+ *            histórica) pero sí trae la Cuenta de Resultados del único año
+ *            entregado — ej. `A08698060 PRM INTERNACIONAL` con `year=2024`,
+ *            `revenue=1.861.978,24 €`, `ebitda=770.599,86 €` en
+ *            `profit_loss.rows`, y evolution/points vacíos porque no hay
+ *            histórico contra el que comparar.
+ *       (3b) Completar KPIs cuando (1) o (2) sí dieron `year` pero
+ *            `revenue`/`ebitda` vienen `null` en la fuente elegida y sí
+ *            existen en `profit_loss.rows[]` del mismo año.
+ *     Nunca sintetiza — lee literalmente del `cell.value`. Si tras (3a) o
+ *     (3b) el punto sigue teniendo `revenue == null && ebitda == null`, el
+ *     helper devuelve `null` (R15: sin dato útil, `<Pending/>` honesto en
+ *     vez de un gráfico vacío).
  *
  * Si ni la fuente legacy trae 1 año, ni el agregador tiene exactamente 1 punto,
- * ni `profit_loss` tiene una entrada del mismo año, devuelve `null` (el layout
- * renderiza `<Pending/>`). R15 estricto: nunca se sintetiza ni combina; se
- * lee de la primera fuente que ofrece dato para cada campo.
+ * ni `profit_loss` tiene una entrada útil, devuelve `null` (el layout renderiza
+ * `<Pending/>`). R15 estricto: nunca se sintetiza ni combina; se lee de la
+ * primera fuente que ofrece dato para cada campo.
  */
 export function resolveSingleExerciseCascade(
   legacy: { year: number; revenue: number | null; ebitda: number | null } | null,
@@ -264,6 +275,22 @@ export function resolveSingleExerciseCascade(
   ebitda: number | null;
   ebitdaMargin: number | null;
 } | null {
+  // Helper local reutilizable por (3a) y (3b): busca en `profit_loss.rows[]`
+  // el primer key que exista y devuelve su `values[yearIdx].value` como number.
+  const pickCell = (yearIdx: number, keys: string[]): number | null => {
+    if (!profitLoss || !Array.isArray(profitLoss.rows)) return null;
+    for (const k of keys) {
+      const row = profitLoss.rows.find((r) => r.key === k);
+      if (row) {
+        const cell = row.values?.[yearIdx];
+        if (cell && typeof cell.value === 'number') return cell.value;
+      }
+    }
+    return null;
+  };
+  const REVENUE_KEYS = ['revenue', 'net_revenue', 'total_revenue', 'ingresos', 'importe_neto_cifra_negocios'];
+  const EBITDA_KEYS = ['ebitda', 'ebitda_result'];
+
   let out: {
     year: number;
     revenue: number | null;
@@ -295,28 +322,41 @@ export function resolveSingleExerciseCascade(
       }
     }
   }
-  if (out == null) return null;
-  // Fallback profit_loss por campo — solo si sigue faltando algún KPI clave.
-  if ((out.revenue == null || out.ebitda == null) && profitLoss) {
-    const yearIdx = (profitLoss.years ?? []).indexOf(out.year);
-    if (yearIdx >= 0 && Array.isArray(profitLoss.rows)) {
-      const pickCell = (keys: string[]): number | null => {
-        for (const k of keys) {
-          const row = profitLoss.rows.find((r) => r.key === k);
-          if (row) {
-            const cell = row.values?.[yearIdx];
-            if (cell && typeof cell.value === 'number') return cell.value;
-          }
-        }
-        return null;
+  // (3a) profit_loss como fuente PRIMARIA cuando ni legacy ni evoPoints dieron
+  // un punto. Único caso soportado: profit_loss trae exactamente 1 año.
+  let outFromProfitLoss = false;
+  if (out == null && profitLoss && Array.isArray(profitLoss.years) && profitLoss.years.length === 1) {
+    const year = profitLoss.years[0];
+    if (year != null && Number.isFinite(Number(year))) {
+      const yearIdx = 0;
+      out = {
+        year: Number(year),
+        revenue: pickCell(yearIdx, REVENUE_KEYS),
+        ebitda: pickCell(yearIdx, EBITDA_KEYS),
+        ebitdaMargin: null,
       };
+      outFromProfitLoss = true;
+    }
+  }
+  if (out == null) return null;
+  // (3b) profit_loss completando KPIs faltantes cuando `out` ya tiene `year`
+  // pero revenue/ebitda vienen null y profit_loss tiene el mismo año.
+  if (!outFromProfitLoss && (out.revenue == null || out.ebitda == null) && profitLoss) {
+    const yearIdx = (profitLoss.years ?? []).indexOf(out.year);
+    if (yearIdx >= 0) {
       if (out.revenue == null) {
-        out.revenue = pickCell(['revenue', 'net_revenue', 'total_revenue', 'ingresos', 'importe_neto_cifra_negocios']);
+        out.revenue = pickCell(yearIdx, REVENUE_KEYS);
       }
       if (out.ebitda == null) {
-        out.ebitda = pickCell(['ebitda', 'ebitda_result']);
+        out.ebitda = pickCell(yearIdx, EBITDA_KEYS);
       }
     }
   }
+  // R15 final acotado a la rama (3a): si profit_loss fue nuestra ÚNICA fuente
+  // (legacy y evoPoints vacíos) y tras leerlo revenue Y ebitda siguen ambos
+  // null, devolver null en vez de un punto vacío. Para las ramas 1 y 2 se
+  // preserva el comportamiento HARDENING-030c (año conocido, KPIs null → sí
+  // se devuelve un punto; el gráfico pinta «—» explícito, no plano falso).
+  if (outFromProfitLoss && out.revenue == null && out.ebitda == null) return null;
   return out;
 }
