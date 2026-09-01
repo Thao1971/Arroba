@@ -13,7 +13,7 @@
  *     placeholder visual cuando reciben `undefined`.
  *   - No fabricamos scores, verdicts, thesis strings, ni rankings.
  */
-import type { MarketBlock } from '@/lib/companies/intelligence-types';
+import type { CapitalMarketsBlock, MarketBlock } from '@/lib/companies/intelligence-types';
 import type { MarketContextView } from '@/components/blocks/market/MarketReadingBlock';
 import type {
   OpportunityThesisView,
@@ -28,10 +28,12 @@ import type {
 export function marketBlockToContextView(
   market: MarketBlock | null | undefined,
   reading?: string | null,
+  capitalMarkets?: CapitalMarketsBlock | null,
 ): MarketContextView {
   if (!market) {
     return {
       reading: reading ?? undefined,
+      capitalMarkets: capitalMarketsToView(capitalMarkets),
     };
   }
   const sector = market.sector ?? null;
@@ -135,7 +137,41 @@ export function marketBlockToContextView(
                 : undefined,
           }
         : undefined,
+    capitalMarkets: capitalMarketsToView(capitalMarkets),
   };
+}
+
+/**
+ * Fase 2 (2026-09-01) · `CapitalMarketsBlock` (shape Intel `capital_markets`
+ * canónico) → `MarketContextView['capitalMarkets']`. R15: `listed` solo si
+ * `listing.available`; `potentialBuyers` solo si `potential_buyers.available`.
+ */
+function capitalMarketsToView(
+  capitalMarkets: CapitalMarketsBlock | null | undefined,
+): MarketContextView['capitalMarkets'] {
+  if (!capitalMarkets) return undefined;
+  const listing = capitalMarkets.listing;
+  const buyers = capitalMarkets.potential_buyers;
+  const listed = listing?.available
+    ? {
+        market: listing.market_segment ?? undefined,
+        ticker: listing.ticker ?? undefined,
+        marketCap: typeof listing.market_cap === 'number' ? listing.market_cap : undefined,
+        sharePrice: typeof listing.share_price === 'number' ? listing.share_price : undefined,
+        annualPerformance:
+          typeof listing.annual_performance === 'number' ? listing.annual_performance : undefined,
+      }
+    : undefined;
+  const potentialBuyers =
+    buyers?.available && typeof buyers.total === 'number'
+      ? {
+          total: buyers.total,
+          buyers: typeof buyers.buyers === 'number' ? buyers.buyers : undefined,
+          managers: typeof buyers.managers === 'number' ? buyers.managers : undefined,
+        }
+      : undefined;
+  if (!listed && !potentialBuyers) return undefined;
+  return { listed, potentialBuyers };
 }
 
 function sectorRankLabel(

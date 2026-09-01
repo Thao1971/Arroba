@@ -298,6 +298,9 @@ class AgencyToolFinancialProvider(FinancialProvider):
             balance_sheet=BalanceSheet(**balance_raw) if balance_raw else None,
             cashflow=cashflow_raw if isinstance(cashflow_raw, dict) else None,
             ratios=doc.get("ratios") or {},
+            # Fase 5 (2026-09-01) · passthrough puro, mismo patrón que HARDENING-021
+            # con `provenance` (antes se descartaba en silencio por `extra="ignore"`).
+            iberinform_ratios=doc.get("iberinform_ratios") if isinstance(doc.get("iberinform_ratios"), dict) else None,
             financial_quality=FinancialQuality(**fq_kwargs) if fq_kwargs else None,
             solvency=doc.get("solvency"),
             trend=doc.get("trend"),

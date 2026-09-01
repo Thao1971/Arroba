@@ -193,6 +193,51 @@ def _evolution_series_from_points(
     return series
 
 
+# Fase 5 (2026-09-01) · Mapeo categoría/formato/fórmula para los 16 ratios de
+# Iberinform (Tier 1 sin R01/S01 + Tier 2) que sí se muestran como fila nueva
+# en la tarjeta "Ratios financieros" — ver FASE5_RATIOS_IBERINFORM_BETA_UI_PATCH.md
+# para la tabla completa y el razonamiento. Claves = nombre canónico que emite
+# `iberinform_ratios.py::curate()` en Intel.
+_IBERINFORM_RATIO_META: dict[str, dict[str, Any]] = {
+    "immediate_liquidity": {"category": "liquidity", "format": "multiple",
+        "formula": "(Caja y equivalentes) / Pasivo corriente — excluye existencias"},
+    "treasury_ratio": {"category": "liquidity", "format": "multiple",
+        "formula": "(Caja + realizable a corto) / Pasivo corriente"},
+    "working_capital": {"category": "liquidity", "format": "currency",
+        "formula": "Activo corriente − Pasivo corriente"},
+    "avg_collection_period": {"category": "liquidity", "format": "days",
+        "formula": "(Saldo de clientes / Ventas) × 365"},
+    "avg_payment_period": {"category": "liquidity", "format": "days",
+        "formula": "(Saldo de proveedores / Compras) × 365"},
+    "avg_supply_period": {"category": "liquidity", "format": "days",
+        "formula": "(Existencias / Coste de ventas) × 365"},
+    "interest_coverage": {"category": "solvency", "format": "multiple",
+        "formula": "EBIT / Gastos financieros"},
+    "debt_quality": {"category": "solvency", "format": "percent",
+        "formula": "Deuda financiera a corto plazo / Deuda financiera total"},
+    "lt_debt_ratio": {"category": "solvency", "format": "multiple",
+        "formula": "Deuda financiera a largo plazo / Patrimonio neto"},
+    "st_debt_ratio": {"category": "solvency", "format": "multiple",
+        "formula": "Deuda financiera a corto plazo / Patrimonio neto"},
+    "asset_turnover": {"category": "efficiency", "format": "multiple",
+        "formula": "Ingresos / Activo total"},
+    "working_capital_turnover": {"category": "efficiency", "format": "multiple",
+        "formula": "Ingresos / Capital circulante"},
+    "sales_per_employee": {"category": "efficiency", "format": "currency",
+        "formula": "Ingresos / Nº de empleados"},
+    "personnel_expense_per_employee": {"category": "efficiency", "format": "currency",
+        "formula": "Gastos de personal / Nº de empleados"},
+    "productivity": {"category": "efficiency", "format": "multiple",
+        "formula": "Valor añadido / Gastos de personal"},
+    "leverage": {"category": "efficiency", "format": "multiple",
+        "formula": "Activo total / Patrimonio neto"},
+}
+# Claves donde arroba ya calcula el mismo ratio con idéntica fórmula
+# (`services/engines/financial/ratios_library.py` en Intel) — Iberinform sólo
+# rellena si arroba no tiene valor para esa empresa-año, nunca se duplica la fila.
+_IBERINFORM_FALLBACK_ONLY = {"working_capital", "interest_coverage"}
+
+
 def to_financial_section(
     analysis: FinancialAnalysis,
     ratios_catalog: RatiosCatalog | None = None,
@@ -290,11 +335,11 @@ def to_financial_section(
     #   F0.2:  {key: {"value": float, "name": str, "category": str, "formula": str, ...}}
     #   B.6.b: {key: float}
     ratios_block: FinancialRatiosBlock | None = None
+    items: list[FinancialRatioItem] = []
     if analysis.ratios:
         catalog_by_key: dict[str, Any] = {}
         if ratios_catalog and ratios_catalog.ratios:
             catalog_by_key = {r.key: r for r in ratios_catalog.ratios}
-        items: list[FinancialRatioItem] = []
         valid = {"profitability", "liquidity", "solvency", "efficiency", "growth"}
         for k, v in analysis.ratios.items():
             # Shape F0.2: v es un dict con {value, name, category, formula, ...}
@@ -335,8 +380,39 @@ def to_financial_section(
                     benchmark=None,
                 )
             )
-        if items:
-            ratios_block = FinancialRatiosBlock(items=items)
+
+    # --- Fase 5 (2026-09-01): merge de los 16 ratios curados de Iberinform en
+    # las mismas categorías/tarjeta, sin distinguir fuente (decisión de Daniel).
+    # `working_capital`/`interest_coverage` sólo rellenan si arroba no tiene ya
+    # ese ratio calculado (mismo key, misma fórmula en ambos lados — no duplicar).
+    if analysis.iberinform_ratios:
+        existing_keys = {it.key for it in items}
+        for name, meta_r in analysis.iberinform_ratios.items():
+            ratio_meta = _IBERINFORM_RATIO_META.get(name)
+            if not ratio_meta:
+                continue  # p.ej. solvency_score: es hero card, no fila de tabla
+            if name in _IBERINFORM_FALLBACK_ONLY and name in existing_keys:
+                continue  # arroba ya calcula este ratio — no duplicar la fila
+            if not isinstance(meta_r, dict):
+                continue
+            raw_value = meta_r.get("value")
+            if not isinstance(raw_value, (int, float)):
+                continue
+            items.append(
+                FinancialRatioItem(
+                    key=name,
+                    name=meta_r.get("label_es") or name,
+                    value=float(raw_value),
+                    format=ratio_meta["format"],  # type: ignore[arg-type]
+                    category=ratio_meta["category"],  # type: ignore[arg-type]
+                    formula=ratio_meta["formula"],
+                    benchmark=None,
+                    verified=meta_r.get("verified", True),
+                )
+            )
+
+    if items:
+        ratios_block = FinancialRatiosBlock(items=items)
 
     # --- anomaly ---
     anomaly_block: FinancialAnomaly | None = None

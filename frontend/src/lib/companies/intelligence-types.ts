@@ -33,7 +33,7 @@ export type RatioCategory =
   | 'efficiency'
   | 'growth';
 export type SeriesFormat = 'currency' | 'percent' | 'ratio';
-export type RatioFormat = 'percent' | 'ratio' | 'currency' | 'multiple';
+export type RatioFormat = 'percent' | 'ratio' | 'currency' | 'multiple' | 'days';
 
 export interface ConfidenceInfo {
   level: ConfidenceLevel;
@@ -166,6 +166,8 @@ export interface FinancialRatioItem {
   category: RatioCategory;
   formula?: string | null;
   benchmark?: Benchmark | null;
+  /** Fase 5 (2026-09-01) · false = pendiente de verificar (icono "!" ámbar). */
+  verified?: boolean | null;
 }
 
 export interface FinancialRatiosBlock {
@@ -379,6 +381,18 @@ export interface FinancialAnalysis {
   cashflow: Record<string, unknown> | null;
   cash_flow: CashFlowStatement | null;
   ratios: Record<string, FinancialAnalysisRatioDetail | number> | Record<string, never>;
+  /**
+   * Fase 5 (2026-09-01) · 16 ratios curados de Iberinform expuestos como hero
+   * cards (`solvency_score`) — el resto de claves se pintan como filas dentro
+   * de `FinancialSection.ratios.items` (ver `section/financial`), no aquí.
+   */
+  iberinform_ratios?: Record<string, {
+    value: number;
+    label_es: string;
+    code: string;
+    tier: 1 | 2 | 3;
+    verified: boolean;
+  }> | null;
   financial_quality: FinancialAnalysisQuality | null;
   evolution: FinancialAnalysisEvolution | null;
   assessment: FinancialAnalysisAssessment | null;
@@ -543,6 +557,12 @@ export interface IdentitySection {
   auditor_name?: string | null;
   /** Origen del texto `description`: `official` (Iberinform/objeto social) · `ai` (Nvidia reformula) · `web` (scraping). */
   description_source?: 'official' | 'ai' | 'web' | null;
+  /** Fase 0 (2026-09-01) · cuentas auditadas, tal cual reporta Iberinform (Intel `identity.audited`). */
+  audited?: string | null;
+  /** Fase 0 (2026-09-01) · modelo de balance depositado (Intel `identity.balance_model`). */
+  balance_model?: string | null;
+  /** Fase 0 (2026-09-01) · último ejercicio depositado en el registro (Intel `identity.last_balance_year`). */
+  last_balance_year?: string | null;
 }
 
 /* ============================================================
@@ -913,6 +933,50 @@ export interface MarketBlock {
   [key: string]: unknown;
 }
 
+/**
+ * Fase 2 (2026-09-01) · bloque `capital_markets` top-level Intel (CNMV/BME).
+ * Passthrough puro, mismo patrón `available`/`reason` que el resto de
+ * sub-bloques de la Ficha. R15: cada sub-bloque solo trae dato si lo hay.
+ */
+export interface CapitalMarketsListing {
+  available: boolean;
+  reason?: string | null;
+  company_name?: string | null;
+  isin?: string | null;
+  ticker?: string | null;
+  market_segment?: string | null;
+  market_cap?: number | null;
+  share_price?: number | null;
+  annual_performance?: number | null;
+  sector?: string | null;
+}
+export interface CapitalMarketsRegulated {
+  available: boolean;
+  reason?: string | null;
+  entity_type?: string | null;
+  entity_type_label?: string | null;
+  name?: string | null;
+  registration_number?: string | null;
+}
+export interface CapitalMarketsBuyers {
+  available: boolean;
+  reason?: string | null;
+  total?: number | null;
+  buyers?: number | null;
+  managers?: number | null;
+}
+export interface CapitalMarketsBlock {
+  identifier?: string;
+  cif?: string;
+  master_id?: string;
+  available: boolean;
+  listing: CapitalMarketsListing;
+  cnmv_regulated: CapitalMarketsRegulated;
+  potential_buyers: CapitalMarketsBuyers;
+  is_public_company?: boolean;
+  engine_version?: string;
+}
+
 export interface CompanyFicha {
   cif_normalized: string | null;
   master_id: string | null;
@@ -924,6 +988,8 @@ export interface CompanyFicha {
   ranking: Record<string, unknown> | null;
   /** HARDENING-012 · bloque `market` top-level Intel. Passthrough puro. */
   market: MarketBlock | null;
+  /** Fase 2 (2026-09-01) · bloque `capital_markets` top-level Intel (CNMV/BME). Passthrough puro. */
+  capital_markets: CapitalMarketsBlock | null;
   /** HARDENING-014 · bloque `control_graph` top-level Intel. Union discriminado. */
   control_graph: ControlGraphBlock | null;
   /**

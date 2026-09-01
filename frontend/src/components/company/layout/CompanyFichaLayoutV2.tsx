@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 import type {
-  BuyerItem, CashFlowRow, CashFlowStatement, ControlGraphAggregated, ControlGraphBlock, ControlGraphNominal, FinancialAnalysis, FinancialAnalysisBalanceSheet, FinancialAnalysisRatioDetail,
+  BuyerItem, CapitalMarketsBlock, CashFlowRow, CashFlowStatement, ControlGraphAggregated, ControlGraphBlock, ControlGraphNominal, FinancialAnalysis, FinancialAnalysisBalanceSheet, FinancialAnalysisRatioDetail,
   FinancialSection, FinancialTableBlock, GovernanceAggregated, GovernanceBlock, GovernanceNominal,
   IdentitySection, MarketBlock, OwnershipAggregated, OwnershipBlock, OwnershipNominal,
   RecommendationSet, SemanticSection, SignalAnalysis, ValuationAnalysis,
@@ -106,6 +106,8 @@ export interface CompanyFichaLayoutV2Props {
    * Sub-paneles independientes: sector/geo/concentration públicos · position gated.
    */
   market?: MarketBlock | null;
+  /** Fase 2 (2026-09-01) · bloque `capital_markets` top-level Intel (CNMV/BME). Passthrough puro. */
+  capitalMarkets?: CapitalMarketsBlock | null;
   /**
    * HARDENING-038b · Payloads crudos de los proxies Intel para poblar sell
    * (sucesión) y buy (roll-up) del bloque Oportunidades. Passthrough; el adapter
@@ -182,6 +184,7 @@ function fmtCell(value: number | null, format: string): string {
   if (format === 'percent') return `${value.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%`;
   if (format === 'ratio' || format === 'multiple') return `${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}×`;
   if (format === 'currency') return fmtEUR(value);
+  if (format === 'days') return `${value.toLocaleString('es-ES', { maximumFractionDigits: 0 })} días`;
   return value.toLocaleString('es-ES');
 }
 function fmtDate(iso: string | null | undefined): string | null {
@@ -1160,6 +1163,20 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
         <div className="card">
           <h3><span className="k" />Ratios financieros</h3>
           <div className="cs">Valor · percentil sectorial. Pasa el ratón por cada ratio para su definición.</div>
+          {(clamp100(fq?.score ?? null) != null || clamp100(analysis?.iberinform_ratios?.solvency_score?.value ?? null) != null) && (
+            <div className="scores" style={{ gridTemplateColumns: 'repeat(2, 1fr)', maxWidth: 220, marginBottom: 18 }}>
+              {clamp100(fq?.score ?? null) != null && (
+                <div title="Score de calidad financiera de ARROBA (márgenes, solvencia y tendencia).">
+                  <Ring val={clamp100(fq?.score ?? null)!} label="Calidad" color={OK} />
+                </div>
+              )}
+              {clamp100(analysis?.iberinform_ratios?.solvency_score?.value ?? null) != null && (
+                <div title="Score de solvencia (Iberinform), 0-100.">
+                  <Ring val={clamp100(analysis?.iberinform_ratios?.solvency_score?.value ?? null)!} label="Score de solvencia" color={OK} />
+                </div>
+              )}
+            </div>
+          )}
           <div className="rfams">
             {fams.map((f) => (
               <div key={f.key} className="rfam">
@@ -1183,7 +1200,20 @@ function Finanzas({ financial, analysis }: { financial: FinancialSection | null;
                   }
                   return (
                     <div key={r.key} className="rrow">
-                      <span className="rn" title={r.formula ?? undefined}>{r.name}</span>
+                      <span className="rn" title={r.formula ?? undefined}>
+                        {r.name}
+                        {r.verified === false && (
+                          <span
+                            title="Pendiente de verificar antes de publicar"
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                              background: 'var(--warning-subtle)', color: 'var(--warning)',
+                              fontSize: 10, fontWeight: 800, cursor: 'help',
+                            }}
+                          >!</span>
+                        )}
+                      </span>
                       <span className="rv">{fmtCell(displayValue, r.format)}</span>
                       {pct != null ? <span className="rp"><i style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></span> : <span className="rp na">—</span>}
                       <span className="rt f">▬</span>
@@ -3259,7 +3289,7 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
               const ctx: FichaSectionContext = {
                 cif,
                 anon,
-                market: marketBlockToContextView(props.market, props.marketReading),
+                market: marketBlockToContextView(props.market, props.marketReading, props.capitalMarkets),
                 opportunity: opportunityToThesisView(
                   props.opportunity ?? null,
                   props.succession,

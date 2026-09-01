@@ -130,6 +130,24 @@ export function IdentityFieldsGrid({ identity }: IdentityFieldsGridProps) {
       value: nonEmpty(identity.objeto_social),
       tooltip: 'Objeto social declarado en estatutos.',
     },
+    {
+      key: 'audited',
+      label: 'Cuentas auditadas',
+      value: nonEmpty(identity.audited ?? null),
+      tooltip: 'Indica si las cuentas depositadas están auditadas, según Iberinform.',
+    },
+    {
+      key: 'balance-model',
+      label: 'Modelo de balance',
+      value: nonEmpty(identity.balance_model ?? null),
+      tooltip: 'Modelo de balance depositado en el Registro Mercantil (normal, PYME, abreviado).',
+    },
+    {
+      key: 'last-balance-year',
+      label: 'Último ejercicio depositado',
+      value: nonEmpty(identity.last_balance_year ?? null),
+      tooltip: 'Último ejercicio con cuentas depositadas en el registro.',
+    },
   ];
 
   const source = identity.metadata.source ?? undefined;

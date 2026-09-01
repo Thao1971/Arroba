@@ -104,6 +104,11 @@ class FinancialAnalysis(BaseModel):
     balance_sheet: BalanceSheet | None = None
     cashflow: dict | None = None  # F0.2 · null cuando el motor no expone el bloque
     ratios: dict = Field(default_factory=dict)  # ratios clave-valor dinámicos (ver catalog)
+    # Fase 5 (2026-09-01) · 16 ratios curados de Iberinform (Tier 1+2, sin R01/S01),
+    # campo distinto a `ratios` a propósito para no pisar los propios de arroba.
+    # Shape: {nombre_canónico: {value, label_es, code, tier, verified}} — ver
+    # Intel `services/engines/financial/iberinform_ratios.py::curate()`.
+    iberinform_ratios: dict | None = None
     financial_quality: FinancialQuality | None = None
     solvency: dict | None = None
     trend: dict | None = None

@@ -11,14 +11,16 @@
  *
  * Orden de lectura para un comprador/analista: (1) LECTURA de mercado en prosa
  * (IA fact-lock, cacheada en Intel — opcional), (2) posición de la empresa,
- * (3) sector y territorio traducidos a lenguaje, (4) concentración en claro.
+ * (3) sector y territorio traducidos a lenguaje, (4) concentración en claro,
+ * (5) mercados de capitales (Fase 2, 2026-09-01) — si cotiza en Bolsa y
+ * compradores institucionales (CNMV) activos en su sector.
  *
  * P2 · Intelligence over data: los scores 0-100 se traducen a banda + barra;
  *      el HHI técnico va en tooltip. R4 · no calcula: pinta lo que llega.
  * Degradación elegante: cada bloque solo se pinta si tiene dato; sin `reading`
  * se muestran solo las tarjetas (nunca hueco ni error).
  */
-import { Sparkles, Trophy, MapPin, TrendingDown, TrendingUp, Info } from 'lucide-react';
+import { Sparkles, Trophy, MapPin, TrendingDown, TrendingUp, Info, Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 type Trend = 'up' | 'down' | 'flat' | null;
@@ -49,6 +51,26 @@ export interface MarketContextView {
     actors?: number | null;
     hhi?: number | null;
   } | null;
+  /**
+   * Fase 2 (2026-09-01) · Mercados de capitales (CNMV/BME). `listed` solo si la
+   * empresa cotiza en un mercado organizado; `potentialBuyers` solo si hay al
+   * menos 1 fondo/gestora CNMV con foco en su CNAE. R15: ambos undefined si no
+   * hay dato — nunca un cero o "No cotiza" fabricado aquí (eso lo decide Intel).
+   */
+  capitalMarkets?: {
+    listed?: {
+      market?: string | null; // "BME Growth"
+      ticker?: string | null;
+      marketCap?: number | null; // euros, no millones
+      sharePrice?: number | null;
+      annualPerformance?: number | null; // %, p.ej. 18.2
+    } | null;
+    potentialBuyers?: {
+      total: number;
+      buyers?: number | null;
+      managers?: number | null;
+    } | null;
+  } | null;
 }
 
 function band(score: number | null | undefined): string {
@@ -62,6 +84,19 @@ function nf(n: number | null | undefined): string {
   return n == null ? '—' : n.toLocaleString('es-ES');
 }
 
+function fmtEUR(n: number | null | undefined): string {
+  if (n == null) return '—';
+  if (Math.abs(n) >= 1_000_000) {
+    return `${(n / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`;
+  }
+  return `${n.toLocaleString('es-ES')} €`;
+}
+
+function fmtPrice(n: number | null | undefined): string {
+  if (n == null) return '—';
+  return `${n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
+
 function Bar({ value, tone }: { value: number | null | undefined; tone: string }) {
   const w = Math.max(0, Math.min(100, value ?? 0));
   return (
@@ -72,7 +107,9 @@ function Bar({ value, tone }: { value: number | null | undefined; tone: string }
 }
 
 export function MarketReadingBlock({ data }: { data: MarketContextView }) {
-  const { reading, position, sector, territory, concentration } = data;
+  const { reading, position, sector, territory, concentration, capitalMarkets } = data;
+  const listed = capitalMarkets?.listed;
+  const potentialBuyers = capitalMarkets?.potentialBuyers;
 
   return (
     <div data-testid="market-reading" className="flex flex-col gap-4">
@@ -194,6 +231,52 @@ export function MarketReadingBlock({ data }: { data: MarketContextView }) {
               </div>
             ) : null}
           </div>
+        </section>
+      ) : null}
+
+      {listed || potentialBuyers ? (
+        <section className="rounded-2xl border border-border-default bg-surface-elevated p-6">
+          <div className="text-body-sm text-text-secondary mb-3.5">Mercados de capitales</div>
+
+          {listed ? (
+            <div className={cn('flex items-center justify-between gap-3',
+              potentialBuyers ? 'pb-3.5 mb-3.5 border-b border-border-default' : '')}>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={16} className="text-success" aria-hidden />
+                <div>
+                  <div className="text-body font-bold text-text-primary">
+                    Cotiza{listed.market ? ` en ${listed.market}` : ''}
+                  </div>
+                  {listed.ticker ? (
+                    <div className="text-caption text-text-muted">{listed.ticker}</div>
+                  ) : null}
+                </div>
+              </div>
+              <div className="text-right">
+                {listed.marketCap != null ? (
+                  <div className="text-body-sm font-bold text-text-primary">{fmtEUR(listed.marketCap)}</div>
+                ) : null}
+                <div className="text-caption text-text-muted inline-flex items-center gap-1.5">
+                  {listed.sharePrice != null ? <span>{fmtPrice(listed.sharePrice)}</span> : null}
+                  {listed.annualPerformance != null ? (
+                    <span className={cn('font-bold', listed.annualPerformance >= 0 ? 'text-success' : 'text-danger')}>
+                      {listed.annualPerformance >= 0 ? '+' : ''}{listed.annualPerformance}%
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {potentialBuyers ? (
+            <div className="flex items-center justify-between text-body-sm">
+              <span className="text-text-secondary inline-flex items-center gap-1.5">
+                <Users size={14} className="text-text-muted" aria-hidden />
+                Compradores institucionales potenciales (CNMV)
+              </span>
+              <span className="text-text-primary font-bold">{nf(potentialBuyers.total)}</span>
+            </div>
+          ) : null}
         </section>
       ) : null}
     </div>

@@ -145,6 +145,10 @@ function adaptIdentityFromFicha(
       ?? (get('auditor_name') as string | null)
       ?? null,
     description_source: (get('description_source') as 'official' | 'ai' | 'web' | null) ?? null,
+    // Fase 0 (2026-09-01) · campos dormidos restantes, passthrough puro (R15).
+    audited: (get('audited') as string | null) ?? null,
+    balance_model: (get('balance_model') as string | null) ?? null,
+    last_balance_year: (get('last_balance_year') as string | null) ?? null,
   };
   return identity;
 }
@@ -343,6 +347,7 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
         controlGraph={ficha?.control_graph ?? null}
         events={ficha?.events ?? null}
         market={ficha?.market ?? null}
+        capitalMarkets={ficha?.capital_markets ?? null}
         opportunity={ficha?.opportunity ?? null}
         marketReading={marketReading ?? null}
         succession={succession ?? null}

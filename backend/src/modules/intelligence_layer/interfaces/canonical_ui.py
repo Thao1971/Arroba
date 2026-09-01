@@ -47,7 +47,7 @@ Semantic = Literal["positive", "negative", "neutral", "warning"]
 RowCategory = Literal["total", "subtotal", "line", "derived"]
 RatioCategory = Literal["profitability", "liquidity", "solvency", "efficiency", "growth"]
 SeriesFormat = Literal["currency", "percent", "ratio"]
-RatioFormat = Literal["percent", "ratio", "currency", "multiple"]
+RatioFormat = Literal["percent", "ratio", "currency", "multiple", "days"]
 
 
 class ConfidenceInfo(BaseModel):
@@ -191,6 +191,12 @@ class FinancialRatioItem(BaseModel):
     category: RatioCategory
     formula: str | None = None
     benchmark: Benchmark | None = None
+    # Fase 5 (2026-09-01) · None/True = sin marcar (ratios propios de arroba,
+    # siempre fiables). False = pendiente de verificar contra el diccionario
+    # oficial de Iberinform (ver IBERINFORM_RATIOS_PRIORITY.md) — el frontend
+    # pinta un icono "!" ámbar, nunca oculta la fila (R15: mostrar con aviso,
+    # no fabricar ni esconder).
+    verified: bool | None = None
 
 
 class FinancialRatiosBlock(BaseModel):
