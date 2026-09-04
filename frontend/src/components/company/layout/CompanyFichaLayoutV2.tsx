@@ -782,6 +782,27 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
             <span className="v">{fmtNum(sz.employees_total)}</span>
           </div>
         )}
+        {/* Fase 0 (2026-09-01) · 3 campos Iberinform que ya baja `adaptIdentityFromFicha`
+            (audited/balance_model/last_balance_year). Passthrough puro (R15): solo se
+            renderiza la fila si Intel provee valor; nada se fabrica. */}
+        {identity.audited && (
+          <div className="idrow" data-testid="detalles-audited">
+            <span className="k">Cuentas auditadas</span>
+            <span className="v">{identity.audited}</span>
+          </div>
+        )}
+        {identity.balance_model && (
+          <div className="idrow" data-testid="detalles-balance-model">
+            <span className="k">Modelo de balance</span>
+            <span className="v">{identity.balance_model}</span>
+          </div>
+        )}
+        {identity.last_balance_year && (
+          <div className="idrow" data-testid="detalles-last-balance-year">
+            <span className="k">Último ejercicio depositado</span>
+            <span className="v">{identity.last_balance_year}</span>
+          </div>
+        )}
       </div>
 
       {/* HARDENING-022c · Retirado `<IdentidadAmpliada>` (34 campos legacy).

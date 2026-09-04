@@ -1,6 +1,34 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-09-01 — **🟢 Pack PENDING_FIXES aplicado en preview** (P3 Mercados de capitales + P4 Fase 0 campos identificación + P5 Fase 5 Ratios Iberinform · P2 SingleExerciseChart visual DIFERIDO por conflicto con hotfix P3 · sin deploy).
+> **Última actualización**: 2026-09-04 — **🟢 Hotfixes Bloque A + Bloque B aplicados en preview** (P4 en monolito V2 + fix legacy `working_capital` categoría/formato · sin deploy).
+>
+> **Bloque A · P4 en `CompanyFichaLayoutV2.tsx` (2026-09-04)** — ✅ APLICADO. +21 líneas al bloque inline "Detalles de la compañía" (T5, líneas ~785). 3 filas condicionales añadidas con el mismo patrón visual `.idrow`:
+>
+> - `Cuentas auditadas` ← `identity.audited` (data-testid `detalles-audited`)
+> - `Modelo de balance` ← `identity.balance_model` (data-testid `detalles-balance-model`)
+> - `Último ejercicio depositado` ← `identity.last_balance_year` (data-testid `detalles-last-balance-year`)
+>
+> Passthrough puro (R15): solo renderiza fila si Intel provee valor; nada se fabrica. Cuando Intel despliegue FASE0 completa, aparecerán automáticamente. Verificado E2E en Servier `/es/empresa-f01/B28184687`: tarjeta "Detalles de la compañía" renderiza correctamente todos los campos existentes (Razón social, CIF, CNAE, Domicilio, Capital social, Web, Resultado neto, Empleados) y las 3 filas nuevas están ausentes por Intel devolver `null` (comportamiento R15 correcto).
+>
+> **Bloque B · Fix legacy `working_capital` en `canonical_ui_adapter.py::to_financial_section()` (2026-09-04)** — ✅ APLICADO. +18 líneas. Dos correcciones semánticas compartidas por los dos shapes de `analysis.ratios` (F0.2 dict y B.6.b float):
+>
+> 1. **Remapeo categoría**: `category_raw == "working_capital"` → `"liquidity"` antes de la validación (aplicado post-lectura, pre-check `valid`). Sin este remapeo, el bucket `"working_capital"` no pasaba el `valid` set y caía a `"profitability"` por defecto.
+> 2. **Heurístico de formato ampliado**: nuevas ramas `elif k in ("dso","dpo","inventory_days","cash_conversion_cycle"): fmt="days"` y `elif k == "working_capital": fmt="currency"`.
+>
+> Verificado por curl al backend (`B28350882`): `dso→liquidity/days`, `inventory_days→liquidity/days`, `working_capital→liquidity/currency`, cero ratios quedan con `category=working_capital`. Verificado E2E visual en `/es/empresa-f01/B28184687` pestaña Finanzas > Ratios: bucket LIQUIDEZ muestra `Periodo medio de cobro 45 días`, `Periodo medio de pago -8 días`, `Días de existencias -129 días`, `Ciclo de conversión de caja -76 días`, `Fondo de maniobra 35,7 M€`. Antes del fix, todos habrían mostrado formato `×` incorrecto y `working_capital` habría caído a Rentabilidad. Iberinform `_IBERINFORM_FALLBACK_ONLY` sigue funcionando: sin filas duplicadas.
+>
+> **Verificación consolidada (2026-09-04)**:
+> - `yarn tsc --noEmit` → **0 errores** ✅
+> - `yarn build` → **verde** ✅
+> - `yarn vitest run` → **257 passed / 1 legacy R14** ✅ (sin regresión)
+> - `yarn eslint` → **4 warnings legacy pre-existentes** en ficheros no tocados ✅
+> - `pytest` → **321 passed / 37 legacy HARDENING-002** ✅ (sin regresión)
+>
+> **Sanity anti-regresión**: `/es/empresa-f01/A08698060` (PRM Internacional single-year) sigue mostrando `Facturación 1,9 M€ · EBITDA 771 k€ · Activos totales 2,4 M€` y "Un solo ejercicio" reconocido. Hotfix P3 intacto.
+>
+> **NO DESPLEGADO. Preview only.**
+>
+> **Contexto previo (2026-09-01)** — Pack PENDING_FIXES aplicado en preview (P3 Mercados de capitales + P4 Fase 0 campos identificación + P5 Fase 5 Ratios Iberinform · P2 SingleExerciseChart visual DIFERIDO por conflicto con hotfix P3 · sin deploy).
 >
 > **Pack PENDING_FIXES (2026-09-01)** — 3 de 5 puntos aplicados idempotentemente al pie de la letra:
 >

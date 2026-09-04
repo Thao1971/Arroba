@@ -350,6 +350,12 @@ def to_financial_section(
                 meta = catalog_by_key.get(k)
                 name = v.get("name") or getattr(meta, "name", k)
                 category_raw = v.get("category") or getattr(meta, "category", None) or "profitability"
+                # Fix legacy (2026-09-02) · remapeo `working_capital` → `liquidity`
+                # antes de la validación. Intel emite `category="working_capital"`
+                # (denominación del ratio, no del bucket UI). Sin este remapeo, la
+                # comprobación siguiente lo tira a `profitability` por defecto.
+                if category_raw == "working_capital":
+                    category_raw = "liquidity"
                 category = category_raw if category_raw in valid else "profitability"
                 formula = v.get("formula") or getattr(meta, "formula", None)
                 value = float(raw_value)
@@ -358,6 +364,10 @@ def to_financial_section(
                 meta = catalog_by_key.get(k)
                 name = getattr(meta, "name", k)
                 category_raw = getattr(meta, "category", None) or "profitability"
+                # Mismo remapeo para shape B.6.b: si el catálogo declara la
+                # categoría como `working_capital`, debe caer en `liquidity`.
+                if category_raw == "working_capital":
+                    category_raw = "liquidity"
                 category = category_raw if category_raw in valid else "profitability"
                 formula = getattr(meta, "formula", None)
                 value = float(v)
@@ -369,6 +379,14 @@ def to_financial_section(
                 fmt = "percent"
             elif k in ("roe", "roa", "solvency", "debt_ratio"):
                 fmt = "percent"
+            # Fix legacy (2026-09-02) · días vs multiplicador. Los ratios de
+            # periodo medio (DSO/DPO/inventory_days/CCC) se expresan en `días`,
+            # y `working_capital` es una magnitud monetaria (`currency`). Sin
+            # esta rama, el frontend los pintaba como `×` genérico.
+            elif k in ("dso", "dpo", "inventory_days", "cash_conversion_cycle"):
+                fmt = "days"
+            elif k == "working_capital":
+                fmt = "currency"
             items.append(
                 FinancialRatioItem(
                     key=k,
