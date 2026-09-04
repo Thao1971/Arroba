@@ -18,9 +18,35 @@
  *      el proveedor no lo entrega; si viene `ebitdaMargin`, se usa tal cual.
  * Soporta EBITDA negativo: la barra baja de la línea base y se pinta en `danger`.
  * Animación de entrada (respeta prefers-reduced-motion vía `motion-safe:`).
+ *
+ * FIX-2026-09-01 (Daniel, revisión visual):
+ *  1. Solape de etiqueta: la barra de Facturación llegaba SIEMPRE al 100% de
+ *     CHART_H (es matemáticamente el máximo de la escala salvo EBITDA
+ *     negativo), así que su etiqueta de valor se posicionaba justo por
+ *     encima del contenedor y pisaba el párrafo de ayuda de arriba. Se
+ *     reserva ahora un `LABEL_RESERVE` fijo restándolo de la altura
+ *     disponible para las barras, de forma que SIEMPRE quede hueco para la
+ *     etiqueta dentro del propio gráfico, sea cual sea el valor.
+ *  2. Paleta: la barra de Facturación usaba `bg-brand-primary` (rojo de
+ *     marca), que no coincide con el color de "Ingresos" del chart de
+ *     evolución multi-año (`FinancialEvolution.tsx`, que usa negro/tinta
+ *     `#0C0C0E`). Se cambia a `bg-brand-accent` (= arroba-black) para que
+ *     el snapshot de un solo ejercicio y el de varios años lean como el
+ *     mismo lenguaje visual. El verde/rojo semántico de EBITDA se mantiene
+ *     (ya usa tokens, es coherente con el resto de la plataforma).
+ *  3. Icono: la píldora "Un solo ejercicio" usaba `BarChart3`, que en el
+ *     resto de la plataforma se reserva como icono de navegación de
+ *     sección (ver `sectionRegistry.tsx`). El icono que la plataforma usa
+ *     para "esto es un gráfico/evolución financiera" es `LineChart` (así
+ *     en `MetricsBlock.tsx` y en `FinancialEvolutionTeaser.tsx`, el
+ *     componente hermano de éste). Se alinea aquí.
+ *  4. Se retira la línea base (eje cero) bajo las barras: no aporta lectura
+ *     adicional en este componente (no hay valores negativos salvo EBITDA,
+ *     que ya se distingue por color) y visualmente se leía como un
+ *     recuadro/marco que no se usa en el resto de charts de la plataforma.
  */
 import { useEffect, useState } from 'react';
-import { BarChart3 } from 'lucide-react';
+import { LineChart } from 'lucide-react';
 import { Tooltip } from '@/components/ds';
 import { cn } from '@/lib/cn';
 
@@ -36,6 +62,8 @@ export interface SingleExerciseChartProps {
 }
 
 const CHART_H = 190; // px de zona de gráfico
+const LABEL_RESERVE = 28; // px reservados arriba para que la etiqueta nunca se salga
+const BAR_MAX_H = CHART_H - LABEL_RESERVE;
 
 function fmtEur(v: number | null): string {
   if (v == null || Number.isNaN(v)) return '—';
@@ -72,13 +100,15 @@ export function SingleExerciseChart({
   const eb = typeof ebitda === 'number' ? ebitda : 0;
 
   // Escala compartida con línea base en cero (soporta EBITDA negativo).
+  // Se escala sobre BAR_MAX_H (no CHART_H) para dejar SIEMPRE hueco a la
+  // etiqueta de valor, aunque la barra represente el máximo de la escala.
   const posMax = Math.max(rev, eb, 0);
   const negMag = Math.max(0, -Math.min(eb, 0));
   const total = posMax + negMag || 1;
-  const baseFromBottom = (negMag / total) * CHART_H; // altura de la línea base
-  const revH = (Math.max(rev, 0) / total) * CHART_H;
+  const baseFromBottom = (negMag / total) * BAR_MAX_H; // altura de la línea base
+  const revH = (Math.max(rev, 0) / total) * BAR_MAX_H;
   const ebNeg = eb < 0;
-  const ebH = (Math.abs(eb) / total) * CHART_H;
+  const ebH = (Math.abs(eb) / total) * BAR_MAX_H;
 
   const margin =
     ebitdaMargin != null ? ebitdaMargin : rev ? eb / rev : null;
@@ -107,7 +137,7 @@ export function SingleExerciseChart({
           </span>
         </Tooltip>
         <span className="inline-flex items-center gap-1.5 text-body-sm text-text-muted bg-surface-muted rounded-full px-2.5 py-1">
-          <BarChart3 size={14} strokeWidth={1.8} aria-hidden />
+          <LineChart size={14} strokeWidth={1.8} aria-hidden />
           Un solo ejercicio
         </span>
       </div>
@@ -124,18 +154,11 @@ export function SingleExerciseChart({
           ebitda,
         )} en ${year}. Margen EBITDA ${fmtPct(margin)}.`}
       >
-        {/* Línea base (cero) */}
-        <div
-          className="absolute left-0 right-0 border-t border-border-default"
-          style={{ bottom: baseFromBottom }}
-          aria-hidden
-        />
-
         <div className="absolute inset-0 flex items-stretch justify-center gap-16 px-4">
           {/* Facturación */}
           <div className="relative flex-1 max-w-[80px]">
             <div
-              className={cn('absolute left-0 right-0 rounded-t bg-brand-primary', anim)}
+              className={cn('absolute left-0 right-0 rounded-t bg-brand-accent', anim)}
               style={{ bottom: baseFromBottom, height: mounted ? revH : 0 }}
               aria-hidden
             />
@@ -183,7 +206,7 @@ export function SingleExerciseChart({
       {/* Leyenda */}
       <div className="flex justify-center gap-16 px-4 mt-3">
         <div className="flex-1 max-w-[80px] text-center text-body-sm text-text-muted">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-brand-primary mr-1.5 align-middle" />
+          <span className="inline-block w-2.5 h-2.5 rounded-sm bg-brand-accent mr-1.5 align-middle" />
           Facturación
         </div>
         <div className="flex-1 max-w-[80px] text-center text-body-sm text-text-muted">

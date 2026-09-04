@@ -1,6 +1,34 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-09-04 — **🟢 Hotfixes Bloque A + Bloque B aplicados en preview** (P4 en monolito V2 + fix legacy `working_capital` categoría/formato · sin deploy).
+> **Última actualización**: 2026-09-04 — **🟢 Hotfixes Bloque A + B + P1 aplicados en preview** (P4 en monolito V2 + fix legacy `working_capital` categoría/formato + reconciliación visual `SingleExerciseChart` · sin deploy).
+>
+> **P1 · Reconciliación visual `SingleExerciseChart.tsx` (2026-09-04)** — ✅ APLICADO. 5 cambios idempotentes sobre el fichero actual (que ya tenía hotfix P3 con rama 3a `profit_loss` primario). El helper `resolveSingleExerciseCascade` NO se toca; tests P3 #10/#11/#12 pasan tal cual (12/12 vitest).
+>
+> - **a)** `LABEL_RESERVE = 28` px + `BAR_MAX_H = CHART_H - LABEL_RESERVE` — las 3 fórmulas de escala (`baseFromBottom`, `revH`, `ebH`) ahora multiplican por `BAR_MAX_H` en vez de `CHART_H`, reservando hueco arriba para que la etiqueta de valor nunca se salga.
+> - **b)** Barra Facturación `bg-brand-primary` → `bg-brand-accent` (= `--arroba-black` = `#0C0C0E`). Swatch de leyenda "Facturación" alineado. Consistencia con `FinancialEvolution.tsx` multi-año (Ingresos en negro/tinta).
+> - **c)** Icono píldora "Un solo ejercicio" `BarChart3` → `LineChart` (lucide-react). Alineado con `MetricsBlock.tsx` y `FinancialEvolutionTeaser.tsx`.
+> - **d)** Retirada la línea base (eje cero) `<div class="absolute ... border-t border-border-default">` bajo las barras. Sin lectura adicional; visualmente leía como marco no usado en el resto de charts.
+> - **e)** Cabecera JSDoc actualizada con bloque `FIX-2026-09-01 (Daniel, revisión visual)` explicando las 4 justificaciones.
+>
+> Verificado E2E: `/es/empresa-f01/A08698060` PRM Internacional muestra `Resultados 2024 · Facturación 1,9 M€ (barra negra) · EBITDA 771 k€ (barra verde) · Margen EBITDA 41,4 %` con etiquetas dentro del gráfico. Sanity Servier `/es/empresa-f01/B28184687` no renderiza `SingleExerciseChart` (multi-año 2022-2024 sigue con `FinancialEvolution`). Hotfix P3 rama 3a intacto.
+>
+> **Bloque A · P4 en `CompanyFichaLayoutV2.tsx` (2026-09-04)** — ✅ APLICADO. +21 líneas al bloque inline "Detalles de la compañía" (T5). 3 filas condicionales R15 con testids `detalles-audited/detalles-balance-model/detalles-last-balance-year`. Se hidratan cuando Intel emita FASE0 completa.
+>
+> **Bloque B · Fix legacy `working_capital` en `canonical_ui_adapter.py` (2026-09-04)** — ✅ APLICADO. +18 líneas. Remapeo `category_raw=="working_capital"→"liquidity"` en ambos shapes (F0.2 dict + B.6.b float) + heurístico ampliado (`dso/dpo/inventory_days/cash_conversion_cycle→days`, `working_capital→currency`). Verificado backend + UI: `Fondo de maniobra 35,7 M€`, `Periodo medio de cobro 45 días` en bucket LIQUIDEZ de Servier.
+>
+> **Verificación consolidada (2026-09-04)**:
+> - `yarn tsc --noEmit` → **0 errores** ✅
+> - `yarn build` → **verde** ✅
+> - `yarn vitest run` → **257 passed / 1 legacy R14** ✅
+> - `yarn vitest run SingleExerciseChart.test.ts` → **12/12** ✅ (baseline 9 + P3 hotfix #10/#11/#12)
+> - `yarn eslint` → **4 warnings legacy** en ficheros no tocados ✅
+> - `pytest` → **321 passed / 37 legacy HARDENING-002** ✅
+>
+> **Sanity anti-regresión**: PRM `A08698060` sigue mostrando `1,9 M€ · 771 k€ · 41,4 %`. Rama 3a `profit_loss` primario intacta.
+>
+> **NO DESPLEGADO. Preview only.**
+>
+> **Contexto previo (2026-09-01)** — Pack PENDING_FIXES aplicado en preview (P3 Mercados de capitales + P4 Fase 0 campos identificación + P5 Fase 5 Ratios Iberinform · P2 SingleExerciseChart visual DIFERIDO por conflicto con hotfix P3 · sin deploy).
 >
 > **Bloque A · P4 en `CompanyFichaLayoutV2.tsx` (2026-09-04)** — ✅ APLICADO. +21 líneas al bloque inline "Detalles de la compañía" (T5, líneas ~785). 3 filas condicionales añadidas con el mismo patrón visual `.idrow`:
 >
