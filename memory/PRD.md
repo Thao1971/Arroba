@@ -1,6 +1,38 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-09-04 — **🟢 Hotfixes Bloque A + B + P1 aplicados en preview** (P4 en monolito V2 + fix legacy `working_capital` categoría/formato + reconciliación visual `SingleExerciseChart` · sin deploy).
+> **Última actualización**: 2026-09-05 — **🟢 Fix 1 (dark mode `.afk`) + Fix 2 (DealAsideCard aditivo) aplicados en preview Beta**. Sin deploy.
+>
+> **Fix 1 · Modo oscuro `.afk` en `fichaMockupCss.ts` + 5 anchors en `CompanyFichaLayoutV2.tsx` (2026-09-05)** — ✅ APLICADO. Causa raíz: la paleta `.afk` no tenía variante `[data-dark]` y 5 sitios usaban colores literales (`#fff`, `#eef0f2`, `#fff9e6`, `#f5f6f8`) en vez de `var(--n*)`.
+>
+> - **1a** · Insertado `[data-dark] .afk{ ... }` en `fichaMockupCss.ts` tras `.afk .arrobamark svg{...}`, con overrides de `--n0..--n900` y tintes semitransparentes (`--red-tint`, `--red-tint2`, `--ok-tint`, `--warn-tint`, `--info-tint`).
+> - **1b·B1** · Skeleton `background:linear-gradient(90deg,#eef0f2 0%,#f5f6f8 40%,#eef0f2 80%)` → `var(--n200)/(--n100)/(--n200)`.
+> - **1b·B2** · Card `.intel` `linear-gradient(180deg, var(--red-tint), #fff)` → `..., var(--n0))`.
+> - **1b·B3** · `.sig-actions .a` `background:#fff` → `var(--n0)`.
+> - **1b·B4** (×2 con `replace_all`) · Banner `background:'#fff9e6'` → `'var(--warn-tint)'`.
+> - **1b·B5** · Pill inline `background:'#fff'` → `'var(--n0)'`.
+>
+> Verificado E2E: en `<html data-dark>`, tokens `.afk` resueltos en `computedStyle` → `--n0:#211F1C`, `--n50:#171513`, `--n200:#3A3733`, `--n900:#FAF8F5`, `--warn-tint:rgba(199,125,24,.20)`, `--red-tint:rgba(255,87,87,.14)`. En modo claro: `--n0:#FFFFFF` (cero regresión). Screenshot `/app/docs/bundle_pending_fixes/fix1_dark_mode_afk.jpeg` muestra Servier con fondos oscuros, gráfico de evolución legible, anillos y aside "Pendiente" contrastados correctamente.
+>
+> **Fix 2 · `DealAsideCard` aditivo persona-aware (2026-09-05)** — ✅ APLICADO. Nueva funcionalidad opcional para la columna derecha `aside.deal`: prop `dealAside?: DealAsideState | null`, tipos exportados (`DealPersona`, `DealActionItem`, `DealStep`, `DealReportItem`, `DealAsideState`), componente `DealAsideCard` con 9 iconos lucide (`Lock`/`Shield`/`Folder`/`Files`/`File`/`GitCompare`/`Users`/`FileText`/`Gauge`), soporte de acciones con `locked` + `lockNote`, `steps` STAGES_V1, y bloque opcional `reports`. Cablado en `<aside className="deal">` con render condicional: `props.dealAside ? <DealAsideCard /> : <>card Pendiente</>`.
+>
+> - **2a** · Insertadas 6 reglas CSS en `fichaMockupCss.ts` tras anchor A: `.afk .dbtn.locked`, `:hover`, `.crd`, `.locknote`, `.reports`, `.reports .ph`.
+> - **2b** · Import `lucide-react` extendido con 4 iconos (`File, Folder, Gauge, Shield`) manteniendo orden alfabético.
+> - **2c** · Prop `dealAside?` documentado en `CompanyFichaLayoutV2Props` + bloque completo de tipos y `DealAsideCard` (aprox. 130 líneas nuevas fuera de la interface). `Fragment` ya estaba en el import de React desde antes.
+> - **2d** · `<aside className="deal">` cablado con `props.dealAside ? <DealAsideCard state={props.dealAside} /> : <>...</>`. Cero regresión: sin prop → mismo card "Pendiente" con eyebrow "Próxima acción".
+>
+> Verificado E2E en Servier `/es/empresa-f01/B28184687`: `dealAside` undefined → renderiza el card estático "Pendiente" con texto "Estado de la compañía / En cuanto se determine, aquí verás la recomendación de actuación". DOM aside default: `dcard=1, dgrid=0, dacts=0, locked-btn=0, locknote=0, reports=0` (esperado). Screenshot `/app/docs/bundle_pending_fixes/fix2_dealaside_default.jpeg`.
+>
+> **Verificación consolidada (2026-09-05)**:
+> - `yarn tsc --noEmit` → **0 errores** ✅
+> - `yarn build` → **verde (19.19s)** ✅
+> - `yarn vitest run` → **257 passed / 1 legacy R14** ✅
+> - `yarn vitest run SingleExerciseChart.test.ts` → **12/12** ✅
+> - `yarn eslint src --max-warnings=0` → **4 warnings legacy** en ficheros no tocados ✅
+> - `pytest` → **321 passed / 37 legacy HARDENING-002** ✅
+>
+> **NO DESPLEGADO**. Preview Beta only. Daniel advierte: no desplegar hasta confirmar que el fix `_mag()` de ratios está en el pod Intel para no mezclar despliegues.
+>
+> **Contexto previo (2026-09-04)** — Hotfixes Bloque A + B + P1: P4 en monolito V2 + fix legacy `working_capital` categoría/formato + reconciliación visual `SingleExerciseChart`. Sanity PRM A08698060 (1,9 M€ · 771 k€ · 41,4 %) intacto.
 >
 > **P1 · Reconciliación visual `SingleExerciseChart.tsx` (2026-09-04)** — ✅ APLICADO. 5 cambios idempotentes sobre el fichero actual (que ya tenía hotfix P3 con rama 3a `profit_loss` primario). El helper `resolveSingleExerciseCascade` NO se toca; tests P3 #10/#11/#12 pasan tal cual (12/12 vitest).
 >

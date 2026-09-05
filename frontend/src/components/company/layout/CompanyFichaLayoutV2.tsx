@@ -9,9 +9,9 @@
  */
 import React, { Component, Fragment, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, BarChart3, Bell, Bookmark, Coins, Euro, ExternalLink, FileText, Files, GitCompare,
-  Hourglass, LayoutGrid, Linkedin, Lock, type LucideIcon, Network, PieChart, Scale, Share2,
-  Sparkles, Target, Users, Zap,
+  Activity, BarChart3, Bell, Bookmark, Coins, Euro, ExternalLink, File, FileText, Files, Folder,
+  Gauge, GitCompare, Hourglass, LayoutGrid, Linkedin, Lock, type LucideIcon, Network, PieChart,
+  Scale, Share2, Shield, Sparkles, Target, Users, Zap,
 } from 'lucide-react';
 
 import type {
@@ -122,6 +122,146 @@ export interface CompanyFichaLayoutV2Props {
   marketReading?: string | null;
   /** false = visitante anónimo (mixed-access): cifras bajo CTA de registro. */
   authenticated?: boolean;
+  /**
+   * Columna derecha de la ficha (`aside.deal`, HARDENING pendiente de número):
+   * próxima acción + CTAs de créditos, adaptada al perfil real de quien mira
+   * (Comprador/Vendedor/Busca capital/Asesor/Anónimo), calcada del diseño y la
+   * lógica ya verificados en `mockups/ficha-empresa-f01.html` (`applyPersona`),
+   * alineada con `STAGES_V1` de Intel (transaction_os). Passthrough puro:
+   * `undefined`/`null` → degrada al card genérico "Pendiente" (R15), porque hoy
+   * el agregador `/ficha` de Intel todavía no expone si hay una operación activa
+   * en esta empresa ni qué perfil tiene el usuario en ella — ese es el único
+   * hueco real que falta cerrar para que este panel muestre datos de verdad.
+   */
+  dealAside?: DealAsideState | null;
+}
+
+/* ============================ Deal aside (columna derecha) ============================
+ * Puerto 1:1 de `applyPersona()`/`deal()` de `mockups/ficha-empresa-f01.html` (verificado y
+ * aprobado por Daniel 2026-08-22) a un componente de datos: el componente solo renderiza
+ * `DealAsideState`, no decide qué perfil ni qué etapa mostrar — esa decisión (quién es el
+ * usuario respecto a esta empresa + en qué paso de STAGES_V1 está) es responsabilidad de un
+ * adapter futuro (mismo patrón que `opportunityToThesisView`/`marketBlockToContextView` más
+ * abajo), alimentado por un endpoint de Intel que hoy no existe. Mientras no exista,
+ * `props.dealAside` se deja sin usar y la ficha sigue mostrando el card "Pendiente" de
+ * siempre — cero riesgo de mostrar datos de ejemplo en producción.
+ * ======================================================================================== */
+export type DealPersona = 'comprador' | 'vendedor' | 'capital' | 'asesor' | 'anonimo';
+
+const DEAL_ICONS: Record<string, LucideIcon> = {
+  lock: Lock, shield: Shield, folder: Folder, files: Files, file: File,
+  compare: GitCompare, users: Users, fileText: FileText, gauge: Gauge,
+};
+
+export interface DealActionItem {
+  /** Clave de `DEAL_ICONS`. */
+  icon: string;
+  label: string;
+  /** Coste en créditos a mostrar, p.ej. "8 créd." o "3 pend."; `null`/omitido = acción gratuita. */
+  credits?: string | null;
+  /** true = botón bloqueado (candado), esperando el paso anterior de STAGES_V1. */
+  locked?: boolean;
+  /** Nota bajo el botón bloqueado explicando qué lo desbloquea. */
+  lockNote?: string | null;
+  /** Clave de acción para wiring futuro (p.ej. 'firmar-nda'); sin handler todavía. */
+  actionKey?: string | null;
+}
+
+export interface DealStep { label: string; state: 'done' | 'cur' | 'todo'; }
+
+export interface DealReportItem { icon: string; label: string; credits?: string | null; }
+
+export interface DealAsideState {
+  persona: DealPersona;
+  /** Eyebrow superior del card, p.ej. "Tu próxima acción · En venta". */
+  escc: string;
+  /** Variables CSS ya definidas en `.afk` (p.ej. 'var(--red)'), no colores sueltos. */
+  accentColor: string;
+  accentTint: string;
+  accentTintBorder: string;
+  /** Etiqueta pequeña de la cabecera del card (`.dh .k`). */
+  kicker: string;
+  /** Valor grande de la cabecera del card (`.dh .v`), p.ej. "En venta". */
+  stateLabel: string;
+  paragraph: string;
+  rows?: Array<[string, string]>;
+  actions: DealActionItem[];
+  steps?: DealStep[];
+  footnote?: string | null;
+  /** Bloque opcional "Informes y documentos" — independiente de la etapa del proceso. */
+  reports?: DealReportItem[];
+}
+
+function DealAsideCard({ state }: { state: DealAsideState }): React.ReactElement {
+  return (
+    <>
+      <div className="escc">{state.escc}</div>
+      <div className="dcard" style={{ borderColor: state.accentColor }}>
+        <div className="dh" style={{ background: state.accentTint, borderColor: state.accentTintBorder }}>
+          <div className="k" style={{ color: state.accentColor }}>{state.kicker}</div>
+          <div className="v">{state.stateLabel}</div>
+        </div>
+        <div className="db">
+          <p>{state.paragraph}</p>
+          {!!state.rows?.length && (
+            <div className="dgrid">
+              {state.rows.map(([l, v], i) => (
+                <div key={i}><div className="l">{l}</div><div className="v">{v}</div></div>
+              ))}
+            </div>
+          )}
+          <div className="dacts">
+            {state.actions.map((a, i) => {
+              const Icon = DEAL_ICONS[a.locked ? 'lock' : a.icon] ?? Lock;
+              return (
+                <Fragment key={i}>
+                  <div
+                    className={`dbtn${i === 0 && !a.locked ? ' p' : ''}${a.locked ? ' locked' : ''}`}
+                    data-act={a.actionKey ?? undefined}
+                  >
+                    <span data-ic={a.locked ? 'lock' : a.icon}><Icon size={16} /></span>
+                    {a.label}
+                    {a.credits ? <span className="crd">{a.credits}</span> : null}
+                  </div>
+                  {a.locked && a.lockNote ? <div className="locknote">{a.lockNote}</div> : null}
+                </Fragment>
+              );
+            })}
+          </div>
+          {!!state.steps?.length && (
+            <div className="proc">
+              <div className="ph">Próximos pasos</div>
+              {state.steps.map((s, i) => (
+                <div key={i} className={`step${s.state === 'todo' ? ' todo' : s.state === 'cur' ? ' cur' : ''}`}>
+                  <span className="d" /> {s.label}
+                </div>
+              ))}
+            </div>
+          )}
+          {!!state.reports?.length && (
+            <div className="reports">
+              <div className="ph">Informes y documentos</div>
+              <div className="dacts">
+                {state.reports.map((r, i) => {
+                  const Icon = DEAL_ICONS[r.icon] ?? FileText;
+                  return (
+                    <div className="dbtn" key={i}>
+                      <span data-ic={r.icon}><Icon size={16} /></span>
+                      {r.label}
+                      {r.credits ? <span className="crd">{r.credits}</span> : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {state.footnote ? (
+            <p style={{ marginTop: 12, fontSize: 11.5, color: 'var(--n400)' }}>{state.footnote}</p>
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
 }
 
 type SectionId =
@@ -418,7 +558,7 @@ function SectionError() {
 function Skeleton() {
   return (
     <div className="card" style={{ padding: '28px 20px' }}>
-      <style>{`@keyframes afkShimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}.afkSkeleton{display:block;border-radius:6px;background:linear-gradient(90deg,#eef0f2 0%,#f5f6f8 40%,#eef0f2 80%);background-size:200px 100%;background-repeat:no-repeat;animation:afkShimmer 1.4s ease-in-out infinite}`}</style>
+      <style>{`@keyframes afkShimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}.afkSkeleton{display:block;border-radius:6px;background:linear-gradient(90deg,var(--n200) 0%,var(--n100) 40%,var(--n200) 80%);background-size:200px 100%;background-repeat:no-repeat;animation:afkShimmer 1.4s ease-in-out infinite}`}</style>
       <div className="afkSkeleton" style={{ height: 14, width: '55%', marginBottom: 12 }} />
       <div className="afkSkeleton" style={{ height: 10, width: '80%', marginBottom: 8 }} />
       <div className="afkSkeleton" style={{ height: 10, width: '70%' }} />
@@ -928,7 +1068,7 @@ function TesisOportunidadCard({ text }: { text: string | null }) {
       style={{
         marginTop: 18,
         borderLeft: '3px solid var(--red)',
-        background: 'linear-gradient(180deg, var(--red-tint), #fff)',
+        background: 'linear-gradient(180deg, var(--red-tint), var(--n0))',
         borderColor: 'var(--red-tint2)',
       }}
     >
@@ -1634,7 +1774,7 @@ function Senales({ signal }: { signal?: SignalAnalysis | null }) {
   const cls = (pol: string | null) => pol === 'positive' ? 'ok' : pol === 'negative' ? 'r' : pol === 'warning' ? 'w' : 'i';
   return (
     <section className="panel on" data-testid="senales-section">
-      <style>{`.sig-explain{font-size:14px;color:var(--n800);line-height:1.55;margin-top:6px}.sig-dims{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.sig-dim{padding:3px 10px;border-radius:999px;background:var(--n100);color:var(--n800);font-size:11.5px;font-weight:600}.sig-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}.sig-actions .a{padding:3px 10px;border:1px solid var(--n200);border-radius:6px;font-size:11.5px;color:var(--n700);background:#fff}`}</style>
+      <style>{`.sig-explain{font-size:14px;color:var(--n800);line-height:1.55;margin-top:6px}.sig-dims{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.sig-dim{padding:3px 10px;border-radius:999px;background:var(--n100);color:var(--n800);font-size:11.5px;font-weight:600}.sig-actions{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}.sig-actions .a{padding:3px 10px;border:1px solid var(--n200);border-radius:6px;font-size:11.5px;color:var(--n700);background:var(--n0)}`}</style>
       <div className="sec-h">Señales</div>
       <div className="sec-s">Hechos y cambios recientes que afectan al atractivo de la compañía para una operación.</div>
       <div className="tl">
@@ -1817,7 +1957,7 @@ function MercadoSectorPanel({ sector }: { sector?: import('@/lib/companies/intel
     <div className="card" data-testid="mercado-sector-panel">
       <h3><span className="k" />Contexto sectorial · {sector.cnae_label ?? '—'}</h3>
       {isDegraded && sector.cnae_level && (
-        <div className="cs" data-testid="mercado-sector-caveat" style={{ background: '#fff9e6', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
+        <div className="cs" data-testid="mercado-sector-caveat" style={{ background: 'var(--warn-tint)', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
           <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
           Cobertura Intel a nivel <b>{sector.cnae_level === 'division' ? 'división CNAE (2 dígitos)' : 'sección CNAE'}</b> — nivel más granular no disponible para este sector.
         </div>
@@ -1876,7 +2016,7 @@ function MercadoConcentrationPanel({ conc, marketProvenance }: {
       <h3><span className="k" />Concentración de mercado</h3>
       {/* HARDENING-020 · Canon §3 · retirado el sufijo "(HHI)" y el prefijo "Nivel: {conc.level}" (jerga codificada). La narrative ya describe el nivel en prosa CF. */}
       {conc.degraded && (
-        <div className="cs" data-testid="mercado-concentration-degraded" style={{ background: '#fff9e6', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
+        <div className="cs" data-testid="mercado-concentration-degraded" style={{ background: 'var(--warn-tint)', padding: '6px 10px', borderRadius: 4, marginTop: 6 }}>
           <Lock size={12} strokeWidth={2} style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: 6 }} />
           Concentración calculada con muestra parcial (universo insuficiente para nivel más granular).
         </div>
@@ -2993,7 +3133,7 @@ function Oportunidades({ opportunities }: { opportunities?: RecommendationSet | 
                     key={j}
                     className="sact"
                     data-action={a}
-                    style={{ padding: '3px 10px', border: '1px solid var(--n200)', borderRadius: 6, fontSize: 11.5, color: 'var(--n700)', background: '#fff' }}
+                    style={{ padding: '3px 10px', border: '1px solid var(--n200)', borderRadius: 6, fontSize: 11.5, color: 'var(--n700)', background: 'var(--n0)' }}
                   >
                     {OPP_ACTION_LABEL_ES[a] ?? a}
                   </span>
@@ -3380,11 +3520,17 @@ export function CompanyFichaLayoutV2(props: CompanyFichaLayoutV2Props) {
           </main>
 
           <aside className="deal">
-            <div className="escc">Próxima acción</div>
-            <div className="dcard">
-              <div className="dh"><div className="k">◉ Estado de la compañía</div><div className="v">Pendiente</div></div>
-              <div className="db"><p>Aún no consta el estado de la compañía (en venta, buscando capital, comprando). En cuanto se determine, aquí verás la recomendación de actuación.</p></div>
-            </div>
+            {props.dealAside ? (
+              <DealAsideCard state={props.dealAside} />
+            ) : (
+              <>
+                <div className="escc">Próxima acción</div>
+                <div className="dcard">
+                  <div className="dh"><div className="k">◉ Estado de la compañía</div><div className="v">Pendiente</div></div>
+                  <div className="db"><p>Aún no consta el estado de la compañía (en venta, buscando capital, comprando). En cuanto se determine, aquí verás la recomendación de actuación.</p></div>
+                </div>
+              </>
+            )}
           </aside>
         </div>
       </div>
