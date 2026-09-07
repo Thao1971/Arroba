@@ -90,6 +90,11 @@ export const GLOSARIO: Record<string, GlosarioEntry> = {
     definition: 'Años de beneficio operativo que harían falta para pagar la deuda neta.',
     band: 'Por debajo de 3× es cómodo; por encima de 4×, tensionado — encarece o complica una compra.',
   },
+  PATRIMONIO_NETO: {
+    label: 'Patrimonio Neto',
+    definition: 'Recursos propios de la empresa: lo que queda del activo tras descontar todas las deudas.',
+    why_ma: 'Sustituye a DN/EBITDA (2026-08-30): la deuda financiera no consta en la mayoría de depósitos de cuentas, el patrimonio neto casi siempre sí.',
+  },
   AUTONOMIA_FINANCIERA: {
     label: 'Autonomía financiera (PN / activo)',
     definition: 'Qué parte del balance se financia con recursos propios y no con deuda.',

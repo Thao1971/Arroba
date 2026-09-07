@@ -798,6 +798,17 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
     return (typeof v === 'number' && isFinite(v)) ? v : null;
   })();
 
+  // T2 · KPI Patrimonio Neto (Daniel, 2026-08-30) · sustituye a DN/EBITDA.
+  // DN/EBITDA dependía de `financial_debt`, un dato que la mayoría de empresas
+  // no declara por separado (cuentas abreviadas). `equity` (patrimonio neto)
+  // es una partida obligatoria del balance y casi siempre está disponible.
+  // Passthrough puro desde `financialAnalysis.kpis.equity` — sin cascada,
+  // sin fabricación (R15): si Intel no lo trae, honestamente "sin dato".
+  const equity: number | null = (() => {
+    const v = (financialAnalysis?.kpis as unknown as Record<string, unknown> | null)?.['equity'];
+    return (typeof v === 'number' && isFinite(v)) ? v : null;
+  })();
+
   if (p.anon) {
     // Vista anónima simplificada: descripción pública + Gate + Detalles registrales.
     return (
@@ -858,22 +869,12 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
             srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'ebitda') as ProvenanceValue | null} />}
           />
           <KpiCard
-            label="DN / EBITDA"
-            tooltip="DN_EBITDA"
-            // HARDENING-023 · 3 estados. `value` sólo se pasa cuando hay ratio
-            // numérico válido; para "no_debt" / "ebitda_neg" / "empty" pasamos
-            // `null` + `emptyReason` con la etiqueta canonica del estado.
-            value={dnEbitdaState.kind === 'ratio' ? dnEbitdaState.value : null}
-            valueFormatter={(v) => `${v.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`}
-            points={dnEbitdaPoints}
-            invertColor
-            emptyReason={
-              dnEbitdaState.kind === 'no_debt' ? 'Sin deuda neta'
-              : dnEbitdaState.kind === 'ebitda_neg' ? 'EBITDA negativo'
-              : 'Sin dato'
-            }
-            testid="kpi-dn-ebitda"
-            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'net_debt_ebitda') as ProvenanceValue | null} />}
+            label="Patrimonio Neto"
+            tooltip="PATRIMONIO_NETO"
+            value={equity}
+            valueFormatter={fmtEUR}
+            testid="kpi-patrimonio-neto"
+            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'equity') as ProvenanceValue | null} />}
           />
           <KpiCard
             label="Activos totales"
