@@ -799,13 +799,13 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
   })();
 
   // T2 · KPI Patrimonio Neto (Daniel, 2026-08-30) · sustituye a DN/EBITDA.
-  // DN/EBITDA dependía de `financial_debt`, un dato que la mayoría de empresas
-  // no declara por separado (cuentas abreviadas). `equity` (patrimonio neto)
-  // es una partida obligatoria del balance y casi siempre está disponible.
-  // Passthrough puro desde `financialAnalysis.kpis.equity` — sin cascada,
-  // sin fabricación (R15): si Intel no lo trae, honestamente "sin dato".
+  // Fuente: balance_sheet.equity (Intel emite el dato ahí, no en kpis).
+  // Passthrough puro, sin cascada, sin fabricación (R15): si Intel no lo trae,
+  // honestamente "sin dato". El brief original apuntaba a kpis.equity pero
+  // verificamos que Intel emite equity dentro de balance_sheet; cuando Intel
+  // lo promocione a kpis, revertir a la fuente canónica.
   const equity: number | null = (() => {
-    const v = (financialAnalysis?.kpis as unknown as Record<string, unknown> | null)?.['equity'];
+    const v = (financialAnalysis?.balance_sheet as unknown as Record<string, unknown> | null)?.['equity'];
     return (typeof v === 'number' && isFinite(v)) ? v : null;
   })();
 
@@ -874,7 +874,7 @@ function Resumen(p: CompanyFichaLayoutV2Props & { anon?: boolean }) {
             value={equity}
             valueFormatter={fmtEUR}
             testid="kpi-patrimonio-neto"
-            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'kpis', 'equity') as ProvenanceValue | null} />}
+            srcDot={<SrcDot type={provenanceFor(financialAnalysis?.provenance, 'balance_sheet', 'equity') as ProvenanceValue | null} />}
           />
           <KpiCard
             label="Activos totales"
