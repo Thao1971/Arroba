@@ -1,6 +1,48 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-09-05 — **🟢 Fix 1 (dark mode `.afk`) + Fix 2 (DealAsideCard aditivo) aplicados en preview Beta**. Sin deploy.
+> **Última actualización**: 2026-09-07 — **🟢 Pack Beta-290826-deploy-pendiente aplicado parcialmente: 13 Bucket B en preview · 4 Bucket C elevados a Daniel · sin deploy**. Autorización literal del usuario en `MENSAJE_BETA_backlog_completo.md` interno del ZIP.
+>
+> **Fuente**: `Beta-290826_deploy_pendiente_20260907_115714.zip` (244 KB, 37 ficheros técnicos + 2 mds trazabilidad). Triage diff-first archivo por archivo:
+>
+> - **Bucket A (17 ficheros idénticos)** — skip (bloques 16 dark mode + 17 DealAsideCard + market_map + sector/[code] + territorio/[level]/[code] + Sidebar + SpainMap + hotfix build 28/08 + resto de identidades).
+> - **Bucket B (13 ficheros aplicados)** — pack es superset funcional del HEAD del pod. Aplicados vía `cp` idempotente:
+>   1. `backend/tests/test_copilot_search_disambiguation_enrichment.py` (nuevo, 6 tests bloque 20)
+>   2. `backend/tests/test_copilot_search_related_entities.py` (+38 líneas, 5→8 tests bloque 19)
+>   3. `backend/tests/test_entities_sector_territory.py` (+38 líneas, 4→12 tests bloque 19)
+>   4. `backend/src/modules/copilot/service.py` (+125 líneas · bloque 19 workspace/related_entities + bloque 20 `_enrich_disambiguation_with_financials`)
+>   5. `backend/src/modules/entities/service.py` (+26 líneas · fix bloque 19)
+>   6. `frontend/src/app/[locale]/(public)/layout.tsx` (+4)
+>   7. `frontend/src/app/[locale]/(authenticated)/mapa-empresarial/page.tsx` (mismos counts semánticos + SpainMap extra)
+>   8. `frontend/src/app/[locale]/(authenticated)/resultados/page.tsx` (bloque 15 secciones separadas · `relatedEntityHref` preservado)
+>   9. `frontend/src/lib/api/client.ts` (+11 · endpoint `resolve`)
+>   10. `frontend/src/lib/companies/types.ts` (+17 · `CompanyResolveResponse`)
+>   11. `frontend/tailwind.config.ts` (+10)
+>   12. `frontend/src/components/company/layout/fichaMockupCss.ts` (no-op semántico, solo orden CSS)
+>   13. `frontend/src/components/company/FichaLoadingScreen.tsx` (+156 líneas · bloque 21 pulido: tema activo con tokens semánticos + `Recuerda` configurables + destello CIF)
+> - **Bucket C (4 ficheros ELEVADOS a Daniel — NO aplicados)** — el pack borraría trabajo del pod:
+>   - `frontend/src/components/company/layout/CompanyFichaLayoutV2.tsx` (+91 HEAD-only) — pack borra P4 identidad (audited/balance_model/last_balance_year), P3 (`resolveSingleExerciseCascade`), Fase 2 (`capitalMarkets`/CNMV/BME), Fase 5 (hero cards Calidad/Score de solvencia + icono ámbar `verified===false`), HARDENING-023 (`computeDnEbitdaState` DN/EBITDA 4 estados).
+>   - `frontend/src/components/company/CompanyFichaF01Client.tsx` (+23 HEAD-only) — pack borra los 3 campos identity en `adaptIdentityFromFicha` + `capitalMarkets` passthrough (Fase 2). Wiring de `FichaLoadingScreen` sí lo tiene el pack.
+>   - `frontend/src/app/[locale]/internal/blocks-preview/page.tsx` (+1 HEAD-only) — cambio trivial de className (`bg-warning/10` pack vs `bg-warning-subtle/40` HEAD). C leve.
+>   - `frontend/src/components/blocks/committee/InvestmentCommitteeBlock.tsx` (+1 HEAD-only) — mismo patrón trivial (`bg-danger/10` pack vs `bg-danger-subtle/40` HEAD). C leve.
+>
+> **Verificación consolidada post-aplicación**:
+> - `yarn tsc --noEmit` → **0 errores** ✅
+> - `yarn build` → **verde (20.84s)** ✅
+> - `yarn vitest run` global → **257 passed / 1 legacy R14** ✅
+> - `yarn vitest run SingleExerciseChart.test.ts` → **12/12** ✅ (P3 intacto)
+> - `yarn eslint src --max-warnings=0` → **4 warnings legacy** en ficheros no tocados ✅
+> - `pytest` global → **330 passed / 37 legacy HARDENING-002** ✅ (+9 tests nuevos bloques 19+20)
+> - Tests específicos bloques 19+20: `pytest test_copilot_search_related_entities.py test_copilot_search_disambiguation_enrichment.py test_entities_sector_territory.py` → **23 passed** ✅
+>
+> **Smoke curl backend preview**:
+> - Bloque 19 · `POST /api/copilot/skills/search "Sevilla"` → **`related_entities n=2` con `('territory', 'ccaa:01', 'Andalucía')` + `('territory', 'province:41', 'Sevilla')`** ✅ (antes: null en producción). Fix verificado.
+> - Bloque 20 · función `_enrich_disambiguation_with_financials` presente en L722, llamada en L502 tras `resolve → 1-5 candidatos`. 6 tests unitarios verdes. Runtime smoke no forzó rama `disambiguation` (todas las queries fueron por `workspace`), pero cobertura test = OK.
+>
+> **Trazabilidad**: `MANIFEST.md` y `MENSAJE_BETA_backlog_completo.md` del ZIP copiados a `/app/memory/PENDING_FIXES/Beta-290826_deploy_pendiente_*_20260907.md`.
+>
+> **NO DESPLEGADO**. Preview only. Daniel dispara el deploy desde el panel Emergent tras decidir los 4 Cs.
+>
+> **Contexto previo (2026-09-05)** — Fix 1 dark mode `.afk` + Fix 2 DealAsideCard aditivo (bloques 16-17 del pack, ambos ya en el HEAD del pod y confirmados en producción vía curl).
 >
 > **Fix 1 · Modo oscuro `.afk` en `fichaMockupCss.ts` + 5 anchors en `CompanyFichaLayoutV2.tsx` (2026-09-05)** — ✅ APLICADO. Causa raíz: la paleta `.afk` no tenía variante `[data-dark]` y 5 sitios usaban colores literales (`#fff`, `#eef0f2`, `#fff9e6`, `#f5f6f8`) en vez de `var(--n*)`.
 >

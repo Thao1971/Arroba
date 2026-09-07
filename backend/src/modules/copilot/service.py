@@ -79,6 +79,7 @@ _RESULTS_PAGE: int = 12
 _SEARCH_PAGE_LIMIT: int = 50
 _SECTOR_ID_CAP: int = 3000
 
+
 async def _intel_call_ff(coro: Any) -> Any:
     """HARDENING-REQ003 · Fail-fast wrapper para el path search. Envuelve una
     coroutine del `AgencyToolClient` canónico con `asyncio.wait_for(8s)`.
@@ -126,6 +127,7 @@ _DEFAULT_SUGGESTIONS = [
 # Spanish CIF: leading letter + 8 digits.
 _CIF_RE = re.compile(r"^[A-Z]\d{8}$")
 
+
 def _normalize(s: str) -> str:
     """NFD + lowercase + strip diacritics. Same logic as the frontend's
     `normalizeES` so both sides match the same query."""
@@ -140,6 +142,7 @@ def _normalize(s: str) -> str:
         .lower()
         .strip()
     )
+
 
 def _score(query_norm: str, doc: dict[str, Any]) -> float:
     """Cheap deterministic relevance: exact substring → 1.0, prefix → 0.85,
@@ -157,23 +160,34 @@ def _score(query_norm: str, doc: dict[str, Any]) -> float:
         score = 0.5
     return min(score, 1.0)
 
+
 async def execute_search(
     request: SearchSkillRequest,
 ) -> SearchSkillResponse:
     """Entry point público del skill de búsqueda.
 
     HARDENING 2026-08-24 · "Sectores relacionados" (chips): además de la
-    respuesta de empresas (`_execute_search_impl`, sin cambios), cuando la
-    respuesta trae un `workspace` con contenido real (no un navigate_to
-    directo a una ficha, ni disambiguation), se enriquece con
-    `related_entities` — sector/territory/investor que coincidan con la
+    respuesta de empresas (`_execute_search_impl`, sin cambios), se enriquece
+    con `related_entities` — sector/territory/investor que coincidan con la
     misma query, vía `entities.service.lookup()`. Un fallo aquí NUNCA rompe
     la búsqueda principal: se loguea y se omiten los chips.
+
+    FIX 2026-09-06 · Daniel: antes solo se calculaba cuando la respuesta
+    primaria traía `workspace` (resultados exploratorios), así que una query
+    como "Sevilla" -- que además de ser territorio coincide con la razón
+    social de varias empresas y por tanto cae en `disambiguation` -- nunca
+    llegaba a resolver territorio/sector, aunque el catálogo tuviese a
+    Sevilla/Andalucía. Empresas, Territorios y Mercados son tres preguntas
+    independientes sobre la misma query, no ramas excluyentes: se calculan
+    siempre en paralelo, salvo en el único caso en que no tienen dónde
+    pintarse -- navegación directa a una ficha exacta (`navigate_to`), donde
+    el usuario ya está saliendo de /resultados.
     """
     resp = await _execute_search_impl(request)
-    if resp.workspace is not None:
+    if resp.navigate_to is None:
         resp.related_entities = await _related_entities_chips(request.query)
     return resp
+
 
 async def _related_entities_chips(query: str) -> list[EntityLookupResult] | None:
     """Sector/territory/investor que coincidan con `query` — para las chips
@@ -188,6 +202,7 @@ async def _related_entities_chips(query: str) -> list[EntityLookupResult] | None
         log.warning("copilot.search.related_entities_failed", error=str(exc), query=query)
         return None
     return results or None
+
 
 async def _execute_search_impl(
     request: SearchSkillRequest,
@@ -335,6 +350,7 @@ async def _execute_search_impl(
         query=q,
     )
 
+
 async def _execute_search_real(
     request: SearchSkillRequest, q: str, q_norm: str
 ) -> SearchSkillResponse:
@@ -466,6 +482,40 @@ async def _execute_search_real(
         return tax_resp
     candidates = matches[:5]
     if 1 <= len(candidates) <= 5:
+        # BUGFIX-2026-09-07 · Daniel (punto 9): "Facturación/EBITDA en blanco
+        # en resultados de búsqueda, ej. servier". `DisambiguationItem` nació
+        # para el dropdown compacto del dock (`orchestrator/index.ts`), que
+        # nunca necesitó financials — por eso no los lleva. `/resultados`
+        # reutiliza estos mismos candidatos para pintar la tabla de resultados,
+        # y ahí sí hacen falta. Opción elegida (C, de 3 evaluadas con Daniel):
+        # NO tocamos el matching de nombre (`/resolve` ya es preciso y fiable
+        # para esto) ni usamos búsqueda léxica de `skills/search` (el propio
+        # código ya documenta que su matching por texto libre "fallaba con
+        # sectores en inglés y con residuales cortos" — no nos fiamos de él
+        # para nombres tampoco). En vez de eso, con los 1-5 `master_id` que
+        # `/resolve` ya nos dio, hacemos UNA sola llamada a `skills/search`
+        # filtrando por `master_company_ids` (el mismo mecanismo fiable que
+        # REQ004b ya usa para el scoping sectorial) para traer sus financials.
+        # Solo se hace para `/resultados`; el dock sigue exactamente igual,
+        # sin este coste extra.
+        if pathname == "/resultados":
+            enriched = await _enrich_disambiguation_with_financials(candidates)
+            if enriched is not None:
+                return SearchSkillResponse(
+                    workspace=Workspace(
+                        workspace_id="wsp_" + uuid.uuid4().hex[:12],
+                        intent="search",
+                        blocks=[
+                            SearchResultsBlock(
+                                id="blk_results_" + uuid.uuid4().hex[:8],
+                                props=SearchResultsBlockProps(
+                                    query=q, total=len(enriched), results=enriched,
+                                ),
+                            )
+                        ],
+                    ),
+                    source="real", query=q,
+                )
         items = [
             DisambiguationItem(
                 master_company_id=str(m.get("master_id") or ""),
@@ -506,6 +556,7 @@ async def _execute_search_real(
         ),
         source="real", query=q,
     )
+
 
 async def _semantic_search_results(
     q: str, pathname: str | None, locale: str, offset: int = 0
@@ -553,6 +604,7 @@ async def _semantic_search_results(
         ),
         source="real", query=q,
     )
+
 
 async def _financial_search_results(
     q: str,
@@ -664,6 +716,92 @@ async def _financial_search_results(
         source="real", query=q,
     )
 
+
+
+
+async def _enrich_disambiguation_with_financials(
+    candidates: list[dict[str, Any]],
+) -> list[SearchResultItem] | None:
+    """BUGFIX-2026-09-07 · Daniel (punto 9): trae financials para los 1-5
+    candidatos que `/resolve` ya identificó con precisión para una query de
+    nombre concreto en `/resultados`. NO repite el matching de nombre — pide
+    financials para esos `master_id` exactos vía `skills/search` filtrado por
+    `master_company_ids` (una sola llamada, mismo filtro fiable que REQ004b ya
+    usa para acotar por sector). Devuelve `None` (nunca lanza) si Intel falla,
+    para que el caller siga con el `disambiguation` sin enriquecer en vez de
+    romper la búsqueda entera por un fallo de enriquecimiento.
+
+    R15: si un candidato concreto no trae financials en la respuesta de
+    Intel (empresa real sin datos, no un fallo), esa fila se queda con
+    `summary=None` — la UI pinta "—" honesto, nunca se fabrica un dato ni
+    se descarta la fila.
+    """
+    ids = [str(m.get("master_id")) for m in candidates if m.get("master_id")]
+    if not ids:
+        return None
+    try:
+        resp = await _intel_call_ff(
+            get_agency_tool_client().request(
+                "POST",
+                "/api/v1/skills/search",
+                json={
+                    "query": "",
+                    "filters": {"master_company_ids": ids, "has_domain": False},
+                    "pagination": {"page": 1, "page_size": len(ids)},
+                },
+            )
+        )
+        if resp.status_code >= 400:
+            log.warning(
+                "copilot.search.disambiguation_enrich_http_error",
+                status_code=resp.status_code, ids=len(ids),
+            )
+            return None
+        payload_out: dict[str, Any] = resp.json()
+        blocks = ((payload_out.get("workspace") or {}).get("blocks") or [])
+        block = next((b for b in blocks if b.get("type") == "search_results"), None)
+        rows: list[dict[str, Any]] = (
+            ((block.get("props") or {}).get("results") or [])
+            if block is not None
+            else (payload_out.get("results") or [])
+        )
+    except AgencyToolHTTPError:
+        log.warning("copilot.search.disambiguation_enrich_failed", exc_info=True)
+        return None
+    except Exception:
+        log.warning("copilot.search.disambiguation_enrich_failed", exc_info=True)
+        return None
+
+    by_id: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        rid = str(r.get("master_id") or r.get("master_company_id") or "")
+        if rid:
+            by_id[rid] = r
+
+    items: list[SearchResultItem] = []
+    for m in candidates:
+        mid = str(m.get("master_id") or "")
+        enriched_row = by_id.get(mid)
+        if enriched_row is not None:
+            items.append(_row_to_item(enriched_row))
+        else:
+            cif_raw = m.get("cif")
+            cif = re.sub(r"[\s.\-]", "", str(cif_raw).upper()) if cif_raw else None
+            items.append(
+                SearchResultItem(
+                    master_company_id=mid,
+                    name=str(m.get("legal_name") or "—"),
+                    legal_name=m.get("legal_name"),
+                    cif=cif,
+                    sector=m.get("cnae_section"),
+                    city=m.get("province"),
+                    score=round(float(m.get("score") or 1.0), 3),
+                    summary=None,
+                )
+            )
+    return items
+
+
 def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
     """HARDENING-REQ003 · maps an Intel enriched row → `SearchResultItem`.
 
@@ -693,6 +831,7 @@ def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
         score=round(float(r.get("score") or 1.0), 3),
         summary=summ,
     )
+
 
 async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
     """HARDENING-REQ004b · resuelve un residual sectorial a la lista de
@@ -737,6 +876,8 @@ async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
     ids = (payload or {}).get("company_ids") or []
     return [str(i) for i in ids if i]
 
+
+
 # HARDENING-2026-08-24 · bug reportado: "agencias marketing" no devuelve
 # resultados, "agencias de marketing" sí. Los nombres de categoría de Intel
 # son compuestos nominales ("Agencias DE marketing", "Empresas DE
@@ -745,6 +886,7 @@ async def _taxonomy_company_ids(q: str, limit: int) -> list[str]:
 # entre las 2 primeras palabras y la probamos antes de caer a semántico.
 _CONNECTOR_WORDS = frozenset({"de", "del", "en", "con", "para", "y"})
 
+
 def _taxonomy_retry_variant(q: str) -> str | None:
     tokens = q.strip().split()
     if len(tokens) < 2:
@@ -752,6 +894,7 @@ def _taxonomy_retry_variant(q: str) -> str | None:
     if any(t.lower() in _CONNECTOR_WORDS for t in tokens):
         return None  # ya tiene conector — no es este caso, no reintentar
     return f"{tokens[0]} de {' '.join(tokens[1:])}"
+
 
 async def _try_taxonomy(q: str, offset: int) -> SearchSkillResponse | None:
     """Intenta resolver `q` como categoría (sector/geo) vía Intel taxonomy.
@@ -811,6 +954,7 @@ async def _try_taxonomy(q: str, offset: int) -> SearchSkillResponse | None:
         source="real", query=q,
     )
 
+
 async def _taxonomy_search(
     q: str, offset: int = 0, limit: int = _RESULTS_PAGE
 ) -> dict[str, Any] | None:
@@ -837,6 +981,7 @@ async def _taxonomy_search(
             message=f"taxonomy-search http_{resp.status_code}",
         )
     return resp.json()
+
 
 def _empty_response(q: str, pathname: str | None, locale: str) -> SearchSkillResponse:
     workspace_id = "wsp_" + uuid.uuid4().hex[:12]

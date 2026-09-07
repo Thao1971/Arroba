@@ -33,6 +33,10 @@ function PublicHeader() {
           className="flex items-center"
           data-testid="public-header-logo"
         >
+          {/* BUGFIX-2026-08-29 · Daniel: el logo de la home seguia siendo un
+              placeholder de texto ("@" + "arroba.com"). El resto de chrome
+              (Sidebar, BrandPanel de login/registro) ya usa el logo real
+              `/brand/logo.png` — aqui se alinea con eso. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/logo.png" alt="arroba.com" className="h-[30px] w-auto object-contain" />
         </Link>

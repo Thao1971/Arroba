@@ -135,13 +135,51 @@ async def test_resolve_territory_matches_ccaa(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_resolve_territory_matches_province_with_ccaa_as_secondary(monkeypatch):
+async def test_resolve_territory_matches_province_also_returns_parent_ccaa(monkeypatch):
+    """FIX 2026-09-06 · Daniel: buscar una provincia (p.ej. "Valladolid")
+    debe devolver TAMBIÉN su comunidad autónoma como chip independiente
+    (antes solo aparecía como `secondary_label` de contexto, no navegable
+    por su cuenta) — orden: CCAA primero, luego la provincia."""
     monkeypatch.setattr(service, "_get_geo_catalog", _fake(SAMPLE_GEO_CATALOG))
     results = await service._resolve_territory("Valladolid", limit=10)
+    assert len(results) == 2
+    assert results[0].id == "ccaa:07"
+    assert results[0].display_name == "Castilla y León"
+    assert results[0].secondary_label == "Comunidad autónoma"
+    assert results[1].id == "province:47"
+    assert results[1].display_name == "Valladolid"
+    assert results[1].secondary_label == "Castilla y León"
+
+
+@pytest.mark.asyncio
+async def test_resolve_territory_does_not_duplicate_ccaa_for_multiple_provinces(monkeypatch):
+    """Si dos provincias de la misma CCAA matchean la query (caso raro pero
+    posible con substrings cortos), la CCAA aparece una sola vez."""
+    catalog = [
+        {
+            "code": "09",
+            "label": "Cataluña",
+            "level": "ccaa",
+            "provinces": [
+                {"code": "08", "label": "Barcelona", "level": "province"},
+                {"code": "43", "label": "Tarragona", "level": "province"},
+            ],
+        },
+    ]
+    monkeypatch.setattr(service, "_get_geo_catalog", _fake(catalog))
+    results = await service._resolve_territory("a", limit=10)
+    ccaa_ids = [r.id for r in results if r.id.startswith("ccaa:")]
+    assert ccaa_ids == ["ccaa:09"]
+
+
+@pytest.mark.asyncio
+async def test_resolve_territory_ccaa_direct_match_not_duplicated_by_province_loop(monkeypatch):
+    """Buscar la CCAA por nombre no debe duplicarla aunque el bucle de
+    provincias también la intente añadir."""
+    monkeypatch.setattr(service, "_get_geo_catalog", _fake(SAMPLE_GEO_CATALOG))
+    results = await service._resolve_territory("Castilla y Leon", limit=10)
     assert len(results) == 1
-    assert results[0].id == "province:47"
-    assert results[0].display_name == "Valladolid"
-    assert results[0].secondary_label == "Castilla y León"
+    assert results[0].id == "ccaa:07"
 
 
 @pytest.mark.asyncio

@@ -158,6 +158,14 @@ async def _resolve_territory(query: str, limit: int) -> list[EntityLookupResult]
     """Resuelve entidades tipo `territory` contra el catálogo geográfico
     público de Intel (CCAA → provincias). Mismo patrón que `_resolve_sector`:
     catálogo fijo cacheado, filtrado por substring en Beta.
+
+    FIX 2026-09-06 · Daniel: cuando la query coincide con una provincia (p.ej.
+    "Sevilla"), se devuelven la provincia Y su comunidad autónoma como dos
+    entidades independientes -- antes la CCAA solo aparecía como
+    `secondary_label` de contexto, sin ser navegable por su cuenta. Ahora
+    "Territorios" puede mostrar ambos niveles jerárquicos como chips
+    separados. Se evita duplicar la misma CCAA si varias provincias
+    coincidentes la comparten, o si la CCAA ya matcheó por nombre.
     """
     q = (query or "").strip()
     if not q:
@@ -167,23 +175,35 @@ async def _resolve_territory(query: str, limit: int) -> list[EntityLookupResult]
         return []
     q_norm = _norm(q)
     results: list[EntityLookupResult] = []
+    added_ccaa_codes: set[str] = set()
+
+    def _add_ccaa(code: str, label: str) -> None:
+        if code in added_ccaa_codes:
+            return
+        results.append(
+            EntityLookupResult(
+                type="territory",
+                id=f"ccaa:{code}",
+                display_name=label,
+                secondary_label="Comunidad autónoma",
+                icon="map",
+            )
+        )
+        added_ccaa_codes.add(code)
+
     for ccaa in catalog:
+        code = ccaa.get("code", "")
         label = ccaa.get("label", "")
         if label and q_norm in _norm(label):
-            results.append(
-                EntityLookupResult(
-                    type="territory",
-                    id=f"ccaa:{ccaa.get('code', '')}",
-                    display_name=label,
-                    secondary_label="Comunidad autónoma",
-                    icon="map",
-                )
-            )
+            _add_ccaa(code, label)
             if len(results) >= limit:
                 return results[:limit]
         for province in ccaa.get("provinces") or []:
             p_label = province.get("label", "")
             if p_label and q_norm in _norm(p_label):
+                _add_ccaa(code, label)
+                if len(results) >= limit:
+                    return results[:limit]
                 results.append(
                     EntityLookupResult(
                         type="territory",

@@ -14,6 +14,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
   ArrowRight,
+  Building2,
   ChevronDown,
   ChevronUp,
   Download,
@@ -21,7 +22,6 @@ import {
   Columns3,
   MapPin,
   Users,
-  Building2,
   Tag,
   TrendingUp,
   AlertTriangle,
@@ -72,6 +72,35 @@ interface RowSummary {
 type Row = SearchResultItem & { summary?: RowSummary | null };
 
 const PAGE_SIZE = 12; // debe coincidir con _RESULTS_PAGE del backend
+
+/**
+ * BUGFIX-2026-08-30 · Daniel: los chips "Relacionado" (sector/territorio/
+ * empresa que coinciden con la query) solo relanzaban una búsqueda de texto
+ * por `display_name` — nunca llevaban a la ficha del propio sector/territorio/
+ * empresa, aunque esas fichas ya existieran (o, para territorio, ya se
+ * hubieran construido). `RelatedEntity.id` trae el identificador real con
+ * prefijo de tipo (`cnae:{code}`, `ccaa:{code}`/`province:{code}`, o el CIF
+ * tal cual para `company` — ver `entities/service.py::_resolve_sector` /
+ * `_resolve_territory` / `_resolve_company`). Cuando el id no tiene el shape
+ * esperado, o el tipo no tiene ficha propia todavía (ej. `investor`), se cae
+ * al comportamiento anterior (relanzar búsqueda) — nunca un enlace roto.
+ */
+function relatedEntityHref(e: RelatedEntity): string {
+  if (e.type === 'sector' && e.id.startsWith('cnae:')) {
+    const code = e.id.slice('cnae:'.length);
+    if (code) return `/sector/${encodeURIComponent(code)}`;
+  }
+  if (e.type === 'territory') {
+    const [level, code] = e.id.split(':');
+    if ((level === 'ccaa' || level === 'province') && code) {
+      return `/territorio/${level}/${encodeURIComponent(code)}`;
+    }
+  }
+  if (e.type === 'company' && e.id) {
+    return `/empresa-f01/${encodeURIComponent(e.id)}`;
+  }
+  return `/resultados?q=${encodeURIComponent(e.display_name)}`;
+}
 
 const BADGES: Record<
   string,
@@ -263,6 +292,12 @@ const COLUMN_DEFS: ColumnDef[] = [
   },
 ];
 const DEFAULT_COLUMN_IDS = COLUMN_DEFS.filter((c) => c.defaultVisible).map((c) => c.id);
+// BUGFIX-2026-08-29 · Daniel: tras poner `actualizado` en `defaultVisible:
+// false` (arriba), seguia apareciendo para quien ya habia visitado la
+// pagina antes — el set de columnas guardado en localStorage gana al
+// default nuevo. Bump v1 -> v2 para que ese set viejo se descarte una vez
+// y todo el mundo arranque con el default de hoy (sigue pudiendo
+// reactivarse "Actualizado" a mano desde el boton Columnas).
 const COLUMNS_STORAGE_KEY = 'arroba.resultados.columnas.v2';
 const DENSITY_STORAGE_KEY = 'arroba.resultados.densidad.v1';
 
@@ -582,39 +617,20 @@ export default function ResultadosPage() {
   // `investor` y cualquier otro tipo sin ficha propia hoy quedan en
   // `otherMatches`, con el chip-strip antiguo — no se pierden, pero no se
   // les inventa una sección propia que no tenemos dónde llevar.
+  //
+  // FIX 2026-09-06 · Daniel: la sección se renombra a "Mercados" en el UI
+  // (mismo dato/tipo `sector` interno vía CNAE — solo cambia la etiqueta
+  // visible). Además, con el fix de `copilot/service.py::execute_search`
+  // (mismo commit), ahora también se puebla `related_entities` cuando la
+  // búsqueda resuelve por `disambiguation` (p.ej. "Sevilla") y no solo por
+  // `workspace` — antes esta sección nunca aparecía en ese caso porque el
+  // backend ni siquiera calculaba los matches.
   const sectorMatches = useMemo(() => relatedEntities.filter((e) => e.type === 'sector'), [relatedEntities]);
   const territoryMatches = useMemo(() => relatedEntities.filter((e) => e.type === 'territory'), [relatedEntities]);
   const otherMatches = useMemo(
     () => relatedEntities.filter((e) => e.type !== 'sector' && e.type !== 'territory'),
     [relatedEntities],
   );
-
-  // BUGFIX-2026-08-30 · helper de routing para los chips/filas
-  // "Relacionado"/"Sectores"/"Territorios": antes SIEMPRE relanzaban una
-  // búsqueda de texto por `display_name`, aunque ya existiera (o se acabe
-  // de construir, para territorio) la ficha propia de esa entidad.
-  // `RelatedEntity.id` trae el identificador real con prefijo de tipo que
-  // ya devuelve `entities/service.py` (`cnae:{code}` para sector,
-  // `ccaa:{code}`/`province:{code}` para territorio, el CIF tal cual para
-  // empresa). Cuando el id no tiene el shape esperado, o el tipo no tiene
-  // ficha propia todavía (ej. `investor`), cae al comportamiento anterior
-  // (relanzar búsqueda) — nunca un enlace roto.
-  function relatedEntityHref(e: RelatedEntity): string {
-    if (e.type === 'sector' && e.id.startsWith('cnae:')) {
-      const code = e.id.slice('cnae:'.length);
-      if (code) return `/sector/${encodeURIComponent(code)}`;
-    }
-    if (e.type === 'territory') {
-      const [level, code] = e.id.split(':');
-      if ((level === 'ccaa' || level === 'province') && code) {
-        return `/territorio/${level}/${encodeURIComponent(code)}`;
-      }
-    }
-    if (e.type === 'company' && e.id) {
-      return `/empresa-f01/${encodeURIComponent(e.id)}`;
-    }
-    return `/resultados?q=${encodeURIComponent(e.display_name)}`;
-  }
   // `rows` ya es la página actual servida por el backend (offset = page*PAGE_SIZE).
   // El chip de sector y los toggles de signal_badge afinan la página visible;
   // la paginación se rige por `total` (server-side).
@@ -726,10 +742,15 @@ export default function ResultadosPage() {
         </header>
       )}
 
+      {/* BUGFIX-2026-08-30 · Secciones "Sectores" / "Territorios" — sustituyen
+          a la tira única "Relacionado" (HARDENING 2026-08-24). Cada fila
+          navega a la ficha real (sector/territorio); antes solo relanzaban
+          una búsqueda de texto. Distinto de los "Chips de filtro por sector"
+          de abajo (que filtran ESTOS resultados de empresas, no navegan). */}
       {q && !loading && !error && sectorMatches.length > 0 && (
         <div className="print:hidden mb-4" data-testid="resultados-sector-matches">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-text-subtle uppercase tracking-wide mb-2">
-            <Building2 size={13} /> Sectores
+            <Building2 size={13} /> Mercados
           </div>
           <div className="rounded-[13px] border border-border bg-surface divide-y divide-border overflow-hidden">
             {sectorMatches.map((e) => (

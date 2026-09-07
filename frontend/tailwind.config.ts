@@ -172,10 +172,20 @@ const config: Config = {
           '0%':   { opacity: '0', transform: 'translateY(6px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        // 2026-09-07 · Daniel: destello más explícito en `FichaLoadingScreen`
+        // (icono de cabecera + icono del paso activo). A diferencia de
+        // `sectionPulse` (un único disparo, `1` iteración) este es un pulso
+        // de sombra EN BUCLE (`infinite`) — se ve como un "latido" continuo
+        // mientras algo está realmente en curso, no un aviso puntual.
+        iconGlow: {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(232, 0, 29, 0.55)' },
+          '50%':      { boxShadow: '0 0 0 7px rgba(232, 0, 29, 0)' },
+        },
       },
       animation: {
         'section-pulse': 'sectionPulse 700ms var(--easing-standard) 1',
         'fade-in-up':    'fadeInUp 250ms var(--easing-out) 1',
+        'icon-glow':     'iconGlow 1600ms ease-in-out infinite',
       },
     },
     // Keep Tailwind's default breakpoints (sm:640, md:768, lg:1024, xl:1280,

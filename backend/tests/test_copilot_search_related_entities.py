@@ -13,6 +13,11 @@ que sector/territory/investor funcionen de verdad — eso ya está cubierto en
 se testea aquí es el WIRING: cuándo se llama, cuándo no, y que un fallo ahí
 nunca tumba la búsqueda principal.
 
+FIX 2026-09-06 · Daniel: el gate pasó de "solo si `workspace is not None`"
+a "siempre salvo `navigate_to`" — Empresas/Territorios/Mercados son tres
+respuestas independientes sobre la misma query, no ramas excluyentes. Ver
+`test_related_entities_present_when_disambiguation_wins` más abajo.
+
 Fuerzan `agency_tool_mode=mock` (mismo patrón que `test_copilot_search.py`)
 para ejercitar el path determinista — el mock de `entities_service.lookup`
 sustituye lo que haría la llamada real a Intel.
@@ -107,6 +112,44 @@ async def test_related_entities_null_when_no_matches(admin_client, client, monke
     )
     assert r.status_code == 200, r.text
     assert r.json()["related_entities"] is None
+
+
+async def test_related_entities_present_when_disambiguation_wins(admin_client, client, monkeypatch):
+    """FIX 2026-09-06 · Daniel: una query como "Sevilla" que coincide con
+    razón social de empresas cae en `disambiguation` (`workspace is None`),
+    pero eso no debe impedir que se resuelvan territorio/sector para la
+    misma query — antes el gate `workspace is not None` dejaba
+    `related_entities` en None siempre en este caso, aunque el catálogo
+    geo tuviese datos."""
+    from src.modules.copilot import service as copilot_service
+    from src.modules.entities.models import EntityLookupResult
+
+    fake = [
+        EntityLookupResult(**_fake_entity_result("territory", "Andalucía")),
+        EntityLookupResult(**_fake_entity_result("territory", "Sevilla")),
+    ]
+    mock_lookup = AsyncMock(return_value=fake)
+    monkeypatch.setattr(copilot_service.entities_service, "lookup", mock_lookup)
+
+    await _seed(admin_client)
+    r = await client.post(
+        "/api/copilot/skills/search",
+        # "studio" es substring de "Kitchen Studio, S.L." pero no prefijo →
+        # score 0.7 (< 0.85), así que NO dispara el branch de navigate_to de
+        # 1-match-fuerte; 1 candidato con score>0 → disambiguation (no CIF,
+        # no exploratorio sin resultados de empresa).
+        json={"query": "studio", "context": {"locale": "es", "pathname": "/resultados"}},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["workspace"] is None
+    assert body["disambiguation"] is not None
+    assert body["navigate_to"] is None
+    assert body["related_entities"] == [
+        _fake_entity_result("territory", "Andalucía"),
+        _fake_entity_result("territory", "Sevilla"),
+    ]
+    mock_lookup.assert_awaited_once()
 
 
 async def test_related_entities_not_fetched_for_direct_cif_navigation(admin_client, client, monkeypatch):

@@ -11,8 +11,12 @@
  * con Daniel antes de sumar esta pantalla al deploy:
  *   - Sin AIBar (banner narrativo por IA): no existe un generador de ese
  *     texto en Intel hoy.
- *   - Mapa SVG de España (CCAA) añadido 2026-08-29 — mismas formas estilizadas del mockup, coloreadas con el dynamism_score real. Solo visible con geoLevel==='ccaa'.
- *     de territorios — mismos datos, sin la coreografía visual del mockup.
+ *   - Mapa SVG de España (CCAA) añadido 2026-08-29 — mismas formas
+ *     estilizadas del mockup (`SpainMap.tsx`), coloreadas con el
+ *     `dynamism_score` real de `apiClient.marketMap.territories`. Solo
+ *     visible con `geoLevel==='ccaa'` (las formas son por comunidad, no
+ *     por provincia). Canarias/Ceuta/Melilla no tenían forma en el mockup
+ *     tampoco — solo aparecen en el ranking de al lado.
  *   - Sin filtro "Periodo" (histórico por snapshot): Intel no expone
  *     snapshots pasados de geo/sector-intelligence, solo el estado actual.
  *   - "Sectores emergentes" usa las etiquetas CNAE reales (secciones/
@@ -228,6 +232,14 @@ function EvolutionCard({
         <EmptyRow text="Intel no devolvió la serie histórica en este momento." />
       ) : (
         <div>
+          {/* BUGFIX-2026-08-29 · Daniel: las barras de "Evolucion de altas y
+              bajas" no se veian. Dos causas independientes:
+              1) items-end impedia que las columnas (con barras de altura en
+                 %) tuvieran una altura real de referencia -> se quedaban en
+                 el minHeight (2px). items-stretch les da los 128px del h-32.
+              2) bg-success/60 y bg-danger/50 (aqui y en la leyenda de abajo)
+                 se pintaban transparentes por el bug de fondo de
+                 tailwind.config.ts, ya corregido — ver tokens.css §2b. */}
           <div className="flex items-stretch gap-1 h-32">
             {created.map((c, i) => {
               const cl = closed[i] ?? 0;
@@ -286,9 +298,18 @@ function MapHoverCard({ t }: { t: MarketMapTerritoryCard }) {
         <span className="font-display text-lg font-bold text-danger">{fmtScore(t.dynamism_score)}</span>
       </div>
       <div className="grid grid-cols-3 gap-1.5 mt-1.5 text-[10px] text-text-muted">
-        <div><p>Tamaño</p><p className="font-mono text-text">{fmtScore(t.size_score)}</p></div>
-        <div><p>Crecim.</p><p className="font-mono text-text">{fmtScore(t.growth_score)}</p></div>
-        <div><p>Activ.</p><p className="font-mono text-text">{fmtScore(t.activity_score)}</p></div>
+        <div>
+          <p>Tamaño</p>
+          <p className="font-mono text-text">{fmtScore(t.size_score)}</p>
+        </div>
+        <div>
+          <p>Crecim.</p>
+          <p className="font-mono text-text">{fmtScore(t.growth_score)}</p>
+        </div>
+        <div>
+          <p>Activ.</p>
+          <p className="font-mono text-text">{fmtScore(t.activity_score)}</p>
+        </div>
       </div>
       {t.primary_driver && (
         <p className="text-[10px] text-text-muted mt-1.5 pt-1.5 border-t border-border truncate">

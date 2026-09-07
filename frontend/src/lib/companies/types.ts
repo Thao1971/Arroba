@@ -141,6 +141,24 @@ export interface ShareToggleResponse {
   visibility: WatchlistVisibility;
 }
 
+/**
+ * Shape de `GET /api/companies/{cif}/resolve` (Sprint F0.2,
+ * `PublicResolveResult` en el backend). Resolución ligera y cacheada,
+ * más rápida que el agregador completo de ficha (`/ficha`) — se usa para
+ * poder mostrar el nombre real de la empresa mientras la ficha completa
+ * todavía está cargando (loading screen, 2026-09-07).
+ *
+ * F0.2-OP3: NO expone `master_id` (identificador interno protegido).
+ */
+export interface CompanyResolveResponse {
+  cif: string;
+  resolved: boolean;
+  canonical_name: string | null;
+  match_type: string;
+  score: number;
+  engine_version: string;
+}
+
 /** Disambiguation row (also re-exported here for convenience because the
  *  search response uses it when a query matches multiple known entities). */
 export interface DisambiguationItem {

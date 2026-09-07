@@ -38,6 +38,7 @@ import type {
 
 import type {
   CompanyDetailResponse,
+  CompanyResolveResponse,
   GetConversationResponse,
   RefreshAnalysisResponse,
   RefreshComparablesResponse,
@@ -671,6 +672,16 @@ export const apiClient = {
     marketReading: (cif: string) =>
       request<{ reading: string | null }>(
         `/api/companies/${cif.toUpperCase()}/market-reading`,
+      ),
+    // 2026-09-07 · Daniel (loading screen, punto 9c): resolución ligera y
+    // cacheada del nombre real de la empresa, más rápida que `/ficha`
+    // (agregador completo) — pensada para mostrarse mientras la ficha
+    // completa sigue cargando. Requiere auth (el endpoint exige sesión);
+    // el caller debe hacer `.catch(() => null)` como el resto de llamadas
+    // "best effort" de este objeto.
+    resolve: (cif: string) =>
+      request<CompanyResolveResponse>(
+        `/api/companies/${cif.toUpperCase()}/resolve`,
       ),
   },
   entities: {
