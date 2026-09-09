@@ -113,15 +113,17 @@ def test_financial_section_evolution_uses_real_points_no_interpolation():
     assert section.metadata.coverage.evolution is True
 
 
-def test_financial_section_profit_loss_only_last_year_no_interpolation():
-    """R15: P&L sólo tiene datos del último año; el resto queda `None`."""
+def test_financial_section_profit_loss_reuses_evolution_series_for_matching_keys():
+    """R15: P&L rellena años previos desde evolution.series para las filas que
+    tienen serie real (revenue/ebitda/net_income); el resto de filas (sin
+    serie en el proveedor) sigue con solo el último año en None."""
     section = to_financial_section(_totalenergies_analysis())
     assert section.profit_loss is not None
     assert section.profit_loss.years == [2022, 2023, 2024]
     rev_row = next(r for r in section.profit_loss.rows if r.key == "revenue")
-    assert rev_row.values[0].value is None  # 2022 sin dato en statements
-    assert rev_row.values[1].value is None  # 2023 sin dato en statements
-    assert rev_row.values[2].value == 933267000.0  # 2024 = last_year
+    assert rev_row.values[0].value == 2229436000.0  # 2022 desde evolution.series
+    assert rev_row.values[1].value == 1288562000.0  # 2023 desde evolution.series
+    assert rev_row.values[2].value == 933267000.0  # 2024 = last_year desde income_statement
     assert section.metadata.coverage.profit_loss is True
 
 
