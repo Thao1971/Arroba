@@ -1515,7 +1515,7 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
         {q != null && (
           <div className="card">
             <h3><span className="k" />Posicionamiento</h3>
-            <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Ring val={q} label="Calidad financiera" color={OK} /></div>
+            <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Ring val={q} label="Calidad financiera" color={OK} tooltip="QUALITY_SCORE" /></div>
             <div className="cs" style={{ textAlign: 'center', marginTop: 6 }}>sobre 100</div>
           </div>
         )}
