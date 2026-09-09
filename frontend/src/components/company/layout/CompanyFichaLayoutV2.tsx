@@ -49,6 +49,9 @@ import {
 // HARDENING-038 · Proxies JWT para el Committee. Se inyecta como callback en
 // el context del registry; el bloque llama runCommittee(lens) y no conoce apiClient.
 import { apiClient } from '@/lib/api/client';
+// HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): tipo de la
+// respuesta del proxy `apiClient.companies.connections()`.
+import type { ConnectionsResponse } from '@/lib/companies/types';
 
 export interface CompanyFichaLayoutV2Props {
   identity: IdentitySection;
@@ -2475,7 +2478,15 @@ function OwnListView({ cg }: { cg: ControlGraphNominal }) {
 
 /* ============ Interactive Control Graph (portado de `interactiveGraph` del mockup) ============ */
 
-interface CGNodeIn { id: string; x: number; y: number; r: number; color: string; label: string; tip?: string; center?: boolean; expand?: CGExpandChild[]; }
+interface CGNodeIn {
+  id: string; x: number; y: number; r: number; color: string; label: string; tip?: string; center?: boolean;
+  expand?: CGExpandChild[];
+  // HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): `expandable` +
+  // `fetchId` (= master_id || cif del nodo real en Intel) habilitan el fetch
+  // lazy de `/connections` cuando el nodo no trae `expand[]` precargado.
+  expandable?: boolean;
+  fetchId?: string | null;
+}
 interface CGExpandChild { id?: string; label: string; r?: number; color?: string; edgeColor?: string; edgeLabel?: string; dashed?: boolean }
 interface CGEdgeIn { a: string; b: string; width?: number; color?: string; opacity?: number; dashed?: boolean; label?: string }
 
@@ -2483,10 +2494,19 @@ interface CGEdgeIn { a: string; b: string; width?: number; color?: string; opaci
  * Componente React que renderiza `interactiveGraph` del mockup con la misma
  * semántica imperativa (pan/zoom, hover-highlight, drag de nodo, expand+collapse).
  * Portado literalmente para preservar animaciones y comportamiento.
- * TODO Intel (REQ `PARA_INTEL_control_graph_expand.md`): consumir `expand[]` de
- * cada nodo tipo shareholder/ubo cuando Intel entregue el vecindario.
+ *
+ * HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): el REQ original
+ * `PARA_INTEL_control_graph_expand.md` (que pedía a Intel precargar `expand[]`
+ * en cada nodo) se retiró en favor de `GET /company/{node_id}/connections`,
+ * que Intel ya expone. Un nodo sin `expand[]` precargado pero con
+ * `expandable && fetchId` dispara `onFetchExpand(fetchId)` al click (LAZY) y
+ * cachea el resultado en `defs[id].expand` para no re-pedirlo.
  */
-function InteractiveControlGraph({ cfg, onNodeExpandPlaceholder }: { cfg: { w: number; h: number; nodes: CGNodeIn[]; edges: CGEdgeIn[] }; onNodeExpandPlaceholder?: (nodeId: string) => void }) {
+function InteractiveControlGraph({ cfg, onNodeExpandPlaceholder, onFetchExpand }: {
+  cfg: { w: number; h: number; nodes: CGNodeIn[]; edges: CGEdgeIn[] };
+  onNodeExpandPlaceholder?: (nodeId: string, reason?: 'unsupported' | 'empty' | 'error') => void;
+  onFetchExpand?: (fetchId: string) => Promise<CGExpandChild[] | null>;
+}) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -2630,10 +2650,15 @@ function InteractiveControlGraph({ cfg, onNodeExpandPlaceholder }: { cfg: { w: n
       pos[n.id] = { x: n.x, y: n.y };
       adj[n.id] = adj[n.id] || new Set();
       defs[n.id] = n;
+      // HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): un nodo es
+      // "expandible" si ya trae `expand[]` precargado (expansión anterior en
+      // esta misma sesión de grafo) O si Intel lo marcó `expandable` y tiene
+      // `fetchId` para pedir su vecindario bajo demanda.
+      const canExpand = !!((n.expand && n.expand.length) || (n.expandable && n.fetchId));
       const g = document.createElementNS(NS, 'g');
       g.setAttribute('class', 'ig-node');
       g.style.setProperty('--d', ((idx++) * 0.05) + 's');
-      g.style.cursor = (n.expand && n.expand.length) ? 'pointer' : 'grab';
+      g.style.cursor = canExpand ? 'pointer' : 'grab';
       const tip = n.tip || '';
       if (tip) g.setAttribute('data-tip', tip);
       const c = document.createElementNS(NS, 'circle');
@@ -2647,7 +2672,7 @@ function InteractiveControlGraph({ cfg, onNodeExpandPlaceholder }: { cfg: { w: n
       t.textContent = n.label;
       g.appendChild(c);
       let pl: SVGTextElement | undefined;
-      if (n.expand && n.expand.length) {
+      if (canExpand) {
         pl = document.createElementNS(NS, 'text');
         pl.setAttribute('class', 'ig-plus');
         pl.setAttribute('text-anchor', 'middle');
@@ -2685,12 +2710,44 @@ function InteractiveControlGraph({ cfg, onNodeExpandPlaceholder }: { cfg: { w: n
       g.addEventListener('pointerup', () => {
         drag = false;
         if (!moved) {
-          // HARDENING-018 · Si el nodo tiene `expand` poblado → despliega vecindario.
-          // Si no → placeholder callback (REQ Intel `PARA_INTEL_control_graph_expand.md`).
+          // HARDENING · click-to-expand vía Intel (Daniel 2026-09-09) · 3 casos:
+          // (1) ya tiene `expand[]` (precargado, o cacheado de un fetch anterior) → expande directo;
+          // (2) `expandable && fetchId` sin `expand[]` todavía → fetch lazy vía `onFetchExpand`
+          //     (`GET /company/{node_id}/connections` server-to-server en Beta);
+          // (3) ninguno de los dos → placeholder "no soportado" (comportamiento HARDENING-018 previo).
           if (n.expand && n.expand.length) expandNode(n.id);
-          else if (onNodeExpandPlaceholder) onNodeExpandPlaceholder(n.id);
+          else if (n.expandable && n.fetchId && onFetchExpand) fetchAndExpand(n.id);
+          else if (onNodeExpandPlaceholder) onNodeExpandPlaceholder(n.id, 'unsupported');
         }
       });
+    }
+
+    // HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): fetch lazy +
+    // cache en `defs[id].expand` (no se vuelve a pedir el mismo nodo dos veces
+    // en la misma sesión del grafo). `fetching` evita doble-click en vuelo.
+    const fetching = new Set<string>();
+    async function fetchAndExpand(id: string) {
+      const def = defs[id];
+      if (!def || !def.fetchId || fetching.has(id)) return;
+      if (def.expand && def.expand.length) { expandNode(id); return; }
+      fetching.add(id);
+      const badge = nodes[id]?.pl;
+      const prevText = badge?.textContent ?? '+';
+      if (badge) badge.textContent = '…'; // '…' feedback visual mientras carga
+      try {
+        const children = onFetchExpand ? await onFetchExpand(def.fetchId) : null;
+        if (!children || !children.length) {
+          if (onNodeExpandPlaceholder) onNodeExpandPlaceholder(id, 'empty');
+          return;
+        }
+        def.expand = children;
+        expandNode(id);
+      } catch {
+        if (onNodeExpandPlaceholder) onNodeExpandPlaceholder(id, 'error');
+      } finally {
+        fetching.delete(id);
+        if (badge && badge.isConnected) badge.textContent = prevText;
+      }
     }
 
     function expandNode(id: string) {
@@ -2788,13 +2845,13 @@ function InteractiveControlGraph({ cfg, onNodeExpandPlaceholder }: { cfg: { w: n
       ctl.removeEventListener('click', onCtl);
       if (el) el.innerHTML = '';
     };
-  }, [cfg, onNodeExpandPlaceholder]);
+  }, [cfg, onNodeExpandPlaceholder, onFetchExpand]);
 
   return <div ref={containerRef} id="controlGraph" data-testid="own-graph-container" />;
 }
 
 function OwnGraphView({ cg }: { cg: ControlGraphNominal }) {
-  const [placeholder, setPlaceholder] = useState<string | null>(null);
+  const [placeholder, setPlaceholder] = useState<{ id: string; reason: 'unsupported' | 'empty' | 'error' } | null>(null);
   // Mapea `control_graph.graph.nodes/edges` v2 Intel al shape del interactiveGraph.
   const cfg = useMemo(() => {
     // HARDENING · Fix separación visual Accionistas/Participadas en el grafo (Daniel 2026-09-09):
@@ -2822,8 +2879,13 @@ function OwnGraphView({ cg }: { cg: ControlGraphNominal }) {
         color: n.kind === 'ubo' ? DARK : INFO,
         label: (n.label ?? '').slice(0, 16),
         tip: `<span class='tl'>${n.kind === 'ubo' ? 'UBO · titular real' : 'Accionista'}</span><b>${n.label ?? ''}</b>`,
-        // TODO Intel · REQ `PARA_INTEL_control_graph_expand.md`: consumir n.expand[] cuando Intel lo emita.
-        expand: undefined,
+        // HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): REQ original
+        // `PARA_INTEL_control_graph_expand.md` retirado en favor de `/connections`
+        // (fetch lazy, ver `onFetchExpand` más abajo). `fetchId` = master_id||cif
+        // REAL del nodo — NO usar `n.id`, que para nodos sin master_id es un
+        // placeholder sintético (`sh1`/`sub1`, ver `_control_graph_block` Intel).
+        expandable: !!n.expandable,
+        fetchId: n.master_id || n.cif || null,
       });
     });
     subs.forEach((n, i) => {
@@ -2832,6 +2894,8 @@ function OwnGraphView({ cg }: { cg: ControlGraphNominal }) {
         id: n.id, x: spacing * (i + 1), y: 250, r: 20, color: SUB,
         label: (n.label ?? '').slice(0, 14),
         tip: `<b>${n.label ?? ''}</b>`,
+        expandable: !!n.expandable,
+        fetchId: n.master_id || n.cif || null,
       });
     });
 
@@ -2847,20 +2911,58 @@ function OwnGraphView({ cg }: { cg: ControlGraphNominal }) {
     return { w: W, h: H, nodes: nodesMapped, edges: edgesMapped };
   }, [cg]);
 
-  const onPlaceholder = React.useCallback((nodeId: string) => {
-    setPlaceholder(nodeId);
-    window.setTimeout(() => setPlaceholder((cur) => cur === nodeId ? null : cur), 3200);
+  const onPlaceholder = React.useCallback((nodeId: string, reason: 'unsupported' | 'empty' | 'error' = 'unsupported') => {
+    setPlaceholder({ id: nodeId, reason });
+    window.setTimeout(() => setPlaceholder((cur) => (cur?.id === nodeId ? null : cur)), 3200);
+  }, []);
+
+  // HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): fetch lazy del
+  // vecindario 1-hop de UN NODO del grafo (sus propios accionistas/
+  // participadas, no las de la empresa raíz de la ficha) contra el proxy S2S
+  // de Beta (`apiClient.companies.connections`). Mapea `ConnectionItem[]`
+  // (`owned_by`/`owns`) al shape `CGExpandChild[]` que ya sabe animar
+  // `InteractiveControlGraph`, reutilizando la misma paleta INFO/DARK
+  // (accionistas) / SUB (participadas) que la vista raíz para que el
+  // significado del color se mantenga al expandir.
+  const onFetchExpand = React.useCallback(async (fetchId: string): Promise<CGExpandChild[] | null> => {
+    const DARK = '#0C0C0E', INFO = '#4E4E48', SUB = '#2563EB';
+    const resp: ConnectionsResponse = await apiClient.companies.connections(fetchId, 8);
+    if (!resp?.available) return null;
+    const pctLabel = (p: number | null) => (typeof p === 'number' ? `${Math.round(p)}%` : undefined);
+    const shChildren: CGExpandChild[] = (resp.owned_by ?? []).map((n, i) => ({
+      id: n.master_id || n.cif || `sh${i}`,
+      label: (n.name ?? '').slice(0, 16),
+      r: 15,
+      color: n.type === 'individual' ? DARK : INFO,
+      edgeLabel: pctLabel(n.pct),
+    }));
+    const subChildren: CGExpandChild[] = (resp.owns ?? []).map((n, i) => ({
+      id: n.master_id || n.cif || `out${i}`,
+      label: (n.name ?? '').slice(0, 16),
+      r: 15,
+      color: SUB,
+      edgeColor: SUB,
+      edgeLabel: pctLabel(n.pct),
+    }));
+    const children = [...shChildren, ...subChildren];
+    return children.length ? children : null;
   }, []);
 
   return (
     <div id="ownGraph" data-testid="own-graph">
       {cfg
-        ? <InteractiveControlGraph cfg={cfg} onNodeExpandPlaceholder={onPlaceholder} />
+        ? <InteractiveControlGraph cfg={cfg} onNodeExpandPlaceholder={onPlaceholder} onFetchExpand={onFetchExpand} />
         : <Empty label="Grafo de control" />
       }
       {placeholder && (
         <div className="own-impl" data-testid="own-graph-neighborhood-pending" style={{ marginTop: 12 }}>
-          <span className="t">Vecindario en preparación · en cuanto Intel publique el mapa de participaciones cruzadas del nodo seleccionado, se desplegarán aquí sus conexiones.</span>
+          <span className="t">
+            {placeholder.reason === 'empty'
+              ? 'Sin conexiones adicionales registradas para este nodo — Intel no tiene más participaciones cruzadas que mostrar.'
+              : placeholder.reason === 'error'
+                ? 'No se ha podido cargar el vecindario de este nodo. Inténtalo de nuevo en unos segundos.'
+                : 'Vecindario en preparación · en cuanto Intel publique el mapa de participaciones cruzadas del nodo seleccionado, se desplegarán aquí sus conexiones.'}
+          </span>
         </div>
       )}
     </div>
