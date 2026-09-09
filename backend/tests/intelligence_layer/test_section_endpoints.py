@@ -297,7 +297,7 @@ async def test_financial_section_with_injected_provider_maps_ui_shape(
     keys = {s["key"] for s in body["evolution"]["series"]}
     assert keys == {"revenue", "ebitda", "net_income"}
 
-    # P&L multi-año con celdas por año (year más reciente poblado, previos None)
+    # P&L multi-año: last_year desde income_statement, años previos desde evolution.series (R15 passthrough)
     assert body["profit_loss"] is not None
     assert body["profit_loss"]["years"] == [2022, 2023, 2024]
     revenue_row = next(r for r in body["profit_loss"]["rows"] if r["key"] == "revenue")
@@ -305,7 +305,7 @@ async def test_financial_section_with_injected_provider_maps_ui_shape(
     assert len(revenue_row["values"]) == 3
     assert revenue_row["values"][-1]["value"] == 12_500_000
     assert revenue_row["values"][-1]["format"] == "currency"
-    assert revenue_row["values"][0]["value"] is None  # R4: no calculamos años previos
+    assert revenue_row["values"][0]["value"] == 10_000_000  # 2022 · desde kpis.evolution.revenue[0] (R15 passthrough)
 
     # Balance
     assert body["balance"] is not None
