@@ -53,6 +53,14 @@ class SearchSkillRequest(BaseModel):
     # (categorical/taxonomy + semantic modes). `/resultados` re-pide cada
     # página con `offset = page * _RESULTS_PAGE`.
     offset: int = Field(default=0, ge=0)
+    # BUGFIX-2026-09-09 · Daniel (Punto 2): ordenación server-side para el
+    # Grupo A de columnas (`name`, `revenue`, `ebitda`, `employees`, `cif`).
+    # Beta hace passthrough puro: reenvía el par (`sort_by`, `sort_dir`) a
+    # Intel como query params — no reordena localmente. El resto de columnas
+    # (Grupo B: growth_pct, signal_score, valuation, arroba_score) sigue
+    # ordenándose front-only con `useMemo(sortedRows)` sobre la página visible.
+    sort_by: str | None = None
+    sort_dir: Literal["asc", "desc"] | None = None
 
 
 class AnalyzeSkillRequest(BaseModel):

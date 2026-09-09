@@ -168,3 +168,23 @@ export interface DisambiguationItem {
   sector: string | null;
   region: string | null;
 }
+
+/** BUGFIX-2026-09-09 · Daniel (Punto 3): item devuelto por
+ *  `GET /api/companies/suggest` (proxy fino a Intel). Los campos concretos
+ *  los define Intel — mantenemos todos opcionales excepto `cif`+`legal_name`
+ *  (identidad mínima navegable). Cuando Intel publique el shape estable,
+ *  ajustamos. R15: campos ausentes ⇒ el dropdown muestra solo lo que hay. */
+export interface SuggestItem {
+  cif: string;
+  legal_name: string;
+  master_id?: string | null;
+  name?: string | null;
+  city?: string | null;
+  cnae_section?: string | null;
+  /** BUGFIX-2026-09-09 · AMEND (Daniel): partición del `legal_name` en
+   *  before/match/after emitida por Intel para resaltar el fragmento que
+   *  coincide con lo tecleado. Beta NO recalcula índices propios (R15:
+   *  consume, no calcula). Si `name_parts` no llega (Intel aún no ha
+   *  desplegado su contraparte), el componente cae a `legal_name` plano. */
+  name_parts?: { before: string; match: string; after: string } | null;
+}

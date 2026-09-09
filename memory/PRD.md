@@ -1,6 +1,49 @@
 # arroba.com — PRD (estado del proyecto)
 
-> **Última actualización**: 2026-09-07 — **🟢 Pack Beta-290826-deploy-pendiente aplicado parcialmente: 13 Bucket B en preview · 4 Bucket C elevados a Daniel · sin deploy**. Autorización literal del usuario en `MENSAJE_BETA_backlog_completo.md` interno del ZIP.
+> **Última actualización**: 2026-09-09 — **🟢 Batch Beta contraparte Intel (3 puntos + amend `name_parts`) aplicado en preview · verificado · sin deploy**.
+>
+> ### 2026-09-09 · Batch Beta contraparte Intel (3 puntos)
+>
+> **Estado:** ✅ Aplicado en preview, verificado, sin deploy.
+>
+> **Punto 1 BONUS · Eliminación `_enrich_disambiguation_with_financials()`**
+> - Motivo: `/resolve` ya devuelve `matches[i].summary` completo (revenue, ebitda, ebitda_margin, growth_pct, signal_score, valuation, employees, year, city). La segunda llamada a `/skills/search` con `master_company_ids` era redundante y además tenía un join imposible (Intel usa `mc_...` en `/resolve` y UUID en `/skills/search`, el join nunca casaba → `summary=None` → UI "—").
+> - Cambio: en rama `#4 resolve by name` de `_execute_search_real()`, cuando `pathname == "/resultados"`, montar `SearchResultsBlock` directamente con los datos de `matches[i]`. Comportamiento del dock intacto (sin `pathname == "/resultados"` sigue devolviendo `disambiguation`).
+> - Función `_enrich_disambiguation_with_financials()` eliminada. Fichero de tests `test_copilot_search_disambiguation_enrichment.py` eliminado (deprecated).
+> - Nuevo test `test_copilot_search_resolve_summary_passthrough.py` añadido para cubrir el path BONUS (3 tests verdes).
+>
+> **Punto 2 · sort_by/sort_dir · Grupo A (5 columnas)**
+> - Añadidos `sort_by?: string | null` y `sort_dir?: 'asc' | 'desc' | null` a `SearchSkillRequest` (frontend `types.ts` + backend Pydantic `copilot/models.py`).
+> - `apiClient.copilot.search()` reenvía ambos campos.
+> - Backend `_execute_search_real()` / `_try_taxonomy()` / `_taxonomy_search()` / `_semantic_search_results()` / `_financial_search_results()` hace passthrough a Intel como query params o campos del payload. Beta NO ordena — solo pasa.
+> - Whitelist Grupo A (frontend `SORT_A_MAP`): `empresa→name`, `facturacion→revenue`, `ebitda→ebitda`, `empleados→employees`, `cif→cif`.
+> - Grupo B (Crecimiento %, Score señales, Valoración, Score Arroba) mantiene `useMemo(sortedRows)` front-only.
+> - `toggleSort()` en `resultados/page.tsx` resetea a página 0 al ordenar por Grupo A (dispara `fetchResults(q, 0, {sort_by, sort_dir})`).
+> - Log de verificación: `GET https://intel.arroba.com/api/v1/company-taxonomy/search?...&sort_by=revenue&sort_dir=desc "HTTP/1.1 200 OK"` — passthrough OK. Intel devuelve 200 pero aún no reordena server-side (feature latente upstream, la UI ya está lista).
+>
+> **Punto 3 · Buscador predictivo `/api/companies/suggest` + amend `name_parts`**
+> - Proxy fino `GET /api/companies/suggest` en Beta (`companies/router.py` L60-86), passthrough a Intel `/api/v1/companies/suggest`, fail-fast ~8s. En cualquier error (404 upstream, timeout, excepción) devuelve `{"suggestions": [], "source": "error"}`.
+> - `apiClient.companies.suggest(q, limit)` en frontend.
+> - Componente dropdown **inline** bajo el buscador principal de `/resultados` (justificación: único consumidor, depende del state local del input, <60 líneas). Debounce ~200ms, arranque en 2 chars, flechas/Enter/Escape, accesibilidad `role="combobox"` + `role="listbox"` + `role="option"` + `aria-activedescendant`. Selección → `/empresa-f01/{cif}`. Enter sin selección → búsqueda normal.
+> - Amend `name_parts`: Intel devuelve `{before, match, after}` por resultado. Dropdown renderiza `<span>{before}</span><strong className="font-semibold text-text">{match}</strong><span>{after}</span>`. Fallback a `legal_name` sin resaltado si `name_parts` no viene (R15: no fabricar highlight en Beta con `indexOf` propio). Estilo `font-semibold text-text` elegido por convención de `_result-cta.tsx` en el mismo directorio.
+> - Verificación upstream: `GET https://intel.arroba.com/api/v1/companies/suggest?q=serv → HTTP 404` — endpoint upstream latente. Beta cae al fallback silencioso (dropdown no se abre). Cuando Intel despliegue, tanto el dropdown como el highlight de `name_parts` se activan automáticamente sin más cambios de código.
+>
+> **Baseline post-batch**
+> - pytest: **327 passed / 37 legacy failures** (-3 respecto a 330 por eliminación de `test_copilot_search_disambiguation_enrichment.py`).
+> - vitest: 257 passed / 1 legacy R14 (atoms Tip/SrcDot/MethodDetails).
+> - tsc: 0 errores (`Done in 6.99s`).
+> - build: OK (`Done in 20.57s`) · `/resultados` 12.4 kB · shared 87.3 kB.
+> - supervisor: backend + frontend RUNNING tras restart.
+>
+> **No desplegado.** Queda en preview `musing-hellman-9.preview.emergentagent.com` hasta autorización explícita de Daniel.
+>
+> **Contraparte Intel (informativo, no aplica a este pod):** batch conjunto de 3 puntos — fix desempate paginación, `sort_by`/`sort_dir` en 2 endpoints, endpoint nuevo `/api/v1/companies/suggest` con `name_parts`. Puntos 2 y 3 de Beta dependen del deploy de esas contrapartes en Intel para funcionar completos.
+>
+> **Nota de proceso:** el snippet de test `test_copilot_search_resolve_summary_passthrough.py` incluido en el brief de este batch tenía dos bugs (import `SearchContext` en vez de `SkillContext`, aridad de `_execute_search_real` — pide 3 args `request, q, q_norm`, no 1). Reescrito en la verificación real de pytest — cubre los 3 casos originales, mock a nivel módulo de `_intel_call_ff` (la closure interna `_resolve` no es parcheable). Regla de proceso acordada: en futuros brief con tests nuevos, verificar firma de las funciones referenciadas con `grep` antes de escribir el test.
+>
+> ---
+>
+> **Última actualización previa**: 2026-09-07 — **🟢 Pack Beta-290826-deploy-pendiente aplicado parcialmente: 13 Bucket B en preview · 4 Bucket C elevados a Daniel · sin deploy**. Autorización literal del usuario en `MENSAJE_BETA_backlog_completo.md` interno del ZIP.
 >
 > **Fuente**: `Beta-290826_deploy_pendiente_20260907_115714.zip` (244 KB, 37 ficheros técnicos + 2 mds trazabilidad). Triage diff-first archivo por archivo:
 >

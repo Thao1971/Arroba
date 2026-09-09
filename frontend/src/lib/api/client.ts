@@ -46,6 +46,7 @@ import type {
   SendMessageRequest,
   SendMessageResponse,
   ShareToggleResponse,
+  SuggestItem,
   WatchlistToggleResponse,
 } from '@/lib/companies/types';
 
@@ -598,6 +599,17 @@ export const apiClient = {
       request<CompanyDetailResponse>(`/api/companies/${cif.toUpperCase()}`, {
         headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
       }),
+    /** BUGFIX-2026-09-09 · Daniel (Punto 3): buscador predictivo. Passthrough
+     *  a `/api/companies/suggest` → Intel. R15: si Intel no responde, el proxy
+     *  devuelve `{suggestions: [], source: "error"}` — el dropdown se cierra
+     *  en silencio. `q` debe tener al menos 2 caracteres (validación en el
+     *  backend, pero el frontend también gate-a el disparo para no rebotar). */
+    suggest: (q: string, limit = 10) => {
+      const params = new URLSearchParams({ q, limit: String(limit) });
+      return request<{ suggestions: SuggestItem[]; source?: string }>(
+        `/api/companies/suggest?${params.toString()}`,
+      );
+    },
     getByMasterId: (masterId: string) =>
       request<CompanyDetailResponse>(`/api/companies/by-id/${masterId}`),
     getConversation: (cif: string) =>

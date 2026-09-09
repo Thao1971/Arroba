@@ -42,6 +42,7 @@ import {
 import { apiClient, ApiError } from '@/lib/api/client';
 import type { SearchResultItem } from '@/components/blocks';
 import type { RelatedEntity } from '@/lib/orchestrator';
+import type { SuggestItem } from '@/lib/companies/types';
 import { cn } from '@/lib/cn';
 import { useActiveOrg } from '@/lib/workspaces/useActiveOrg';
 import { useAuth } from '@/contexts/auth-context';
@@ -314,6 +315,15 @@ export default function ResultadosPage() {
   const [input, setInput] = useState(q);
   const [rows, setRows] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
+  // BUGFIX-2026-09-09 · Daniel (Punto 3): buscador predictivo. Dropdown de
+  // sugerencias vía `GET /api/companies/suggest` (proxy fino a Intel). Se
+  // gate-a en `input.length >= 2` y se debounce ~200ms para no rebotar en
+  // cada tecla. `activeIndex = -1` significa "ningún item seleccionado"
+  // (Enter dispara la búsqueda completa normal); `>= 0` selecciona el item
+  // y navega a `/empresa-f01/{cif}`.
+  const [suggestions, setSuggestions] = useState<SuggestItem[]>([]);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   // HARDENING 2026-08-24 · "Sectores relacionados" — sector/territory/investor
   // que coinciden con la query, chips de navegación aparte de la tabla.
   const [relatedEntities, setRelatedEntities] = useState<RelatedEntity[]>([]);
@@ -402,17 +412,38 @@ export default function ResultadosPage() {
     setColumnIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
-  // ── Orden por cabecera (front-only, reutiliza ColumnDef.sortValue) ──
+  // ── Orden por cabecera ──
+  //
+  // Grupo A (server-side · pide reorden global a Intel + reset a página 0):
+  //   `empresa` → sort_by=name, `facturacion` → revenue, `ebitda` → ebitda,
+  //   `empleados` → employees, `cif` → cif.
+  // Grupo B (front-only · reordena la página visible vía `useMemo(sortedRows)`):
+  //   crecimiento, señal, valoración, arroba_score.
+  // BUGFIX-2026-09-09 · Daniel (Punto 2): sort server-side para el Grupo A.
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  const SORT_A_MAP: Record<string, string> = {
+    empresa: 'name',
+    facturacion: 'revenue',
+    ebitda: 'ebitda',
+    empleados: 'employees',
+    cif: 'cif',
+  };
+
   function toggleSort(id: string) {
-    if (sortColumn === id) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortColumn(id);
-      setSortDir('asc');
+    // Toggle asc↔desc con misma columna; reset a asc si cambia de columna.
+    const nextDir: 'asc' | 'desc' = sortColumn === id ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+    setSortColumn(id);
+    setSortDir(nextDir);
+    const backendCol = SORT_A_MAP[id];
+    if (backendCol && q) {
+      // Grupo A → server-side. Reset a página 0 porque el orden global cambia
+      // qué es "página 1".
+      void fetchResults(q, 0, { sort_by: backendCol, sort_dir: nextDir });
     }
+    // Grupo B → nada más que hacer; el `useMemo(sortedRows)` reordena la
+    // página visible con `sortColumn`/`sortDir` que acabamos de fijar.
   }
 
   // ── Densidad de fila (front-only, persistida) ──
@@ -485,7 +516,11 @@ export default function ResultadosPage() {
   }
 
   const fetchResults = useCallback(
-    async (query: string, pageIdx: number) => {
+    async (
+      query: string,
+      pageIdx: number,
+      opts?: { sort_by?: string | null; sort_dir?: 'asc' | 'desc' | null },
+    ) => {
       setLoading(true);
       setError(null);
       setExpanded(null);
@@ -505,6 +540,8 @@ export default function ResultadosPage() {
           query,
           context: { locale: 'es', pathname: '/resultados' },
           offset: pageIdx * PAGE_SIZE,
+          sort_by: opts?.sort_by ?? undefined,
+          sort_dir: opts?.sort_dir ?? undefined,
         });
         if (res.navigate_to) {
           router.replace(res.navigate_to);
@@ -600,8 +637,68 @@ export default function ResultadosPage() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    // Si hay item seleccionado en el dropdown, navega a su ficha
+    // directamente (comportamiento típico de combobox).
+    if (activeIndex >= 0 && suggestions[activeIndex]?.cif) {
+      pickSuggestion(suggestions[activeIndex].cif);
+      return;
+    }
     const v = input.trim();
     if (v) router.push(`/resultados?q=${encodeURIComponent(v)}`);
+  }
+
+  // BUGFIX-2026-09-09 · Daniel (Punto 3): debounce ~200ms + fetch suggest.
+  // R15: si Intel no responde (proxy devuelve `{suggestions: []}`), el
+  // dropdown se cierra en silencio sin romper el input.
+  useEffect(() => {
+    const query = input.trim();
+    if (query.length < 2) {
+      setSuggestions([]);
+      setSuggestOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.companies.suggest(query, 8);
+        if (cancelled) return;
+        setSuggestions(res.suggestions ?? []);
+        setSuggestOpen((res.suggestions ?? []).length > 0);
+        setActiveIndex(-1);
+      } catch {
+        if (!cancelled) {
+          setSuggestions([]);
+          setSuggestOpen(false);
+          setActiveIndex(-1);
+        }
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [input]);
+
+  function pickSuggestion(cif: string) {
+    setSuggestOpen(false);
+    setActiveIndex(-1);
+    router.push(`/empresa-f01/${cif.toUpperCase()}`);
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!suggestOpen || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setSuggestOpen(false);
+      setActiveIndex(-1);
+    }
   }
 
   const sectors = useMemo(
@@ -707,18 +804,27 @@ export default function ResultadosPage() {
   return (
     <div data-testid="resultados-page" className="max-w-6xl mx-auto px-6 pt-8 pb-40">
       {/* Buscador */}
+      <div className="relative mb-6">
       <form
         onSubmit={submit}
-        className="print:hidden flex items-center gap-2 px-4 h-12 rounded-[13px] border-[1.5px] border-border-strong bg-surface mb-6 transition-colors focus-within:border-primary"
+        className="print:hidden flex items-center gap-2 px-4 h-12 rounded-[13px] border-[1.5px] border-border-strong bg-surface transition-colors focus-within:border-primary"
       >
         <Search size={18} strokeWidth={1.6} className="text-text-subtle shrink-0" />
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          onFocus={() => { if (suggestions.length > 0) setSuggestOpen(true); }}
+          onBlur={() => { setTimeout(() => setSuggestOpen(false), 150); }}
           placeholder="Busca empresas, sectores o ubicaciones…"
           aria-label="Buscar"
           data-testid="resultados-search-input"
+          role="combobox"
+          aria-expanded={suggestOpen}
+          aria-controls="suggest-listbox"
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? `suggest-option-${activeIndex}` : undefined}
           className="flex-1 h-full bg-transparent border-none outline-none text-[15px] text-text placeholder:text-text-subtle"
         />
         <button
@@ -730,6 +836,46 @@ export default function ResultadosPage() {
           <ArrowRight size={16} strokeWidth={1.8} />
         </button>
       </form>
+      {suggestOpen && suggestions.length > 0 && (
+        <ul
+          id="suggest-listbox"
+          role="listbox"
+          data-testid="suggest-dropdown"
+          className="absolute left-0 right-0 top-full mt-1 max-h-80 overflow-auto rounded-[11px] border border-border-strong bg-surface shadow-lg z-30"
+        >
+          {suggestions.map((s, i) => (
+            <li
+              key={s.cif}
+              id={`suggest-option-${i}`}
+              role="option"
+              aria-selected={i === activeIndex}
+              data-testid={`suggest-option-${i}`}
+              onMouseDown={(e) => { e.preventDefault(); pickSuggestion(s.cif); }}
+              onMouseEnter={() => setActiveIndex(i)}
+              className={cn(
+                'flex flex-col gap-0.5 px-4 py-2 cursor-pointer text-[14px]',
+                i === activeIndex ? 'bg-surface-strong text-text' : 'text-text hover:bg-surface-strong',
+              )}
+            >
+              <span className="font-medium">
+                {s.name_parts ? (
+                  <>
+                    <span>{s.name_parts.before}</span>
+                    <strong className="font-semibold text-text">{s.name_parts.match}</strong>
+                    <span>{s.name_parts.after}</span>
+                  </>
+                ) : (
+                  <>{s.legal_name}</>
+                )}
+              </span>
+              <span className="text-[12px] text-text-subtle">
+                {s.cif}{s.city ? ` · ${s.city}` : ''}{s.cnae_section ? ` · ${s.cnae_section}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      </div>
 
       {q && (
         <header className="mb-4">

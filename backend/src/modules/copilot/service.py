@@ -377,6 +377,9 @@ async def _execute_search_real(
     pathname = request.context.pathname
     locale = request.context.locale
     offset = int(getattr(request, "offset", 0) or 0)
+    # BUGFIX-2026-09-09 · Daniel (Punto 2): passthrough server-side sort.
+    sort_by = getattr(request, "sort_by", None)
+    sort_dir = getattr(request, "sort_dir", None)
     resolve_path = "/api/v2/company-intelligence/resolve"
 
     async def _resolve(payload: dict[str, Any]) -> dict[str, Any]:
@@ -424,6 +427,8 @@ async def _execute_search_real(
             filters=parsed["filters"],
             residual=parsed["residual"],
             offset=offset,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
         )
         if fin is not None:
             return fin
@@ -443,13 +448,15 @@ async def _execute_search_real(
     # Latent until Intel enables the endpoint with enriched rows (see
     # DEPLOY_NOTES `HARDENING-REQ003 Gate Intel`).
     if not is_concrete:
-        tax_resp = await _try_taxonomy(q, offset)
+        tax_resp = await _try_taxonomy(q, offset, sort_by=sort_by, sort_dir=sort_dir)
         if tax_resp is not None:
             return tax_resp
         # Taxonomy returned no rows (incluso tras el reintento) o endpoint no
         # disponible → cae a búsqueda semántica (#5). Preserva el
         # comportamiento REQ001b cuando el gate categórico sigue latente.
-        return await _semantic_search_results(q, pathname, locale, offset=offset)
+        return await _semantic_search_results(
+            q, pathname, locale, offset=offset, sort_by=sort_by, sort_dir=sort_dir,
+        )
 
     # ---- #4 · resolve by name (concrete → single/disambiguation) --------
     resp = await _resolve({"name": q, "limit": MAX_RESULTS})
@@ -477,45 +484,53 @@ async def _execute_search_real(
     # cosa. Si taxonomy no reconoce la query (tax_resp is None, caso normal
     # para un nombre de empresa real como "movistar"), seguimos exactamente
     # igual que antes.
-    tax_resp = await _try_taxonomy(q, offset)
+    tax_resp = await _try_taxonomy(q, offset, sort_by=sort_by, sort_dir=sort_dir)
     if tax_resp is not None:
         return tax_resp
     candidates = matches[:5]
     if 1 <= len(candidates) <= 5:
-        # BUGFIX-2026-09-07 · Daniel (punto 9): "Facturación/EBITDA en blanco
-        # en resultados de búsqueda, ej. servier". `DisambiguationItem` nació
-        # para el dropdown compacto del dock (`orchestrator/index.ts`), que
-        # nunca necesitó financials — por eso no los lleva. `/resultados`
-        # reutiliza estos mismos candidatos para pintar la tabla de resultados,
-        # y ahí sí hacen falta. Opción elegida (C, de 3 evaluadas con Daniel):
-        # NO tocamos el matching de nombre (`/resolve` ya es preciso y fiable
-        # para esto) ni usamos búsqueda léxica de `skills/search` (el propio
-        # código ya documenta que su matching por texto libre "fallaba con
-        # sectores en inglés y con residuales cortos" — no nos fiamos de él
-        # para nombres tampoco). En vez de eso, con los 1-5 `master_id` que
-        # `/resolve` ya nos dio, hacemos UNA sola llamada a `skills/search`
-        # filtrando por `master_company_ids` (el mismo mecanismo fiable que
-        # REQ004b ya usa para el scoping sectorial) para traer sus financials.
-        # Solo se hace para `/resultados`; el dock sigue exactamente igual,
-        # sin este coste extra.
+        # BUGFIX-2026-09-09 · Daniel (Punto 1 BONUS): `/resolve` ya devuelve
+        # `matches[i].summary` con revenue/ebitda/ebitda_margin/growth_pct/
+        # signal_score/valuation/employees/year/city. No hace falta una
+        # segunda llamada a `/skills/search` para enriquecer con financials —
+        # esa llamada además tenía un join imposible entre `mc_...` (resolve)
+        # y UUID (skills/search). R15: si Intel no trae `summary` para un
+        # candidato concreto, esa fila se queda con `summary=None` → UI "—"
+        # honesto, nunca se fabrica.
         if pathname == "/resultados":
-            enriched = await _enrich_disambiguation_with_financials(candidates)
-            if enriched is not None:
-                return SearchSkillResponse(
-                    workspace=Workspace(
-                        workspace_id="wsp_" + uuid.uuid4().hex[:12],
-                        intent="search",
-                        blocks=[
-                            SearchResultsBlock(
-                                id="blk_results_" + uuid.uuid4().hex[:8],
-                                props=SearchResultsBlockProps(
-                                    query=q, total=len(enriched), results=enriched,
-                                ),
-                            )
-                        ],
-                    ),
-                    source="real", query=q,
+            enriched: list[SearchResultItem] = []
+            for m in candidates:
+                mid = str(m.get("master_id") or "")
+                cif_raw = m.get("cif")
+                cif_norm = re.sub(r"[\s.\-]", "", str(cif_raw).upper()) if cif_raw else None
+                s = m.get("summary") if isinstance(m.get("summary"), dict) else None
+                enriched.append(
+                    SearchResultItem(
+                        master_company_id=mid,
+                        name=str(m.get("legal_name") or "—"),
+                        legal_name=m.get("legal_name"),
+                        cif=cif_norm,
+                        sector=m.get("cnae_section"),
+                        city=(s.get("city") if s else None) or m.get("province"),
+                        score=round(float(m.get("score") or 1.0), 3),
+                        summary=s,
+                    )
                 )
+            return SearchSkillResponse(
+                workspace=Workspace(
+                    workspace_id="wsp_" + uuid.uuid4().hex[:12],
+                    intent="search",
+                    blocks=[
+                        SearchResultsBlock(
+                            id="blk_results_" + uuid.uuid4().hex[:8],
+                            props=SearchResultsBlockProps(
+                                query=q, total=len(enriched), results=enriched,
+                            ),
+                        )
+                    ],
+                ),
+                source="real", query=q,
+            )
         items = [
             DisambiguationItem(
                 master_company_id=str(m.get("master_id") or ""),
@@ -559,7 +574,12 @@ async def _execute_search_real(
 
 
 async def _semantic_search_results(
-    q: str, pathname: str | None, locale: str, offset: int = 0
+    q: str,
+    pathname: str | None,
+    locale: str,
+    offset: int = 0,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
 ) -> SearchSkillResponse:
     """HARDENING-REQ001b + REQ003 · natural-language search vía Intel
     `POST /api/v1/semantic-intelligence/search`.
@@ -573,11 +593,17 @@ async def _semantic_search_results(
     breaker) envuelto con `_intel_call_ff` (fail-fast 8s). En caso de fallo,
     propaga `AgencyToolHTTPError` para que el caller devuelva `_empty_response`.
     """
+    semantic_payload: dict[str, Any] = {"query": q, "limit": _SEARCH_PAGE_LIMIT, "cnae_section": None}
+    # BUGFIX-2026-09-09 · Daniel (Punto 2): passthrough sort_by/sort_dir.
+    if sort_by:
+        semantic_payload["sort_by"] = sort_by
+    if sort_dir:
+        semantic_payload["sort_dir"] = sort_dir
     resp = await _intel_call_ff(
         get_agency_tool_client().request(
             "POST",
             "/api/v1/semantic-intelligence/search",
-            json={"query": q, "limit": _SEARCH_PAGE_LIMIT, "cnae_section": None},
+            json=semantic_payload,
         )
     )
     if resp.status_code >= 400:
@@ -611,6 +637,8 @@ async def _financial_search_results(
     filters: dict[str, Any],
     residual: str,
     offset: int = 0,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
 ) -> SearchSkillResponse | None:
     """HARDENING-REQ004 + REQ004b · Structured financial/attribute screen (5º modo).
 
@@ -666,6 +694,11 @@ async def _financial_search_results(
         "filters": scoped,
         "pagination": {"page": page, "page_size": _RESULTS_PAGE},
     }
+    # BUGFIX-2026-09-09 · Daniel (Punto 2): passthrough sort_by/sort_dir.
+    if sort_by:
+        payload["sort_by"] = sort_by
+    if sort_dir:
+        payload["sort_dir"] = sort_dir
     resp = await _intel_call_ff(
         get_agency_tool_client().request(
             "POST", "/api/v1/skills/search", json=payload
@@ -715,91 +748,6 @@ async def _financial_search_results(
         ),
         source="real", query=q,
     )
-
-
-
-
-async def _enrich_disambiguation_with_financials(
-    candidates: list[dict[str, Any]],
-) -> list[SearchResultItem] | None:
-    """BUGFIX-2026-09-07 · Daniel (punto 9): trae financials para los 1-5
-    candidatos que `/resolve` ya identificó con precisión para una query de
-    nombre concreto en `/resultados`. NO repite el matching de nombre — pide
-    financials para esos `master_id` exactos vía `skills/search` filtrado por
-    `master_company_ids` (una sola llamada, mismo filtro fiable que REQ004b ya
-    usa para acotar por sector). Devuelve `None` (nunca lanza) si Intel falla,
-    para que el caller siga con el `disambiguation` sin enriquecer en vez de
-    romper la búsqueda entera por un fallo de enriquecimiento.
-
-    R15: si un candidato concreto no trae financials en la respuesta de
-    Intel (empresa real sin datos, no un fallo), esa fila se queda con
-    `summary=None` — la UI pinta "—" honesto, nunca se fabrica un dato ni
-    se descarta la fila.
-    """
-    ids = [str(m.get("master_id")) for m in candidates if m.get("master_id")]
-    if not ids:
-        return None
-    try:
-        resp = await _intel_call_ff(
-            get_agency_tool_client().request(
-                "POST",
-                "/api/v1/skills/search",
-                json={
-                    "query": "",
-                    "filters": {"master_company_ids": ids, "has_domain": False},
-                    "pagination": {"page": 1, "page_size": len(ids)},
-                },
-            )
-        )
-        if resp.status_code >= 400:
-            log.warning(
-                "copilot.search.disambiguation_enrich_http_error",
-                status_code=resp.status_code, ids=len(ids),
-            )
-            return None
-        payload_out: dict[str, Any] = resp.json()
-        blocks = ((payload_out.get("workspace") or {}).get("blocks") or [])
-        block = next((b for b in blocks if b.get("type") == "search_results"), None)
-        rows: list[dict[str, Any]] = (
-            ((block.get("props") or {}).get("results") or [])
-            if block is not None
-            else (payload_out.get("results") or [])
-        )
-    except AgencyToolHTTPError:
-        log.warning("copilot.search.disambiguation_enrich_failed", exc_info=True)
-        return None
-    except Exception:
-        log.warning("copilot.search.disambiguation_enrich_failed", exc_info=True)
-        return None
-
-    by_id: dict[str, dict[str, Any]] = {}
-    for r in rows:
-        rid = str(r.get("master_id") or r.get("master_company_id") or "")
-        if rid:
-            by_id[rid] = r
-
-    items: list[SearchResultItem] = []
-    for m in candidates:
-        mid = str(m.get("master_id") or "")
-        enriched_row = by_id.get(mid)
-        if enriched_row is not None:
-            items.append(_row_to_item(enriched_row))
-        else:
-            cif_raw = m.get("cif")
-            cif = re.sub(r"[\s.\-]", "", str(cif_raw).upper()) if cif_raw else None
-            items.append(
-                SearchResultItem(
-                    master_company_id=mid,
-                    name=str(m.get("legal_name") or "—"),
-                    legal_name=m.get("legal_name"),
-                    cif=cif,
-                    sector=m.get("cnae_section"),
-                    city=m.get("province"),
-                    score=round(float(m.get("score") or 1.0), 3),
-                    summary=None,
-                )
-            )
-    return items
 
 
 def _row_to_item(r: dict[str, Any]) -> SearchResultItem:
@@ -896,7 +844,12 @@ def _taxonomy_retry_variant(q: str) -> str | None:
     return f"{tokens[0]} de {' '.join(tokens[1:])}"
 
 
-async def _try_taxonomy(q: str, offset: int) -> SearchSkillResponse | None:
+async def _try_taxonomy(
+    q: str,
+    offset: int,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
+) -> SearchSkillResponse | None:
     """Intenta resolver `q` como categoría (sector/geo) vía Intel taxonomy.
 
     Devuelve un `SearchSkillResponse` (workspace con TODOS los resultados
@@ -910,7 +863,9 @@ async def _try_taxonomy(q: str, offset: int) -> SearchSkillResponse | None:
     nombre de empresa es un nombre raro en vez de un sector no listado en
     `_EXPLORATORY_TOKENS`.
     """
-    tax = await _taxonomy_search(q, offset=offset, limit=_RESULTS_PAGE)
+    tax = await _taxonomy_search(
+        q, offset=offset, limit=_RESULTS_PAGE, sort_by=sort_by, sort_dir=sort_dir,
+    )
     rows: list[dict[str, Any]] = (tax.get("results") or []) if tax is not None else []
     # REVERTIDO 2026-08-29 · el mismo dia probamos aqui un parche que
     # SIEMPRE reintentaba con "de" insertado y se quedaba con el total
@@ -931,7 +886,10 @@ async def _try_taxonomy(q: str, offset: int) -> SearchSkillResponse | None:
     if tax is not None and not rows:
         retry_q = _taxonomy_retry_variant(q)
         if retry_q is not None:
-            tax_retry = await _taxonomy_search(retry_q, offset=offset, limit=_RESULTS_PAGE)
+            tax_retry = await _taxonomy_search(
+                retry_q, offset=offset, limit=_RESULTS_PAGE,
+                sort_by=sort_by, sort_dir=sort_dir,
+            )
             retry_rows = (tax_retry.get("results") or []) if tax_retry is not None else []
             if retry_rows:
                 tax, rows = tax_retry, retry_rows
@@ -956,7 +914,11 @@ async def _try_taxonomy(q: str, offset: int) -> SearchSkillResponse | None:
 
 
 async def _taxonomy_search(
-    q: str, offset: int = 0, limit: int = _RESULTS_PAGE
+    q: str,
+    offset: int = 0,
+    limit: int = _RESULTS_PAGE,
+    sort_by: str | None = None,
+    sort_dir: str | None = None,
 ) -> dict[str, Any] | None:
     """HARDENING-REQ003 · Intel `GET /api/v1/company-taxonomy/search`.
 
@@ -964,11 +926,19 @@ async def _taxonomy_search(
     "todas las asesorías fiscales"). Returns `{results: [...], total: N}` or
     None if the endpoint is not enabled / gate-blocked. On 4xx/5xx we propagate
     `AgencyToolHTTPError` so the caller degrades to `_empty_response`.
+
+    BUGFIX-2026-09-09 · Daniel (Punto 2): `sort_by`/`sort_dir` se anexan como
+    query params cuando llegan del request. Passthrough puro — Beta no valida
+    ni reordena; Intel decide.
     """
     url = (
         f"/api/v1/company-taxonomy/search"
         f"?q={quote(q)}&primary_only=true&limit={limit}&offset={offset}"
     )
+    if sort_by:
+        url += f"&sort_by={quote(sort_by)}"
+    if sort_dir:
+        url += f"&sort_dir={quote(sort_dir)}"
     resp = await _intel_call_ff(get_agency_tool_client().request("GET", url))
     if resp.status_code == 404:
         # Endpoint not enabled yet on Intel side. Latent gate — signal caller

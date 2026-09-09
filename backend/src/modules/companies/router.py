@@ -16,10 +16,12 @@ sourced data so the frontend can banner the boundary state.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Response
 from fastapi.responses import RedirectResponse
+import asyncio
 
 from src.core.exceptions import BadRequestError
+from src.core.logging import get_logger
 from src.modules.auth.dependencies import (
     get_current_user,
     get_optional_current_user,
@@ -38,8 +40,50 @@ from src.modules.companies.models import (
     WatchlistToggleResponse,
 )
 from src.modules.copilot import intel_ficha_proxies
+from src.modules.intelligence_layer.providers.agency_tool.client import (
+    AgencyToolHTTPError,
+    get_agency_tool_client,
+)
 
+log = get_logger(__name__)
 router = APIRouter(prefix="/api/companies", tags=["companies"])
+
+
+# BUGFIX-2026-09-09 · Daniel (Punto 3): buscador predictivo. Proxy fino a
+# Intel `GET /api/v1/companies/suggest`. Fail-fast ~8s. R15: passthrough —
+# no filtra, no reordena, no enriquece; si Intel no responde/no está aún
+# desplegado, devuelve `{suggestions: [], source: "error"}` para que el
+# dropdown se cierre en silencio en vez de romper el input. DECLARADO ANTES
+# de `/{cif}` para evitar route shadowing (el regex de _cif_param no
+# matchearía "suggest" en runtime, pero fastapi-lint lo detecta como riesgo
+# de ambigüedad).
+@router.get("/suggest")
+async def get_suggest(
+    q: str = Query(..., min_length=2, max_length=100),
+    limit: int = Query(10, ge=1, le=25),
+) -> dict:
+    try:
+        resp = await asyncio.wait_for(
+            get_agency_tool_client().request(
+                "GET",
+                "/api/v1/companies/suggest",
+                params={"q": q, "limit": limit},
+            ),
+            timeout=8.0,
+        )
+        if resp.status_code >= 400:
+            log.warning(
+                "companies.suggest.http_error",
+                status_code=resp.status_code, q=q,
+            )
+            return {"suggestions": [], "source": "error"}
+        return resp.json()
+    except AgencyToolHTTPError:
+        log.warning("companies.suggest.failed", exc_info=True)
+        return {"suggestions": [], "source": "error"}
+    except (asyncio.TimeoutError, Exception):
+        log.warning("companies.suggest.failed", exc_info=True)
+        return {"suggestions": [], "source": "error"}
 
 
 def _cif_param(cif: str = Path(..., min_length=9, max_length=9, regex=r"^[A-Za-z]\d{8}$")) -> str:

@@ -170,6 +170,11 @@ export interface SearchSkillRequest {
   context: SkillContext;
   // HARDENING-REQ003 · server-side pagination
   offset?: number;
+  // BUGFIX-2026-09-09 · Daniel (Punto 2): ordenación server-side para el
+  // Grupo A de columnas (`name`, `revenue`, `ebitda`, `employees`, `cif`).
+  // Passthrough puro a Intel. Grupo B sigue front-only.
+  sort_by?: string | null;
+  sort_dir?: 'asc' | 'desc' | null;
 }
 
 export interface DisambiguationItem {
