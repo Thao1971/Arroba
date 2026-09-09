@@ -283,25 +283,23 @@ def to_financial_section(
     # Para no calcular años previos, sólo poblamos si hay ≥1 año y datos.
     pl_block: FinancialTableBlock | None = None
     if analysis.has_financials and analysis.income_statement and years:
+        series_by_key = {s.key: s for s in (evolution_block.series if evolution_block else [])}
         pl_rows: list[FinancialTableRow] = []
         for key, label, category in PL_ROWS:
             raw = getattr(analysis.income_statement, key, None)
             if raw is None:
                 continue
-            # 1 año → 1 celda. Si hay más años, el resto queda como None (no calculamos).
+            hist = series_by_key.get(key)
             cells: list[FinancialTableCell] = []
-            for y in years:
+            for i, y in enumerate(years):
                 if y == (last_year or years[-1]):
                     cells.append(FinancialTableCell(value=float(raw), format="currency"))
+                elif hist is not None and i < len(hist.values) and hist.values[i] is not None:
+                    cells.append(FinancialTableCell(value=hist.values[i], format="currency"))
                 else:
                     cells.append(FinancialTableCell(value=None, format="currency"))
             pl_rows.append(
-                FinancialTableRow(
-                    key=key,
-                    label=label,
-                    category=category,  # type: ignore[arg-type]
-                    values=cells,
-                )
+                FinancialTableRow(key=key, label=label, category=category, values=cells)  # type: ignore[arg-type]
             )
         if pl_rows:
             pl_block = FinancialTableBlock(years=years, rows=pl_rows)
