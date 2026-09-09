@@ -41,6 +41,21 @@
 >
 > **Nota de proceso:** el snippet de test `test_copilot_search_resolve_summary_passthrough.py` incluido en el brief de este batch tenía dos bugs (import `SearchContext` en vez de `SkillContext`, aridad de `_execute_search_real` — pide 3 args `request, q, q_norm`, no 1). Reescrito en la verificación real de pytest — cubre los 3 casos originales, mock a nivel módulo de `_intel_call_ff` (la closure interna `_resolve` no es parcheable). Regla de proceso acordada: en futuros brief con tests nuevos, verificar firma de las funciones referenciadas con `grep` antes de escribir el test.
 >
+> ### 2026-09-09 · Fix contrato Suggest (post-diagnóstico)
+>
+> Tras cierre del batch, diagnóstico read-only confirmó que Intel desplegó las contrapartes entre 09:04 y 09:20 UTC. Sort funcionando end-to-end, suggest proxy devolviendo 200 con `name_parts` real — pero dropdown no se poblaba por mismatch de contrato Intel↔frontend. Aplicada opción A (frontend adapta shape Intel):
+>
+> - Envoltura `results` (no `suggestions`). Fallback `res.results ?? res.suggestions ?? []` para cubrir también el path R15 del proxy Beta cuando Intel falla.
+> - Campos: `master_company_id`, `name`, `sector` (renombrados desde `master_id`, `legal_name`, `cnae_section`). `cif` y `name_parts` sin cambios.
+> - Retirado `city` del tipo (Intel no lo emite en `/suggest`).
+> - Ficheros tocados (3): `frontend/src/lib/companies/types.ts` (tipo `SuggestItem`), `frontend/src/lib/api/client.ts` (retorno del método), `frontend/src/app/[locale]/(authenticated)/resultados/page.tsx` (parseo + render dropdown).
+>
+> **Verificación visual (screenshot `docs/suggest_dropdown_fix_20260909.jpeg`)**: tecleado `lab` → dropdown abre con 8 sugerencias, `<strong>Lab</strong>oratorios Servier`, `<strong>Lab</strong>orsord`, `<strong>Lab</strong>artec`, etc. — `name_parts` renderizado, CIFs en línea inferior, sin `sector` (Intel devuelve `null`, R15 pinta solo lo que hay).
+>
+> **Regla de proceso extendida:** en futuros brief con clientes nuevos de endpoints Intel, curl al proxy Beta o al endpoint upstream **antes** de escribir/cambiar el tipo TS. Extensión natural de la regla de grep de firmas antes de escribir tests.
+>
+> Commit local `da6ac89` encima de `50fbbc8`. Sin push.
+>
 > ---
 >
 > **Última actualización previa**: 2026-09-07 — **🟢 Pack Beta-290826-deploy-pendiente aplicado parcialmente: 13 Bucket B en preview · 4 Bucket C elevados a Daniel · sin deploy**. Autorización literal del usuario en `MENSAJE_BETA_backlog_completo.md` interno del ZIP.

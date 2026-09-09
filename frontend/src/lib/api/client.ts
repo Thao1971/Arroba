@@ -600,13 +600,16 @@ export const apiClient = {
         headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
       }),
     /** BUGFIX-2026-09-09 · Daniel (Punto 3): buscador predictivo. Passthrough
-     *  a `/api/companies/suggest` → Intel. R15: si Intel no responde, el proxy
-     *  devuelve `{suggestions: [], source: "error"}` — el dropdown se cierra
-     *  en silencio. `q` debe tener al menos 2 caracteres (validación en el
-     *  backend, pero el frontend también gate-a el disparo para no rebotar). */
+     *  a `/api/companies/suggest` → Intel. Contrato Intel (confirmado curl
+     *  09:20 UTC tras deploy upstream): `{ results: SuggestItem[] }`. Si
+     *  Intel no responde, el proxy Beta devuelve `{suggestions: [],
+     *  source: "error"}` — el fallback del consumidor debe leer ambos
+     *  campos (`results` OR `suggestions`) para cubrir ambos casos. `q`
+     *  debe tener al menos 2 caracteres (validación en el backend, pero el
+     *  frontend también gate-a el disparo para no rebotar). */
     suggest: (q: string, limit = 10) => {
       const params = new URLSearchParams({ q, limit: String(limit) });
-      return request<{ suggestions: SuggestItem[]; source?: string }>(
+      return request<{ results?: SuggestItem[]; suggestions?: SuggestItem[]; source?: string }>(
         `/api/companies/suggest?${params.toString()}`,
       );
     },

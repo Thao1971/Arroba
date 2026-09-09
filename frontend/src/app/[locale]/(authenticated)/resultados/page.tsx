@@ -663,8 +663,12 @@ export default function ResultadosPage() {
       try {
         const res = await apiClient.companies.suggest(query, 8);
         if (cancelled) return;
-        setSuggestions(res.suggestions ?? []);
-        setSuggestOpen((res.suggestions ?? []).length > 0);
+        // Fix contrato Suggest (2026-09-09): Intel devuelve `results`;
+        // el fallback R15 del proxy Beta devuelve `suggestions: []` cuando
+        // Intel falla. Aceptamos ambos para cubrir los dos caminos.
+        const list = res.results ?? res.suggestions ?? [];
+        setSuggestions(list);
+        setSuggestOpen(list.length > 0);
         setActiveIndex(-1);
       } catch {
         if (!cancelled) {
@@ -865,11 +869,11 @@ export default function ResultadosPage() {
                     <span>{s.name_parts.after}</span>
                   </>
                 ) : (
-                  <>{s.legal_name}</>
+                  <>{s.name ?? ''}</>
                 )}
               </span>
               <span className="text-[12px] text-text-subtle">
-                {s.cif}{s.city ? ` · ${s.city}` : ''}{s.cnae_section ? ` · ${s.cnae_section}` : ''}
+                {s.cif}{s.sector ? ` · ${s.sector}` : ''}
               </span>
             </li>
           ))}

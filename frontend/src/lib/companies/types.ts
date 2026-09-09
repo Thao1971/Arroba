@@ -170,21 +170,20 @@ export interface DisambiguationItem {
 }
 
 /** BUGFIX-2026-09-09 · Daniel (Punto 3): item devuelto por
- *  `GET /api/companies/suggest` (proxy fino a Intel). Los campos concretos
- *  los define Intel — mantenemos todos opcionales excepto `cif`+`legal_name`
- *  (identidad mínima navegable). Cuando Intel publique el shape estable,
- *  ajustamos. R15: campos ausentes ⇒ el dropdown muestra solo lo que hay. */
+ *  `GET /api/companies/suggest` (proxy fino a Intel). Contrato canónico
+ *  de Intel confirmado por curl 09:20 UTC tras deploy upstream:
+ *    { results: [{ master_company_id, name, cif, sector, name_parts }] }
+ *  Fix contrato Suggest (post-diagnóstico 2026-09-09): frontend adapta al
+ *  shape Intel — no invertimos. R15: campos ausentes ⇒ el dropdown pinta
+ *  solo lo que hay, `name_parts` puede llegar como null. */
 export interface SuggestItem {
   cif: string;
-  legal_name: string;
-  master_id?: string | null;
-  name?: string | null;
-  city?: string | null;
-  cnae_section?: string | null;
-  /** BUGFIX-2026-09-09 · AMEND (Daniel): partición del `legal_name` en
-   *  before/match/after emitida por Intel para resaltar el fragmento que
-   *  coincide con lo tecleado. Beta NO recalcula índices propios (R15:
-   *  consume, no calcula). Si `name_parts` no llega (Intel aún no ha
-   *  desplegado su contraparte), el componente cae a `legal_name` plano. */
+  name: string;
+  master_company_id?: string | null;
+  sector?: string | null;
+  /** Partición del `name` en before/match/after emitida por Intel para
+   *  resaltar el fragmento que coincide con lo tecleado. Beta NO recalcula
+   *  índices propios (R15: consume, no calcula). Si `name_parts` no llega,
+   *  el componente cae al `name` plano sin resaltado. */
   name_parts?: { before: string; match: string; after: string } | null;
 }
