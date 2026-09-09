@@ -319,6 +319,23 @@ function clamp100(v: number | null | undefined): number | null {
   const n = v <= 1 ? v * 100 : v;
   return Math.max(0, Math.min(100, n));
 }
+/** Mapa de bases del múltiplo -> etiqueta legible (evita mostrar el enum crudo del motor, p.ej. "inferred_reference"). */
+const MULTIPLE_BASIS_LABEL: Record<string, string> = {
+  inferred_reference: 'Referencia inferida del sector',
+  sector_median: 'Mediana sectorial observada',
+  peer_group: 'Grupo de comparables cotizados',
+  custom: 'Múltiplo personalizado',
+};
+function multipleBasisLabel(basis: string | null | undefined): string | null {
+  if (!basis) return null;
+  return MULTIPLE_BASIS_LABEL[basis] ?? basis.replace(/_/g, ' ');
+}
+/**
+ * `hypotheses` es texto narrativo que genera el motor de Intel (financial-intelligence
+ * engine.py::valuation) — Beta lo muestra tal cual llega, sin reformatear ni traducir
+ * jerga (R15 / Zero Coupling: Beta no genera ni transforma dato/texto de negocio).
+ * El motor ya devuelve prosa cuidada en español (fix 2026-09-09).
+ */
 function fmtCell(value: number | null, format: string): string {
   if (value === null || value === undefined) return '—';
   if (format === 'percent') return `${value.toLocaleString('es-ES', { maximumFractionDigits: 1 })}%`;
@@ -1477,6 +1494,14 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
   // (Turno D · cobertura 6/6 para benchmark + methodology). R15 puro.
   const b = valuation.benchmark;
   const methodology = valuation.methodology;
+  const basisLabel = multipleBasisLabel(valuation.multiple_basis);
+  const evRows: Array<{ label: string; value: number | null; color: string }> = r
+    ? [
+        { label: scenarioName(0), value: r.low, color: 'var(--red)' },
+        { label: scenarioName(1), value: r.central, color: 'var(--info)' },
+        { label: scenarioName(2), value: r.high, color: 'var(--ok)' },
+      ]
+    : [];
   const fmtMillions = (v: number | null | undefined): string => (v == null ? '—' : `${(v / 1_000_000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} M€`);
   return (
     <section className="panel on">
@@ -1491,24 +1516,53 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
           <div className="card">
             <h3><span className="k" />Posicionamiento</h3>
             <div className="scores" style={{ gridTemplateColumns: '1fr' }}><Ring val={q} label="Calidad financiera" color={OK} /></div>
+            <div className="cs" style={{ textAlign: 'center', marginTop: 6 }}>sobre 100</div>
           </div>
         )}
         {r && (
-          <div className="card">
+          <div className="card" style={{ gridColumn: q != null ? 'span 2' : '1 / -1' }}>
             <h3><span className="k" /><span className="help" data-tip="ENTERPRISE_VALUE" tabIndex={0}>Enterprise Value</span></h3>
-            <div className="evrow"><span className="lb">{scenarioName(0)}</span><div className="evbar"><i style={{ width: `${pctOf(r.low)}%`, background: 'var(--red)' }} /></div><span className="val">{fmtEUR(r.low)}</span></div>
-            <div className="evrow"><span className="lb">{scenarioName(1)}</span><div className="evbar"><i style={{ width: `${pctOf(r.central)}%`, background: 'var(--info)' }} /></div><span className="val">{fmtEUR(r.central)}</span></div>
-            <div className="evrow"><span className="lb">{scenarioName(2)}</span><div className="evbar"><i style={{ width: `${pctOf(r.high)}%`, background: 'var(--ok)' }} /></div><span className="val">{fmtEUR(r.high)}</span></div>
-            {valuation.multiple != null && <div className="idrow" style={{ marginTop: 10 }}><span className="k"><span className="help" data-tip="EV_EBITDA" tabIndex={0}>Múltiplo</span></span><span className="v">{valuation.multiple.toLocaleString('es-ES', { maximumFractionDigits: 1 })}× {valuation.multiple_basis ?? 'EBITDA'}</span></div>}
+            {evRows.map((row) => (
+              <div className="evrow" key={row.label}>
+                <span className="lb">{row.label}</span>
+                <div className="evbar">
+                  {row.value != null
+                    ? <i style={{ width: `${pctOf(row.value)}%`, background: row.color }} />
+                    : <i style={{ width: '100%', background: 'repeating-linear-gradient(45deg, var(--n200), var(--n200) 4px, transparent 4px, transparent 8px)' }} />}
+                </div>
+                <span className="val">
+                  {row.value != null ? fmtEUR(row.value) : <span style={{ color: 'var(--n400)', fontWeight: 500 }}>No disponible</span>}
+                </span>
+              </div>
+            ))}
+            {valuation.multiple != null && <div className="idrow" style={{ marginTop: 10 }}><span className="k"><span className="help" data-tip="EV_EBITDA" tabIndex={0}>Múltiplo</span></span><span className="v">{valuation.multiple.toLocaleString('es-ES', { maximumFractionDigits: 1 })}×{basisLabel ? ` · ${basisLabel}` : ''}</span></div>}
             <div className="idrow"><span className="k" style={{ fontWeight: 700, color: 'var(--n900)' }}><span className="help" data-tip="EQUITY_VALUE" tabIndex={0}>Equity value</span></span><span className="v" style={{ color: 'var(--red-hover)' }}>{fmtEUR(valuation.equity_value)}</span></div>
           </div>
         )}
       </div>
+      {valuation.scenarios && valuation.scenarios.filter((s) => s.enterprise_value != null || s.equity_value != null).length >= 2 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3><span className="k" />Resumen de escenarios</h3>
+          <div className="cs">Enterprise Value y Equity Value que calcula el motor para cada escenario</div>
+          <table className="rec">
+            <tbody>
+              <tr><th>Escenario</th><th>Enterprise Value</th><th>Equity Value (aprox.)</th></tr>
+              {valuation.scenarios.map((s, i) => (
+                <tr key={s.name ?? i}>
+                  <td>{s.name ? s.name.charAt(0).toUpperCase() + s.name.slice(1) : `Escenario ${i + 1}`}</td>
+                  <td>{fmtEUR(s.enterprise_value)}</td>
+                  <td>{fmtEUR(s.equity_value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {b && (
         <div className="card" style={{ marginTop: 16 }}>
           <h3><span className="k" />Benchmark del sector</h3>
           <div className="cs">Comparativa contra la mediana de compañías del mismo sector y banda de tamaño</div>
-          <div className="perc-pill">Percentil {b.ebitda_margin_percentile ?? '—'} del sector · n={b.peers_count} peers</div>
+          <div className="perc-pill">{`Percentil ${b.ebitda_margin_percentile ?? '—'} del sector${b.peers_count ? ` · n=${b.peers_count} peers` : ''}`}</div>
           <div className="bmk-row">
             <div>
               <div className="lbl">Margen <abbr title="Beneficio antes de intereses, impuestos, depreciación y amortización.">EBITDA</abbr> · Esta compañía</div>

@@ -56,6 +56,19 @@
 >
 > Commit local `da6ac89` encima de `50fbbc8`. Sin push.
 >
+> ### 2026-09-09 · Pulido UI pestaña Valoración
+>
+> - `multiple_basis` mapeado a etiquetas legibles vía `MULTIPLE_BASIS_LABEL` (evita enum crudo del motor · ej. `inferred_reference` → "Referencia inferida del sector").
+> - Fila EV sin dato → "No disponible" con barra rayada (deja de mostrar barra vacía).
+> - Pill benchmark condicional: `n=peers` solo si `peers_count` existe (deja de mostrar "n= peers" con hueco).
+> - Ring de Calidad financiera: caption "sobre 100".
+> - Nuevo bloque "Resumen de escenarios" con datos `valuation.scenarios` que el motor ya emitía (filtro ≥2 escenarios con EV o Equity Value no-null).
+> - `hypotheses` passthrough R15 (Intel ya envía prosa cuidada en español · fix upstream mismo día).
+> - Card EV `gridColumn: 'span 2'` cuando existe Ring de Calidad financiera (rellena hueco del card interactivo descartado).
+> - 100% frontend, cero fabricación de dato, cero refactor del monolito fuera de `Valoracion()` + 2 helpers acotados (`MULTIPLE_BASIS_LABEL` + `multipleBasisLabel()`).
+> - Verificación: tsc 0 errores · eslint 0 warnings · build OK 21.67s · vitest CompanyValoracion 11/11 verdes · smoke `/api/companies/B28184687/valuation` confirma `multiple_basis=inferred_reference` + 3 scenarios + 2 hypotheses en prosa española.
+> - Commit local `cd7d3c5` encima de `825f0e8`. Sin push.
+>
 > ---
 >
 > **Última actualización previa**: 2026-09-07 — **🟢 Pack Beta-290826-deploy-pendiente aplicado parcialmente: 13 Bucket B en preview · 4 Bucket C elevados a Daniel · sin deploy**. Autorización literal del usuario en `MENSAJE_BETA_backlog_completo.md` interno del ZIP.
