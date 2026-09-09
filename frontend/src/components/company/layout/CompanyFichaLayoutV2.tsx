@@ -2435,21 +2435,38 @@ function OwnTreeView({ cg, identity }: { cg: ControlGraphNominal; identity: Reco
 function OwnListView({ cg }: { cg: ControlGraphNominal }) {
   const shs = Array.isArray(cg.shareholders) ? cg.shareholders : [];
   const subs = Array.isArray(cg.subsidiaries) ? cg.subsidiaries : [];
+  // HARDENING · Fix separación visual Accionistas/Participadas (Daniel 2026-09-09):
+  // antes iban en una única lista plana con solo una etiqueta `obtag` por fila;
+  // ahora se agrupan bajo cabeceras `.own-th` (mismo patrón ya usado en OwnTreeView).
   const items: { tag: 'Accionista' | 'Participada'; name: string; pct: number | null; is_ubo?: boolean }[] = [
     ...shs.map((s) => ({ tag: 'Accionista' as const, name: (s?.name ?? '—') + (s?.is_ubo ? ' (UBO)' : ''), pct: typeof s?.pct === 'number' ? s.pct : null, is_ubo: !!s?.is_ubo })),
     ...subs.map((p) => ({ tag: 'Participada' as const, name: p?.name ?? '—', pct: typeof p?.pct === 'number' ? p.pct : null })),
   ];
+  const shCount = shs.length;
+  const subCount = subs.length;
   return (
     <div id="ownList" data-testid="own-list">
       {items.map((it, i) => {
         const w = typeof it.pct === 'number' ? Math.max(0, Math.min(100, it.pct)) : 0;
-        const isSep = it.tag === 'Participada' && i > 0 && items[i - 1]?.tag === 'Accionista';
+        const isFirstOfGroup = i === 0 || items[i - 1]?.tag !== it.tag;
         return (
-          <div key={`ow-${i}`} className="owbar" data-testid={`own-list-item-${i}`} style={isSep ? { marginTop: 8 } : undefined}>
-            <span className="obn"><span className="obtag">{it.tag}</span>{it.name}</span>
-            <span className="obt"><OwnBar pct={w} /></span>
-            <span className="obp">{fmtPct(it.pct)}</span>
-          </div>
+          <Fragment key={`ow-${i}`}>
+            {isFirstOfGroup && (
+              <div
+                className="own-th"
+                data-testid={it.tag === 'Accionista' ? 'own-list-th-shareholders' : 'own-list-th-subsidiaries'}
+                style={i > 0 ? { marginTop: 18 } : undefined}
+              >
+                <b>{it.tag === 'Accionista' ? 'Accionistas' : 'Empresas participadas'}</b>
+                <span className="cnt">{it.tag === 'Accionista' ? shCount : subCount}</span>
+              </div>
+            )}
+            <div className="owbar" data-testid={`own-list-item-${i}`}>
+              <span className="obn">{it.name}</span>
+              <span className="obt"><OwnBar pct={w} /></span>
+              <span className="obp">{fmtPct(it.pct)}</span>
+            </div>
+          </Fragment>
         );
       })}
     </div>
@@ -2780,7 +2797,10 @@ function OwnGraphView({ cg }: { cg: ControlGraphNominal }) {
   const [placeholder, setPlaceholder] = useState<string | null>(null);
   // Mapea `control_graph.graph.nodes/edges` v2 Intel al shape del interactiveGraph.
   const cfg = useMemo(() => {
-    const RED = '#FF5757', DARK = '#0C0C0E', INFO = '#4E4E48', SUB = '#5a544e';
+    // HARDENING · Fix separación visual Accionistas/Participadas en el grafo (Daniel 2026-09-09):
+    // SUB usaba un gris casi idéntico a INFO/DARK (accionistas) -> ilegible. Se cambia a un azul
+    // informativo (paleta --info del design system) para que participadas se distingan a simple vista.
+    const RED = '#FF5757', DARK = '#0C0C0E', INFO = '#4E4E48', SUB = '#2563EB';
     const graphNodes = cg.graph?.nodes ?? [];
     const graphEdges = cg.graph?.edges ?? [];
     if (!graphNodes.length) return null;

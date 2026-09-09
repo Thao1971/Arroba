@@ -67,10 +67,9 @@ export const PROPIEDAD_MOCKUP_CSS = `
 .owbar:last-child{border:0}
 .owbar .obn{width:230px;font-size:13px;color:var(--n800);display:flex;align-items:center;gap:8px}
 .owbar .obt{flex:1;height:9px;border-radius:5px;background:var(--n100);overflow:hidden}
-.owbar .obt i{display:block;height:100%;background:var(--red);width:0;animation:owbFill .9s cubic-bezier(.2,.7,.3,1) forwards}
+.owbar .obt i{display:block;height:100%;background:var(--red);width:0;transition:width .9s cubic-bezier(.3,.7,.3,1)}
 .owbar .obp{width:52px;text-align:right;font-weight:750;color:var(--n900);font-variant-numeric:tabular-nums}
 .owbar .obtag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--n400)}
-@keyframes owbFill{from{width:0}to{width:var(--w,0%)}}
 
 /* ========== Propiedad · Tab Grafo · motor interactiveGraph ========== */
 .ig-node{opacity:0;animation:igIn .45s ease forwards;animation-delay:var(--d);transition:opacity .15s}
