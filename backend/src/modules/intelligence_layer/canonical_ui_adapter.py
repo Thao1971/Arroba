@@ -193,6 +193,39 @@ def _evolution_series_from_points(
     return series
 
 
+def _balance_series_from_points(
+    points: list[dict[str, Any]] | None, years: list[int]
+) -> dict[str, list[float | None]]:
+    """Análogo a `_evolution_series_from_points` pero para las filas de
+    `BALANCE_ROWS` (no para el gráfico "Evolución financiera" del Resumen —
+    por eso es un dict separado, no una `FinancialSeries`, y nunca se mezcla
+    con `evolution_block.series`). Intel ahora emite estas 11 claves en
+    `evolution.points[]` — mismo dato ya calculado internamente por año, sin
+    interpolar (R15). Devuelve solo las claves con al menos un valor real."""
+    if not points:
+        return {}
+    by_year: dict[int, dict[str, Any]] = {}
+    for p in points:
+        if not isinstance(p, dict) or p.get("year") is None:
+            continue
+        by_year[int(p["year"])] = p
+
+    result: dict[str, list[float | None]] = {}
+    for key, _label, _category in BALANCE_ROWS:
+        vals: list[float | None] = []
+        any_value = False
+        for y in years:
+            v = by_year.get(y, {}).get(key)
+            if isinstance(v, (int, float)):
+                vals.append(float(v))
+                any_value = True
+            else:
+                vals.append(None)
+        if any_value:
+            result[key] = vals
+    return result
+
+
 # Fase 5 (2026-09-01) · Mapeo categoría/formato/fórmula para los 16 ratios de
 # Iberinform (Tier 1 sin R01/S01 + Tier 2) que sí se muestran como fila nueva
 # en la tarjeta "Ratios financieros" — ver FASE5_RATIOS_IBERINFORM_BETA_UI_PATCH.md
@@ -307,15 +340,21 @@ def to_financial_section(
     # --- balance ---
     bal_block: FinancialTableBlock | None = None
     if analysis.has_financials and analysis.balance_sheet and years:
+        bal_series_by_key = _balance_series_from_points(
+            analysis.evolution.get("points") if analysis.evolution else None, years
+        )
         bal_rows: list[FinancialTableRow] = []
         for key, label, category in BALANCE_ROWS:
             raw = getattr(analysis.balance_sheet, key, None)
             if raw is None:
                 continue
+            hist_vals = bal_series_by_key.get(key)
             cells = []
-            for y in years:
+            for i, y in enumerate(years):
                 if y == (last_year or years[-1]):
                     cells.append(FinancialTableCell(value=float(raw), format="currency"))
+                elif hist_vals is not None and i < len(hist_vals) and hist_vals[i] is not None:
+                    cells.append(FinancialTableCell(value=hist_vals[i], format="currency"))
                 else:
                     cells.append(FinancialTableCell(value=None, format="currency"))
             bal_rows.append(
