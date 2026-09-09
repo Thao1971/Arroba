@@ -1594,6 +1594,20 @@ function Valoracion({ valuation, financialAnalysis }: { valuation: ValuationAnal
           </div>
         </RevealCard>
       )}
+      <RevealCard className="card" style={{ marginTop: 16 }} testid="valuation-advanced-cta">
+        <h3><span className="k" />Valoración avanzada</h3>
+        <div className="cs">Un informe de valoración detallado, con ajustes específicos para tu operación</div>
+        <div style={{ marginTop: 10 }}>
+          <button
+            className="btn primary"
+            data-testid="valuation-advanced-btn"
+            onClick={() => notify({ kind: 'info', text: 'Solicitar valoración avanzada — Próximamente: E1.8' })}
+            style={{ fontSize: 13, fontWeight: 700 }}
+          >
+            Solicitar valoración avanzada
+          </button>
+        </div>
+      </RevealCard>
       {/* HARDENING-021 · Fase 3 · Metodología estática canónica (prosa CF redactada por Arroba,
           no dato de empresa · R15 respetado). Reemplaza el `<details className="method">`
           genérico que sólo mostraba el string `methodology` del payload. */}
