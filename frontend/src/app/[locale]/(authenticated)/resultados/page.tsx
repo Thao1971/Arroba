@@ -74,6 +74,30 @@ type Row = SearchResultItem & { summary?: RowSummary | null };
 
 const PAGE_SIZE = 12; // debe coincidir con _RESULTS_PAGE del backend
 
+const CNAE_SECTION_LABELS: Record<string, string> = {
+  A: 'Agricultura y pesca',
+  B: 'Industrias extractivas',
+  C: 'Manufactura',
+  D: 'Energía',
+  E: 'Agua y residuos',
+  F: 'Construcción',
+  G: 'Comercio',
+  H: 'Transporte',
+  I: 'Hostelería',
+  J: 'Información y comunicaciones',
+  K: 'Finanzas y seguros',
+  L: 'Inmobiliario',
+  M: 'Profesional y técnico',
+  N: 'Servicios auxiliares',
+  O: 'Administración pública',
+  P: 'Educación',
+  Q: 'Sanidad',
+  R: 'Ocio y cultura',
+  S: 'Otros servicios',
+  T: 'Hogares empleadores',
+  U: 'Organismos extraterritoriales',
+};
+
 /**
  * BUGFIX-2026-08-30 · Daniel: los chips "Relacionado" (sector/territorio/
  * empresa que coinciden con la query) solo relanzaban una búsqueda de texto
@@ -986,7 +1010,7 @@ export default function ResultadosPage() {
                   : 'bg-surface border-border text-text-muted hover:border-border-strong',
               )}
             >
-              {s}
+              {CNAE_SECTION_LABELS[s] || s}
               {sector === s && <span className="text-text-subtle">✕</span>}
             </button>
           ))}

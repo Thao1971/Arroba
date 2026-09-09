@@ -484,9 +484,16 @@ async def _execute_search_real(
     # cosa. Si taxonomy no reconoce la query (tax_resp is None, caso normal
     # para un nombre de empresa real como "movistar"), seguimos exactamente
     # igual que antes.
-    tax_resp = await _try_taxonomy(q, offset, sort_by=sort_by, sort_dir=sort_dir)
-    if tax_resp is not None:
-        return tax_resp
+    # FIX 2026-09-09: si `/resolve` ya encontró alguna empresa real por nombre
+    # (name_exact o name_partial), esa coincidencia real debe ganar siempre
+    # sobre una categoría de taxonomía que comparta la misma palabra. Taxonomy
+    # pasa a ser fallback SOLO cuando el resolve por nombre no encontró nada
+    # (matches vacío) — que es el caso original que motivó el fallback
+    # (p.ej. "panaderías", "aceros": no son nombre de ninguna empresa real).
+    if not matches:
+        tax_resp = await _try_taxonomy(q, offset, sort_by=sort_by, sort_dir=sort_dir)
+        if tax_resp is not None:
+            return tax_resp
     candidates = matches[:5]
     if 1 <= len(candidates) <= 5:
         # BUGFIX-2026-09-09 · Daniel (Punto 1 BONUS): `/resolve` ya devuelve
