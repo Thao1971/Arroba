@@ -1057,6 +1057,14 @@ export interface ControlGraphNode {
   id: string;
   label: string;
   kind: 'company' | 'shareholder' | 'ubo' | 'subsidiary' | string;
+  // HARDENING · click-to-expand (Daniel 2026-09-09): Intel ya emite estos 3
+  // campos en `graph.nodes[]` (control_graph + /connections), antes se
+  // descartaban al mapear a `CGNodeIn`. `master_id`/`cif` identifican el nodo
+  // para el fetch lazy de `/company/{node_id}/connections`; `expandable`
+  // indica si Intel tiene algo que mostrar (ver R15 — nunca se infiere).
+  master_id?: string | null;
+  cif?: string | null;
+  expandable?: boolean;
 }
 export interface ControlGraphEdge {
   from: string;

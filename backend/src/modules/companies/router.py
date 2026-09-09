@@ -86,6 +86,48 @@ async def get_suggest(
         return {"suggestions": [], "source": "error"}
 
 
+# HARDENING · click-to-expand (Daniel 2026-09-09): proxy fino a Intel
+# `GET /api/v1/company/{node_id}/connections` — vecindario 1-hop de un nodo
+# del grafo de control (accionistas/participadas DE ESE NODO, no de la
+# empresa raíz de la ficha). `node_id` = master_id o CIF, tal cual lo emite
+# Intel en `graph.nodes[].master_id/.cif`. Fail-fast ~8s (mismo patrón que
+# `/suggest`). R15: passthrough — no enriquece ni infiere. Un 404 de Intel
+# (nodo sin ninguna referencia cruzada conocida) se traduce a la MISMA forma
+# degradada que un fallo de red, no a un 404 Beta — el frontend ya sabe
+# pintar "sin conexiones" sin distinguir "Intel no tiene nada" de "Intel no
+# respondió". DECLARADO ANTES de `/{cif}` por el mismo motivo que `/suggest`
+# (ver comentario de esa función).
+@router.get("/{node_id}/connections")
+async def get_connections(
+    node_id: str = Path(..., min_length=1, max_length=80),
+    max_nodes: int = Query(20, ge=1, le=60),
+) -> dict:
+    try:
+        resp = await asyncio.wait_for(
+            get_agency_tool_client().request(
+                "GET",
+                f"/api/v1/company/{node_id}/connections",
+                params={"max_nodes": max_nodes},
+            ),
+            timeout=8.0,
+        )
+        if resp.status_code == 404:
+            return {"available": False, "owns": [], "owned_by": [], "source": "not_found"}
+        if resp.status_code >= 400:
+            log.warning(
+                "companies.connections.http_error",
+                status_code=resp.status_code, node_id=node_id,
+            )
+            return {"available": False, "owns": [], "owned_by": [], "source": "error"}
+        return resp.json()
+    except AgencyToolHTTPError:
+        log.warning("companies.connections.failed", exc_info=True)
+        return {"available": False, "owns": [], "owned_by": [], "source": "error"}
+    except (asyncio.TimeoutError, Exception):
+        log.warning("companies.connections.failed", exc_info=True)
+        return {"available": False, "owns": [], "owned_by": [], "source": "error"}
+
+
 def _cif_param(cif: str = Path(..., min_length=9, max_length=9, regex=r"^[A-Za-z]\d{8}$")) -> str:
     return cif.upper()
 

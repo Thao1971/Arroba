@@ -169,6 +169,45 @@ export interface DisambiguationItem {
   region: string | null;
 }
 
+/**
+ * HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): shape de un
+ * vecino en la respuesta de `GET /api/companies/{node_id}/connections`
+ * (proxy fino a Intel `GET /company/{node_id}/connections`). Espejo literal
+ * de los dicts `_mk(...)` en `company_ficha.py::_connections_from_master` /
+ * `_connections_from_raw_cif` — mismo shape en las dos resoluciones
+ * (`master_relationships` y fallback CIF crudo, ver `coverage.resolution`).
+ */
+export interface ConnectionItem {
+  name: string | null;
+  master_id: string | null;
+  cif: string | null;
+  pct: number | null;
+  type: 'individual' | 'legal';
+  expandable: boolean;
+  /** Solo presente en el lado `owns` (lo que el nodo controla) — ausente en `owned_by`. */
+  control_label?: string | null;
+  activity?: string | null;
+}
+
+/** Shape de `GET /api/companies/{node_id}/connections`. `node_id` = master_id
+ *  o cif de UN NODO del grafo de control (no necesariamente la empresa raíz
+ *  de la ficha) — vecindario 1-hop click-to-expand (HARDENING 2026-09-09).
+ *  Best-effort: si Intel no responde, el proxy Beta degrada a
+ *  `{available:false, owns:[], owned_by:[]}` en vez de lanzar. */
+export interface ConnectionsResponse {
+  node?: { master_id: string | null; cif: string | null; name: string | null };
+  available: boolean;
+  owns: ConnectionItem[];
+  owned_by: ConnectionItem[];
+  graph?: {
+    nodes: { id: string; label: string | null; kind: string; master_id: string | null; cif: string | null; expandable: boolean }[];
+    edges: { from: string; to: string; pct: number | null }[];
+  };
+  coverage?: { owns_count: number; owned_by_count: number; truncated: boolean; resolution: 'master_relationships' | 'raw_cif_crossref' };
+  source?: string;
+  engine_version?: string;
+}
+
 /** BUGFIX-2026-09-09 · Daniel (Punto 3): item devuelto por
  *  `GET /api/companies/suggest` (proxy fino a Intel). Contrato canónico
  *  de Intel confirmado por curl 09:20 UTC tras deploy upstream:

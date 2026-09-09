@@ -49,6 +49,8 @@ import type {
   SuggestItem,
   WatchlistToggleResponse,
 } from '@/lib/companies/types';
+// HARDENING · click-to-expand vía Intel (Daniel 2026-09-09).
+import type { ConnectionsResponse } from '@/lib/companies/types';
 
 /**
  * EntityLookupType — catálogo canónico multi-tipo (Regla 2 · Sprint 1).
@@ -697,6 +699,19 @@ export const apiClient = {
     resolve: (cif: string) =>
       request<CompanyResolveResponse>(
         `/api/companies/${cif.toUpperCase()}/resolve`,
+      ),
+    // HARDENING · click-to-expand vía Intel (Daniel 2026-09-09): proxy fino a
+    // `GET /company/{node_id}/connections` — vecindario 1-hop de UN NODO del
+    // grafo de control (accionistas/participadas DE ESE NODO, no de la
+    // empresa raíz de la ficha). `nodeId` = el `master_id` o `cif` que trae
+    // ese nodo en `graph.nodes[]` (Intel) — NO el `id` visual del nodo, que
+    // puede ser un placeholder sintético (`sh1`/`sub1`) cuando no hay
+    // master_id. Best-effort: el backend ya degrada a
+    // `{available:false, owns:[], owned_by:[]}` si Intel no responde/da 404 —
+    // el caller no necesita `.catch()`.
+    connections: (nodeId: string, maxNodes = 20) =>
+      request<ConnectionsResponse>(
+        `/api/companies/${encodeURIComponent(nodeId)}/connections?max_nodes=${maxNodes}`,
       ),
   },
   entities: {
