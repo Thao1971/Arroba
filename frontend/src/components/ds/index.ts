@@ -4,6 +4,8 @@ export { Badge } from './Badge';
 export { Button } from './Button';
 export { Card } from './Card';
 export { ConfidenceBadge } from './ConfidenceBadge';
+export { KpiCard } from './KpiCard';
+export type { KpiCardProps } from './KpiCard';
 export { Divider } from './Divider';
 export { Input } from './Input';
 export { Spinner } from './Spinner';

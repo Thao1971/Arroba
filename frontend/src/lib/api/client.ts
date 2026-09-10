@@ -217,7 +217,12 @@ export interface SavedListsResponse {
  */
 export interface MarketMapKpi {
   value: number | null;
-  change_pct: number | null;
+  // 2026-09-10: Intel expone mes-a-mes y año-a-año por separado (antes solo
+  // habia `change_pct`, ambiguo — resultaba ser interanual). Mapa Empresarial
+  // sigue leyendo el interanual tal cual estaba; la Home nueva puede pedir
+  // el mensual.
+  change_pct_mom: number | null;
+  change_pct_yoy: number | null;
   trend: string | null;
 }
 
@@ -285,6 +290,9 @@ export interface MarketMapTerritoryDetailResponse {
 export interface MarketMapSectorCard {
   cnae_code: string;
   cnae_level: MarketMapSectorLevel;
+  /** Etiqueta legible del nivel CNAE ("Sección" / "División" / "Grupo") — util cuando
+   * un mismo listado mezcla niveles (Home: "sectores mas dinamicos"). */
+  cnae_level_es?: string | null;
   cnae_label: string;
   size_score: number;
   growth_score: number;
@@ -300,7 +308,8 @@ export interface MarketMapSectorCard {
 }
 
 export interface MarketMapSectorsResponse {
-  level: MarketMapSectorLevel;
+  /** Puede ser un unico nivel ("section") o varios separados por coma ("section,division"). */
+  level: string;
   metric: MarketMapMetric;
   sectors: MarketMapSectorCard[];
   count: number;
@@ -817,9 +826,17 @@ export const apiClient = {
     },
     territory: (level: MarketMapGeoLevel, code: string) =>
       request<MarketMapTerritoryDetailResponse>(`/api/market-map/territory/${level}/${code}`),
-    sectors: (params: { level?: MarketMapSectorLevel; metric?: MarketMapMetric; limit?: number } = {}) => {
+    sectors: (
+      params: {
+        /** Uno o varios niveles CNAE — un array mezcla granularidades en un unico ranking
+         * (ej. ['section', 'division'] para "sectores mas dinamicos" en Home). */
+        level?: MarketMapSectorLevel | MarketMapSectorLevel[];
+        metric?: MarketMapMetric;
+        limit?: number;
+      } = {},
+    ) => {
       const qp = new URLSearchParams();
-      if (params.level) qp.set('level', params.level);
+      if (params.level) qp.set('level', Array.isArray(params.level) ? params.level.join(',') : params.level);
       if (params.metric) qp.set('metric', params.metric);
       if (typeof params.limit === 'number') qp.set('limit', String(params.limit));
       return request<MarketMapSectorsResponse>(`/api/market-map/sectors?${qp.toString()}`);

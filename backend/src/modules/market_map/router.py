@@ -19,6 +19,12 @@ router = APIRouter(prefix="/api/market-map", tags=["market_map"])
 
 _GEO_LEVELS = "^(ccaa|province)$"
 _SECTOR_LEVELS = "^(section|division|group)$"
+# 2026-09-10 (Home nueva): "sectores mas dinamicos" en Home mezcla niveles CNAE
+# (seccion + division) en un unico ranking, tal y como ya lo expone Intel en
+# `/sector-intelligence/top-dynamic?level=section,division`. Solo `/sectors`
+# necesita esto -- `/sectors/emerging` y `/sectors/{code}/signals` operan
+# sobre un unico nivel/sector y se quedan con `_SECTOR_LEVELS`.
+_SECTOR_LEVELS_MULTI = "^(section|division|group)(,(section|division|group))*$"
 _METRICS = "^(dynamism|size|growth|activity)$"
 
 
@@ -64,7 +70,11 @@ async def get_territory_detail(
 
 @router.get("/sectors")
 async def get_sectors(
-    level: str = Query("section", regex=_SECTOR_LEVELS),
+    level: str = Query(
+        "section",
+        regex=_SECTOR_LEVELS_MULTI,
+        description="Uno o varios niveles CNAE separados por coma (ej. 'section,division').",
+    ),
     metric: str = Query("dynamism", regex=_METRICS),
     limit: int = Query(10, ge=1, le=200),
 ) -> dict:

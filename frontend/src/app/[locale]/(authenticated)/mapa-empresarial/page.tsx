@@ -49,7 +49,7 @@ import {
   type MarketMapSectorLevel,
   type MarketMapMetric,
 } from '@/lib/api/client';
-import { Badge, Card, Spinner, Tooltip } from '@/components/ds';
+import { Badge, Card, KpiCard, Spinner, Tooltip } from '@/components/ds';
 import { cn } from '@/lib/cn';
 import { SpainMap } from '@/components/mapa-empresarial/SpainMap';
 
@@ -145,45 +145,6 @@ function EmptyRow({ text = 'No disponible ahora mismo' }: { text?: string }) {
       <AlertTriangle size={14} />
       <span>{text}</span>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* KPI row                                                             */
-/* ------------------------------------------------------------------ */
-
-function KpiCard({
-  label,
-  value,
-  changePct,
-  trend,
-}: {
-  label: string;
-  value: number | null;
-  changePct: number | null;
-  trend: string | null;
-}) {
-  return (
-    <Card>
-      <p className="text-xs text-text-muted">{label}</p>
-      <p className="font-display text-2xl font-semibold text-text mt-1">{fmtNum(value)}</p>
-      <div className="flex items-center gap-1 mt-1">
-        <TrendIcon trend={trend} />
-        <span
-          className={cn(
-            'text-xs font-medium',
-            changePct && changePct > 0
-              ? 'text-success'
-              : changePct && changePct < 0
-              ? 'text-danger'
-              : 'text-text-muted'
-          )}
-        >
-          {fmtPct(changePct)}
-        </span>
-        <span className="text-xs text-text-muted">vs. periodo anterior</span>
-      </div>
-    </Card>
   );
 }
 
@@ -797,20 +758,23 @@ export default function MapaEmpresarialPage() {
           <KpiCard
             label="Empresas activas"
             value={national.kpis.active_companies.value}
-            changePct={national.kpis.active_companies.change_pct}
+            changePct={national.kpis.active_companies.change_pct_yoy}
             trend={national.kpis.active_companies.trend}
+            periodLabel="vs. año anterior"
           />
           <KpiCard
             label="Altas"
             value={national.kpis.new_companies.value}
-            changePct={national.kpis.new_companies.change_pct}
+            changePct={national.kpis.new_companies.change_pct_yoy}
             trend={national.kpis.new_companies.trend}
+            periodLabel="vs. año anterior"
           />
           <KpiCard
             label="Bajas"
             value={national.kpis.closed_companies.value}
-            changePct={national.kpis.closed_companies.change_pct}
+            changePct={national.kpis.closed_companies.change_pct_yoy}
             trend={national.kpis.closed_companies.trend}
+            periodLabel="vs. año anterior"
           />
           <KpiCard
             label="Balance neto"

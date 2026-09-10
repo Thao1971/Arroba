@@ -1,6 +1,6 @@
 'use client';
 /**
- * Home privada — SPRINT 1 · F5
+ * Home privada — SPRINT 1 · F5 + Home nueva (2026-09-10)
  *
  * Estados canónicos:
  *   - App Shell primer día: sin actividad (watchlist vacía) → saludo + 3
@@ -9,22 +9,54 @@
  *   - Cartera: watchlist con >= 1 empresa → sección "Cartera" con
  *     CompanyCardsGridBlock iterando `watchlist.items`.
  *
- * NO añade otras secciones (Casos estratégicos, Oportunidades, Matchings)
- * hasta que existan sus entidades en sprints posteriores.
+ * 2026-09-10: se añaden 3 secciones del mockup de Claude Design que SI tienen
+ * dato real detrás en Intel/Beta, cableadas contra los mismos endpoints que
+ * ya usa Mapa Empresarial (`/api/market-map/*`, proxy publico de
+ * business-demography / sector-intelligence):
+ *   - Buscador + chips: mismo `useCopilot().send()` que el buscador del
+ *     hero publico (`HeroSearchTeaser`/`HeroSearchChips`, extraidos a
+ *     `@/components/home/HeroSearch`), no un mecanismo nuevo.
+ *   - KPIs (empresas activas/nuevas/cerradas + balance neto): mismo
+ *     `KpiCard` compartido que Mapa Empresarial, con la variacion
+ *     mes-a-mes (`change_pct_mom`) en vez de interanual -- a peticion de
+ *     Daniel, es la que mas se mueve y por tanto la mas util en un vistazo
+ *     diario.
+ *   - Sectores mas dinamicos: ranking real de `sector-intelligence`
+ *     mezclando niveles CNAE seccion + division en una sola lista
+ *     (`level=section,division`), etiquetando cada fila con `cnae_level_es`
+ *     para no ocultar que son granularidades distintas.
+ *
+ * NO añade las otras secciones del mockup que NO tienen dato real detras
+ * todavia: "Oportunidades detectadas" (tarjetas tematicas por IA/ciberseg/
+ * ESG/deuda -- Intel solo tiene senales por sector, no por tema), "Tus
+ * ultimas busquedas" / "Ultimas empresas consultadas" (no existe historial
+ * de actividad de usuario todavia) y el estadistico "5.265 empresas / 5
+ * capas de datos" del mockup (no corresponde a ningun conteo real de Intel).
+ * Mismo criterio que ya sigue esta pantalla y Mapa Empresarial: lo que Intel
+ * no calcula todavia, se omite -- nunca se rellena con un mock.
  */
 import useSWR from 'swr';
 import { useMemo } from 'react';
-import { Search, TrendingUp, Handshake } from 'lucide-react';
+import Link from 'next/link';
+import { Search, TrendingUp, TrendingDown, Minus, Handshake, Building2 } from 'lucide-react';
 import { RequireAuth } from '@/components/RequireAuth';
 import {
   FeatureCardBlock,
   CompanyCardsGridBlock,
   type CompanyCardsGridItem,
 } from '@/components/blocks';
-import { apiClient, type WatchlistListResponse } from '@/lib/api/client';
+import { Badge, Card, KpiCard, Spinner } from '@/components/ds';
+import { HeroSearchTeaser, HeroSearchChips } from '@/components/home/HeroSearch';
+import {
+  apiClient,
+  type WatchlistListResponse,
+  type MarketMapNationalResponse,
+  type MarketMapSectorsResponse,
+} from '@/lib/api/client';
 import { useActiveOrg } from '@/lib/workspaces/useActiveOrg';
 import { useAuth } from '@/contexts/auth-context';
 import { useCopilot } from '@/components/copilot/CopilotProvider';
+import { formatNumber, formatDecimal } from '@/lib/format';
 
 function greeting(now: Date, name: string | null | undefined): string {
   const h = now.getHours();
@@ -33,6 +65,54 @@ function greeting(now: Date, name: string | null | undefined): string {
   else if (h >= 21 || h < 6) base = 'Buenas noches';
   const first = (name || '').split(' ')[0]?.trim();
   return first ? `${base}, ${first}.` : `${base}.`;
+}
+
+function TrendIcon({ trend }: { trend: string | null | undefined }) {
+  if (trend === 'up') return <TrendingUp size={14} className="text-success" />;
+  if (trend === 'down') return <TrendingDown size={14} className="text-danger" />;
+  return <Minus size={14} className="text-text-muted" />;
+}
+
+/**
+ * Fila compacta de "Sectores más dinámicos". `s.cnae_level_es` puede ser
+ * "Sección" o "División" según la fila -- el ranking mezcla ambas
+ * granularidades a propósito (a petición de Daniel, 2026-09-10), así que se
+ * etiqueta cada una para que no parezcan del mismo nivel.
+ */
+function HomeSectorRow({
+  s,
+}: {
+  s: MarketMapSectorsResponse['sectors'][number];
+}) {
+  return (
+    <Link
+      href={`/sector/${s.cnae_code}`}
+      data-testid={`home-sector-row-${s.cnae_code}`}
+      className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md border border-transparent hover:bg-surface-2 hover:border-border transition-colors"
+    >
+      <span className="flex items-center gap-2 min-w-0">
+        <Building2 size={14} className="text-text-muted shrink-0" />
+        <span className="font-medium text-sm text-text truncate">{s.cnae_label}</span>
+        {s.cnae_level_es && (
+          <Badge variant="default" className="shrink-0">
+            {s.cnae_level_es}
+          </Badge>
+        )}
+        {s.partial_data && (
+          <Badge variant="warning" className="shrink-0">
+            Estimado
+          </Badge>
+        )}
+      </span>
+      <span className="flex items-center gap-3 shrink-0">
+        <span className="text-xs text-text-muted">{formatNumber(s.active_companies)} empresas</span>
+        <span className="font-mono text-sm font-semibold text-text">
+          {formatDecimal(s.dynamism_score, 1)}
+        </span>
+        <TrendIcon trend={s.trend_direction} />
+      </span>
+    </Link>
+  );
 }
 
 export default function HomePrivadaPage() {
@@ -52,6 +132,25 @@ function HomeContent() {
   const { data, isLoading } = useSWR<WatchlistListResponse>(
     watchlistKey,
     () => apiClient.users.getMyWatchlist(activeOrgId),
+    { revalidateOnFocus: false },
+  );
+
+  // Pulso del mercado -- mismo proxy publico que Mapa Empresarial
+  // (business-demography via /api/market-map/national). Variacion mes-a-mes
+  // a peticion de Daniel (2026-09-10): mas dinamica que el interanual para
+  // un vistazo diario.
+  const { data: national, isLoading: nationalLoading } = useSWR<MarketMapNationalResponse>(
+    '/api/market-map/national',
+    () => apiClient.marketMap.national(),
+    { revalidateOnFocus: false },
+  );
+
+  // Sectores mas dinamicos -- mezcla seccion + division en un unico ranking
+  // real (a peticion de Daniel, 2026-09-10): Intel ya lo soporta via
+  // `level=section,division` en `sector-intelligence/top-dynamic`.
+  const { data: sectorsResp, isLoading: sectorsLoading } = useSWR<MarketMapSectorsResponse>(
+    '/api/market-map/sectors?level=section,division&metric=dynamism&limit=6',
+    () => apiClient.marketMap.sectors({ level: ['section', 'division'], metric: 'dynamism', limit: 6 }),
     { revalidateOnFocus: false },
   );
 
@@ -95,6 +194,105 @@ function HomeContent() {
           </p>
         )}
       </header>
+
+      <section data-testid="home-privada-search" className="space-y-1">
+        <HeroSearchTeaser />
+        <HeroSearchChips />
+      </section>
+
+      <section
+        data-testid="home-privada-kpis"
+        className="space-y-3"
+        aria-labelledby="home-privada-kpis-title"
+      >
+        <h2
+          id="home-privada-kpis-title"
+          className="font-display text-lg font-semibold text-text-primary"
+        >
+          Pulso del mercado
+        </h2>
+        {nationalLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}>
+                <Spinner size={16} />
+              </Card>
+            ))}
+          </div>
+        ) : !national?.kpis ? (
+          <Card>
+            <p className="text-sm text-text-muted">
+              Intel no devolvió el resumen nacional en este momento.
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <KpiCard
+              label="Empresas activas"
+              value={national.kpis.active_companies.value}
+              changePct={national.kpis.active_companies.change_pct_mom}
+              trend={national.kpis.active_companies.trend}
+              periodLabel="vs. mes anterior"
+            />
+            <KpiCard
+              label="Altas"
+              value={national.kpis.new_companies.value}
+              changePct={national.kpis.new_companies.change_pct_mom}
+              trend={national.kpis.new_companies.trend}
+              periodLabel="vs. mes anterior"
+            />
+            <KpiCard
+              label="Bajas"
+              value={national.kpis.closed_companies.value}
+              changePct={national.kpis.closed_companies.change_pct_mom}
+              trend={national.kpis.closed_companies.trend}
+              periodLabel="vs. mes anterior"
+            />
+            <KpiCard
+              label="Balance neto"
+              value={national.kpis.net_balance.value}
+              changePct={null}
+              trend={
+                national.kpis.net_balance.value === null
+                  ? null
+                  : national.kpis.net_balance.value >= 0
+                  ? 'up'
+                  : 'down'
+              }
+            />
+          </div>
+        )}
+      </section>
+
+      <section
+        data-testid="home-privada-sectores"
+        className="space-y-3"
+        aria-labelledby="home-privada-sectores-title"
+      >
+        <h2
+          id="home-privada-sectores-title"
+          className="font-display text-lg font-semibold text-text-primary"
+        >
+          Sectores más dinámicos
+        </h2>
+        <Card padded={false}>
+          {sectorsLoading ? (
+            <div className="p-4">
+              <Spinner size={16} />
+            </div>
+          ) : !sectorsResp?.sectors.length ? (
+            <p className="text-sm text-text-muted p-4">
+              Intel no devolvió sectores en este momento.
+            </p>
+          ) : (
+            <div className="divide-y divide-border p-1">
+              {sectorsResp.sectors.map((s) => (
+                <HomeSectorRow key={s.cnae_code} s={s} />
+              ))}
+            </div>
+          )}
+        </Card>
+      </section>
 
       {hasActivity ? (
         <section
