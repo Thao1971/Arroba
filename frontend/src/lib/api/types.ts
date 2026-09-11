@@ -98,6 +98,31 @@ export interface CreateOrgResponse {
   membership: MembershipPublic;
 }
 
+// ===================== Users (Cuenta de Usuario) =====================
+
+export interface UpdateMePayload {
+  full_name?: string | null;
+}
+
+// ===================== Organizations — invitations =====================
+
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'cancelled';
+
+export interface InvitationPublic {
+  invitation_id: string;
+  org_id: string;
+  email: string;
+  role_in_org: OrgRole;
+  token: string;
+  expires_at: string;
+  status: InvitationStatus;
+}
+
+export interface InvitePayload {
+  email: string;
+  role_in_org?: OrgRole;
+}
+
 // ===================== Platform =====================
 
 export type Lineage = 'raw' | 'normalized' | 'inferred' | 'ai_generated';

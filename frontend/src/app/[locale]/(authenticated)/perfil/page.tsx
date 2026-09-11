@@ -1,9 +1,16 @@
 'use client';
+/**
+ * Perfil de usuario — CANONICAL_SCREENS.md #9.
+ * Implementación real de ACC_CUENTA_v0.1.md (Capítulo Perfil): reemplaza el
+ * EmptyStateBlock placeholder por los cuatro componentes documentados
+ * (COMP-14001 a COMP-14004).
+ */
 import { useTranslations } from 'next-intl';
-import { User as UserIcon } from 'lucide-react';
 import { RequireAuth } from '@/components/RequireAuth';
-import { EmptyStateBlock } from '@/components/blocks';
-import { useAuth } from '@/contexts/auth-context';
+import { IdentityCard } from '@/components/account/IdentityCard';
+import { ProfileCompleteness } from '@/components/account/ProfileCompleteness';
+import { CriteriaThesis } from '@/components/account/CriteriaThesis';
+import { AccountSecurity } from '@/components/account/AccountSecurity';
 
 export default function PerfilPage() {
   return (
@@ -15,16 +22,15 @@ export default function PerfilPage() {
 
 function PerfilInner() {
   const t = useTranslations();
-  const { user } = useAuth();
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
-      <EmptyStateBlock
-        icon={UserIcon}
-        title={t('header.profile')}
-        description={user?.email ? `${user.email} — ${user.role}` : ''}
-        hint="La edición del perfil llegará en una sub-fase posterior."
-        testId="perfil-placeholder"
-      />
+    <div className="max-w-3xl mx-auto px-6 py-12 space-y-6" data-testid="perfil-page">
+      <header>
+        <h1 className="font-display font-semibold text-2xl text-text">{t('header.profile')}</h1>
+      </header>
+      <IdentityCard />
+      <ProfileCompleteness />
+      <CriteriaThesis />
+      <AccountSecurity />
     </div>
   );
 }

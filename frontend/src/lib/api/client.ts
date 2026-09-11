@@ -7,12 +7,16 @@ import type {
   AuthResponse,
   CreateOrgPayload,
   CreateOrgResponse,
+  InvitationPublic,
+  InvitePayload,
   LoginPayload,
   MeResponse,
+  MembershipPublic,
   OrgWithMembership,
   PlatformStats,
   RegisterPayload,
   SessionExchangePayload,
+  UpdateMePayload,
 } from './types';
 
 import type {
@@ -529,6 +533,20 @@ export const apiClient = {
         body: JSON.stringify(payload),
       }),
     mine: () => request<OrgWithMembership[]>('/api/organizations/mine'),
+    /** Miembros de una organización (requiere pertenecer a ella). */
+    members: (orgId: string) =>
+      request<MembershipPublic[]>(`/api/organizations/${orgId}/members`),
+    /**
+     * Crea una invitación (requiere role_in_org owner|admin — el backend
+     * devuelve 403 si no). No envía email todavía: el token/enlace
+     * resultante hay que compartirlo manualmente hasta que exista un
+     * servicio de email conectado.
+     */
+    invite: (orgId: string, payload: InvitePayload) =>
+      request<InvitationPublic>(`/api/organizations/${orgId}/invitations`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
   platform: {
     /** Público — home page anónima. Devuelve `provenance: 'demo' | 'live'`
@@ -747,6 +765,12 @@ export const apiClient = {
   },
   users: {
     getMe: () => request<MeResponse>('/api/auth/me'),
+    /** PATCH /api/users/me — de momento solo `full_name` (ver UpdateMePayload). */
+    updateMe: (payload: UpdateMePayload) =>
+      request<import('./types').UserPublic>('/api/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }),
     getMyWatchlist: (activeOrg?: string | null) =>
       request<WatchlistListResponse>('/api/users/me/watchlist', {
         headers: activeOrg ? { 'X-Active-Org': activeOrg } : undefined,
