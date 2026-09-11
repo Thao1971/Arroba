@@ -38,14 +38,14 @@
 import useSWR from 'swr';
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { Search, TrendingUp, TrendingDown, Minus, Handshake, Building2 } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Minus, Handshake, Building2, Info } from 'lucide-react';
 import { RequireAuth } from '@/components/RequireAuth';
 import {
   FeatureCardBlock,
   CompanyCardsGridBlock,
   type CompanyCardsGridItem,
 } from '@/components/blocks';
-import { Badge, Card, KpiCard, Spinner } from '@/components/ds';
+import { Badge, Card, KpiCard, Spinner, Tooltip } from '@/components/ds';
 import { HeroSearchTeaser, HeroSearchChips } from '@/components/home/HeroSearch';
 import {
   apiClient,
@@ -56,7 +56,7 @@ import {
 import { useActiveOrg } from '@/lib/workspaces/useActiveOrg';
 import { useAuth } from '@/contexts/auth-context';
 import { useCopilot } from '@/components/copilot/CopilotProvider';
-import { formatNumber, formatDecimal } from '@/lib/format';
+import { formatNumber } from '@/lib/format';
 
 function greeting(now: Date, name: string | null | undefined): string {
   const h = now.getHours();
@@ -95,7 +95,7 @@ function HomeSectorRow({
         <span className="font-medium text-sm text-text truncate">{s.cnae_label}</span>
         {s.cnae_level_es && (
           <Badge variant="default" className="shrink-0">
-            {s.cnae_level_es}
+            {s.cnae_level_es} CNAE
           </Badge>
         )}
         {s.partial_data && (
@@ -107,7 +107,9 @@ function HomeSectorRow({
       <span className="flex items-center gap-3 shrink-0">
         <span className="text-xs text-text-muted">{formatNumber(s.active_companies)} empresas</span>
         <span className="font-mono text-sm font-semibold text-text">
-          {formatDecimal(s.dynamism_score, 1)}
+          {s.dynamism_score !== null && s.dynamism_score !== undefined
+            ? `${Math.round(s.dynamism_score)}%`
+            : '—'}
         </span>
         <TrendIcon trend={s.trend_direction} />
       </span>
@@ -269,12 +271,33 @@ function HomeContent() {
         className="space-y-3"
         aria-labelledby="home-privada-sectores-title"
       >
-        <h2
-          id="home-privada-sectores-title"
-          className="font-display text-lg font-semibold text-text-primary"
-        >
-          Sectores más dinámicos
-        </h2>
+        <div className="flex items-center gap-1.5">
+          <h2
+            id="home-privada-sectores-title"
+            className="font-display text-lg font-semibold text-text-primary"
+          >
+            Sectores más dinámicos
+          </h2>
+          <Tooltip
+            content={{
+              title: 'Metodología del ranking',
+              description:
+                'Índice de dinamismo = 25% tamaño (empresas activas) + 40% crecimiento (altas/bajas interanual) + 35% actividad reciente (contratación pública, movimientos societarios BORME y señales Iberinform). Sección CNAE / División CNAE = nivel de la clasificación oficial CNAE del sector. Estimado = falta alguna de las tres fuentes de actividad real, o no hay conteo directo de empresas — el dato combina estimaciones proporcionales.',
+            }}
+          >
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Información sobre el índice de dinamismo"
+              className="inline-flex items-center text-text-muted hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full cursor-help"
+            >
+              <Info size={14} />
+            </span>
+          </Tooltip>
+        </div>
+        <p className="text-sm text-text-muted">
+          Ranking nacional (sin desglose por comunidad o provincia) por índice de dinamismo — combina tamaño, crecimiento y actividad reciente.
+        </p>
         <Card padded={false}>
           {sectorsLoading ? (
             <div className="p-4">
@@ -292,6 +315,9 @@ function HomeContent() {
             </div>
           )}
         </Card>
+        <p className="text-xs text-text-muted mt-2">
+          Sección/División CNAE = nivel de la clasificación oficial · Estimado = falta alguna fuente real de actividad
+        </p>
       </section>
 
       {hasActivity ? (
