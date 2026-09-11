@@ -56,7 +56,8 @@
     "footer": "Analyse · Value · Buy/Sell",
     "statCompanies": "Spanish companies",
     "statMetrics": "economic metrics",
-    "statCopilot": "intelligence copilot"
+    "statCopilot": "intelligence copilot",
+    "statSignals": "market signals"
   },
   "auth": {
     "login": {

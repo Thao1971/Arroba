@@ -56,7 +56,8 @@
     "footer": "Analiza · Valora · Compra/Vende",
     "statCompanies": "compañías españolas",
     "statMetrics": "métricas económicas",
-    "statCopilot": "copiloto de inteligencia"
+    "statCopilot": "copiloto de inteligencia",
+    "statSignals": "señales del mercado"
   },
   "auth": {
     "login": {
