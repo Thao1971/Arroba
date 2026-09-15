@@ -204,7 +204,7 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   // Mixed-access: identidad + perfil semántico son públicos; las secciones con
   // cifras (finanzas, valoración, señales, compradores, oportunidades) solo se
   // piden con sesión. `null` key = no fetch.
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   // B-2.4 · Agregador: consolida `identity` + `financial-analysis` en 1 llamada.
   // HARDENING-015 (2026-08-13) · Fail-closed opt-in explícito: el SWR key incluye
@@ -214,12 +214,15 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   const {
     data: ficha,
     error: fichaError,
-    isLoading: fichaLoading,
+    isLoading: fichaRequestLoading,
   } = useSWR<CompanyFicha | null>(
-    ['ficha-b24-aggregate', cifUpper, isAuthenticated],
+    authLoading ? null : ['ficha-b24-aggregate', cifUpper, isAuthenticated],
     () => intelligenceClient.ficha(cifUpper, isAuthenticated),
     FETCH_CONFIG,
   );
+  // Esperar a /api/auth/me evita pedir primero la ficha pública y repetirla
+  // inmediatamente con ?authenticated=true al resolverse una sesión existente.
+  const fichaLoading = authLoading || fichaRequestLoading;
 
   const identity = ficha ? adaptIdentityFromFicha(ficha.identity, cifUpper) : null;
   const financialAnalysis = ficha?.finances ?? null;
