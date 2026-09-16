@@ -15,7 +15,7 @@
  * en el agregador (cf. `PARA_BETA_B24_FICHA_SHAPE.md`).
  */
 import useSWR from 'swr';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useAuth } from '@/contexts/auth-context';
 import { intelligenceClient } from '@/lib/companies/intelligence-client';
@@ -28,6 +28,7 @@ import type {
   SignalAnalysis,
   ValuationAnalysis,
 } from '@/lib/companies/intelligence-types';
+import type { MarketReadingResponse } from '@/lib/api/types';
 import { TipProvider } from '@/components/company/atoms/Tip';
 import { UnavailableBlock } from '@/components/blocks/UnavailableBlock';
 // BUGFIX-2026-08-30 (P8) · Loader temático para la Ficha F01 (dark hero con
@@ -276,14 +277,37 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
   // la ficha. Ahora esperan a que `fichaLoading` sea `false` (identity ya
   // resuelta o fallida) para arrancar, así no compiten con la carga crítica.
   const deferredReady = isAuthenticated && !fichaLoading;
-  const { data: marketReading } = useSWR<string | null>(
+
+  // HARDENING-038d · lectura de mercado diferida. Backend devuelve
+  //   {reading, status: 'pending' | 'ready' | 'unavailable'}
+  // Polling limitado (máx. 6 intentos, 3s entre polls) SOLO mientras `pending`.
+  // Se aplica `refreshInterval` inline aquí — NO en `FETCH_CONFIG` compartido
+  // (los otros 8 hooks del componente NO deben hacer polling).
+  const MARKET_MAX_ATTEMPTS = 6;
+  const marketAttemptRef = useRef(0);
+  useEffect(() => {
+    // Reset al cambiar de empresa: el nuevo CIF empieza desde 0 intentos.
+    marketAttemptRef.current = 0;
+  }, [cifUpper]);
+
+  const { data: marketReading } = useSWR<MarketReadingResponse | null>(
     deferredReady ? ['ficha-market-reading', cifUpper] : null,
-    () =>
-      apiClient.companies
-        .marketReading(cifUpper)
-        .then((r) => r.reading ?? null)
-        .catch(() => null),
-    FETCH_CONFIG,
+    () => apiClient.companies.marketReading(cifUpper).catch(() => null),
+    {
+      ...FETCH_CONFIG,
+      refreshInterval: (latest) => {
+        if (!latest || latest.status !== 'pending') return 0;
+        if (marketAttemptRef.current >= MARKET_MAX_ATTEMPTS) return 0;
+        return 3000;
+      },
+      onSuccess: (latest) => {
+        if (latest?.status === 'pending') {
+          marketAttemptRef.current += 1;
+        } else {
+          marketAttemptRef.current = 0;
+        }
+      },
+    },
   );
   const { data: succession } = useSWR<unknown>(
     deferredReady ? ['ficha-succession', cifUpper] : null,
@@ -352,7 +376,7 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
         market={ficha?.market ?? null}
         capitalMarkets={ficha?.capital_markets ?? null}
         opportunity={ficha?.opportunity ?? null}
-        marketReading={marketReading ?? null}
+        marketReading={marketReading?.reading ?? null}
         succession={succession ?? null}
         rollup={rollup ?? null}
         authenticated={isAuthenticated}

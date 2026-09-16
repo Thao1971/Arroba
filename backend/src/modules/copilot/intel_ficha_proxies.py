@@ -47,6 +47,39 @@ _cache: dict[str, tuple[float, Any]] = {}
 # (precomputar/cachear la narrativa IA) — HARDENING-038d, lado Intel.
 _FICHA_TIMEOUT_S: float = 7.5
 
+# HARDENING-038d · lectura de mercado diferida (2026-09-15). Intel V4 dejó de
+# poblar `market.reading_ai` dentro de `/ficha` (a propósito) y expone la
+# narrativa en `/api/v1/company/{cif}/market`, donde la genera Claude en frío
+# (~13s). Esto excede el cap del edge (~8s) para llamadas síncronas, así que
+# `market_reading()` no espera: dispara una background task deduplicada por
+# CIF (25s de margen, corre DENTRO del pod — no atraviesa el edge) y devuelve
+# `pending` inmediato. El frontend hace polling limitado (max 6 intentos, 3s
+# entre polls) hasta ver `ready` o `unavailable`. Cache propia con sentinel
+# porque el `_cache_put` compartido NO guarda `None` (no distingue miss vs
+# "sabemos que no hay dato") — necesitamos poder cachear `unavailable` para
+# no rebombear a Claude tras un fallo.
+_MARKET_FETCH_TIMEOUT_S: float = 25.0
+_MARKET_MISS = object()
+_market_cache: dict[str, tuple[float, str | None]] = {}
+_inflight_market: dict[str, asyncio.Task[None]] = {}
+
+
+def _market_cache_get(cif: str) -> Any:
+    """Devuelve `_MARKET_MISS` si no hay entrada, o `str | None` si la hay.
+
+    Distingue "no consultado" (miss real → dispara task) de "consultado y
+    Claude no devolvió nada" (unavailable → NO redispara task).
+    """
+    hit = _market_cache.get(cif)
+    if hit and (time.time() - hit[0]) < _TTL_S:
+        return hit[1]
+    return _MARKET_MISS
+
+
+def _market_cache_put(cif: str, value: str | None) -> None:
+    """A diferencia del `_cache_put` compartido, SÍ acepta `None` (unavailable)."""
+    _market_cache[cif] = (time.time(), value)
+
 # Lente del comité → perfil de comprador del motor `investment-decision/analyze`.
 LENS_PROFILE: dict[str, str | None] = {
     "neutral": None,
@@ -178,21 +211,63 @@ async def rollup_thesis(cif: str, cnae: str | None = None) -> dict[str, Any] | N
     return res
 
 
-async def market_reading(cif: str) -> str | None:
-    """Lectura de mercado en prosa (Intel `market.reading_ai`).
+async def _fetch_market_async(cif: str) -> None:
+    """Background task: llama a Intel `/market`, cachea el reading y limpia inflight.
 
-    Intel emite el string dentro del bloque `market` de `/ficha?section=market`;
-    aquí se expone suelto para la nueva pestaña Mercado. Cacheado por cif.
+    NO usa `_get_json` porque su timeout es 7.5s (cap del edge). Esta task corre
+    dentro del pod, no atraviesa el edge, así que puede esperar 25s a Claude.
+    Cualquier fallo (timeout, cancelación, HTTP, parseo) → cachea `None`
+    (`unavailable`) con TTL de 1h para NO rebombear a Claude en el próximo
+    intento. El bloque `finally` garantiza que `_inflight_market[cif]` se
+    limpia SIEMPRE (éxito, error o cancelación).
+    """
+    reading: str | None = None
+    try:
+        resp = await asyncio.wait_for(
+            _intel_call_ff(get_agency_tool_client().request("GET", f"/api/v1/company/{cif}/market")),
+            timeout=_MARKET_FETCH_TIMEOUT_S,
+        )
+        if resp is not None and resp.status_code < 400 and resp.content:
+            try:
+                res = resp.json()
+                if isinstance(res, dict):
+                    val = res.get("reading_ai") or res.get("reading")
+                    if isinstance(val, str) and val.strip():
+                        reading = val
+            except Exception as exc:  # noqa: BLE001 — parseo defensivo
+                log.warning("copilot.market_reading.parse_fail cif=%s error=%s", cif, exc)
+    except asyncio.CancelledError:
+        # Aceptado: dejamos reading=None y propagamos la cancelación tras el finally.
+        _market_cache_put(cif, None)
+        _inflight_market.pop(cif, None)
+        raise
+    except Exception as exc:  # noqa: BLE001 — degradación honesta (incl. timeout)
+        log.warning("copilot.market_reading.fetch_fail cif=%s error=%s", cif, exc)
+    finally:
+        _market_cache_put(cif, reading)
+        _inflight_market.pop(cif, None)
+
+
+async def market_reading(cif: str) -> dict[str, Any]:
+    """Lectura de mercado en prosa (Intel `/api/v1/company/{cif}/market` → `reading_ai`).
+
+    Contrato ampliado y retrocompatible (`reading` sigue presente):
+        · `{"reading": None, "status": "pending"}`     — task en marcha (o recién disparada)
+        · `{"reading": "...", "status": "ready"}`      — narrativa cacheada, hit
+        · `{"reading": None, "status": "unavailable"}` — consultado y Claude no entregó (fallo o vacío)
+
+    Frontend hace polling limitado (max 6 intentos, 3s entre polls) mientras
+    `status === 'pending'`. Cache TTL 1h por CIF; task deduplicada por CIF.
     """
     cif = _cif(cif)
-    key = f"market_reading:{cif}"
-    cached = _cache_get(key)
-    if cached is not None:
-        return cached
-    res = await _get_json(f"/api/v1/company/{cif}/ficha?section=market")
-    reading = None
-    if isinstance(res, dict):
-        market = res.get("market") or {}
-        reading = market.get("reading_ai") or market.get("reading")
-    _cache_put(key, reading)
-    return reading
+    cached = _market_cache_get(cif)
+    if cached is _MARKET_MISS:
+        # No hemos consultado nunca (o TTL expirado): disparar task si no hay
+        # una in-flight ya para este CIF. Devolver pending inmediatamente.
+        if cif not in _inflight_market:
+            _inflight_market[cif] = asyncio.create_task(_fetch_market_async(cif))
+        return {"reading": None, "status": "pending"}
+    if isinstance(cached, str):
+        return {"reading": cached, "status": "ready"}
+    # cached is None (cacheado explícitamente como "consultado sin resultado").
+    return {"reading": None, "status": "unavailable"}

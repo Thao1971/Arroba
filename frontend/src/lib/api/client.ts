@@ -10,6 +10,7 @@ import type {
   InvitationPublic,
   InvitePayload,
   LoginPayload,
+  MarketReadingResponse,
   MeResponse,
   MembershipPublic,
   OrgWithMembership,
@@ -714,7 +715,7 @@ export const apiClient = {
         `/api/companies/${cif.toUpperCase()}/rollup${cnae ? `?cnae=${encodeURIComponent(cnae)}` : ''}`,
       ),
     marketReading: (cif: string) =>
-      request<{ reading: string | null }>(
+      request<MarketReadingResponse>(
         `/api/companies/${cif.toUpperCase()}/market-reading`,
       ),
     // 2026-09-07 · Daniel (loading screen, punto 9c): resolución ligera y

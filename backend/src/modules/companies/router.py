@@ -360,10 +360,11 @@ async def get_market_reading(
     cif: str = Depends(_cif_param),
     user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
 ) -> dict:
-    res = await intel_ficha_proxies.market_reading(cif)
-    if res is None:
-        raise _upstream_502("market_reading")
-    return {"reading": res}
+    # HARDENING-038d · contrato ampliado retrocompatible: {reading, status}.
+    # `status ∈ {"pending","ready","unavailable"}`. NUNCA 502: R15 exige vacío
+    # estructurado, no error HTTP, para que el frontend haga polling limitado
+    # sin que un 502 del backend se lea como "algo se rompió".
+    return await intel_ficha_proxies.market_reading(cif)
 
 
 __all__ = ["router"]

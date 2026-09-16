@@ -142,3 +142,19 @@ export interface PlatformStats {
    *  `live` (proveedor real en producción). */
   provenance: 'demo' | 'live';
 }
+
+// ===================== Companies · Market reading =====================
+
+/**
+ * Contrato de `GET /api/companies/{cif}/market-reading` (HARDENING-038d).
+ *
+ * La narrativa de mercado la genera Claude en frío (~13s), lo que excede el
+ * cap del edge (~8s). El backend dispara una background task deduplicada por
+ * CIF y responde inmediato con `pending`. El frontend hace polling limitado
+ * (máx. 6 intentos, 3s entre polls) hasta que `status` cambia a `ready` o
+ * `unavailable`. Nunca 502.
+ */
+export interface MarketReadingResponse {
+  reading: string | null;
+  status: 'pending' | 'ready' | 'unavailable';
+}
