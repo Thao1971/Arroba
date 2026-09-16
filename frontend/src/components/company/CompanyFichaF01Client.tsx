@@ -280,10 +280,12 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
 
   // HARDENING-038d · lectura de mercado diferida. Backend devuelve
   //   {reading, status: 'pending' | 'ready' | 'unavailable'}
-  // Polling limitado (máx. 6 intentos, 3s entre polls) SOLO mientras `pending`.
+  // Polling limitado (máx. 10 intentos, 3s entre polls) SOLO mientras `pending`.
+  // 10 intentos ≈ 30s de polling — cubre el timeout total del task backend (27s)
+  // con un margen extra para no cortar en el último tick.
   // Se aplica `refreshInterval` inline aquí — NO en `FETCH_CONFIG` compartido
   // (los otros 8 hooks del componente NO deben hacer polling).
-  const MARKET_MAX_ATTEMPTS = 6;
+  const MARKET_MAX_ATTEMPTS = 10;
   const marketAttemptRef = useRef(0);
   useEffect(() => {
     // Reset al cambiar de empresa: el nuevo CIF empieza desde 0 intentos.
@@ -376,7 +378,11 @@ export function CompanyFichaF01Client({ cif }: CompanyFichaF01ClientProps) {
         market={ficha?.market ?? null}
         capitalMarkets={ficha?.capital_markets ?? null}
         opportunity={ficha?.opportunity ?? null}
-        marketReading={marketReading?.reading ?? null}
+        marketReading={
+          marketReading?.status === 'pending'
+            ? 'Preparando lectura de mercado…'
+            : marketReading?.reading ?? null
+        }
         succession={succession ?? null}
         rollup={rollup ?? null}
         authenticated={isAuthenticated}
