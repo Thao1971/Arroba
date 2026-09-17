@@ -29,6 +29,7 @@
  * `initialReading` (el monolito ya la calcula vía `market-reading` de Intel).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 import { cn } from '@/lib/cn';
 import { apiClient, type MarketAnalysisResponse } from '@/lib/api/client';
 
@@ -605,9 +606,98 @@ export function MercadoTab({ companyId, initialReading }: MercadoTabProps) {
     toastTimer.current = setTimeout(() => setToast(null), 2400);
   }, []);
 
-  // carga inicial
+  // HARDENING-038f (2026-09-17 · Daniel opción b) · Análisis diferido con
+  // polling limitado — mismo patrón que market-reading en CompanyFichaF01Client
+  // (commit 5861634): backend devuelve `{status: 'pending'|'ready'|'unavailable'}`
+  // y aquí hacemos hasta 10 intentos con `refreshInterval: 3000` (inline, NO
+  // en FETCH_CONFIG compartido). El pipeline (resolve + comparables + summary)
+  // corre en background del backend con TASK_ANALYSIS_TIMEOUT_S=25s, fuera del
+  // edge (8s), porque `recommendation-intelligence/comparables` tarda 11-14s
+  // consistentemente. Reset del contador al cambiar de empresa.
+  const ANALYSIS_MAX_ATTEMPTS = 10;
+  const analysisAttemptRef = useRef(0);
+  useEffect(() => {
+    analysisAttemptRef.current = 0;
+  }, [companyId]);
+
+  const { data: analysis } = useSWR<MarketAnalysisResponse | null>(
+    USE_LIVE && companyId ? ['market-analysis', companyId] : null,
+    () => apiClient.companies.marketAnalysis(companyId).catch(() => null),
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false,
+      refreshInterval: (latest) => {
+        if (!latest || latest.status !== 'pending') return 0;
+        if (analysisAttemptRef.current >= ANALYSIS_MAX_ATTEMPTS) return 0;
+        return 3000;
+      },
+      onSuccess: (latest) => {
+        if (latest?.status === 'pending') {
+          analysisAttemptRef.current += 1;
+        } else {
+          analysisAttemptRef.current = 0;
+        }
+      },
+    },
+  );
+
+  // Carga inicial: en modo LIVE espera al primer `analysis?.status !== 'pending'`
+  // y siembra `_liveCache` con esos datos antes de arrancar el flujo (para que
+  // `LiveAdapter.getSavedMarket` los lea directamente sin re-fetch). En modo
+  // MOCK dispara inmediatamente. R15: `unavailable`/companies vacío → estado
+  // vacío honesto (`market=null` → tarjeta "Sin datos de mercado suficientes").
   useEffect(() => {
     let alive = true;
+    if (USE_LIVE) {
+      if (!analysis) {
+        // Aún esperando el 1er hit (SWR sin data): mantener loading limpio.
+        setLoading(true);
+        return () => {
+          alive = false;
+        };
+      }
+      if (analysis.status === 'pending') {
+        setLoading(true);
+        return () => {
+          alive = false;
+        };
+      }
+      if (analysis.status === 'unavailable' || (analysis.companies ?? []).length === 0) {
+        setMarket(null);
+        setMembers([]);
+        setComparables(null);
+        setCandidates([]);
+        setWhiteSpace([]);
+        setLoading(false);
+        return () => {
+          alive = false;
+        };
+      }
+      // `ready` con companies>=1: sembrar _liveCache antes de LiveAdapter.
+      const companiesEnriched = (analysis.companies ?? []).map((c) =>
+        enrich({
+          master_id: c.master_id,
+          name: c.name,
+          category: c.category,
+          province: c.province ?? undefined,
+          revenue: c.revenue ?? 0,
+          ebitda: c.ebitda,
+          employees: c.employees,
+          quality_score: c.quality_score,
+          growth: c.growth,
+          ebitda_margin: null,
+          rev_per_emp: null,
+        }),
+      );
+      _liveCache = {
+        cif: companyId,
+        data: {
+          anchor_id: analysis.anchor_id,
+          companies: companiesEnriched,
+          comparables: analysis.comparables ?? [],
+        },
+      };
+    }
     (async () => {
       setLoading(true);
       try {
@@ -638,7 +728,7 @@ export function MercadoTab({ companyId, initialReading }: MercadoTabProps) {
     return () => {
       alive = false;
     };
-  }, [companyId]);
+  }, [companyId, analysis]);
 
   // scores de cercanía aplicados a los miembros
   const scoreMap = useMemo(() => {
@@ -745,8 +835,15 @@ export function MercadoTab({ companyId, initialReading }: MercadoTabProps) {
   const creditBalance = credits ? credits.monthly_limit - credits.monthly_used + credits.purchased : null;
 
   if (loading) {
+    const pendingLabel =
+      USE_LIVE && analysis?.status === 'pending' ? 'Preparando análisis estratégico…' : null;
     return (
       <div className="flex flex-col gap-3 p-2">
+        {pendingLabel ? (
+          <div className="text-caption font-semibold text-text-secondary" data-testid="market-analysis-pending-label">
+            {pendingLabel}
+          </div>
+        ) : null}
         {[0, 1, 2].map((i) => <div key={i} className="h-24 rounded-2xl border border-border-default bg-surface-muted animate-pulse" />)}
       </div>
     );

@@ -78,6 +78,45 @@ _MARKET_MISS = object()
 _market_cache: dict[str, tuple[float, float, dict[str, Any]]] = {}
 _inflight_market: dict[str, asyncio.Task[None]] = {}
 
+# HARDENING-038f (2026-09-17 · Daniel opción b) · Mismo patrón background+polling
+# que `market_reading` (commit 5861634) aplicado a `market_analysis`. Razón:
+# Intel `/api/v1/recommendation-intelligence/comparables` tarda de forma
+# consistente 11-14s (verificado con 3 muestras/CIF · Servier, JOCA, GESTEC,
+# IUSTIME) y el cap propio del proxy `_FICHA_TIMEOUT_S=7.5s` cancelaba SIEMPRE
+# la coroutine → `recs=[]` → pipeline degradado a `companies=1, comparables=[]`.
+# Los otros 2 motores del pipeline (resolve · summary) son rápidos (<2s), pero
+# el eslabón lento arrastraba al conjunto. Solución: mover TODO el pipeline al
+# background con TASK_ANALYSIS_TIMEOUT_S=25s (dentro del pod, fuera del edge 8s)
+# y devolver `pending` en el primer hit del cliente. Contrato final:
+#     · `{"anchor_id": <id>, "companies":[...], "comparables":[...], "status":"ready"}`
+#     · `{"anchor_id": None,  "companies":[],   "comparables":[],   "status":"pending"}`
+#     · `{"anchor_id": None,  "companies":[],   "comparables":[],   "status":"unavailable"}`
+# TTLs simétricos a market_reading (READY 1h, UNAVAILABLE/TRANSIENT 5min).
+TASK_ANALYSIS_TIMEOUT_S: float = 25.0
+CACHE_TTL_ANALYSIS_READY: float = 3600.0
+CACHE_TTL_ANALYSIS_UNAVAILABLE: float = 300.0
+CACHE_TTL_ANALYSIS_TRANSIENT: float = 300.0
+
+_ANALYSIS_MISS = object()
+# entry shape: (stored_at, ttl_s, value_dict)
+_analysis_cache: dict[str, tuple[float, float, dict[str, Any]]] = {}
+_inflight_analysis: dict[str, asyncio.Task[None]] = {}
+
+
+def _analysis_key(cif: str, limit: int) -> str:
+    return f"{cif}:{limit}"
+
+
+def _analysis_cache_get(key: str) -> Any:
+    hit = _analysis_cache.get(key)
+    if hit and (time.time() - hit[0]) < hit[1]:
+        return hit[2]
+    return _ANALYSIS_MISS
+
+
+def _analysis_cache_put(key: str, value: dict[str, Any], ttl: float) -> None:
+    _analysis_cache[key] = (time.time(), ttl, value)
+
 
 def _market_cache_get(cif: str) -> Any:
     """Devuelve `_MARKET_MISS` si no hay entrada o si expiró, o el dict cacheado.
@@ -396,96 +435,195 @@ def _eur_to_meur(v: Any) -> float | None:
         return None
 
 
-async def market_analysis(cif: str, limit: int = 20) -> dict[str, Any] | None:
-    """Análisis estratégico de mercado (READ-ONLY).
+async def _post_json_analysis(path: str, body: dict[str, Any]) -> dict[str, Any] | None:
+    """POST canónico con cap AMPLIADO (TASK_ANALYSIS_TIMEOUT_S=25s) — SOLO usar
+    dentro del background task de `market_analysis`, JAMÁS en el request path
+    que atraviesa el edge (~8s). El `_intel_call_ff` interno del cliente sigue
+    aplicando (fail-fast propio del wrapper); esta función solo eleva el techo
+    superior de espera.
+    """
+    try:
+        resp = await asyncio.wait_for(
+            get_agency_tool_client().request("POST", path, json=body),
+            timeout=TASK_ANALYSIS_TIMEOUT_S,
+        )
+    except Exception as exc:  # noqa: BLE001 — degradación honesta (incl. timeout)
+        log.warning("copilot.market_analysis.post_fail path=%s error=%s", path, exc)
+        return None
+    if resp.status_code >= 400:
+        log.warning(
+            "copilot.market_analysis.http_%d path=%s", resp.status_code, path
+        )
+        return None
+    return resp.json() if resp.content else None
 
-    Combina 3 motores de Intel ya en producción (resolve + recommendation/comparables +
-    company-taxonomy/summary) en el modelo que consume <MercadoTab>: revenue/ebitda en
-    M€, growth en %, quality_score = arroba_score (0-100). Solo empresas con revenue Y
-    score reales. None = fallo upstream; {anchor_id:None,...} = sin dato suficiente
-    (front pinta vacío).
+
+async def _fetch_analysis_async(cif: str, limit: int) -> None:
+    """Background task del análisis estratégico. Corre DENTRO del pod, así que
+    puede esperar los 11-14s que Intel necesita para `recommendation-intelligence/
+    comparables` sin quemar el edge. Mismo patrón que `_fetch_market_async`
+    (commit 5861634): `finally` limpia `_inflight_analysis[cif]` siempre.
+
+    Política de caché al terminar:
+        · éxito con `companies >= 1` → `{status:"ready"}` + TTL 1h
+        · éxito con `companies == 0`  → `{status:"unavailable"}` + TTL 5min
+        · error/timeout total         → `{status:"unavailable"}` + TTL 5min (TRANSIENT)
+    """
+    key = _analysis_key(cif, limit)
+    try:
+        resolved = await _post_json_analysis(
+            "/api/v2/company-intelligence/resolve", {"cif": cif, "limit": 1}
+        )
+        if resolved is None:
+            _analysis_cache_put(
+                key,
+                {"anchor_id": None, "companies": [], "comparables": [], "status": "unavailable"},
+                ttl=CACHE_TTL_ANALYSIS_TRANSIENT,
+            )
+            return
+        matches = resolved.get("matches") or []
+        if not matches:
+            _analysis_cache_put(
+                key,
+                {"anchor_id": None, "companies": [], "comparables": [], "status": "unavailable"},
+                ttl=CACHE_TTL_ANALYSIS_UNAVAILABLE,
+            )
+            return
+        anchor = matches[0]
+        anchor_id = anchor.get("master_id")
+        if not anchor_id:
+            _analysis_cache_put(
+                key,
+                {"anchor_id": None, "companies": [], "comparables": [], "status": "unavailable"},
+                ttl=CACHE_TTL_ANALYSIS_UNAVAILABLE,
+            )
+            return
+
+        comp = await _post_json_analysis(
+            "/api/v1/recommendation-intelligence/comparables",
+            {"identifier": anchor_id, "limit": limit},
+        )
+        recs = (comp or {}).get("recommendations") or []
+
+        name_by: dict[str, str] = {}
+        score_by: dict[str, float] = {}
+        order: list[str] = [anchor_id]
+        if anchor.get("legal_name"):
+            name_by[anchor_id] = anchor["legal_name"]
+        for r in recs:
+            cand = r.get("candidate") or {}
+            mid = cand.get("master_id")
+            if not mid or mid == anchor_id:
+                continue
+            if mid not in name_by and cand.get("name"):
+                name_by[mid] = cand["name"]
+            if r.get("score") is not None:
+                score_by[mid] = r["score"]
+            if mid not in order:
+                order.append(mid)
+
+        summ_resp = await _post_json_analysis(
+            "/api/v1/company-taxonomy/summary", {"master_ids": order}
+        )
+        summaries = (summ_resp or {}).get("summaries") or {}
+
+        companies: list[dict[str, Any]] = []
+        for mid in order:
+            s = summaries.get(mid) or {}
+            rev = s.get("revenue")
+            q = s.get("arroba_score")
+            if rev is None or q is None:
+                continue
+            growth = s.get("growth_pct")
+            province = anchor.get("province") if mid == anchor_id else s.get("city")
+            companies.append(
+                {
+                    "master_id": mid,
+                    "name": name_by.get(mid) or mid,
+                    "category": s.get("activity_label") or "—",
+                    "province": province,
+                    "revenue": _eur_to_meur(rev),
+                    "ebitda": _eur_to_meur(s.get("ebitda")),
+                    "employees": s.get("employees") or 0,
+                    "quality_score": q,
+                    "growth": None if growth is None else round(growth * 100, 1),
+                }
+            )
+
+        if not any(c["master_id"] == anchor_id for c in companies):
+            _analysis_cache_put(
+                key,
+                {"anchor_id": None, "companies": [], "comparables": [], "status": "unavailable"},
+                ttl=CACHE_TTL_ANALYSIS_UNAVAILABLE,
+            )
+            return
+
+        present = {c["master_id"] for c in companies}
+        comparables_out = [
+            {"master_id": mid, "name": name_by.get(mid) or mid, "score": score_by.get(mid)}
+            for mid in order
+            if mid != anchor_id and mid in present
+        ]
+
+        _analysis_cache_put(
+            key,
+            {
+                "anchor_id": anchor_id,
+                "companies": companies,
+                "comparables": comparables_out,
+                "status": "ready",
+            },
+            ttl=CACHE_TTL_ANALYSIS_READY,
+        )
+    except asyncio.CancelledError:
+        _analysis_cache_put(
+            key,
+            {"anchor_id": None, "companies": [], "comparables": [], "status": "unavailable"},
+            ttl=CACHE_TTL_ANALYSIS_TRANSIENT,
+        )
+        raise
+    except Exception as exc:  # noqa: BLE001 — degradación honesta
+        log.warning(
+            "copilot.market_analysis.fetch_unexpected cif=%s error=%s", cif, exc
+        )
+        _analysis_cache_put(
+            key,
+            {"anchor_id": None, "companies": [], "comparables": [], "status": "unavailable"},
+            ttl=CACHE_TTL_ANALYSIS_TRANSIENT,
+        )
+    finally:
+        _inflight_analysis.pop(key, None)
+
+
+async def market_analysis(cif: str, limit: int = 20) -> dict[str, Any]:
+    """Análisis estratégico de mercado (READ-ONLY · contrato ampliado).
+
+    Devuelve SIEMPRE un dict con `status`. Frontend hace polling limitado
+    mientras `status === 'pending'`:
+        · `{"anchor_id":..., "companies":[...], "comparables":[...], "status":"ready"}`
+        · `{"anchor_id": None, "companies":[], "comparables":[], "status":"pending"}`
+        · `{"anchor_id": None, "companies":[], "comparables":[], "status":"unavailable"}`
+
+    El pipeline (resolve + recommendation/comparables + company-taxonomy/summary)
+    corre en background con TASK_ANALYSIS_TIMEOUT_S=25s (fuera del edge 8s),
+    porque `recommendation-intelligence/comparables` de Intel tarda 11-14s de
+    forma consistente y antes se perdía por el cap `_FICHA_TIMEOUT_S=7.5s`.
+    Tasks deduplicadas por `(cif, limit)`. TTLs diferenciados por tipo (READY 1h,
+    UNAVAILABLE/TRANSIENT 5min).
     """
     cif = _cif(cif)
-    key = f"market_analysis:{cif}:{limit}"
-    cached = _cache_get(key)
-    if cached is not None:
-        return cached
-
-    resolved = await _post_json(
-        "/api/v2/company-intelligence/resolve", {"cif": cif, "limit": 1}
-    )
-    if resolved is None:
-        return None
-    matches = resolved.get("matches") or []
-    if not matches:
-        return {"anchor_id": None, "companies": [], "comparables": []}
-    anchor = matches[0]
-    anchor_id = anchor.get("master_id")
-    if not anchor_id:
-        return {"anchor_id": None, "companies": [], "comparables": []}
-
-    comp = await _post_json(
-        "/api/v1/recommendation-intelligence/comparables",
-        {"identifier": anchor_id, "limit": limit},
-    )
-    recs = (comp or {}).get("recommendations") or []
-
-    name_by: dict[str, str] = {}
-    score_by: dict[str, float] = {}
-    order: list[str] = [anchor_id]
-    if anchor.get("legal_name"):
-        name_by[anchor_id] = anchor["legal_name"]
-    for r in recs:
-        cand = r.get("candidate") or {}
-        mid = cand.get("master_id")
-        if not mid or mid == anchor_id:
-            continue
-        if mid not in name_by and cand.get("name"):
-            name_by[mid] = cand["name"]
-        if r.get("score") is not None:
-            score_by[mid] = r["score"]
-        if mid not in order:
-            order.append(mid)
-
-    summ_resp = await _post_json(
-        "/api/v1/company-taxonomy/summary", {"master_ids": order}
-    )
-    summaries = (summ_resp or {}).get("summaries") or {}
-
-    companies: list[dict[str, Any]] = []
-    for mid in order:
-        s = summaries.get(mid) or {}
-        rev = s.get("revenue")
-        q = s.get("arroba_score")
-        if rev is None or q is None:
-            continue
-        growth = s.get("growth_pct")
-        province = anchor.get("province") if mid == anchor_id else s.get("city")
-        companies.append(
-            {
-                "master_id": mid,
-                "name": name_by.get(mid) or mid,
-                "category": s.get("activity_label") or "—",
-                "province": province,
-                "revenue": _eur_to_meur(rev),
-                "ebitda": _eur_to_meur(s.get("ebitda")),
-                "employees": s.get("employees") or 0,
-                "quality_score": q,
-                "growth": None if growth is None else round(growth * 100, 1),
-            }
-        )
-
-    if not any(c["master_id"] == anchor_id for c in companies):
-        return {"anchor_id": None, "companies": [], "comparables": []}
-
-    present = {c["master_id"] for c in companies}
-    comparables_out = [
-        {"master_id": mid, "name": name_by.get(mid) or mid, "score": score_by.get(mid)}
-        for mid in order
-        if mid != anchor_id and mid in present
-    ]
-
-    result = {"anchor_id": anchor_id, "companies": companies, "comparables": comparables_out}
-    _cache_put(key, result)
-    return result
+    key = _analysis_key(cif, limit)
+    cached = _analysis_cache_get(key)
+    if cached is _ANALYSIS_MISS:
+        if key not in _inflight_analysis:
+            _inflight_analysis[key] = asyncio.create_task(
+                _fetch_analysis_async(cif, limit)
+            )
+        return {
+            "anchor_id": None,
+            "companies": [],
+            "comparables": [],
+            "status": "pending",
+        }
+    return cached
 

@@ -527,6 +527,9 @@ export interface MarketAnalysisResponse {
   anchor_id: string | null;
   companies: MarketAnalysisCompany[];
   comparables: MarketAnalysisComparable[];
+  // HARDENING-038f (2026-09-17) · contrato ampliado con status para polling
+  // limitado en frontend (mismo patrón que market-reading, commit 5861634).
+  status: 'pending' | 'ready' | 'unavailable';
 }
 
 export const apiClient = {

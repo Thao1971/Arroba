@@ -360,12 +360,11 @@ async def get_market_analysis(
     cif: str = Depends(_cif_param),
     user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
 ) -> dict:
-    """Análisis estratégico de mercado (read-only). resolve + recommendation/comparables +
-    company-taxonomy/summary de Intel. Service-key S2S en servidor. None -> 502; sin dato -> 200 vacío."""
-    res = await intel_ficha_proxies.market_analysis(cif)
-    if res is None:
-        raise _upstream_502("market_analysis")
-    return res
+    # HARDENING-038f · contrato ampliado {companies, comparables, anchor_id, status}
+    # con status ∈ {"pending","ready","unavailable"}. NUNCA 502: mismo criterio que
+    # market-reading — vacío estructurado con status, no error HTTP, para que el
+    # frontend haga polling limitado sin que un 502 se lea como "algo se rompió".
+    return await intel_ficha_proxies.market_analysis(cif)
 
 
 @router.get("/{cif}/market-reading")
