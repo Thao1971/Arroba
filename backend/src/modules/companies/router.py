@@ -355,6 +355,19 @@ async def get_rollup(
     return res
 
 
+@router.get("/{cif}/market-analysis")
+async def get_market_analysis(
+    cif: str = Depends(_cif_param),
+    user: UserPublic = Depends(get_current_user),  # noqa: ARG001 — auth gate only
+) -> dict:
+    """Análisis estratégico de mercado (read-only). resolve + recommendation/comparables +
+    company-taxonomy/summary de Intel. Service-key S2S en servidor. None -> 502; sin dato -> 200 vacío."""
+    res = await intel_ficha_proxies.market_analysis(cif)
+    if res is None:
+        raise _upstream_502("market_analysis")
+    return res
+
+
 @router.get("/{cif}/market-reading")
 async def get_market_reading(
     cif: str = Depends(_cif_param),

@@ -27,6 +27,7 @@ import {
   MarketReadingBlock,
   type MarketContextView,
 } from '@/components/blocks/market/MarketReadingBlock';
+import { MercadoTab } from '@/components/blocks/market/MercadoTab';
 import {
   OpportunityThesisBlock,
   type OpportunityThesisView,
@@ -66,6 +67,16 @@ export const EXTENSION_SECTIONS: SectionEntry[] = [
     group: 'Perfil',
     ready: true,
     render: (ctx) => <MarketReadingBlock data={ctx.market ?? {}} />,
+  },
+  {
+    id: 'analisis-estrategico',
+    label: 'Análisis Estratégico',
+    icon: BarChart3,
+    group: 'Inteligencia',
+    ready: true,
+    render: (ctx) => (
+      <MercadoTab companyId={ctx.cif} initialReading={ctx.market?.reading ?? null} />
+    ),
   },
   {
     id: 'oportunidades',

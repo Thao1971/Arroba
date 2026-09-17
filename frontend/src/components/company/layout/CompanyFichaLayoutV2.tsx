@@ -9,7 +9,7 @@
  */
 import React, { Component, Fragment, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, BarChart3, Bell, Bookmark, Coins, Euro, ExternalLink, File, FileText, Files, Folder,
+  Activity, BarChart3, Bell, Bookmark, Coins, Compass, Euro, ExternalLink, File, FileText, Files, Folder,
   Gauge, GitCompare, Hourglass, LayoutGrid, Linkedin, Lock, type LucideIcon, Network, PieChart,
   Scale, Share2, Shield, Sparkles, Target, Users, Zap,
 } from 'lucide-react';
@@ -269,7 +269,7 @@ function DealAsideCard({ state }: { state: DealAsideState }): React.ReactElement
 
 type SectionId =
   | 'resumen' | 'finanzas' | 'valoracion' | 'propiedad' | 'gobierno' | 'mercado'
-  | 'rankings' | 'comparativa' | 'senales' | 'oportunidades' | 'comite'
+  | 'rankings' | 'comparativa' | 'analisis-estrategico' | 'senales' | 'oportunidades' | 'comite'
   | 'sucesion' | 'sector' | 'eventos' | 'registros' | 'documentos';
 
 interface NavItem { id: SectionId; label: string; icon: LucideIcon; ready: boolean; grp: string; }
@@ -282,6 +282,7 @@ const NAV: NavItem[] = [
   { id: 'mercado', label: 'Mercado', icon: BarChart3, ready: true, grp: 'Perfil' },
   { id: 'rankings', label: 'Rankings', icon: Target, ready: true, grp: 'Perfil' },
   { id: 'comparativa', label: 'Comparativa', icon: GitCompare, ready: true, grp: 'Perfil' },
+  { id: 'analisis-estrategico', label: 'Análisis Estratégico', icon: Compass, ready: true, grp: 'Inteligencia' },
   { id: 'senales', label: 'Cambios relevantes', icon: Activity, ready: true, grp: 'Inteligencia' },
   { id: 'oportunidades', label: 'Oportunidades', icon: Zap, ready: true, grp: 'Inteligencia' },
   // HARDENING-037 · comite pasa a `ready:true` (cableado a InvestmentCommitteeBlock).

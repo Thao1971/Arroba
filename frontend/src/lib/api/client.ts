@@ -507,6 +507,28 @@ function safeJSON(text: string): unknown {
   }
 }
 
+export interface MarketAnalysisCompany {
+  master_id: string;
+  name: string;
+  category: string;
+  province: string | null;
+  revenue: number | null; // M€
+  ebitda: number | null; // M€
+  employees: number;
+  quality_score: number; // 0-100 (arroba_score)
+  growth: number | null; // %
+}
+export interface MarketAnalysisComparable {
+  master_id: string;
+  name: string;
+  score: number | null; // distancia (menor = más cerca)
+}
+export interface MarketAnalysisResponse {
+  anchor_id: string | null;
+  companies: MarketAnalysisCompany[];
+  comparables: MarketAnalysisComparable[];
+}
+
 export const apiClient = {
   auth: {
     register: (payload: RegisterPayload) =>
@@ -717,6 +739,13 @@ export const apiClient = {
     marketReading: (cif: string) =>
       request<MarketReadingResponse>(
         `/api/companies/${cif.toUpperCase()}/market-reading`,
+      ),
+    // Fase 1 · pestaña Análisis Estratégico (read-only): combina resolve + comparables +
+    // company-taxonomy/summary de Intel en el modelo que consume <MercadoTab>.
+    // revenue/ebitda en M€, growth en %, quality_score = arroba_score (0-100).
+    marketAnalysis: (cif: string) =>
+      request<MarketAnalysisResponse>(
+        `/api/companies/${cif.toUpperCase()}/market-analysis`,
       ),
     // 2026-09-07 · Daniel (loading screen, punto 9c): resolución ligera y
     // cacheada del nombre real de la empresa, más rápida que `/ficha`

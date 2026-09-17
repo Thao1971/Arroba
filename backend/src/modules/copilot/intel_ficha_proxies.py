@@ -376,3 +376,116 @@ async def market_reading(cif: str) -> dict[str, Any]:
         return {"reading": None, "status": "pending"}
     # Hit: devolver el dict tal cual (ya trae `reading` y `status`).
     return cached
+
+
+# HARDENING-038e (2026-09-17) · Nueva pestaña "Análisis Estratégico" — read-only.
+# Consume 3 motores de Intel YA en producción (resolve + comparables +
+# company-taxonomy/summary) y los normaliza al modelo que pinta <MercadoTab>:
+# revenue/ebitda en M€, growth en %, quality_score = arroba_score (0-100).
+# NO toca `market_reading()` — la narrativa diferida y esta lectura analítica
+# son features independientes con TTL y contrato propios.
+
+
+def _eur_to_meur(v: Any) -> float | None:
+    """Iberinform guarda facturación/EBITDA en euros; la pestaña los pinta en M€."""
+    if v is None:
+        return None
+    try:
+        return round(float(v) / 1_000_000, 3)
+    except (TypeError, ValueError):
+        return None
+
+
+async def market_analysis(cif: str, limit: int = 20) -> dict[str, Any] | None:
+    """Análisis estratégico de mercado (READ-ONLY).
+
+    Combina 3 motores de Intel ya en producción (resolve + recommendation/comparables +
+    company-taxonomy/summary) en el modelo que consume <MercadoTab>: revenue/ebitda en
+    M€, growth en %, quality_score = arroba_score (0-100). Solo empresas con revenue Y
+    score reales. None = fallo upstream; {anchor_id:None,...} = sin dato suficiente
+    (front pinta vacío).
+    """
+    cif = _cif(cif)
+    key = f"market_analysis:{cif}:{limit}"
+    cached = _cache_get(key)
+    if cached is not None:
+        return cached
+
+    resolved = await _post_json(
+        "/api/v2/company-intelligence/resolve", {"cif": cif, "limit": 1}
+    )
+    if resolved is None:
+        return None
+    matches = resolved.get("matches") or []
+    if not matches:
+        return {"anchor_id": None, "companies": [], "comparables": []}
+    anchor = matches[0]
+    anchor_id = anchor.get("master_id")
+    if not anchor_id:
+        return {"anchor_id": None, "companies": [], "comparables": []}
+
+    comp = await _post_json(
+        "/api/v1/recommendation-intelligence/comparables",
+        {"identifier": anchor_id, "limit": limit},
+    )
+    recs = (comp or {}).get("recommendations") or []
+
+    name_by: dict[str, str] = {}
+    score_by: dict[str, float] = {}
+    order: list[str] = [anchor_id]
+    if anchor.get("legal_name"):
+        name_by[anchor_id] = anchor["legal_name"]
+    for r in recs:
+        cand = r.get("candidate") or {}
+        mid = cand.get("master_id")
+        if not mid or mid == anchor_id:
+            continue
+        if mid not in name_by and cand.get("name"):
+            name_by[mid] = cand["name"]
+        if r.get("score") is not None:
+            score_by[mid] = r["score"]
+        if mid not in order:
+            order.append(mid)
+
+    summ_resp = await _post_json(
+        "/api/v1/company-taxonomy/summary", {"master_ids": order}
+    )
+    summaries = (summ_resp or {}).get("summaries") or {}
+
+    companies: list[dict[str, Any]] = []
+    for mid in order:
+        s = summaries.get(mid) or {}
+        rev = s.get("revenue")
+        q = s.get("arroba_score")
+        if rev is None or q is None:
+            continue
+        growth = s.get("growth_pct")
+        province = anchor.get("province") if mid == anchor_id else s.get("city")
+        companies.append(
+            {
+                "master_id": mid,
+                "name": name_by.get(mid) or mid,
+                "category": s.get("activity_label") or "—",
+                "province": province,
+                "revenue": _eur_to_meur(rev),
+                "ebitda": _eur_to_meur(s.get("ebitda")),
+                "employees": s.get("employees") or 0,
+                "quality_score": q,
+                "growth": None if growth is None else round(growth * 100, 1),
+            }
+        )
+
+    if not any(c["master_id"] == anchor_id for c in companies):
+        return {"anchor_id": None, "companies": [], "comparables": []}
+
+    present = {c["master_id"] for c in companies}
+    comparables_out = [
+        {"master_id": mid, "name": name_by.get(mid) or mid, "score": score_by.get(mid)}
+        for mid in order
+        if mid != anchor_id and mid in present
+    ]
+
+    result = {"anchor_id": anchor_id, "companies": companies, "comparables": comparables_out}
+    _cache_put(key, result)
+    return result
+
