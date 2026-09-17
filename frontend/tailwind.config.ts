@@ -16,6 +16,13 @@ const config: Config = {
   content: ['./src/**/*.{ts,tsx,mdx}'],
   // Dark mode driven by [data-dark] on <html>. NO `.dark` class.
   darkMode: ['selector', '[data-dark]'],
+  // 2026-09-17 · Fix conflicto con reset `.afk *{margin:0;padding:0}` del CSS
+  // del mockup inyectado en <body> tras el CSS global. `important: true`
+  // añade `!important` a todas las utilidades Tailwind → ganan al reset
+  // sin cambiar orden de importación. NO afecta `style={{...}}` inline
+  // (que ya tiene precedencia sobre !important en la mayoría de propiedades
+  // salvo animations/transitions con inline; ver PASO 2 grep en el fix).
+  important: true,
   theme: {
     extend: {
       colors: {
