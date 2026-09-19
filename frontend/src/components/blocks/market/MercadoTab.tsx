@@ -572,7 +572,7 @@ export interface MercadoTabProps {
 }
 
 export function MercadoTab({ companyId, initialReading }: MercadoTabProps) {
-  const [tab, setTab] = useState<SubTab>('posicionamiento');
+  const [tab, setTab] = useState<SubTab>('mercado');
   const [market, setMarket] = useState<SavedMarket | null>(null);
   const [members, setMembers] = useState<MarketCompany[]>([]);
   const [candidates, setCandidates] = useState<UniverseCandidate[]>([]);
@@ -978,12 +978,27 @@ function PanelMercado({ market, members, candidates, anchorId, nameInput, setNam
           <div className="flex flex-wrap gap-2">
             {members.map((c) => {
               const isAnchor = c.master_id === anchorId;
+              // HARDENING-038g (2026-09-17 · Daniel ajuste β) · Chips aligerados
+              // en peso visual: rounded-lg (menos redondeo → más compacto vs
+              // rounded-full anterior), borde neutro (no rojo), sin fondo tenue,
+              // badge del ✓ reducido de w-4/h-4 con fondo RED saturado a w-3.5/h-3.5
+              // con fondo brand-primary/85 más discreto. El anchor se distingue
+              // con un punto RED pequeño, no con toda la card teñida.
               return (
-                <span key={c.master_id} className="inline-flex items-center gap-2 rounded-full border border-brand-primary/30 bg-brand-primary/5 px-3 py-1.5 text-[12.5px] font-semibold text-text-secondary">
-                  <span className="w-4 h-4 rounded grid place-items-center text-[11px] font-extrabold text-text-on-brand" style={{ background: RED }}>✓</span>
+                <span key={c.master_id} className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-elevated px-2.5 py-1 text-[12.5px] font-semibold text-text-secondary">
+                  <span className="w-3.5 h-3.5 rounded grid place-items-center text-[10px] font-extrabold text-text-on-brand bg-brand-primary/85">✓</span>
                   <button type="button" className="hover:text-brand-primary hover:underline" onClick={() => onPick(c.master_id)}>{c.name}</button>
-                  <span className="text-[11px] text-text-muted font-normal">{isAnchor ? 'Tu empresa' : 'Comparable'}</span>
-                  {isAnchor ? null : <button type="button" className="text-text-muted font-extrabold ml-0.5" title="Quitar" onClick={() => onRemove(c.master_id)}>×</button>}
+                  {isAnchor ? (
+                    <span className="inline-flex items-center gap-1 text-[10.5px] text-text-muted font-normal">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: RED }} />
+                      Tu empresa
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-[10.5px] text-text-muted font-normal">Comparable</span>
+                      <button type="button" className="text-text-muted font-extrabold ml-0.5 hover:text-text-primary" title="Quitar" onClick={() => onRemove(c.master_id)}>×</button>
+                    </>
+                  )}
                 </span>
               );
             })}
@@ -1168,23 +1183,39 @@ function PanelComparables({ set, anchor, onPick, onCategory, onGenerate, quoteFn
 
   const grp = set.filter((c) => c.master_id !== anchor.master_id);
   const gm = (f: keyof MarketCompany) => S.mean(grp.map((c) => c[f] as number).filter((v) => v != null));
-  const gEsc = (anchor.revenue / gm('revenue') - 1) * 100;
-  const gMar = (anchor.ebitda_margin ?? 0) - gm('ebitda_margin');
-  const gEf = ((anchor.rev_per_emp ?? 0) / gm('rev_per_emp') - 1) * 100;
-  const gCal = anchor.quality_score - gm('quality_score');
+  // HARDENING-038g (2026-09-17 · Daniel micro-fix α) · Fórmulas que dividen por
+  // la media del grupo pueden producir NaN (grupo vacío tras filter · anchor con
+  // null) o Infinity (media 0). R15: degradar a "n/d", no pintar "NaN%"/"Infinity%".
+  const gEscRaw = (anchor.revenue / gm('revenue') - 1) * 100;
+  const gMarRaw = (anchor.ebitda_margin ?? 0) - gm('ebitda_margin');
+  const gEfRaw = ((anchor.rev_per_emp ?? 0) / gm('rev_per_emp') - 1) * 100;
+  const gCalRaw = anchor.quality_score - gm('quality_score');
+  const gEsc = Number.isFinite(gEscRaw) ? gEscRaw : null;
+  const gMar = Number.isFinite(gMarRaw) ? gMarRaw : null;
+  const gEf = Number.isFinite(gEfRaw) ? gEfRaw : null;
+  const gCal = Number.isFinite(gCalRaw) ? gCalRaw : null;
+
+  const fmtPctGap = (v: number | null) =>
+    v == null ? 'n/d' : (v >= 0 ? '+' : '') + v.toFixed(0) + '%';
+  const fmtPpGap = (v: number | null) =>
+    v == null ? 'n/d' : (v >= 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' pp';
+  const fmtPtsGap = (v: number | null) =>
+    v == null ? 'n/d' : (v >= 0 ? '+' : '') + v.toFixed(0) + ' pts';
+  const gapDir = (v: number | null, positive: string, negative: string) =>
+    v == null ? 'sin dato para comparar' : v >= 0 ? positive : negative;
 
   const gaps: { t: string; d: string; v: string; x: string; up: boolean }[] = [
-    { t: 'Gap de escala', d: 'Revenue vs promedio grupo', v: (gEsc >= 0 ? '+' : '') + gEsc.toFixed(0) + '%', x: (gEsc >= 0 ? 'por encima' : Math.abs(gEsc).toFixed(0) + '% por debajo') + ' del promedio', up: gEsc >= 0 },
-    { t: 'Gap de margen', d: 'Margen EBITDA vs promedio', v: (gMar >= 0 ? '+' : '') + gMar.toFixed(1).replace('.', ',') + ' pp', x: (gMar >= 0 ? 'muy por encima' : 'por debajo') + ' del promedio del grupo', up: gMar >= 0 },
-    { t: 'Gap de eficiencia', d: 'Rev/Empleado vs promedio', v: (gEf >= 0 ? '+' : '') + gEf.toFixed(0) + '%', x: (gEf >= 0 ? 'por encima' : 'por debajo') + ' del promedio del grupo', up: gEf >= 0 },
-    { t: 'Gap de calidad', d: 'Quality Score vs promedio', v: (gCal >= 0 ? '+' : '') + gCal.toFixed(0) + ' pts', x: (gCal >= 0 ? 'por encima' : 'por debajo') + ' del promedio del grupo', up: gCal >= 0 },
+    { t: 'Gap de escala', d: 'Revenue vs promedio grupo', v: fmtPctGap(gEsc), x: gapDir(gEsc, 'por encima del promedio', 'por debajo del promedio'), up: (gEsc ?? 0) >= 0 },
+    { t: 'Gap de margen', d: 'Margen EBITDA vs promedio', v: fmtPpGap(gMar), x: gapDir(gMar, 'muy por encima del promedio del grupo', 'por debajo del promedio del grupo'), up: (gMar ?? 0) >= 0 },
+    { t: 'Gap de eficiencia', d: 'Rev/Empleado vs promedio', v: fmtPctGap(gEf), x: gapDir(gEf, 'por encima del promedio del grupo', 'por debajo del promedio del grupo'), up: (gEf ?? 0) >= 0 },
+    { t: 'Gap de calidad', d: 'Quality Score vs promedio', v: fmtPtsGap(gCal), x: gapDir(gCal, 'por encima del promedio del grupo', 'por debajo del promedio del grupo'), up: (gCal ?? 0) >= 0 },
   ];
 
   const cols: [string, keyof MarketCompany, 'pp' | '%'][] = [['Revenue', 'revenue', '%'], ['EBITDA', 'ebitda', '%'], ['Margen', 'ebitda_margin', 'pp'], ['Rev/Emp', 'rev_per_emp', '%'], ['Calidad', 'quality_score', '%']];
 
   const closest = [...grp].filter((c) => c.__score != null).sort((x, y) => (x.__score as number) - (y.__score as number))[0];
-  const gMarTxt = Math.abs(gMar).toFixed(1).replace('.', ',');
-  const effTxt = Math.abs(gEf).toFixed(0);
+  const gMarTxt = gMar == null ? 'n/d' : Math.abs(gMar).toFixed(1).replace('.', ',');
+  const effTxt = gEf == null ? 'n/d' : Math.abs(gEf).toFixed(0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -1226,6 +1257,8 @@ function PanelComparables({ set, anchor, onPick, onCategory, onGenerate, quoteFn
                   let d: number, txt: string;
                   if (u === 'pp') { d = cv - av; txt = (d >= 0 ? '+' : '') + d.toFixed(0) + ' pp'; }
                   else { d = (cv / av - 1) * 100; txt = (d >= 0 ? '+' : '') + d.toFixed(0) + '%'; }
+                  // HARDENING-038g · matriz: div/0 puede dar Infinity → degradar n/d.
+                  if (!Number.isFinite(d)) return <td key={String(f)} className="text-center rounded p-2 bg-surface-muted text-text-muted font-semibold">n/d</td>;
                   const near = Math.abs(d) < 3;
                   const style = near ? { background: 'var(--surface-muted, #f4f4f2)' } : d > 0 ? { background: OK, opacity: undefined } : { background: RED };
                   const cls = near ? 'bg-surface-muted text-text-secondary' : d > 0 ? 'text-success' : 'text-danger';
@@ -1244,7 +1277,7 @@ function PanelComparables({ set, anchor, onPick, onCategory, onGenerate, quoteFn
           <div className="text-[13px] text-text-secondary leading-relaxed">
             {closest ? (
               <>
-                <b>{closest.name}</b> (distancia {(closest.__score as number).toFixed(2).replace('.', ',')}) es la más parecida en tamaño y modelo{closest.ebitda_margin != null && anchor.ebitda_margin != null && closest.ebitda_margin < anchor.ebitda_margin ? ', aunque con menor margen' : ''}. Tu <b>margen EBITDA</b> está {gMarTxt} pp {gMar >= 0 ? 'por encima' : 'por debajo'} del promedio del grupo y tu <b>calidad</b> {gCal >= 0 ? '+' : ''}{gCal.toFixed(0)} pts.
+                <b>{closest.name}</b> (distancia {(closest.__score as number).toFixed(2).replace('.', ',')}) es la más parecida en tamaño y modelo{closest.ebitda_margin != null && anchor.ebitda_margin != null && closest.ebitda_margin < anchor.ebitda_margin ? ', aunque con menor margen' : ''}. Tu <b>margen EBITDA</b> está {gMarTxt} pp {gMar == null ? 'sin dato para comparar' : gMar >= 0 ? 'por encima' : 'por debajo'} del promedio del grupo y tu <b>calidad</b> {gCal == null ? 'n/d' : (gCal >= 0 ? '+' : '') + gCal.toFixed(0) + ' pts'}.
               </>
             ) : '—'}
           </div>
@@ -1253,7 +1286,7 @@ function PanelComparables({ set, anchor, onPick, onCategory, onGenerate, quoteFn
           <H3 tone={INFO}>Principales gaps y mejoras</H3>
           <Sub>Dónde puedes ganar terreno</Sub>
           <div className="text-[13px] text-text-secondary leading-relaxed">
-            El principal gap está en <b>rev/empleado</b>: un {effTxt}% {gEf >= 0 ? 'por encima' : 'por debajo'} del promedio. Hay margen para <b>mejorar eficiencia operativa o escalar</b> sin deteriorar el margen, que ya es líder del grupo.
+            El principal gap está en <b>rev/empleado</b>: {gEf == null ? 'sin dato para comparar (no hay eficiencia calculable en el grupo)' : <>un {effTxt}% {gEf >= 0 ? 'por encima' : 'por debajo'} del promedio</>}. Hay margen para <b>mejorar eficiencia operativa o escalar</b> sin deteriorar el margen, que ya es líder del grupo.
           </div>
         </Card>
       </div>
